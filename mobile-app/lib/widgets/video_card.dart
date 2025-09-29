@@ -1,7 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 
-class VideoCard extends StatelessWidget {
+import '../widgets/social/like_button.dart';
+import '../widgets/social/share_button.dart';
+import '../widgets/social/comments_section.dart';
+import '../models/like_model.dart';
+
+class VideoCard extends ConsumerWidget {
   final String videoId;
   final String? title;
   final String? thumbnailUrl;
@@ -10,6 +16,10 @@ class VideoCard extends StatelessWidget {
   final int? likeCount;
   final String? authorName;
   final String? authorAvatar;
+  final String? authorId;
+  final String? currentUserId;
+  final String? currentUsername;
+  final String? currentUserAvatar;
   final VoidCallback? onTap;
   final VoidCallback? onLike;
   final VoidCallback? onShare;
@@ -28,6 +38,10 @@ class VideoCard extends StatelessWidget {
     this.likeCount,
     this.authorName,
     this.authorAvatar,
+    this.authorId,
+    this.currentUserId,
+    this.currentUsername,
+    this.currentUserAvatar,
     this.onTap,
     this.onLike,
     this.onShare,
@@ -38,7 +52,7 @@ class VideoCard extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       elevation: 2,
@@ -102,27 +116,62 @@ class VideoCard extends StatelessWidget {
                   // Action Buttons
                   Row(
                     children: [
-                      _buildActionButton(
-                        context,
-                        icon: isLiked ? Icons.favorite : Icons.favorite_border,
-                        label: _formatCount(likeCount ?? 0),
-                        onTap: onLike,
-                        color: isLiked ? Colors.red : null,
+                      if (currentUserId != null)
+                        LikeButton(
+                          targetId: videoId,
+                          type: LikeType.video,
+                          userId: currentUserId!,
+                          initialLikeCount: likeCount ?? 0,
+                          initialIsLiked: isLiked,
+                          size: 20,
+                          showCount: true,
+                        )
+                      else
+                        _buildActionButton(
+                          context,
+                          icon:
+                              isLiked ? Icons.favorite : Icons.favorite_border,
+                          label: _formatCount(likeCount ?? 0),
+                          onTap: onLike,
+                          color: isLiked ? Colors.red : null,
+                        ),
+                      const SizedBox(width: 24),
+                      GestureDetector(
+                        onTap: () {
+                          if (currentUserId != null &&
+                              currentUsername != null &&
+                              currentUserAvatar != null) {
+                            _showCommentsSection(context);
+                          } else {
+                            onComment?.call();
+                          }
+                        },
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.comment_outlined, size: 20),
+                            const SizedBox(width: 4),
+                            Text(_formatCount(commentCount)),
+                          ],
+                        ),
                       ),
                       const SizedBox(width: 24),
-                      _buildActionButton(
-                        context,
-                        icon: Icons.comment_outlined,
-                        label: _formatCount(commentCount),
-                        onTap: onComment,
-                      ),
-                      const SizedBox(width: 24),
-                      _buildActionButton(
-                        context,
-                        icon: Icons.share_outlined,
-                        label: _formatCount(shareCount),
-                        onTap: onShare,
-                      ),
+                      if (currentUserId != null)
+                        ShareButton(
+                          contentId: videoId,
+                          contentType: 'video',
+                          userId: currentUserId!,
+                          shareCount: shareCount,
+                          size: 20,
+                          showCount: true,
+                        )
+                      else
+                        _buildActionButton(
+                          context,
+                          icon: Icons.share_outlined,
+                          label: _formatCount(shareCount),
+                          onTap: onShare,
+                        ),
                       const Spacer(),
                       IconButton(
                         icon: const Icon(Icons.more_vert),
@@ -252,6 +301,19 @@ class VideoCard extends StatelessWidget {
     } else {
       return count.toString();
     }
+  }
+
+  void _showCommentsSection(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) => CommentsSection(
+        videoId: videoId,
+        currentUserId: currentUserId!,
+        currentUsername: currentUsername!,
+        currentUserAvatar: currentUserAvatar!,
+      ),
+    );
   }
 
   void _showMoreOptions(BuildContext context) {
