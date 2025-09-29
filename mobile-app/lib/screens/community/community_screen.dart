@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/services/community_service.dart';
+import '../../models/community_post.dart';
+import '../../widgets/community/community_post_widget.dart';
+
 class CommunityScreen extends ConsumerStatefulWidget {
   const CommunityScreen({super.key});
 
@@ -8,219 +12,327 @@ class CommunityScreen extends ConsumerStatefulWidget {
   ConsumerState<CommunityScreen> createState() => _CommunityScreenState();
 }
 
-class _CommunityScreenState extends ConsumerState<CommunityScreen> {
+class _CommunityScreenState extends ConsumerState<CommunityScreen>
+    with SingleTickerProviderStateMixin {
+  late TabController _tabController;
+  final TextEditingController _searchController = TextEditingController();
+  String _selectedCategory = 'all';
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 3, vsync: this);
+    _loadPosts();
+    _loadCategories();
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadPosts() async {
+    final communityService = ref.read(communityServiceStateProvider.notifier);
+    await communityService.loadPosts();
+  }
+
+  Future<void> _loadCategories() async {
+    final communityService = ref.read(communityServiceStateProvider.notifier);
+    await communityService.loadCategories();
+  }
+
+  Future<void> _loadTrendingPosts() async {
+    final communityService = ref.read(communityServiceStateProvider.notifier);
+    await communityService.loadTrendingPosts();
+  }
+
+  Future<void> _loadTrendingVideos() async {
+    final communityService = ref.read(communityServiceStateProvider.notifier);
+    await communityService.loadTrendingVideos();
+  }
+
   @override
   Widget build(BuildContext context) {
+    final communityState = ref.watch(communityServiceStateProvider);
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Community'),
-        centerTitle: true,
         actions: [
           IconButton(
             icon: const Icon(Icons.search),
-            onPressed: () {
-              // Navigate to search screen
-            },
+            onPressed: _showSearchDialog,
           ),
           IconButton(
-            icon: const Icon(Icons.add),
-            onPressed: () {
-              // Navigate to create post screen
-            },
+            icon: const Icon(Icons.filter_list),
+            onPressed: _showFilterDialog,
           ),
         ],
+        bottom: TabBar(
+          controller: _tabController,
+          tabs: const [
+            Tab(text: 'Posts', icon: Icon(Icons.article)),
+            Tab(text: 'Trending', icon: Icon(Icons.trending_up)),
+            Tab(text: 'Videos', icon: Icon(Icons.video_library)),
+          ],
+        ),
       ),
-      body: ListView.builder(
-        padding: const EdgeInsets.all(16),
-        itemCount: 10,
+      body: TabBarView(
+        controller: _tabController,
+        children: [
+          _buildPostsTab(communityState),
+          _buildTrendingTab(communityState),
+          _buildVideosTab(communityState),
+        ],
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: _createPost,
+        child: const Icon(Icons.add),
+      ),
+    );
+  }
+
+  Widget _buildPostsTab(CommunityServiceState state) {
+    if (state.isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (state.posts.isEmpty) {
+      return _buildEmptyState(
+        icon: Icons.article_outlined,
+        title: 'No posts yet',
+        subtitle: 'Be the first to share something!',
+      );
+    }
+
+    return RefreshIndicator(
+      onRefresh: _loadPosts,
+      child: ListView.builder(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        itemCount: state.posts.length,
         itemBuilder: (context, index) {
-          return _buildCommunityPost(context, index);
+          final post = state.posts[index];
+          return CommunityPostWidget(
+            post: post,
+            currentUserId: 'current_user', // In a real app, get from auth
+            currentUsername: 'Current User',
+            currentUserAvatar: 'https://picsum.photos/50/50?random=current',
+            onTap: () {
+              // Navigate to post detail
+            },
+            onUserTap: () {
+              // Navigate to user profile
+            },
+          );
         },
       ),
     );
   }
 
-  Widget _buildCommunityPost(BuildContext context, int index) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 16),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // User Info
-            Row(
-              children: [
-                CircleAvatar(
-                  radius: 20,
-                  backgroundColor: Colors.grey[300],
-                  child: const Icon(Icons.person),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'User ${index + 1}',
-                        style: Theme.of(context).textTheme.titleMedium
-                            ?.copyWith(fontWeight: FontWeight.w600),
-                      ),
-                      Text(
-                        '${index + 1}h ago',
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
-                    ],
-                  ),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.more_vert),
-                  onPressed: () {
-                    _showPostOptions(context);
+  Widget _buildTrendingTab(CommunityServiceState state) {
+    if (state.isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (state.trendingPosts.isEmpty) {
+      return _buildEmptyState(
+        icon: Icons.trending_up,
+        title: 'No trending posts',
+        subtitle: 'Check back later for trending content!',
+      );
+    }
+
+    return RefreshIndicator(
+      onRefresh: _loadTrendingPosts,
+      child: ListView.builder(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        itemCount: state.trendingPosts.length,
+        itemBuilder: (context, index) {
+          final post = state.trendingPosts[index];
+          return CommunityPostWidget(
+            post: post,
+            currentUserId: 'current_user',
+            currentUsername: 'Current User',
+            currentUserAvatar: 'https://picsum.photos/50/50?random=current',
+            onTap: () {
+              // Navigate to post detail
+            },
+            onUserTap: () {
+              // Navigate to user profile
+            },
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildVideosTab(CommunityServiceState state) {
+    if (state.isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (state.trendingVideos.isEmpty) {
+      return _buildEmptyState(
+        icon: Icons.video_library,
+        title: 'No trending videos',
+        subtitle: 'Check back later for trending videos!',
+      );
+    }
+
+    return RefreshIndicator(
+      onRefresh: _loadTrendingVideos,
+      child: ListView.builder(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        itemCount: state.trendingVideos.length,
+        itemBuilder: (context, index) {
+          final video = state.trendingVideos[index];
+          return Card(
+            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: ListTile(
+              leading: ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: Image.network(
+                  video.thumbnailUrl ?? 'https://picsum.photos/60/60',
+                  width: 60,
+                  height: 60,
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) {
+                    return Container(
+                      width: 60,
+                      height: 60,
+                      color: Colors.grey[300],
+                      child: const Icon(Icons.video_library),
+                    );
                   },
                 ),
-              ],
-            ),
-
-            const SizedBox(height: 12),
-
-            // Post Content
-            Text(
-              'This is a sample community post ${index + 1}. Users can share their thoughts, videos, and connect with others in the community.',
-              style: Theme.of(context).textTheme.bodyMedium,
-            ),
-
-            const SizedBox(height: 12),
-
-            // Post Image (optional)
-            if (index % 3 == 0)
-              Container(
-                height: 200,
-                width: double.infinity,
-                decoration: BoxDecoration(
-                  color: Colors.grey[300],
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: const Icon(Icons.image, size: 48, color: Colors.grey),
               ),
-
-            const SizedBox(height: 12),
-
-            // Action Buttons
-            Row(
-              children: [
-                _buildActionButton(
-                  context,
-                  icon: Icons.thumb_up_outlined,
-                  label: '${index + 1}',
-                  onTap: () {
-                    // Handle like
-                  },
-                ),
-                const SizedBox(width: 24),
-                _buildActionButton(
-                  context,
-                  icon: Icons.comment_outlined,
-                  label: '${index + 1}',
-                  onTap: () {
-                    // Handle comment
-                  },
-                ),
-                const SizedBox(width: 24),
-                _buildActionButton(
-                  context,
-                  icon: Icons.share_outlined,
-                  label: 'Share',
-                  onTap: () {
-                    // Handle share
-                  },
-                ),
-                const Spacer(),
-                IconButton(
-                  icon: const Icon(Icons.bookmark_outline),
-                  onPressed: () {
-                    // Handle save
-                  },
-                ),
-              ],
+              title: Text(video.title),
+              subtitle: Text('${video.formattedViewCount} views'),
+              trailing: const Icon(Icons.play_arrow),
+              onTap: () {
+                // Navigate to video player
+              },
             ),
-          ],
-        ),
+          );
+        },
       ),
     );
   }
 
-  Widget _buildActionButton(
-    BuildContext context, {
+  Widget _buildEmptyState({
     required IconData icon,
-    required String label,
-    VoidCallback? onTap,
+    required String title,
+    required String subtitle,
   }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(20),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              icon,
-              size: 20,
-              color: Theme.of(context).colorScheme.onSurface,
-            ),
-            const SizedBox(width: 4),
-            Text(label, style: Theme.of(context).textTheme.bodySmall),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _showPostOptions(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      builder:
-          (context) => Container(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                ListTile(
-                  leading: const Icon(Icons.bookmark_outline),
-                  title: const Text('Save Post'),
-                  onTap: () {
-                    Navigator.pop(context);
-                    // Handle save
-                  },
-                ),
-                ListTile(
-                  leading: const Icon(Icons.share_outlined),
-                  title: const Text('Share Post'),
-                  onTap: () {
-                    Navigator.pop(context);
-                    // Handle share
-                  },
-                ),
-                ListTile(
-                  leading: const Icon(Icons.report_outlined),
-                  title: const Text('Report Post'),
-                  onTap: () {
-                    Navigator.pop(context);
-                    // Handle report
-                  },
-                ),
-                ListTile(
-                  leading: const Icon(Icons.block_outlined),
-                  title: const Text('Block User'),
-                  onTap: () {
-                    Navigator.pop(context);
-                    // Handle block
-                  },
-                ),
-              ],
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            icon,
+            size: 64,
+            color: Colors.grey,
+          ),
+          const SizedBox(height: 16),
+          Text(
+            title,
+            style: const TextStyle(
+              fontSize: 18,
+              color: Colors.grey,
+              fontWeight: FontWeight.w500,
             ),
           ),
+          const SizedBox(height: 8),
+          Text(
+            subtitle,
+            style: const TextStyle(
+              fontSize: 14,
+              color: Colors.grey,
+            ),
+          ),
+        ],
+      ),
     );
+  }
+
+  void _showSearchDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Search Posts'),
+        content: TextField(
+          controller: _searchController,
+          decoration: const InputDecoration(
+            hintText: 'Search for posts...',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _searchPosts();
+            },
+            child: const Text('Search'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _searchPosts() {
+    if (_searchController.text.trim().isEmpty) return;
+
+    final communityService = ref.read(communityServiceStateProvider.notifier);
+    communityService.searchPosts(query: _searchController.text.trim());
+  }
+
+  void _showFilterDialog() {
+    showModalBottomSheet(
+      context: context,
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'Filter Posts',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 16),
+            ...['all', 'technology', 'entertainment', 'sports', 'news']
+                .map((category) {
+              return ListTile(
+                title: Text(category.toUpperCase()),
+                trailing: _selectedCategory == category
+                    ? const Icon(Icons.check, color: Colors.blue)
+                    : null,
+                onTap: () {
+                  setState(() {
+                    _selectedCategory = category;
+                  });
+                  Navigator.pop(context);
+                  _loadPosts();
+                },
+              );
+            }),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _createPost() {
+    // Navigate to create post screen
+    Navigator.pushNamed(context, '/create-post');
   }
 }
