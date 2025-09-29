@@ -18,14 +18,15 @@ import '../../screens/settings/settings_screen.dart';
 import '../../screens/search/search_screen.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
-  final authService = ref.watch(authServiceProvider);
-
   return GoRouter(
     initialLocation: '/splash',
-    redirect: (context, state) {
+    redirect: (context, state) async {
+      final authServiceAsync = ref.read(authServiceProvider);
+      final authService = await authServiceAsync;
+
       final isLoggedIn = authService.isLoggedIn;
-      final isOnAuthScreen = state.location.startsWith('/auth');
-      final isOnSplashScreen = state.location == '/splash';
+      final isOnAuthScreen = state.uri.path.startsWith('/auth');
+      final isOnSplashScreen = state.uri.path == '/splash';
 
       // If user is not logged in and not on auth screens, redirect to login
       if (!isLoggedIn && !isOnAuthScreen && !isOnSplashScreen) {
@@ -119,31 +120,30 @@ final routerProvider = Provider<GoRouter>((ref) {
         ],
       ),
     ],
-    errorBuilder:
-        (context, state) => Scaffold(
-          body: Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(Icons.error_outline, size: 64, color: Colors.red),
-                const SizedBox(height: 16),
-                Text(
-                  'Page not found',
-                  style: Theme.of(context).textTheme.headlineMedium,
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'The page you are looking for does not exist.',
-                  style: Theme.of(context).textTheme.bodyMedium,
-                ),
-                const SizedBox(height: 24),
-                ElevatedButton(
-                  onPressed: () => context.go('/main'),
-                  child: const Text('Go Home'),
-                ),
-              ],
+    errorBuilder: (context, state) => Scaffold(
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.error_outline, size: 64, color: Colors.red),
+            const SizedBox(height: 16),
+            Text(
+              'Page not found',
+              style: Theme.of(context).textTheme.headlineMedium,
             ),
-          ),
+            const SizedBox(height: 8),
+            Text(
+              'The page you are looking for does not exist.',
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton(
+              onPressed: () => context.go('/main'),
+              child: const Text('Go Home'),
+            ),
+          ],
         ),
+      ),
+    ),
   );
 });

@@ -21,7 +21,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     const HomeScreen(),
     const DiscoverScreen(),
     const CommunityScreen(),
-    const ProfileScreen(),
+    const ProfileScreen(userId: 'current_user'),
   ];
 
   final List<BottomNavigationBarItem> _navItems = [

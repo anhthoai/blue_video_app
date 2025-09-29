@@ -29,7 +29,6 @@ dependencies:
   # Video & Media
   video_player: ^2.8.2
   chewie: ^1.7.4
-  cached_video_player: ^2.0.4
   image_picker: ^1.0.4
   image_cropper: ^5.0.1
 
@@ -54,9 +53,6 @@ dependencies:
   firebase_analytics: ^10.7.4
   firebase_crashlytics: ^3.4.9
 
-  # Payment
-  stripe_payment: ^1.1.4
-
   # Utilities
   intl: ^0.19.0
   url_launcher: ^6.2.2
@@ -64,9 +60,6 @@ dependencies:
   device_info_plus: ^9.1.1
   package_info_plus: ^4.2.0
   connectivity_plus: ^5.0.2
-
-  # Social Features
-  socket_io_client: ^2.0.3+1
 
   # Localization
   flutter_localizations:

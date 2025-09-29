@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 
-import '../models/video_model.dart';
-
 class VideoCard extends StatelessWidget {
   final String videoId;
   final VoidCallback? onTap;
@@ -52,8 +50,8 @@ class VideoCard extends StatelessWidget {
                   Text(
                     'Sample Video Title',
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
+                          fontWeight: FontWeight.w600,
+                        ),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -139,20 +137,18 @@ class VideoCard extends StatelessWidget {
               width: double.infinity,
               height: double.infinity,
               fit: BoxFit.cover,
-              placeholder:
-                  (context, url) => Container(
-                    color: Colors.grey[300],
-                    child: const Center(child: CircularProgressIndicator()),
-                  ),
-              errorWidget:
-                  (context, url, error) => Container(
-                    color: Colors.grey[300],
-                    child: const Icon(
-                      Icons.video_library,
-                      size: 48,
-                      color: Colors.grey,
-                    ),
-                  ),
+              placeholder: (context, url) => Container(
+                color: Colors.grey[300],
+                child: const Center(child: CircularProgressIndicator()),
+              ),
+              errorWidget: (context, url, error) => Container(
+                color: Colors.grey[300],
+                child: const Icon(
+                  Icons.video_library,
+                  size: 48,
+                  color: Colors.grey,
+                ),
+              ),
             ),
           ),
 
@@ -222,8 +218,8 @@ class VideoCard extends StatelessWidget {
             Text(
               label,
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: color ?? Theme.of(context).colorScheme.onSurface,
-              ),
+                    color: color ?? Theme.of(context).colorScheme.onSurface,
+                  ),
             ),
           ],
         ),
@@ -244,47 +240,46 @@ class VideoCard extends StatelessWidget {
   void _showMoreOptions(BuildContext context) {
     showModalBottomSheet(
       context: context,
-      builder:
-          (context) => Container(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                ListTile(
-                  leading: const Icon(Icons.bookmark_outline),
-                  title: const Text('Save'),
-                  onTap: () {
-                    Navigator.pop(context);
-                    // Handle save
-                  },
-                ),
-                ListTile(
-                  leading: const Icon(Icons.download_outlined),
-                  title: const Text('Download'),
-                  onTap: () {
-                    Navigator.pop(context);
-                    // Handle download
-                  },
-                ),
-                ListTile(
-                  leading: const Icon(Icons.report_outlined),
-                  title: const Text('Report'),
-                  onTap: () {
-                    Navigator.pop(context);
-                    // Handle report
-                  },
-                ),
-                ListTile(
-                  leading: const Icon(Icons.share_outlined),
-                  title: const Text('Share'),
-                  onTap: () {
-                    Navigator.pop(context);
-                    // Handle share
-                  },
-                ),
-              ],
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.bookmark_outline),
+              title: const Text('Save'),
+              onTap: () {
+                Navigator.pop(context);
+                // Handle save
+              },
             ),
-          ),
+            ListTile(
+              leading: const Icon(Icons.download_outlined),
+              title: const Text('Download'),
+              onTap: () {
+                Navigator.pop(context);
+                // Handle download
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.report_outlined),
+              title: const Text('Report'),
+              onTap: () {
+                Navigator.pop(context);
+                // Handle report
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.share_outlined),
+              title: const Text('Share'),
+              onTap: () {
+                Navigator.pop(context);
+                // Handle share
+              },
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

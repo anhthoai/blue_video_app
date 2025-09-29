@@ -46,7 +46,8 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
     await Future.delayed(const Duration(seconds: 3));
 
     if (mounted) {
-      final authService = ref.read(authServiceProvider);
+      final authServiceAsync = ref.read(authServiceProvider);
+      final authService = await authServiceAsync;
 
       if (authService.isLoggedIn) {
         context.go('/main');
@@ -105,9 +106,9 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
                     Text(
                       'Blue Video',
                       style: Theme.of(context).textTheme.displayLarge?.copyWith(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                      ),
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
                     ),
 
                     const SizedBox(height: 8),

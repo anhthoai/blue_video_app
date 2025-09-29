@@ -213,23 +213,24 @@ class AuthService {
   }
 
   Future<void> _saveUserModel(UserModel userModel) async {
-    await _prefs.setString('user_model', userModel.toJson());
+    await _prefs.setString('user_model', userModel.toJsonString());
   }
 }
 
 // Provider
-final authServiceProvider = Provider<AuthService>((ref) {
-  throw UnimplementedError('AuthService provider not implemented');
+final authServiceProvider = FutureProvider<AuthService>((ref) async {
+  final prefs = await SharedPreferences.getInstance();
+  return AuthService(prefs);
 });
 
 // Auth state provider
-final authStateProvider = StreamProvider<User?>((ref) {
-  final authService = ref.watch(authServiceProvider);
-  return authService.authStateChanges;
+final authStateProvider = StreamProvider<User?>((ref) async* {
+  final authService = await ref.watch(authServiceProvider.future);
+  yield* authService.authStateChanges;
 });
 
 // Current user provider
 final currentUserProvider = FutureProvider<UserModel?>((ref) async {
-  final authService = ref.watch(authServiceProvider);
+  final authService = await ref.watch(authServiceProvider.future);
   return await authService.getCurrentUserModel();
 });
