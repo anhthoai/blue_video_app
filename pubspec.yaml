@@ -1,0 +1,107 @@
+name: blue_video_app
+description: A comprehensive video streaming and social platform built with Flutter.
+
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+  flutter: ">=3.10.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # State Management
+  provider: ^6.1.1
+  riverpod: ^2.4.9
+  flutter_riverpod: ^2.4.9
+
+  # Navigation
+  go_router: ^12.1.3
+
+  # HTTP & API
+  dio: ^5.4.0
+  retrofit: ^4.0.3
+  json_annotation: ^4.8.1
+
+  # Video & Media
+  video_player: ^2.8.2
+  chewie: ^1.7.4
+  cached_video_player: ^2.0.4
+  image_picker: ^1.0.4
+  image_cropper: ^5.0.1
+
+  # UI Components
+  cupertino_icons: ^1.0.6
+  cached_network_image: ^3.3.0
+  flutter_staggered_grid_view: ^0.7.0
+  pull_to_refresh: ^2.0.0
+  shimmer: ^3.0.0
+  lottie: ^2.7.0
+
+  # Storage & Database
+  shared_preferences: ^2.2.2
+  sqflite: ^2.3.0
+  hive: ^2.2.3
+  hive_flutter: ^1.1.0
+
+  # Authentication & Security
+  firebase_core: ^2.24.2
+  firebase_auth: ^4.15.3
+  firebase_messaging: ^14.7.10
+  firebase_analytics: ^10.7.4
+  firebase_crashlytics: ^3.4.9
+
+  # Payment
+  stripe_payment: ^1.1.4
+
+  # Utilities
+  intl: ^0.19.0
+  url_launcher: ^6.2.2
+  permission_handler: ^11.2.0
+  device_info_plus: ^9.1.1
+  package_info_plus: ^4.2.0
+  connectivity_plus: ^5.0.2
+
+  # Social Features
+  socket_io_client: ^2.0.3+1
+
+  # Localization
+  flutter_localizations:
+    sdk: flutter
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  # Code Generation
+  build_runner: ^2.4.7
+  json_serializable: ^6.7.1
+  retrofit_generator: ^8.0.6
+  hive_generator: ^2.0.1
+
+  # Linting
+  flutter_lints: ^3.0.1
+
+  # Testing
+  mockito: ^5.4.4
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/images/
+    - assets/icons/
+    - assets/animations/
+    - assets/fonts/
+
+  fonts:
+    - family: Roboto
+      fonts:
+        - asset: assets/fonts/Roboto-Regular.ttf
+        - asset: assets/fonts/Roboto-Bold.ttf
+          weight: 700
+        - asset: assets/fonts/Roboto-Medium.ttf
+          weight: 500
