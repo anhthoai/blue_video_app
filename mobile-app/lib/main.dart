@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'core/theme/app_theme.dart';
 import 'core/router/app_router.dart';
 import 'core/services/storage_service.dart';
 import 'core/services/notification_service.dart';
+import 'core/services/auth_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -21,7 +23,16 @@ void main() async {
   await StorageService.init();
   await NotificationService.init();
 
-  runApp(const ProviderScope(child: BlueVideoApp()));
+  // Initialize AuthService
+  final prefs = await SharedPreferences.getInstance();
+  final authService = AuthService(prefs);
+
+  runApp(ProviderScope(
+    overrides: [
+      authServiceProvider.overrideWithValue(authService),
+    ],
+    child: const BlueVideoApp(),
+  ));
 }
 
 class BlueVideoApp extends ConsumerWidget {

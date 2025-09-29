@@ -3,24 +3,36 @@ import 'package:cached_network_image/cached_network_image.dart';
 
 class VideoCard extends StatelessWidget {
   final String videoId;
+  final String? title;
+  final String? thumbnailUrl;
+  final String? duration;
+  final int? viewCount;
+  final int? likeCount;
+  final String? authorName;
+  final String? authorAvatar;
   final VoidCallback? onTap;
   final VoidCallback? onLike;
   final VoidCallback? onShare;
   final VoidCallback? onComment;
   final bool isLiked;
-  final int likeCount;
   final int commentCount;
   final int shareCount;
 
   const VideoCard({
     super.key,
     required this.videoId,
+    this.title,
+    this.thumbnailUrl,
+    this.duration,
+    this.viewCount,
+    this.likeCount,
+    this.authorName,
+    this.authorAvatar,
     this.onTap,
     this.onLike,
     this.onShare,
     this.onComment,
     this.isLiked = false,
-    this.likeCount = 0,
     this.commentCount = 0,
     this.shareCount = 0,
   });
@@ -48,7 +60,7 @@ class VideoCard extends StatelessWidget {
                 children: [
                   // Title
                   Text(
-                    'Sample Video Title',
+                    title ?? 'Sample Video Title',
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
                           fontWeight: FontWeight.w600,
                         ),
@@ -64,17 +76,22 @@ class VideoCard extends StatelessWidget {
                       CircleAvatar(
                         radius: 16,
                         backgroundColor: Colors.grey[300],
-                        child: const Icon(
-                          Icons.person,
-                          size: 20,
-                          color: Colors.grey,
-                        ),
+                        backgroundImage: authorAvatar != null
+                            ? CachedNetworkImageProvider(authorAvatar!)
+                            : null,
+                        child: authorAvatar == null
+                            ? const Icon(
+                                Icons.person,
+                                size: 20,
+                                color: Colors.grey,
+                              )
+                            : null,
                       ),
                       const SizedBox(width: 8),
-                      const Text('Username'),
+                      Text(authorName ?? 'Username'),
                       const Spacer(),
                       Text(
-                        '2h ago',
+                        duration ?? '2h ago',
                         style: Theme.of(context).textTheme.bodySmall,
                       ),
                     ],
@@ -88,7 +105,7 @@ class VideoCard extends StatelessWidget {
                       _buildActionButton(
                         context,
                         icon: isLiked ? Icons.favorite : Icons.favorite_border,
-                        label: _formatCount(likeCount),
+                        label: _formatCount(likeCount ?? 0),
                         onTap: onLike,
                         color: isLiked ? Colors.red : null,
                       ),

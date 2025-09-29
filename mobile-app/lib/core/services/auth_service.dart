@@ -99,8 +99,9 @@ class AuthService {
   }
 
   // Send phone verification code
-  Future<void> sendPhoneVerificationCode(String phoneNumber) async {
+  Future<String> sendPhoneVerificationCode(String phoneNumber) async {
     try {
+      String verificationId = '';
       await _auth.verifyPhoneNumber(
         phoneNumber: phoneNumber,
         verificationCompleted: (PhoneAuthCredential credential) async {
@@ -109,14 +110,19 @@ class AuthService {
         verificationFailed: (FirebaseAuthException e) {
           throw Exception('Verification failed: ${e.message}');
         },
-        codeSent: (String verificationId, int? resendToken) {
-          // Store verification ID for later use
-          _prefs.setString('verification_id', verificationId);
+        codeSent: (String id, int? resendToken) {
+          verificationId = id;
+          _prefs.setString('verification_id', id);
+          if (resendToken != null) {
+            _prefs.setInt('resend_token', resendToken);
+          }
         },
-        codeAutoRetrievalTimeout: (String verificationId) {
-          _prefs.setString('verification_id', verificationId);
+        codeAutoRetrievalTimeout: (String id) {
+          verificationId = id;
+          _prefs.setString('verification_id', id);
         },
       );
+      return verificationId;
     } catch (e) {
       throw Exception('Failed to send verification code: $e');
     }
@@ -138,6 +144,28 @@ class AuthService {
       await _auth.sendPasswordResetEmail(email: email);
     } catch (e) {
       throw Exception('Password reset failed: $e');
+    }
+  }
+
+  // Sign in with Google
+  Future<UserModel?> signInWithGoogle() async {
+    try {
+      // Note: This requires google_sign_in package
+      // For now, we'll create a placeholder implementation
+      throw UnimplementedError('Google sign-in not implemented yet');
+    } catch (e) {
+      throw Exception('Google sign-in failed: $e');
+    }
+  }
+
+  // Sign in with Apple
+  Future<UserModel?> signInWithApple() async {
+    try {
+      // Note: This requires sign_in_with_apple package
+      // For now, we'll create a placeholder implementation
+      throw UnimplementedError('Apple sign-in not implemented yet');
+    } catch (e) {
+      throw Exception('Apple sign-in failed: $e');
     }
   }
 
@@ -175,7 +203,7 @@ class AuthService {
     try {
       final userJson = _prefs.getString('user_model');
       if (userJson != null) {
-        return UserModel.fromJson(userJson);
+        return UserModel.fromJsonString(userJson);
       }
       return null;
     } catch (e) {
@@ -218,19 +246,19 @@ class AuthService {
 }
 
 // Provider
-final authServiceProvider = FutureProvider<AuthService>((ref) async {
-  final prefs = await SharedPreferences.getInstance();
-  return AuthService(prefs);
+final authServiceProvider = Provider<AuthService>((ref) {
+  // This will be initialized in main.dart
+  throw UnimplementedError('AuthService must be initialized in main.dart');
 });
 
 // Auth state provider
-final authStateProvider = StreamProvider<User?>((ref) async* {
-  final authService = await ref.watch(authServiceProvider.future);
-  yield* authService.authStateChanges;
+final authStateProvider = StreamProvider<User?>((ref) {
+  final authService = ref.watch(authServiceProvider);
+  return authService.authStateChanges;
 });
 
 // Current user provider
 final currentUserProvider = FutureProvider<UserModel?>((ref) async {
-  final authService = await ref.watch(authServiceProvider.future);
+  final authService = ref.watch(authServiceProvider);
   return await authService.getCurrentUserModel();
 });

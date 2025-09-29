@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../widgets/video_card.dart';
 import '../../widgets/story_list.dart';
 import '../../widgets/trending_videos.dart';
+import '../../core/services/api_service.dart';
+import '../../models/video_model.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -52,6 +54,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final videosAsync = ref.watch(videoListProvider);
+
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.background,
       appBar: AppBar(
@@ -74,42 +78,76 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       ),
       body: RefreshIndicator(
         onRefresh: () async {
-          // Refresh videos
-          await Future.delayed(const Duration(seconds: 1));
+          ref.invalidate(videoListProvider);
         },
-        child: CustomScrollView(
-          controller: _scrollController,
-          slivers: [
-            // Story List
-            const SliverToBoxAdapter(child: StoryList()),
+        child: videosAsync.when(
+          data: (videos) => CustomScrollView(
+            controller: _scrollController,
+            slivers: [
+              // Story List
+              const SliverToBoxAdapter(child: StoryList()),
 
-            // Trending Videos Section
-            const SliverToBoxAdapter(child: TrendingVideos()),
+              // Trending Videos Section
+              const SliverToBoxAdapter(child: TrendingVideos()),
 
-            // Video Feed
-            SliverList(
-              delegate: SliverChildBuilderDelegate(
-                (context, index) {
-                  return VideoCard(
-                    videoId: 'video_$index',
-                    onTap: () {
-                      // Navigate to video detail
-                    },
-                  );
-                },
-                childCount: 20, // Replace with actual video count
-              ),
-            ),
-
-            // Loading indicator
-            if (_isLoading)
-              const SliverToBoxAdapter(
-                child: Padding(
-                  padding: EdgeInsets.all(16.0),
-                  child: Center(child: CircularProgressIndicator()),
+              // Video Feed
+              SliverList(
+                delegate: SliverChildBuilderDelegate(
+                  (context, index) {
+                    if (index < videos.length) {
+                      final video = videos[index];
+                      return VideoCard(
+                        videoId: video.id,
+                        title: video.title,
+                        thumbnailUrl: video.thumbnailUrl ??
+                            'https://picsum.photos/400/225?random=$index',
+                        duration: video.formattedDuration,
+                        viewCount: video.viewCount,
+                        likeCount: video.likeCount,
+                        authorName: 'User ${video.userId}',
+                        authorAvatar:
+                            'https://picsum.photos/50/50?random=$index',
+                        onTap: () {
+                          // Navigate to video detail
+                        },
+                      );
+                    }
+                    return null;
+                  },
+                  childCount: videos.length,
                 ),
               ),
-          ],
+
+              // Loading indicator
+              if (_isLoading)
+                const SliverToBoxAdapter(
+                  child: Padding(
+                    padding: EdgeInsets.all(16.0),
+                    child: Center(child: CircularProgressIndicator()),
+                  ),
+                ),
+            ],
+          ),
+          loading: () => const Center(
+            child: CircularProgressIndicator(),
+          ),
+          error: (error, stack) => Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.error, size: 64, color: Colors.red),
+                const SizedBox(height: 16),
+                Text('Error loading videos: $error'),
+                const SizedBox(height: 16),
+                ElevatedButton(
+                  onPressed: () {
+                    ref.invalidate(videoListProvider);
+                  },
+                  child: const Text('Retry'),
+                ),
+              ],
+            ),
+          ),
         ),
       ),
       floatingActionButton: FloatingActionButton(

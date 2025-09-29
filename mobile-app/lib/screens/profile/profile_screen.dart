@@ -1,5 +1,10 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
+
+import '../../models/user_model.dart';
+import '../../core/services/api_service.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
   final String userId;
@@ -14,6 +19,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
   bool _isFollowing = false;
+  bool _isLoading = false;
 
   @override
   void initState() {
@@ -25,6 +31,46 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
   void dispose() {
     _tabController.dispose();
     super.dispose();
+  }
+
+  Future<void> _uploadProfilePicture() async {
+    try {
+      final ImagePicker picker = ImagePicker();
+      final XFile? image = await picker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 1024,
+        maxHeight: 1024,
+        imageQuality: 85,
+      );
+
+      if (image != null) {
+        setState(() {
+          _isLoading = true;
+        });
+
+        // Simulate upload
+        await Future.delayed(const Duration(seconds: 2));
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+                content: Text('Profile picture updated successfully!')),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error updating profile picture: $e')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
   }
 
   @override
@@ -221,8 +267,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                       Text(
                         'Video ${index + 1}',
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          fontWeight: FontWeight.w600,
-                        ),
+                              fontWeight: FontWeight.w600,
+                            ),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -283,8 +329,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                       Text(
                         'Liked Video ${index + 1}',
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          fontWeight: FontWeight.w600,
-                        ),
+                              fontWeight: FontWeight.w600,
+                            ),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -340,39 +386,38 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
   void _showProfileOptions(BuildContext context) {
     showModalBottomSheet(
       context: context,
-      builder:
-          (context) => Container(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                ListTile(
-                  leading: const Icon(Icons.share_outlined),
-                  title: const Text('Share Profile'),
-                  onTap: () {
-                    Navigator.pop(context);
-                    // Handle share
-                  },
-                ),
-                ListTile(
-                  leading: const Icon(Icons.report_outlined),
-                  title: const Text('Report User'),
-                  onTap: () {
-                    Navigator.pop(context);
-                    // Handle report
-                  },
-                ),
-                ListTile(
-                  leading: const Icon(Icons.block_outlined),
-                  title: const Text('Block User'),
-                  onTap: () {
-                    Navigator.pop(context);
-                    // Handle block
-                  },
-                ),
-              ],
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.share_outlined),
+              title: const Text('Share Profile'),
+              onTap: () {
+                Navigator.pop(context);
+                // Handle share
+              },
             ),
-          ),
+            ListTile(
+              leading: const Icon(Icons.report_outlined),
+              title: const Text('Report User'),
+              onTap: () {
+                Navigator.pop(context);
+                // Handle report
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.block_outlined),
+              title: const Text('Block User'),
+              onTap: () {
+                Navigator.pop(context);
+                // Handle block
+              },
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

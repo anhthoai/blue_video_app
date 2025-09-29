@@ -21,8 +21,7 @@ final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
     initialLocation: '/splash',
     redirect: (context, state) async {
-      final authServiceAsync = ref.read(authServiceProvider);
-      final authService = await authServiceAsync;
+      final authService = ref.read(authServiceProvider);
 
       final isLoggedIn = authService.isLoggedIn;
       final isOnAuthScreen = state.uri.path.startsWith('/auth');
