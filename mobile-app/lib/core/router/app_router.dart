@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../services/auth_service.dart';
+import '../services/mock_auth_service.dart';
 import '../../screens/splash/splash_screen.dart';
 import '../../screens/auth/login_screen.dart';
 import '../../screens/auth/register_screen.dart';
@@ -10,19 +10,20 @@ import '../../screens/main/main_screen.dart';
 import '../../screens/video/video_detail_screen.dart';
 import '../../screens/video/video_player_screen.dart';
 import '../../screens/video/upload_video_screen.dart';
-import '../../screens/profile/profile_screen.dart';
+import '../../screens/profile/other_user_profile_screen.dart';
 import '../../screens/profile/edit_profile_screen.dart';
 import '../../screens/chat/chat_screen.dart';
 import '../../screens/chat/chat_list_screen.dart';
 import '../../screens/settings/settings_screen.dart';
 import '../../screens/search/search_screen.dart';
 import '../../screens/test/test_instructions_screen.dart';
+import '../../screens/community/create_post_screen.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
     initialLocation: '/splash',
     redirect: (context, state) async {
-      final authService = ref.read(authServiceProvider);
+      final authService = ref.read(mockAuthServiceProvider);
 
       final isLoggedIn = authService.isLoggedIn;
       final isOnAuthScreen = state.uri.path.startsWith('/auth');
@@ -81,13 +82,17 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: 'upload',
             builder: (context, state) => const UploadVideoScreen(),
           ),
+          GoRoute(
+            path: 'create-post',
+            builder: (context, state) => const CreatePostScreen(),
+          ),
 
           // Profile Routes
           GoRoute(
             path: 'profile/:userId',
             builder: (context, state) {
               final userId = state.pathParameters['userId']!;
-              return ProfileScreen(userId: userId);
+              return OtherUserProfileScreen(userId: userId);
             },
           ),
           GoRoute(

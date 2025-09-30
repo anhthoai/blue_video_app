@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../widgets/video_card.dart';
 import '../../widgets/story_list.dart';
@@ -107,8 +108,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         authorName: 'User ${video.userId}',
                         authorAvatar:
                             'https://picsum.photos/50/50?random=$index',
+                        currentUserId: 'mock_user_1',
+                        currentUsername: 'Test User',
+                        currentUserAvatar: 'https://i.pravatar.cc/150?img=1',
                         onTap: () {
-                          // Navigate to video detail
+                          context.go('/main/video/${video.id}/player');
+                        },
+                        onAuthorTap: () {
+                          context.go('/main/profile/${video.userId}');
                         },
                       );
                     }
@@ -152,7 +159,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
-          // Navigate to upload video screen
+          context.go('/main/upload');
         },
         backgroundColor: Theme.of(context).colorScheme.primary,
         child: const Icon(Icons.add, color: Colors.white),

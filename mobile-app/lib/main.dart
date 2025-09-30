@@ -8,29 +8,29 @@ import 'core/theme/app_theme.dart';
 import 'core/router/app_router.dart';
 import 'core/services/storage_service.dart';
 import 'core/services/notification_service.dart';
-import 'core/services/auth_service.dart';
+import 'core/services/mock_auth_service.dart';
 import 'core/services/test_data_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Initialize Firebase
-  await Firebase.initializeApp();
+  // Initialize Firebase (disabled for testing with mock data)
+  // await Firebase.initializeApp();
 
   // Initialize Hive
   await Hive.initFlutter();
 
   // Initialize services
   await StorageService.init();
-  await NotificationService.init();
+  // await NotificationService.init(); // Disabled for testing (requires Firebase)
 
-  // Initialize AuthService
+  // Initialize Mock AuthService (no Firebase required)
   final prefs = await SharedPreferences.getInstance();
-  final authService = AuthService(prefs);
+  final authService = MockAuthService(prefs);
 
   runApp(ProviderScope(
     overrides: [
-      authServiceProvider.overrideWithValue(authService),
+      mockAuthServiceProvider.overrideWithValue(authService),
     ],
     child: const BlueVideoApp(),
   ));

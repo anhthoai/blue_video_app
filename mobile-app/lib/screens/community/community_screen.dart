@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../core/services/community_service.dart';
 import '../../models/community_post.dart';
@@ -34,8 +35,14 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
   }
 
   Future<void> _loadPosts() async {
-    final communityService = ref.read(communityServiceStateProvider.notifier);
-    await communityService.loadPosts();
+    print('Loading community posts...');
+    try {
+      final communityService = ref.read(communityServiceStateProvider.notifier);
+      await communityService.loadPosts();
+      print('Community posts loaded successfully');
+    } catch (e) {
+      print('Error loading community posts: $e');
+    }
   }
 
   Future<void> _loadCategories() async {
@@ -56,6 +63,13 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
   @override
   Widget build(BuildContext context) {
     final communityState = ref.watch(communityServiceStateProvider);
+
+    // Force load posts if empty and not loading
+    if (communityState.posts.isEmpty && !communityState.isLoading) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _loadPosts();
+      });
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -95,15 +109,29 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
   }
 
   Widget _buildPostsTab(CommunityServiceState state) {
+    print(
+        'Community posts state: isLoading=${state.isLoading}, postsCount=${state.posts.length}');
+
     if (state.isLoading) {
       return const Center(child: CircularProgressIndicator());
     }
 
     if (state.posts.isEmpty) {
-      return _buildEmptyState(
-        icon: Icons.article_outlined,
-        title: 'No posts yet',
-        subtitle: 'Be the first to share something!',
+      return Column(
+        children: [
+          _buildEmptyState(
+            icon: Icons.article_outlined,
+            title: 'No posts yet',
+            subtitle: 'Be the first to share something!',
+          ),
+          const SizedBox(height: 20),
+          Text('Debug: isLoading=${state.isLoading}, error=${state.error}'),
+          const SizedBox(height: 10),
+          ElevatedButton(
+            onPressed: _loadPosts,
+            child: const Text('Retry Loading Posts'),
+          ),
+        ],
       );
     }
 
@@ -124,6 +152,7 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
             },
             onUserTap: () {
               // Navigate to user profile
+              context.go('/main/profile/${post.userId}');
             },
           );
         },
@@ -161,6 +190,7 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
             },
             onUserTap: () {
               // Navigate to user profile
+              context.go('/main/profile/${post.userId}');
             },
           );
         },
@@ -333,6 +363,6 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
 
   void _createPost() {
     // Navigate to create post screen
-    Navigator.pushNamed(context, '/create-post');
+    context.go('/main/create-post');
   }
 }

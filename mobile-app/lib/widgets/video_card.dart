@@ -21,6 +21,7 @@ class VideoCard extends ConsumerWidget {
   final String? currentUsername;
   final String? currentUserAvatar;
   final VoidCallback? onTap;
+  final VoidCallback? onAuthorTap;
   final VoidCallback? onLike;
   final VoidCallback? onShare;
   final VoidCallback? onComment;
@@ -43,6 +44,7 @@ class VideoCard extends ConsumerWidget {
     this.currentUsername,
     this.currentUserAvatar,
     this.onTap,
+    this.onAuthorTap,
     this.onLike,
     this.onShare,
     this.onComment,
@@ -87,19 +89,22 @@ class VideoCard extends ConsumerWidget {
                   // User Info
                   Row(
                     children: [
-                      CircleAvatar(
-                        radius: 16,
-                        backgroundColor: Colors.grey[300],
-                        backgroundImage: authorAvatar != null
-                            ? CachedNetworkImageProvider(authorAvatar!)
-                            : null,
-                        child: authorAvatar == null
-                            ? const Icon(
-                                Icons.person,
-                                size: 20,
-                                color: Colors.grey,
-                              )
-                            : null,
+                      GestureDetector(
+                        onTap: onAuthorTap,
+                        child: CircleAvatar(
+                          radius: 16,
+                          backgroundColor: Colors.grey[300],
+                          backgroundImage: authorAvatar != null
+                              ? CachedNetworkImageProvider(authorAvatar!)
+                              : null,
+                          child: authorAvatar == null
+                              ? const Icon(
+                                  Icons.person,
+                                  size: 20,
+                                  color: Colors.grey,
+                                )
+                              : null,
+                        ),
                       ),
                       const SizedBox(width: 8),
                       Text(authorName ?? 'Username'),

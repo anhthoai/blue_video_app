@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../models/user_model.dart';
 import '../../core/services/api_service.dart';
@@ -76,45 +77,53 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      appBar: AppBar(
+        title: const Text('Profile'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.more_vert),
+            onPressed: () {
+              _showProfileOptions();
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.settings_outlined),
+            onPressed: () {
+              context.go('/main/settings');
+            },
+          ),
+        ],
+      ),
       body: NestedScrollView(
         headerSliverBuilder: (context, innerBoxIsScrolled) {
           return [
-            SliverAppBar(
-              expandedHeight: 300,
-              floating: false,
+            SliverToBoxAdapter(
+              child: _buildProfileHeader(),
+            ),
+            SliverToBoxAdapter(
+              child: _buildProfileStats(),
+            ),
+            SliverPersistentHeader(
               pinned: true,
-              flexibleSpace: FlexibleSpaceBar(
-                background: _buildProfileHeader(),
+              delegate: _SliverAppBarDelegate(
+                TabBar(
+                  controller: _tabController,
+                  tabs: const [
+                    Tab(text: 'Videos'),
+                    Tab(text: 'Liked'),
+                    Tab(text: 'Playlists'),
+                  ],
+                ),
               ),
             ),
           ];
         },
-        body: Column(
+        body: TabBarView(
+          controller: _tabController,
           children: [
-            // Profile Stats
-            _buildProfileStats(),
-
-            // Tab Bar
-            TabBar(
-              controller: _tabController,
-              tabs: const [
-                Tab(text: 'Videos'),
-                Tab(text: 'Liked'),
-                Tab(text: 'Playlists'),
-              ],
-            ),
-
-            // Tab Content
-            Expanded(
-              child: TabBarView(
-                controller: _tabController,
-                children: [
-                  _buildVideosTab(),
-                  _buildLikedTab(),
-                  _buildPlaylistsTab(),
-                ],
-              ),
-            ),
+            _buildVideosTab(),
+            _buildLikedTab(),
+            _buildPlaylistsTab(),
           ],
         ),
       ),
@@ -149,7 +158,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                   IconButton(
                     icon: const Icon(Icons.more_vert, color: Colors.white),
                     onPressed: () {
-                      _showProfileOptions(context);
+                      _showProfileOptions();
                     },
                   ),
                 ],
@@ -383,7 +392,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     );
   }
 
-  void _showProfileOptions(BuildContext context) {
+  void _showProfileOptions() {
     showModalBottomSheet(
       context: context,
       builder: (context) => Container(
@@ -392,32 +401,58 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
-              leading: const Icon(Icons.share_outlined),
+              leading: const Icon(Icons.edit),
+              title: const Text('Edit Profile'),
+              onTap: () {
+                Navigator.pop(context);
+                context.go('/main/profile/edit');
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.share),
               title: const Text('Share Profile'),
               onTap: () {
                 Navigator.pop(context);
-                // Handle share
+                // TODO: Implement share functionality
               },
             ),
             ListTile(
-              leading: const Icon(Icons.report_outlined),
+              leading: const Icon(Icons.report),
               title: const Text('Report User'),
               onTap: () {
                 Navigator.pop(context);
-                // Handle report
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.block_outlined),
-              title: const Text('Block User'),
-              onTap: () {
-                Navigator.pop(context);
-                // Handle block
+                // TODO: Implement report functionality
               },
             ),
           ],
         ),
       ),
     );
+  }
+}
+
+class _SliverAppBarDelegate extends SliverPersistentHeaderDelegate {
+  final TabBar _tabBar;
+
+  _SliverAppBarDelegate(this._tabBar);
+
+  @override
+  double get minExtent => _tabBar.preferredSize.height;
+
+  @override
+  double get maxExtent => _tabBar.preferredSize.height;
+
+  @override
+  Widget build(
+      BuildContext context, double shrinkOffset, bool overlapsContent) {
+    return Container(
+      color: Theme.of(context).scaffoldBackgroundColor,
+      child: _tabBar,
+    );
+  }
+
+  @override
+  bool shouldRebuild(_SliverAppBarDelegate oldDelegate) {
+    return false;
   }
 }

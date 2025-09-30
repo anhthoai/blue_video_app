@@ -516,8 +516,24 @@ class SocialServiceNotifier extends StateNotifier<SocialServiceState> {
     try {
       state = state.copyWith(isLoading: true, error: null);
 
-      final socialService = SocialService();
-      final comments = await socialService.getComments(videoId: videoId);
+      // Generate mock comments directly to avoid circular dependencies
+      final comments = List.generate(10, (index) {
+        final isReply = index % 3 == 0;
+        return CommentModel(
+          id: 'comment_${videoId}_$index',
+          videoId: videoId,
+          userId: 'user_${index % 5}',
+          username: 'User ${index % 5}',
+          userAvatar: 'https://picsum.photos/50/50?random=$index',
+          content: isReply
+              ? 'This is a reply to a comment $index'
+              : 'This is a sample comment $index for video $videoId',
+          timestamp: DateTime.now().subtract(Duration(minutes: index * 5)),
+          likes: (index * 3) % 50,
+          isLiked: index % 2 == 0,
+          parentCommentId: isReply ? 'comment_${videoId}_${index - 1}' : null,
+        );
+      });
 
       final updatedComments =
           Map<String, List<CommentModel>>.from(state.comments);

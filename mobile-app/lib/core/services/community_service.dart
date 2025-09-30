@@ -509,27 +509,81 @@ class CommunityServiceState {
 
 // Community service notifier
 class CommunityServiceNotifier extends StateNotifier<CommunityServiceState> {
-  CommunityServiceNotifier() : super(const CommunityServiceState());
+  CommunityServiceNotifier() : super(const CommunityServiceState()) {
+    print('CommunityServiceNotifier initialized');
+  }
 
   Future<void> loadPosts({
     String? category,
     String? userId,
     bool featuredOnly = false,
   }) async {
+    print('CommunityServiceNotifier.loadPosts called');
     try {
       state = state.copyWith(isLoading: true, error: null);
 
-      final communityService = CommunityService();
-      final posts = await communityService.getPosts(
-        category: category,
-        userId: userId,
-        featuredOnly: featuredOnly,
-      );
+      // Generate mock data directly to avoid circular dependencies
+      final posts = List.generate(20, (index) {
+        final postTypes = PostType.values;
+        final postType = postTypes[index % postTypes.length];
 
+        return CommunityPost(
+          id: 'post_$index',
+          userId: 'user_${index % 10}',
+          username: 'User ${index % 10}',
+          userAvatar: 'https://picsum.photos/50/50?random=$index',
+          title: 'Community Post $index',
+          content:
+              'This is a sample community post $index with some content to show how it looks.',
+          type: postType,
+          images: postType == PostType.image
+              ? ['https://picsum.photos/400/300?random=$index']
+              : [],
+          videoUrl: postType == PostType.video
+              ? 'https://example.com/video$index.mp4'
+              : null,
+          linkUrl: postType == PostType.link
+              ? 'https://example.com/link$index'
+              : null,
+          linkTitle: postType == PostType.link ? 'Link Title $index' : null,
+          linkDescription:
+              postType == PostType.link ? 'Link description $index' : null,
+          linkThumbnail: postType == PostType.link
+              ? 'https://picsum.photos/200/150?random=$index'
+              : null,
+          pollData: postType == PostType.poll
+              ? {
+                  'question': 'What do you think about post $index?',
+                  'options': ['Option 1', 'Option 2', 'Option 3', 'Option 4'],
+                  'votes': {
+                    'option_0': (index * 10) % 100,
+                    'option_1': (index * 15) % 100,
+                    'option_2': (index * 20) % 100,
+                    'option_3': (index * 25) % 100,
+                  },
+                }
+              : null,
+          tags: ['tag${index % 5}', 'community', 'post'],
+          category: ['general', 'tech', 'fun', 'news'][index % 4],
+          likes: (index * 50) % 1000,
+          comments: (index * 5) % 100,
+          shares: (index * 2) % 50,
+          views: (index * 100) % 5000,
+          isLiked: index % 3 == 0,
+          isBookmarked: index % 4 == 0,
+          isPinned: index < 3,
+          isFeatured: index < 5,
+          createdAt: DateTime.now().subtract(Duration(hours: index)),
+          publishedAt: DateTime.now().subtract(Duration(hours: index)),
+        );
+      });
+
+      print('Generated ${posts.length} community posts');
       state = state.copyWith(
         posts: posts,
         isLoading: false,
       );
+      print('Community service state updated with ${state.posts.length} posts');
     } catch (e) {
       state = state.copyWith(
         isLoading: false,
@@ -542,8 +596,40 @@ class CommunityServiceNotifier extends StateNotifier<CommunityServiceState> {
     try {
       state = state.copyWith(isLoading: true, error: null);
 
-      final communityService = CommunityService();
-      final posts = await communityService.getTrendingPosts(category: category);
+      // Generate mock trending posts directly
+      final posts = List.generate(10, (index) {
+        final postTypes = PostType.values;
+        final postType = postTypes[index % postTypes.length];
+
+        return CommunityPost(
+          id: 'trending_post_$index',
+          userId: 'user_${index % 10}',
+          username: 'Trending User ${index % 10}',
+          userAvatar: 'https://picsum.photos/50/50?random=$index',
+          title: 'Trending Post $index',
+          content:
+              'This is a trending community post $index with viral content.',
+          type: postType,
+          images: postType == PostType.image
+              ? ['https://picsum.photos/400/300?random=$index']
+              : [],
+          videoUrl: postType == PostType.video
+              ? 'https://example.com/trending_video$index.mp4'
+              : null,
+          tags: ['trending', 'viral', 'popular'],
+          category: category ?? 'general',
+          likes: (index * 100) + 500, // Higher likes for trending
+          comments: (index * 10) + 50,
+          shares: (index * 5) + 25,
+          views: (index * 500) + 2000,
+          isLiked: index % 2 == 0,
+          isBookmarked: index % 3 == 0,
+          isPinned: false,
+          isFeatured: true,
+          createdAt: DateTime.now().subtract(Duration(hours: index)),
+          publishedAt: DateTime.now().subtract(Duration(hours: index)),
+        );
+      });
 
       state = state.copyWith(
         trendingPosts: posts,

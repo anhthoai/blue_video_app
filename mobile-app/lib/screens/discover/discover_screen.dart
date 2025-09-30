@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 class DiscoverScreen extends ConsumerStatefulWidget {
   const DiscoverScreen({super.key});
@@ -70,7 +71,7 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
             subtitle: Text('${(index + 1) * 1000}K views • 2h ago'),
             trailing: const Icon(Icons.trending_up, color: Colors.orange),
             onTap: () {
-              // Navigate to video detail
+              context.go('/main/video/trending_$index/player');
             },
           ),
         );
@@ -117,8 +118,8 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
                 Text(
                   category['name'] as String,
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
+                        fontWeight: FontWeight.w600,
+                      ),
                 ),
               ],
             ),

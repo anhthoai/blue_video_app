@@ -31,7 +31,10 @@ class _CommentsSectionState extends ConsumerState<CommentsSection> {
   @override
   void initState() {
     super.initState();
-    _loadComments();
+    // Load comments after the widget is built
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadComments();
+    });
   }
 
   @override

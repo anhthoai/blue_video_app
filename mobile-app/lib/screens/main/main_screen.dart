@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../home/home_screen.dart';
 import '../discover/discover_screen.dart';
 import '../community/community_screen.dart';
-import '../profile/profile_screen.dart';
+import '../chat/chat_list_screen.dart';
+import '../profile/current_user_profile_screen.dart';
 
 class MainScreen extends ConsumerStatefulWidget {
   const MainScreen({super.key});
@@ -21,7 +23,8 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     const HomeScreen(),
     const DiscoverScreen(),
     const CommunityScreen(),
-    const ProfileScreen(userId: 'current_user'),
+    const ChatListScreen(),
+    const CurrentUserProfileScreen(),
   ];
 
   final List<BottomNavigationBarItem> _navItems = [
@@ -39,6 +42,11 @@ class _MainScreenState extends ConsumerState<MainScreen> {
       icon: Icon(Icons.people_outlined),
       activeIcon: Icon(Icons.people),
       label: 'Community',
+    ),
+    const BottomNavigationBarItem(
+      icon: Icon(Icons.chat_outlined),
+      activeIcon: Icon(Icons.chat),
+      label: 'Chat',
     ),
     const BottomNavigationBarItem(
       icon: Icon(Icons.person_outlined),

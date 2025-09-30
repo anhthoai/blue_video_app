@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/services/mock_auth_service.dart';
+
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
 
@@ -27,7 +29,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: SafeArea(
-        child: Padding(
+        child: SingleChildScrollView(
           padding: const EdgeInsets.all(24),
           child: Form(
             key: _formKey,
@@ -49,14 +51,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   ),
                 ),
 
-                const SizedBox(height: 32),
+                const SizedBox(height: 24),
 
                 // Title
                 Text(
                   'Welcome Back',
                   style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
+                        fontWeight: FontWeight.bold,
+                      ),
                 ),
 
                 const SizedBox(height: 8),
@@ -64,13 +66,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 Text(
                   'Sign in to your account',
                   style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    color: Theme.of(
-                      context,
-                    ).colorScheme.onSurface.withOpacity(0.6),
-                  ),
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.onSurface.withOpacity(0.6),
+                      ),
                 ),
 
-                const SizedBox(height: 48),
+                const SizedBox(height: 32),
 
                 // Email Field
                 TextFormField(
@@ -132,12 +134,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   height: 48,
                   child: ElevatedButton(
                     onPressed: _isLoading ? null : _handleLogin,
-                    child:
-                        _isLoading
-                            ? const CircularProgressIndicator(
-                              color: Colors.white,
-                            )
-                            : const Text('Sign In'),
+                    child: _isLoading
+                        ? const CircularProgressIndicator(
+                            color: Colors.white,
+                          )
+                        : const Text('Sign In'),
                   ),
                 ),
 
@@ -151,7 +152,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   child: const Text('Forgot Password?'),
                 ),
 
-                const SizedBox(height: 32),
+                const SizedBox(height: 24),
 
                 // Divider
                 Row(
@@ -168,7 +169,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   ],
                 ),
 
-                const SizedBox(height: 32),
+                const SizedBox(height: 24),
 
                 // Social Login Buttons
                 Row(
@@ -195,7 +196,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   ],
                 ),
 
-                const SizedBox(height: 32),
+                const SizedBox(height: 24),
 
                 // Sign Up Link
                 Row(
@@ -226,8 +227,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     });
 
     try {
-      // Simulate login
-      await Future.delayed(const Duration(seconds: 2));
+      // Use mock auth service
+      final authService = ref.read(mockAuthServiceProvider);
+      await authService.signInWithEmailAndPassword(
+        email: _emailController.text.trim(),
+        password: _passwordController.text.trim(),
+      );
 
       if (mounted) {
         context.go('/main');
