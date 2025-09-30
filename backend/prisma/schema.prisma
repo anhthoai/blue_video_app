@@ -1,0 +1,231 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id          String   @id @default(uuid())
+  username    String   @unique
+  email       String   @unique
+  passwordHash String  @map("password_hash")
+  firstName   String?  @map("first_name")
+  lastName    String?  @map("last_name")
+  bio         String?
+  avatarUrl   String?  @map("avatar_url")
+  isVerified  Boolean  @default(false) @map("is_verified")
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  videos         Video[]
+  posts          CommunityPost[]
+  comments       Comment[]
+  likes          Like[]
+  followers      Follow[] @relation("UserFollowers")
+  following      Follow[] @relation("UserFollowing")
+  chatRooms      ChatRoom[] @relation("ChatRoomCreator")
+  chatMessages   ChatMessage[]
+  chatRoomParticipants ChatRoomParticipant[]
+
+  @@map("users")
+}
+
+model Video {
+  id           String   @id @default(uuid())
+  userId       String   @map("user_id")
+  title        String
+  description  String?
+  videoUrl     String   @map("video_url")
+  thumbnailUrl String?  @map("thumbnail_url")
+  duration     Int?
+  fileSize     BigInt?  @map("file_size")
+  quality      String?
+  views        Int      @default(0)
+  likes        Int      @default(0)
+  comments     Int      @default(0)
+  shares       Int      @default(0)
+  isPublic     Boolean  @default(true) @map("is_public")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("videos")
+}
+
+model CommunityPost {
+  id              String   @id @default(uuid())
+  userId          String   @map("user_id")
+  title           String?
+  content         String?
+  type            PostType
+  images          String[]
+  videos          String[]
+  linkUrl         String?  @map("link_url")
+  linkTitle       String?  @map("link_title")
+  linkDescription String?  @map("link_description")
+  pollOptions     Json?    @map("poll_options")
+  pollVotes       Json?    @map("poll_votes")
+  tags            String[]
+  category        String?
+  likes           Int      @default(0)
+  comments        Int      @default(0)
+  shares          Int      @default(0)
+  views           Int      @default(0)
+  isPublic        Boolean  @default(true) @map("is_public")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("community_posts")
+}
+
+model Comment {
+  id          String      @id @default(uuid())
+  userId      String      @map("user_id")
+  contentId   String      @map("content_id")
+  contentType ContentType @map("content_type")
+  parentId    String?     @map("parent_id")
+  content     String
+  likes       Int         @default(0)
+  isEdited    Boolean     @default(false) @map("is_edited")
+  createdAt   DateTime    @default(now()) @map("created_at")
+  updatedAt   DateTime    @updatedAt @map("updated_at")
+
+  // Relations
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parent    Comment?  @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies   Comment[] @relation("CommentReplies")
+
+  @@map("comments")
+}
+
+model Like {
+  id          String      @id @default(uuid())
+  userId      String      @map("user_id")
+  contentId   String      @map("content_id")
+  contentType ContentType @map("content_type")
+  type        LikeType
+  createdAt   DateTime    @default(now()) @map("created_at")
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, contentId, contentType])
+  @@map("likes")
+}
+
+model Follow {
+  id          String   @id @default(uuid())
+  followerId  String   @map("follower_id")
+  followingId String   @map("following_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  // Relations
+  follower  User @relation("UserFollowers", fields: [followerId], references: [id], onDelete: Cascade)
+  following User @relation("UserFollowing", fields: [followingId], references: [id], onDelete: Cascade)
+
+  @@unique([followerId, followingId])
+  @@map("follows")
+}
+
+model ChatRoom {
+  id        String   @id @default(uuid())
+  name      String?
+  type      ChatRoomType @default(PRIVATE)
+  createdBy String   @map("created_by")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  creator      User                   @relation("ChatRoomCreator", fields: [createdBy], references: [id], onDelete: Cascade)
+  participants ChatRoomParticipant[]
+  messages     ChatMessage[]
+
+  @@map("chat_rooms")
+}
+
+model ChatRoomParticipant {
+  id       String   @id @default(uuid())
+  roomId   String   @map("room_id")
+  userId   String   @map("user_id")
+  joinedAt DateTime @default(now()) @map("joined_at")
+  lastReadAt DateTime? @map("last_read_at")
+
+  // Relations
+  room ChatRoom @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  user User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([roomId, userId])
+  @@map("chat_room_participants")
+}
+
+model ChatMessage {
+  id          String      @id @default(uuid())
+  roomId      String      @map("room_id")
+  userId      String      @map("user_id")
+  content     String
+  messageType MessageType @default(TEXT) @map("message_type")
+  fileUrl     String?     @map("file_url")
+  isEdited    Boolean     @default(false) @map("is_edited")
+  createdAt   DateTime    @default(now()) @map("created_at")
+  updatedAt   DateTime    @updatedAt @map("updated_at")
+
+  // Relations
+  room ChatRoom @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  user User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("chat_messages")
+}
+
+// Enums
+enum PostType {
+  TEXT
+  LINK
+  POLL
+  MEDIA
+
+  @@map("post_type")
+}
+
+enum ContentType {
+  VIDEO
+  POST
+  COMMENT
+
+  @@map("content_type")
+}
+
+enum LikeType {
+  LIKE
+  DISLIKE
+
+  @@map("like_type")
+}
+
+enum ChatRoomType {
+  PRIVATE
+  GROUP
+
+  @@map("chat_room_type")
+}
+
+enum MessageType {
+  TEXT
+  IMAGE
+  VIDEO
+  FILE
+
+  @@map("message_type")
+}
