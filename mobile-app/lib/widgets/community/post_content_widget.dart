@@ -15,26 +15,60 @@ class PostContentWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     switch (post.type) {
-      case PostType.image:
-        return _buildImageContent(context);
-      case PostType.video:
-        return _buildVideoContent(context);
+      case PostType.media:
+        return _buildMediaContent(context);
       case PostType.link:
         return _buildLinkContent();
       case PostType.poll:
         return _buildPollContent();
       case PostType.text:
-      default:
         return const SizedBox.shrink();
     }
   }
 
-  Widget _buildImageContent(BuildContext context) {
-    if (post.images.isEmpty) return const SizedBox.shrink();
+  Widget _buildMediaContent(BuildContext context) {
+    if (post.images.isEmpty && post.videos.isEmpty)
+      return const SizedBox.shrink();
+
+    // Combine all media items
+    final allMedia = <Map<String, dynamic>>[];
+
+    // Add images
+    for (int i = 0; i < post.images.length; i++) {
+      allMedia.add({
+        'type': 'image',
+        'url': post.images[i],
+        'index': i,
+      });
+    }
+
+    // Add videos
+    for (int i = 0; i < post.videos.length; i++) {
+      allMedia.add({
+        'type': 'video',
+        'url': post.videos[i],
+        'index': i,
+      });
+    }
+
+    if (allMedia.isEmpty) return const SizedBox.shrink();
+
+    return _buildMediaGrid(context, allMedia);
+  }
+
+  Widget _buildMediaGrid(
+      BuildContext context, List<Map<String, dynamic>> allMedia) {
+    if (allMedia.isEmpty) return const SizedBox.shrink();
 
     return GestureDetector(
       onTap: () {
-        _showImageViewer(context, post.images);
+        if (allMedia.length == 1) {
+          if (allMedia.first['type'] == 'image') {
+            _showImageViewer(context, [allMedia.first['url']]);
+          } else {
+            context.go('/main/video/${post.id}/player');
+          }
+        }
       },
       child: Container(
         height: 200,
@@ -44,19 +78,184 @@ class PostContentWidget extends StatelessWidget {
         ),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(8),
-          child: CachedNetworkImage(
-            imageUrl: post.images.first,
-            fit: BoxFit.cover,
-            placeholder: (context, url) => Container(
-              color: Colors.grey[300],
-              child: const Center(
-                child: CircularProgressIndicator(),
+          child: _buildMediaLayout(context, allMedia),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMediaLayout(
+      BuildContext context, List<Map<String, dynamic>> allMedia) {
+    if (allMedia.length == 1) {
+      return _buildSingleMedia(context, allMedia.first);
+    } else if (allMedia.length == 2) {
+      return _buildTwoMedia(context, allMedia);
+    } else {
+      return _buildMultipleMedia(context, allMedia);
+    }
+  }
+
+  Widget _buildSingleMedia(BuildContext context, Map<String, dynamic> media) {
+    if (media['type'] == 'image') {
+      return CachedNetworkImage(
+        imageUrl: media['url'],
+        fit: BoxFit.cover,
+        placeholder: (context, url) => Container(
+          color: Colors.grey[300],
+          child: const Center(child: CircularProgressIndicator()),
+        ),
+        errorWidget: (context, url, error) => Container(
+          color: Colors.grey[300],
+          child: const Center(child: Icon(Icons.error)),
+        ),
+      );
+    } else {
+      return Stack(
+        fit: StackFit.expand,
+        children: [
+          Container(
+            color: Colors.grey[800],
+            child: const Center(
+              child: Icon(Icons.play_circle_outline,
+                  color: Colors.white, size: 48),
+            ),
+          ),
+          Positioned(
+            bottom: 8,
+            right: 8,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: Colors.black.withOpacity(0.7),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: const Text(
+                '2:30',
+                style: TextStyle(color: Colors.white, fontSize: 12),
               ),
             ),
-            errorWidget: (context, url, error) => Container(
-              color: Colors.grey[300],
-              child: const Center(
-                child: Icon(Icons.error),
+          ),
+        ],
+      );
+    }
+  }
+
+  Widget _buildTwoMedia(
+      BuildContext context, List<Map<String, dynamic>> allMedia) {
+    return Row(
+      children: [
+        Expanded(
+          child: _buildMediaItem(context, allMedia[0]),
+        ),
+        const SizedBox(width: 2),
+        Expanded(
+          child: _buildMediaItem(context, allMedia[1]),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMultipleMedia(
+      BuildContext context, List<Map<String, dynamic>> allMedia) {
+    return Column(
+      children: [
+        // First row - up to 2 items
+        Expanded(
+          child: Row(
+            children: [
+              Expanded(
+                child: _buildMediaItem(context, allMedia[0]),
+              ),
+              if (allMedia.length > 1) ...[
+                const SizedBox(width: 2),
+                Expanded(
+                  child: _buildMediaItem(context, allMedia[1]),
+                ),
+              ],
+            ],
+          ),
+        ),
+        if (allMedia.length > 2) ...[
+          const SizedBox(height: 2),
+          // Second row - remaining items
+          Expanded(
+            child: Row(
+              children: [
+                Expanded(
+                  child: _buildMediaItem(context, allMedia[2]),
+                ),
+                if (allMedia.length > 3) ...[
+                  const SizedBox(width: 2),
+                  Expanded(
+                    child: _buildOverflowItem(context, allMedia.length - 3),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildMediaItem(BuildContext context, Map<String, dynamic> media) {
+    if (media['type'] == 'image') {
+      return CachedNetworkImage(
+        imageUrl: media['url'],
+        fit: BoxFit.cover,
+        placeholder: (context, url) => Container(
+          color: Colors.grey[300],
+          child: const Center(child: CircularProgressIndicator()),
+        ),
+        errorWidget: (context, url, error) => Container(
+          color: Colors.grey[300],
+          child: const Center(child: Icon(Icons.error)),
+        ),
+      );
+    } else {
+      return Stack(
+        fit: StackFit.expand,
+        children: [
+          Container(
+            color: Colors.grey[800],
+            child: const Center(
+              child: Icon(Icons.play_circle_outline,
+                  color: Colors.white, size: 24),
+            ),
+          ),
+          Positioned(
+            bottom: 4,
+            right: 4,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+              decoration: BoxDecoration(
+                color: Colors.black.withOpacity(0.7),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Text(
+                '${(media['index'] + 1) * 2}:${(media['index'] * 15) % 60}',
+                style: const TextStyle(color: Colors.white, fontSize: 10),
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+  }
+
+  Widget _buildOverflowItem(BuildContext context, int remainingCount) {
+    return Container(
+      color: Colors.grey[800],
+      child: Center(
+        child: Container(
+          color: Colors.black.withOpacity(0.6),
+          child: Center(
+            child: Text(
+              '+$remainingCount',
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
               ),
             ),
           ),
@@ -65,11 +264,111 @@ class PostContentWidget extends StatelessWidget {
     );
   }
 
-  Widget _buildVideoContent(BuildContext context) {
-    if (post.videoUrl == null) return const SizedBox.shrink();
+  Widget _buildUnusedImageGrid(BuildContext context, List<String> images) {
+    if (images.isEmpty) return const SizedBox.shrink();
 
     return GestureDetector(
       onTap: () {
+        _showImageViewer(context, images);
+      },
+      child: Container(
+        height: 200,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(8),
+          color: Colors.grey[200],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(8),
+          child: images.length == 1
+              ? CachedNetworkImage(
+                  imageUrl: images.first,
+                  fit: BoxFit.cover,
+                  placeholder: (context, url) => Container(
+                    color: Colors.grey[300],
+                    child: const Center(
+                      child: CircularProgressIndicator(),
+                    ),
+                  ),
+                  errorWidget: (context, url, error) => Container(
+                    color: Colors.grey[300],
+                    child: const Center(
+                      child: Icon(Icons.error),
+                    ),
+                  ),
+                )
+              : GridView.builder(
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    crossAxisSpacing: 2,
+                    mainAxisSpacing: 2,
+                  ),
+                  itemCount: images.length > 4 ? 4 : images.length,
+                  itemBuilder: (context, index) {
+                    if (index == 3 && images.length > 4) {
+                      return Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          CachedNetworkImage(
+                            imageUrl: images[index],
+                            fit: BoxFit.cover,
+                            placeholder: (context, url) => Container(
+                              color: Colors.grey[300],
+                              child: const Center(
+                                child: CircularProgressIndicator(),
+                              ),
+                            ),
+                            errorWidget: (context, url, error) => Container(
+                              color: Colors.grey[300],
+                              child: const Center(
+                                child: Icon(Icons.error),
+                              ),
+                            ),
+                          ),
+                          Container(
+                            color: Colors.black.withOpacity(0.6),
+                            child: Center(
+                              child: Text(
+                                '+${images.length - 3}',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      );
+                    }
+                    return CachedNetworkImage(
+                      imageUrl: images[index],
+                      fit: BoxFit.cover,
+                      placeholder: (context, url) => Container(
+                        color: Colors.grey[300],
+                        child: const Center(
+                          child: CircularProgressIndicator(),
+                        ),
+                      ),
+                      errorWidget: (context, url, error) => Container(
+                        color: Colors.grey[300],
+                        child: const Center(
+                          child: Icon(Icons.error),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildUnusedVideoGrid(BuildContext context, List<String> videos) {
+    if (videos.isEmpty) return const SizedBox.shrink();
+
+    return GestureDetector(
+      onTap: () {
+        // Navigate to first video or show video selection
         context.go('/main/video/${post.id}/player');
       },
       child: Container(
@@ -80,41 +379,116 @@ class PostContentWidget extends StatelessWidget {
         ),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(8),
-          child: Stack(
-            children: [
-              Container(
-                width: double.infinity,
-                height: 200,
-                color: Colors.grey[800],
-                child: const Center(
-                  child: Icon(
-                    Icons.play_circle_outline,
-                    color: Colors.white,
-                    size: 48,
-                  ),
-                ),
-              ),
-              Positioned(
-                bottom: 8,
-                right: 8,
-                child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.7),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: const Text(
-                    '2:30',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 12,
+          child: videos.length == 1
+              ? Stack(
+                  children: [
+                    Container(
+                      width: double.infinity,
+                      height: 200,
+                      color: Colors.grey[800],
+                      child: const Center(
+                        child: Icon(
+                          Icons.play_circle_outline,
+                          color: Colors.white,
+                          size: 48,
+                        ),
+                      ),
                     ),
+                    Positioned(
+                      bottom: 8,
+                      right: 8,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withOpacity(0.7),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: const Text(
+                          '2:30',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                )
+              : GridView.builder(
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    crossAxisSpacing: 2,
+                    mainAxisSpacing: 2,
                   ),
+                  itemCount: videos.length > 4 ? 4 : videos.length,
+                  itemBuilder: (context, index) {
+                    if (index == 3 && videos.length > 4) {
+                      return Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          Container(
+                            color: Colors.grey[800],
+                            child: const Center(
+                              child: Icon(
+                                Icons.play_circle_outline,
+                                color: Colors.white,
+                                size: 24,
+                              ),
+                            ),
+                          ),
+                          Container(
+                            color: Colors.black.withOpacity(0.6),
+                            child: Center(
+                              child: Text(
+                                '+${videos.length - 3}',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      );
+                    }
+                    return Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        Container(
+                          color: Colors.grey[800],
+                          child: const Center(
+                            child: Icon(
+                              Icons.play_circle_outline,
+                              color: Colors.white,
+                              size: 24,
+                            ),
+                          ),
+                        ),
+                        Positioned(
+                          bottom: 4,
+                          right: 4,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 4, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withOpacity(0.7),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              '${(index + 1) * 2}:${(index * 15) % 60}',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 10,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    );
+                  },
                 ),
-              ),
-            ],
-          ),
         ),
       ),
     );

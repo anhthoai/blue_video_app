@@ -16,8 +16,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
 
   final List<Map<String, dynamic>> _postTypes = [
     {'value': 'text', 'label': 'Text Post', 'icon': Icons.text_fields},
-    {'value': 'image', 'label': 'Image Post', 'icon': Icons.image},
-    {'value': 'video', 'label': 'Video Post', 'icon': Icons.videocam},
+    {'value': 'media', 'label': 'Media Post', 'icon': Icons.photo_library},
     {'value': 'link', 'label': 'Link Post', 'icon': Icons.link},
     {'value': 'poll', 'label': 'Poll Post', 'icon': Icons.poll},
   ];

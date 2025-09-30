@@ -66,12 +66,16 @@ class MockDataGenerator {
         title: 'Community Post $index',
         content: _generatePostContent(postType),
         type: postType,
-        images: postType == PostType.image
-            ? ['https://picsum.photos/400/300?random=$index']
+        images: postType == PostType.media
+            ? [
+                'https://picsum.photos/400/300?random=$index',
+                'https://picsum.photos/400/300?random=${index + 100}',
+              ]
             : [],
-        videoUrl: postType == PostType.video
-            ? 'https://example.com/video$index.mp4'
-            : null,
+        videos: postType == PostType.media
+            ? ['https://example.com/video$index.mp4']
+            : [],
+        videoUrl: null,
         linkUrl:
             postType == PostType.link ? 'https://example.com/link$index' : null,
         linkTitle: postType == PostType.link ? 'Link Title $index' : null,
@@ -144,10 +148,8 @@ class MockDataGenerator {
     switch (type) {
       case PostType.text:
         return 'This is a text post with some interesting content to read.';
-      case PostType.image:
-        return 'Check out this amazing image I captured!';
-      case PostType.video:
-        return 'Watch this incredible video I made!';
+      case PostType.media:
+        return 'Check out this amazing media content I created!';
       case PostType.link:
         return 'Found this interesting article, thought you might like it!';
       case PostType.poll:

@@ -1,9 +1,7 @@
-import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../models/community_post.dart';
 import '../../models/video_model.dart';
-import '../../models/user_model.dart';
 
 class CommunityService {
   // Create a new community post
@@ -15,6 +13,7 @@ class CommunityService {
     required String content,
     required PostType type,
     List<String>? images,
+    List<String>? videos,
     String? videoUrl,
     String? linkUrl,
     String? linkTitle,
@@ -37,6 +36,7 @@ class CommunityService {
         content: content,
         type: type,
         images: images ?? [],
+        videos: videos ?? [],
         videoUrl: videoUrl,
         linkUrl: linkUrl,
         linkTitle: linkTitle,
@@ -83,12 +83,13 @@ class CommunityService {
           content:
               'This is a sample community post $index with some content to show how it looks.',
           type: postType,
-          images: postType == PostType.image
+          images: postType == PostType.media
               ? ['https://picsum.photos/400/300?random=$index']
               : [],
-          videoUrl: postType == PostType.video
-              ? 'https://example.com/video$index.mp4'
-              : null,
+          videos: postType == PostType.media
+              ? ['https://example.com/video$index.mp4']
+              : [],
+          videoUrl: null,
           linkUrl: postType == PostType.link
               ? 'https://example.com/link$index'
               : null,
@@ -536,12 +537,16 @@ class CommunityServiceNotifier extends StateNotifier<CommunityServiceState> {
           content:
               'This is a sample community post $index with some content to show how it looks.',
           type: postType,
-          images: postType == PostType.image
-              ? ['https://picsum.photos/400/300?random=$index']
+          images: postType == PostType.media
+              ? [
+                  'https://picsum.photos/400/300?random=$index',
+                  'https://picsum.photos/400/300?random=${index + 100}',
+                ]
               : [],
-          videoUrl: postType == PostType.video
-              ? 'https://example.com/video$index.mp4'
-              : null,
+          videos: postType == PostType.media
+              ? ['https://example.com/video$index.mp4']
+              : [],
+          videoUrl: null, // Use videos list instead
           linkUrl: postType == PostType.link
               ? 'https://example.com/link$index'
               : null,
@@ -610,12 +615,16 @@ class CommunityServiceNotifier extends StateNotifier<CommunityServiceState> {
           content:
               'This is a trending community post $index with viral content.',
           type: postType,
-          images: postType == PostType.image
-              ? ['https://picsum.photos/400/300?random=$index']
+          images: postType == PostType.media
+              ? [
+                  'https://picsum.photos/400/300?random=$index',
+                  'https://picsum.photos/400/300?random=${index + 100}',
+                ]
               : [],
-          videoUrl: postType == PostType.video
-              ? 'https://example.com/trending_video$index.mp4'
-              : null,
+          videos: postType == PostType.media
+              ? ['https://example.com/trending_video$index.mp4']
+              : [],
+          videoUrl: null,
           tags: ['trending', 'viral', 'popular'],
           category: category ?? 'general',
           likes: (index * 100) + 500, // Higher likes for trending

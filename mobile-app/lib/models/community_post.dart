@@ -2,8 +2,7 @@ import 'dart:convert';
 
 enum PostType {
   text,
-  image,
-  video,
+  media, // For posts with images and/or videos
   link,
   poll,
 }
@@ -26,7 +25,8 @@ class CommunityPost {
   final PostType type;
   final PostStatus status;
   final List<String> images;
-  final String? videoUrl;
+  final List<String> videos; // Support multiple videos
+  final String? videoUrl; // Keep for backward compatibility
   final String? linkUrl;
   final String? linkTitle;
   final String? linkDescription;
@@ -57,6 +57,7 @@ class CommunityPost {
     required this.type,
     this.status = PostStatus.published,
     this.images = const [],
+    this.videos = const [],
     this.videoUrl,
     this.linkUrl,
     this.linkTitle,
@@ -89,6 +90,7 @@ class CommunityPost {
     PostType? type,
     PostStatus? status,
     List<String>? images,
+    List<String>? videos,
     String? videoUrl,
     String? linkUrl,
     String? linkTitle,
@@ -120,6 +122,7 @@ class CommunityPost {
       type: type ?? this.type,
       status: status ?? this.status,
       images: images ?? this.images,
+      videos: videos ?? this.videos,
       videoUrl: videoUrl ?? this.videoUrl,
       linkUrl: linkUrl ?? this.linkUrl,
       linkTitle: linkTitle ?? this.linkTitle,
@@ -154,6 +157,7 @@ class CommunityPost {
       'type': type.name,
       'status': status.name,
       'images': images,
+      'videos': videos,
       'videoUrl': videoUrl,
       'linkUrl': linkUrl,
       'linkTitle': linkTitle,
@@ -194,6 +198,7 @@ class CommunityPost {
         orElse: () => PostStatus.published,
       ),
       images: (json['images'] as List<dynamic>?)?.cast<String>() ?? [],
+      videos: (json['videos'] as List<dynamic>?)?.cast<String>() ?? [],
       videoUrl: json['videoUrl'] as String?,
       linkUrl: json['linkUrl'] as String?,
       linkTitle: json['linkTitle'] as String?,
@@ -231,8 +236,7 @@ class CommunityPost {
 
   // Helper methods
   bool get isText => type == PostType.text;
-  bool get isImage => type == PostType.image;
-  bool get isVideo => type == PostType.video;
+  bool get isMedia => type == PostType.media;
   bool get isLink => type == PostType.link;
   bool get isPoll => type == PostType.poll;
 
