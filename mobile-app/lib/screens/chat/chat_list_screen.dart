@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/services/chat_service.dart';
-import '../../models/chat_room.dart';
 import '../../widgets/chat/chat_room_tile.dart';
 import 'chat_screen.dart';
 

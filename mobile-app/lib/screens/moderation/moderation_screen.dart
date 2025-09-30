@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/services/community_service.dart';
 import '../../models/community_post.dart';
-import '../../widgets/community/community_post_widget.dart';
 
 class ModerationScreen extends ConsumerStatefulWidget {
   const ModerationScreen({super.key});

@@ -1,264 +1,467 @@
 import 'dart:convert';
-import 'package:dio/dio.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../../models/video_model.dart';
-import '../../models/user_model.dart';
+import 'dart:io';
+import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class ApiService {
-  final Dio _dio = Dio();
-  final String baseUrl =
-      'https://api.bluevideoapp.com'; // Replace with actual API URL
+  static String get baseUrl =>
+      dotenv.env['API_BASE_URL'] ?? 'http://192.168.1.100:3000/api/v1';
+  static String get socketUrl =>
+      dotenv.env['API_SOCKET_URL'] ?? 'http://192.168.1.100:3000';
 
-  ApiService() {
-    _dio.options.baseUrl = baseUrl;
-    _dio.options.connectTimeout = const Duration(seconds: 30);
-    _dio.options.receiveTimeout = const Duration(seconds: 30);
+  // Singleton pattern
+  static final ApiService _instance = ApiService._internal();
+  factory ApiService() => _instance;
+  ApiService._internal();
 
-    // Add interceptors for authentication and logging
-    _dio.interceptors.add(LogInterceptor(
-      requestBody: true,
-      responseBody: true,
-    ));
+  // Get headers with authentication
+  Future<Map<String, String>> _getHeaders() async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('access_token');
+
+    return {
+      'Content-Type': 'application/json',
+      if (token != null) 'Authorization': 'Bearer $token',
+    };
   }
 
-  // Set authentication token
-  void setAuthToken(String token) {
-    _dio.options.headers['Authorization'] = 'Bearer $token';
+  // Save tokens
+  Future<void> saveTokens(String accessToken, String refreshToken) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('access_token', accessToken);
+    await prefs.setString('refresh_token', refreshToken);
   }
 
-  // Remove authentication token
-  void clearAuthToken() {
-    _dio.options.headers.remove('Authorization');
+  // Clear tokens
+  Future<void> clearTokens() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('access_token');
+    await prefs.remove('refresh_token');
   }
 
-  // Video API endpoints
-  Future<List<VideoModel>> getVideos({
+  // Get stored access token
+  Future<String?> getAccessToken() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('access_token');
+  }
+
+  // Handle API response
+  Map<String, dynamic> _handleResponse(http.Response response) {
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      return json.decode(response.body);
+    } else {
+      throw Exception('API Error: ${response.statusCode} - ${response.body}');
+    }
+  }
+
+  // Authentication APIs
+  Future<Map<String, dynamic>> login(String email, String password) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/auth/login'),
+      headers: await _getHeaders(),
+      body: json.encode({
+        'email': email,
+        'password': password,
+      }),
+    );
+
+    final data = _handleResponse(response);
+
+    if (data['success'] == true && data['data'] != null) {
+      final userData = data['data'];
+      await saveTokens(
+        userData['accessToken'] ?? '',
+        userData['refreshToken'] ?? '',
+      );
+    }
+
+    return data;
+  }
+
+  Future<Map<String, dynamic>> register({
+    required String username,
+    required String email,
+    required String password,
+    String? firstName,
+    String? lastName,
+    String? bio,
+  }) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/auth/register'),
+      headers: await _getHeaders(),
+      body: json.encode({
+        'username': username,
+        'email': email,
+        'password': password,
+        'firstName': firstName,
+        'lastName': lastName,
+        'bio': bio,
+      }),
+    );
+
+    final data = _handleResponse(response);
+
+    if (data['success'] == true && data['data'] != null) {
+      final userData = data['data'];
+      await saveTokens(
+        userData['accessToken'] ?? '',
+        userData['refreshToken'] ?? '',
+      );
+    }
+
+    return data;
+  }
+
+  Future<void> logout() async {
+    await clearTokens();
+  }
+
+  // Community Posts APIs
+  Future<Map<String, dynamic>> getCommunityPosts({
     int page = 1,
     int limit = 20,
     String? category,
     String? search,
   }) async {
-    try {
-      final response = await _dio.get('/videos', queryParameters: {
-        'page': page,
-        'limit': limit,
-        if (category != null) 'category': category,
-        if (search != null) 'search': search,
-      });
+    final queryParams = <String, String>{
+      'page': page.toString(),
+      'limit': limit.toString(),
+    };
 
-      final List<dynamic> videosJson = response.data['data'];
-      return videosJson.map((json) => VideoModel.fromJson(json)).toList();
-    } catch (e) {
-      print('Error fetching videos: $e');
-      return [];
-    }
+    if (category != null) queryParams['category'] = category;
+    if (search != null) queryParams['search'] = search;
+
+    final uri = Uri.parse('$baseUrl/community/posts').replace(
+      queryParameters: queryParams,
+    );
+
+    final response = await http.get(
+      uri,
+      headers: await _getHeaders(),
+    );
+
+    return _handleResponse(response);
   }
 
-  Future<VideoModel?> getVideoById(String videoId) async {
-    try {
-      final response = await _dio.get('/videos/$videoId');
-      return VideoModel.fromJson(response.data);
-    } catch (e) {
-      print('Error fetching video: $e');
-      return null;
-    }
+  Future<Map<String, dynamic>> createCommunityPost({
+    required String type,
+    String? title,
+    String? content,
+    List<String>? images,
+    List<String>? videos,
+    String? linkUrl,
+    String? linkTitle,
+    String? linkDescription,
+    Map<String, dynamic>? pollOptions,
+    List<String>? tags,
+    String? category,
+  }) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/community/posts'),
+      headers: await _getHeaders(),
+      body: json.encode({
+        'type': type,
+        'title': title,
+        'content': content,
+        'images': images ?? [],
+        'videos': videos ?? [],
+        'linkUrl': linkUrl,
+        'linkTitle': linkTitle,
+        'linkDescription': linkDescription,
+        'pollOptions': pollOptions,
+        'tags': tags ?? [],
+        'category': category,
+      }),
+    );
+
+    return _handleResponse(response);
   }
 
-  Future<VideoModel?> createVideo(VideoModel video) async {
-    try {
-      final response = await _dio.post('/videos', data: video.toJson());
-      return VideoModel.fromJson(response.data);
-    } catch (e) {
-      print('Error creating video: $e');
-      return null;
-    }
-  }
-
-  Future<VideoModel?> updateVideo(String videoId, VideoModel video) async {
-    try {
-      final response = await _dio.put('/videos/$videoId', data: video.toJson());
-      return VideoModel.fromJson(response.data);
-    } catch (e) {
-      print('Error updating video: $e');
-      return null;
-    }
-  }
-
-  Future<bool> deleteVideo(String videoId) async {
-    try {
-      await _dio.delete('/videos/$videoId');
-      return true;
-    } catch (e) {
-      print('Error deleting video: $e');
-      return false;
-    }
-  }
-
-  Future<bool> likeVideo(String videoId) async {
-    try {
-      await _dio.post('/videos/$videoId/like');
-      return true;
-    } catch (e) {
-      print('Error liking video: $e');
-      return false;
-    }
-  }
-
-  Future<bool> unlikeVideo(String videoId) async {
-    try {
-      await _dio.delete('/videos/$videoId/like');
-      return true;
-    } catch (e) {
-      print('Error unliking video: $e');
-      return false;
-    }
-  }
-
-  // User API endpoints
-  Future<List<UserModel>> getUsers({
+  // Video APIs
+  Future<Map<String, dynamic>> getVideos({
     int page = 1,
     int limit = 20,
     String? search,
+    String? category,
   }) async {
-    try {
-      final response = await _dio.get('/users', queryParameters: {
-        'page': page,
-        'limit': limit,
-        if (search != null) 'search': search,
-      });
+    final queryParams = <String, String>{
+      'page': page.toString(),
+      'limit': limit.toString(),
+    };
 
-      final List<dynamic> usersJson = response.data['data'];
-      return usersJson.map((json) => UserModel.fromJson(json)).toList();
-    } catch (e) {
-      print('Error fetching users: $e');
-      return [];
+    if (search != null) queryParams['search'] = search;
+    if (category != null) queryParams['category'] = category;
+
+    final uri = Uri.parse('$baseUrl/videos').replace(
+      queryParameters: queryParams,
+    );
+
+    final response = await http.get(
+      uri,
+      headers: await _getHeaders(),
+    );
+
+    return _handleResponse(response);
+  }
+
+  Future<Map<String, dynamic>> uploadVideo({
+    required String title,
+    String? description,
+    required File videoFile,
+    String? thumbnailPath,
+  }) async {
+    final request = http.MultipartRequest(
+      'POST',
+      Uri.parse('$baseUrl/videos/upload'),
+    );
+
+    // Add headers
+    final headers = await _getHeaders();
+    request.headers.addAll(headers);
+
+    // Add video file
+    request.files.add(await http.MultipartFile.fromPath(
+      'video',
+      videoFile.path,
+    ));
+
+    // Add thumbnail if provided
+    if (thumbnailPath != null) {
+      request.files.add(await http.MultipartFile.fromPath(
+        'thumbnail',
+        thumbnailPath,
+      ));
     }
+
+    // Add other fields
+    request.fields['title'] = title;
+    if (description != null) request.fields['description'] = description;
+
+    final streamedResponse = await request.send();
+    final response = await http.Response.fromStream(streamedResponse);
+
+    return _handleResponse(response);
   }
 
-  Future<UserModel?> getUserById(String userId) async {
-    try {
-      final response = await _dio.get('/users/$userId');
-      return UserModel.fromJson(response.data);
-    } catch (e) {
-      print('Error fetching user: $e');
-      return null;
-    }
+  // User APIs
+  Future<Map<String, dynamic>> getUserProfile(String userId) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/users/$userId'),
+      headers: await _getHeaders(),
+    );
+
+    return _handleResponse(response);
   }
 
-  Future<UserModel?> updateUser(String userId, UserModel user) async {
-    try {
-      final response = await _dio.put('/users/$userId', data: user.toJson());
-      return UserModel.fromJson(response.data);
-    } catch (e) {
-      print('Error updating user: $e');
-      return null;
-    }
+  Future<Map<String, dynamic>> updateUserProfile({
+    String? firstName,
+    String? lastName,
+    String? bio,
+    String? avatarUrl,
+  }) async {
+    final response = await http.put(
+      Uri.parse('$baseUrl/users/profile'),
+      headers: await _getHeaders(),
+      body: json.encode({
+        'firstName': firstName,
+        'lastName': lastName,
+        'bio': bio,
+        'avatarUrl': avatarUrl,
+      }),
+    );
+
+    return _handleResponse(response);
   }
 
-  Future<bool> followUser(String userId) async {
-    try {
-      await _dio.post('/users/$userId/follow');
-      return true;
-    } catch (e) {
-      print('Error following user: $e');
-      return false;
-    }
+  Future<Map<String, dynamic>> followUser(String userId) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/users/$userId/follow'),
+      headers: await _getHeaders(),
+    );
+
+    return _handleResponse(response);
   }
 
-  Future<bool> unfollowUser(String userId) async {
-    try {
-      await _dio.delete('/users/$userId/follow');
-      return true;
-    } catch (e) {
-      print('Error unfollowing user: $e');
-      return false;
-    }
+  Future<Map<String, dynamic>> unfollowUser(String userId) async {
+    final response = await http.delete(
+      Uri.parse('$baseUrl/users/$userId/follow'),
+      headers: await _getHeaders(),
+    );
+
+    return _handleResponse(response);
   }
 
-  // Mock data for development
-  Future<List<VideoModel>> getMockVideos() async {
-    await Future.delayed(const Duration(seconds: 1)); // Simulate network delay
+  // Social APIs
+  Future<Map<String, dynamic>> toggleLike({
+    required String contentId,
+    required String contentType,
+    required String likeType,
+  }) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/social/like'),
+      headers: await _getHeaders(),
+      body: json.encode({
+        'contentId': contentId,
+        'contentType': contentType,
+        'type': likeType,
+      }),
+    );
 
-    return List.generate(10, (index) {
-      return VideoModel(
-        id: 'video_$index',
-        userId: 'user_$index',
-        title: 'Sample Video ${index + 1}',
-        description:
-            'This is a sample video description for video ${index + 1}',
-        videoUrl:
-            'https://sample-videos.com/zip/10/mp4/SampleVideo_${index + 1}.mp4',
-        thumbnailUrl: 'https://picsum.photos/400/225?random=$index',
-        duration: (index + 1) * 30, // 30 seconds to 5 minutes
-        viewCount: (index + 1) * 1000,
-        likeCount: (index + 1) * 100,
-        commentCount: (index + 1) * 50,
-        shareCount: (index + 1) * 25,
-        isPublic: true,
-        isFeatured: index < 3,
-        createdAt: DateTime.now().subtract(Duration(days: index)),
-        tags: ['sample', 'video', 'test'],
-        category: index % 3 == 0
-            ? 'Entertainment'
-            : index % 3 == 1
-                ? 'Education'
-                : 'Sports',
-      );
-    });
+    return _handleResponse(response);
   }
 
-  Future<List<UserModel>> getMockUsers() async {
-    await Future.delayed(const Duration(seconds: 1)); // Simulate network delay
+  Future<Map<String, dynamic>> addComment({
+    required String contentId,
+    required String contentType,
+    required String content,
+    String? parentId,
+  }) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/social/comment'),
+      headers: await _getHeaders(),
+      body: json.encode({
+        'contentId': contentId,
+        'contentType': contentType,
+        'content': content,
+        'parentId': parentId,
+      }),
+    );
 
-    return List.generate(10, (index) {
-      return UserModel(
-        id: 'user_$index',
-        email: 'user$index@example.com',
-        username: 'user_$index',
-        avatarUrl: 'https://picsum.photos/100/100?random=$index',
-        bio: 'This is a sample bio for user $index',
-        createdAt: DateTime.now().subtract(Duration(days: index * 10)),
-        isVerified: index < 3,
-        isVip: index < 2,
-        vipLevel: index < 2 ? index + 1 : 0,
-        coinBalance: (index + 1) * 1000,
-        followerCount: (index + 1) * 100,
-        followingCount: (index + 1) * 50,
-        videoCount: (index + 1) * 10,
-        likeCount: (index + 1) * 500,
-      );
-    });
+    return _handleResponse(response);
+  }
+
+  Future<Map<String, dynamic>> getComments({
+    required String contentId,
+    required String contentType,
+    int page = 1,
+    int limit = 20,
+  }) async {
+    final queryParams = <String, String>{
+      'contentId': contentId,
+      'contentType': contentType,
+      'page': page.toString(),
+      'limit': limit.toString(),
+    };
+
+    final uri = Uri.parse('$baseUrl/social/comments').replace(
+      queryParameters: queryParams,
+    );
+
+    final response = await http.get(
+      uri,
+      headers: await _getHeaders(),
+    );
+
+    return _handleResponse(response);
+  }
+
+  Future<Map<String, dynamic>> shareContent({
+    required String contentId,
+    required String contentType,
+    String? message,
+  }) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/social/share'),
+      headers: await _getHeaders(),
+      body: json.encode({
+        'contentId': contentId,
+        'contentType': contentType,
+        'message': message,
+      }),
+    );
+
+    return _handleResponse(response);
+  }
+
+  // Chat APIs
+  Future<Map<String, dynamic>> getChatRooms({
+    int page = 1,
+    int limit = 20,
+  }) async {
+    final queryParams = <String, String>{
+      'page': page.toString(),
+      'limit': limit.toString(),
+    };
+
+    final uri = Uri.parse('$baseUrl/chat/rooms').replace(
+      queryParameters: queryParams,
+    );
+
+    final response = await http.get(
+      uri,
+      headers: await _getHeaders(),
+    );
+
+    return _handleResponse(response);
+  }
+
+  Future<Map<String, dynamic>> createChatRoom({
+    String? name,
+    required String type,
+    required List<String> participantIds,
+  }) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/chat/rooms'),
+      headers: await _getHeaders(),
+      body: json.encode({
+        'name': name,
+        'type': type,
+        'participantIds': participantIds,
+      }),
+    );
+
+    return _handleResponse(response);
+  }
+
+  Future<Map<String, dynamic>> getChatMessages({
+    required String roomId,
+    int page = 1,
+    int limit = 50,
+  }) async {
+    final queryParams = <String, String>{
+      'page': page.toString(),
+      'limit': limit.toString(),
+    };
+
+    final uri = Uri.parse('$baseUrl/chat/rooms/$roomId/messages').replace(
+      queryParameters: queryParams,
+    );
+
+    final response = await http.get(
+      uri,
+      headers: await _getHeaders(),
+    );
+
+    return _handleResponse(response);
+  }
+
+  Future<Map<String, dynamic>> sendMessage({
+    required String roomId,
+    required String content,
+    String? messageType,
+    String? fileUrl,
+  }) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/chat/rooms/$roomId/messages'),
+      headers: await _getHeaders(),
+      body: json.encode({
+        'content': content,
+        'messageType': messageType ?? 'TEXT',
+        'fileUrl': fileUrl,
+      }),
+    );
+
+    return _handleResponse(response);
+  }
+
+  // Health check
+  Future<Map<String, dynamic>> healthCheck() async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/../health'),
+      headers: await _getHeaders(),
+    );
+
+    return _handleResponse(response);
   }
 }
-
-// Provider
-final apiServiceProvider = Provider<ApiService>((ref) {
-  return ApiService();
-});
-
-// Video list provider
-final videoListProvider = FutureProvider<List<VideoModel>>((ref) async {
-  final apiService = ref.watch(apiServiceProvider);
-  return await apiService.getMockVideos();
-});
-
-// User list provider
-final userListProvider = FutureProvider<List<UserModel>>((ref) async {
-  final apiService = ref.watch(apiServiceProvider);
-  return await apiService.getMockUsers();
-});
-
-// Video detail provider
-final videoDetailProvider =
-    FutureProvider.family<VideoModel?, String>((ref, videoId) async {
-  final apiService = ref.watch(apiServiceProvider);
-  return await apiService.getVideoById(videoId);
-});
-
-// User detail provider
-final userDetailProvider =
-    FutureProvider.family<UserModel?, String>((ref, userId) async {
-  final apiService = ref.watch(apiServiceProvider);
-  return await apiService.getUserById(userId);
-});

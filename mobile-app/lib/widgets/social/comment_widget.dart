@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 
-import '../../core/services/social_service.dart';
 import '../../models/comment_model.dart';
 import '../../models/like_model.dart';
 import 'like_button.dart';

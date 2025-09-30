@@ -65,8 +65,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 Text(
                   'Create Account',
                   style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
+                        fontWeight: FontWeight.bold,
+                      ),
                   textAlign: TextAlign.center,
                 ),
 
@@ -75,10 +75,10 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 Text(
                   'Join Blue Video today',
                   style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    color: Theme.of(
-                      context,
-                    ).colorScheme.onSurface.withOpacity(0.6),
-                  ),
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.onSurface.withValues(alpha: 0.6),
+                      ),
                   textAlign: TextAlign.center,
                 ),
 
@@ -239,12 +239,11 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                   child: ElevatedButton(
                     onPressed:
                         _isLoading || !_agreeToTerms ? null : _handleRegister,
-                    child:
-                        _isLoading
-                            ? const CircularProgressIndicator(
-                              color: Colors.white,
-                            )
-                            : const Text('Create Account'),
+                    child: _isLoading
+                        ? const CircularProgressIndicator(
+                            color: Colors.white,
+                          )
+                        : const Text('Create Account'),
                   ),
                 ),
 

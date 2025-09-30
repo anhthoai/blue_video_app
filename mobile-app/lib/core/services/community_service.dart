@@ -2,8 +2,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../models/community_post.dart';
 import '../../models/video_model.dart';
+import 'api_service.dart';
 
 class CommunityService {
+  // final ApiService _apiService = ApiService(); // Will be used when implementing real API calls
+
   // Create a new community post
   Future<CommunityPost?> createPost({
     required String userId,

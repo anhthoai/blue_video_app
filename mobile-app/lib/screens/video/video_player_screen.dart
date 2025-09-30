@@ -3,12 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 
-import '../../models/video_model.dart';
 import '../../models/like_model.dart';
 import '../../widgets/social/like_button.dart';
 import '../../widgets/social/share_button.dart';
 import '../../widgets/social/comments_section.dart';
-import '../../widgets/video_card.dart';
 
 class VideoPlayerScreen extends ConsumerStatefulWidget {
   final String videoId;

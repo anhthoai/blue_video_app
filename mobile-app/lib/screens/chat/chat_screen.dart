@@ -4,8 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/services/chat_service.dart';
 import '../../models/chat_message.dart';
-import '../../models/chat_room.dart';
-import '../../models/user_model.dart';
 import '../../widgets/chat/message_bubble.dart';
 import '../../widgets/chat/typing_indicator.dart';
 

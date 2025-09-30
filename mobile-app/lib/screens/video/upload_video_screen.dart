@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/services/video_service.dart';
-import '../../core/services/api_service.dart';
 
 class UploadVideoScreen extends ConsumerStatefulWidget {
   const UploadVideoScreen({super.key});
@@ -18,7 +17,7 @@ class _UploadVideoScreenState extends ConsumerState<UploadVideoScreen> {
   final _descriptionController = TextEditingController();
 
   File? _selectedVideo;
-  File? _selectedThumbnail;
+  // File? _selectedThumbnail; // Will be used when implementing thumbnail selection
   String _selectedCategory = 'Entertainment';
   List<String> _selectedTags = [];
   bool _isPublic = true;
@@ -229,11 +228,10 @@ class _UploadVideoScreenState extends ConsumerState<UploadVideoScreen> {
     });
 
     try {
-      final videoService = ref.read(videoServiceProvider);
       final uploadNotifier = ref.read(videoUploadStateProvider.notifier);
 
       await uploadNotifier.uploadVideo(
-        _selectedVideo!,
+        videoFile: _selectedVideo!,
         title: _titleController.text,
         description: _descriptionController.text,
         tags: _selectedTags,

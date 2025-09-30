@@ -1,11 +1,7 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:go_router/go_router.dart';
-
-import '../../models/user_model.dart';
-import '../../core/services/api_service.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
   final String userId;
@@ -19,8 +15,8 @@ class ProfileScreen extends ConsumerStatefulWidget {
 class _ProfileScreenState extends ConsumerState<ProfileScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  bool _isFollowing = false;
-  bool _isLoading = false;
+  // bool _isFollowing = false; // Will be used when implementing follow functionality
+  // bool _isLoading = false; // Will be used when implementing loading states
 
   @override
   void initState() {
@@ -34,45 +30,45 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     super.dispose();
   }
 
-  Future<void> _uploadProfilePicture() async {
-    try {
-      final ImagePicker picker = ImagePicker();
-      final XFile? image = await picker.pickImage(
-        source: ImageSource.gallery,
-        maxWidth: 1024,
-        maxHeight: 1024,
-        imageQuality: 85,
-      );
+  // Future<void> _uploadProfilePicture() async {
+  //   try {
+  //     final ImagePicker picker = ImagePicker();
+  //     final XFile? image = await picker.pickImage(
+  //       source: ImageSource.gallery,
+  //       maxWidth: 1024,
+  //       maxHeight: 1024,
+  //       imageQuality: 85,
+  //     );
 
-      if (image != null) {
-        setState(() {
-          _isLoading = true;
-        });
+  //     if (image != null) {
+  //       setState(() {
+  //         _isLoading = true;
+  //       });
 
-        // Simulate upload
-        await Future.delayed(const Duration(seconds: 2));
+  //       // Simulate upload
+  //       await Future.delayed(const Duration(seconds: 2));
 
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-                content: Text('Profile picture updated successfully!')),
-          );
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error updating profile picture: $e')),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
-    }
-  }
+  //       if (mounted) {
+  //         ScaffoldMessenger.of(context).showSnackBar(
+  //           const SnackBar(
+  //               content: Text('Profile picture updated successfully!')),
+  //         );
+  //       }
+  //     }
+  //   } catch (e) {
+  //     if (mounted) {
+  //       ScaffoldMessenger.of(context).showSnackBar(
+  //         SnackBar(content: Text('Error updating profile picture: $e')),
+  //       );
+  //     }
+  //   } finally {
+  //     if (mounted) {
+  //       setState(() {
+  //         _isLoading = false;
+  //       });
+  //     }
+  //   }
+  // }
 
   @override
   Widget build(BuildContext context) {

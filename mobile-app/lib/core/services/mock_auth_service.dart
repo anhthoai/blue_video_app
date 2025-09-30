@@ -2,9 +2,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../models/user_model.dart';
+import 'api_service.dart';
 
 class MockAuthService {
   final SharedPreferences _prefs;
+  final ApiService _apiService = ApiService();
   UserModel? _currentUser;
 
   MockAuthService(this._prefs) {
@@ -34,17 +36,30 @@ class MockAuthService {
     required String email,
     required String password,
   }) async {
-    // Mock login - accept any credentials
-    _currentUser = UserModel(
-      id: 'mock_user_1',
-      email: email,
-      username: 'Test User',
-      avatarUrl: 'https://i.pravatar.cc/150?img=1',
-      bio: 'Mock user for testing',
-      createdAt: DateTime.now(),
-    );
-    await _saveUserToPrefs();
-    return _currentUser;
+    try {
+      // Use real API for authentication
+      final response = await _apiService.login(email, password);
+
+      if (response['success'] == true && response['data'] != null) {
+        final userData = response['data']['user'];
+        _currentUser = UserModel(
+          id: userData['id'] ?? 'unknown',
+          email: userData['email'] ?? email,
+          username: userData['username'] ?? 'User',
+          bio: userData['bio'],
+          avatarUrl: userData['avatarUrl'],
+          isVerified: userData['isVerified'] ?? false,
+          createdAt: DateTime.parse(
+              userData['createdAt'] ?? DateTime.now().toIso8601String()),
+        );
+        await _saveUserToPrefs();
+        return _currentUser;
+      }
+      return null;
+    } catch (e) {
+      print('Login error: $e');
+      return null;
+    }
   }
 
   Future<UserModel?> registerWithEmailAndPassword({
@@ -52,21 +67,38 @@ class MockAuthService {
     required String password,
     required String username,
   }) async {
-    // Mock registration
-    _currentUser = UserModel(
-      id: 'mock_user_${DateTime.now().millisecondsSinceEpoch}',
-      email: email,
-      username: username,
-      avatarUrl:
-          'https://i.pravatar.cc/150?img=${DateTime.now().millisecondsSinceEpoch % 10}',
-      bio: 'New mock user',
-      createdAt: DateTime.now(),
-    );
-    await _saveUserToPrefs();
-    return _currentUser;
+    try {
+      // Use real API for registration
+      final response = await _apiService.register(
+        username: username,
+        email: email,
+        password: password,
+      );
+
+      if (response['success'] == true && response['data'] != null) {
+        final userData = response['data']['user'];
+        _currentUser = UserModel(
+          id: userData['id'] ?? 'unknown',
+          email: userData['email'] ?? email,
+          username: userData['username'] ?? username,
+          bio: userData['bio'],
+          avatarUrl: userData['avatarUrl'],
+          isVerified: userData['isVerified'] ?? false,
+          createdAt: DateTime.parse(
+              userData['createdAt'] ?? DateTime.now().toIso8601String()),
+        );
+        await _saveUserToPrefs();
+        return _currentUser;
+      }
+      return null;
+    } catch (e) {
+      print('Registration error: $e');
+      return null;
+    }
   }
 
   Future<void> signOut() async {
+    await _apiService.logout();
     _currentUser = null;
     await _saveUserToPrefs();
   }

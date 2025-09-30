@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'package:flutter/foundation.dart';
 
 import 'chat_message.dart';
 import 'user_model.dart';

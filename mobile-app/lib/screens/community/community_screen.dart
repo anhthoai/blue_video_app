@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/services/community_service.dart';
-import '../../models/community_post.dart';
 import '../../widgets/community/community_post_widget.dart';
 
 class CommunityScreen extends ConsumerStatefulWidget {
