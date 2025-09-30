@@ -9,6 +9,7 @@ import 'core/router/app_router.dart';
 import 'core/services/storage_service.dart';
 import 'core/services/notification_service.dart';
 import 'core/services/auth_service.dart';
+import 'core/services/test_data_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -41,6 +42,12 @@ class BlueVideoApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final router = ref.watch(routerProvider);
+
+    // Initialize test data on first build
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      TestDataService.populateMockData(ref);
+      TestDataService.printTestInstructions();
+    });
 
     return MaterialApp.router(
       title: 'Blue Video App',

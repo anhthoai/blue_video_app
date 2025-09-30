@@ -16,6 +16,7 @@ import '../../screens/chat/chat_screen.dart';
 import '../../screens/chat/chat_list_screen.dart';
 import '../../screens/settings/settings_screen.dart';
 import '../../screens/search/search_screen.dart';
+import '../../screens/test/test_instructions_screen.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
@@ -115,6 +116,12 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: 'settings',
             builder: (context, state) => const SettingsScreen(),
+          ),
+
+          // Test Routes
+          GoRoute(
+            path: 'test-instructions',
+            builder: (context, state) => const TestInstructionsScreen(),
           ),
         ],
       ),
