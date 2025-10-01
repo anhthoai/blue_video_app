@@ -104,8 +104,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         duration: video.formattedDuration,
                         viewCount: video.viewCount,
                         likeCount: video.likeCount,
-                        authorName: 'User ${video.userId}',
-                        authorAvatar:
+                        commentCount: video.commentCount,
+                        shareCount: video.shareCount,
+                        authorName: video.displayName,
+                        authorAvatar: video.userAvatarUrl ??
                             'https://picsum.photos/50/50?random=$index',
                         currentUserId: 'mock_user_1',
                         currentUsername: 'Test User',

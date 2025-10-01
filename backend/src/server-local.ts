@@ -7,6 +7,7 @@ import rateLimit from 'express-rate-limit';
 import dotenv from 'dotenv';
 import { createServer } from 'http';
 import { Server as SocketIOServer } from 'socket.io';
+import prisma from './lib/prisma';
 
 // Load environment variables
 dotenv.config();
@@ -172,63 +173,268 @@ app.post('/api/v1/videos/upload', (req, res) => {
   });
 });
 
-// Mock community posts endpoint
-app.get('/api/v1/community/posts', (_req, res) => {
-  const mockPosts = [
-    {
-      id: 'mock-post-1',
-      userId: 'mock-user-id',
-      username: 'testuser',
-      userAvatar: null,
-      title: 'Test Post 1',
-      content: 'This is a mock community post for testing.',
-      type: 'TEXT',
-      images: [],
-      videos: [],
-      tags: ['test', 'mock'],
-      category: 'general',
-      likes: 5,
-      comments: 2,
-      shares: 1,
-      views: 25,
-      isPublic: true,
-      createdAt: new Date().toISOString(),
-      isLiked: false,
-    },
-    {
-      id: 'mock-post-2',
-      userId: 'mock-user-id',
-      username: 'testuser',
-      userAvatar: null,
-      title: 'Media Post',
-      content: 'Check out these images and videos!',
-      type: 'MEDIA',
-      images: [
-        'https://picsum.photos/400/300?random=1',
-        'https://picsum.photos/400/300?random=2',
-      ],
-      videos: ['https://example.com/mock-video.mp4'],
-      tags: ['media', 'photos'],
-      category: 'lifestyle',
-      likes: 12,
-      comments: 5,
-      shares: 3,
-      views: 50,
-      isPublic: true,
-      createdAt: new Date().toISOString(),
-      isLiked: false,
-    },
-  ];
+// Get single video by ID
+app.get('/api/v1/videos/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    // Get video from database using Prisma
+    const video = await prisma.video.findUnique({
+      where: {
+        id: id,
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            username: true,
+            firstName: true,
+            lastName: true,
+            avatarUrl: true,
+            isVerified: true,
+          },
+        },
+      },
+    });
 
-  res.json({
-    success: true,
-    data: mockPosts,
-    pagination: {
-      page: 1,
-      limit: 20,
-      total: mockPosts.length,
-    },
-  });
+    if (!video) {
+      res.status(404).json({
+        success: false,
+        message: 'Video not found',
+      });
+      return;
+    }
+
+    // Convert to camelCase and serialize BigInt for JSON
+    const serializedVideo = {
+      id: video.id,
+      userId: video.userId,
+      title: video.title,
+      description: video.description,
+      videoUrl: video.videoUrl,
+      thumbnailUrl: video.thumbnailUrl,
+      duration: video.duration,
+      fileSize: video.fileSize ? video.fileSize.toString() : null,
+      quality: video.quality,
+      views: video.views,
+      likes: video.likes,
+      comments: video.comments,
+      shares: video.shares,
+      isPublic: video.isPublic,
+      createdAt: video.createdAt.toISOString(),
+      updatedAt: video.updatedAt.toISOString(),
+      user: video.user ? {
+        id: video.user.id,
+        username: video.user.username,
+        firstName: video.user.firstName,
+        lastName: video.user.lastName,
+        avatarUrl: video.user.avatarUrl,
+        isVerified: video.user.isVerified,
+      } : null,
+    };
+
+    res.json({
+      success: true,
+      data: serializedVideo,
+    });
+  } catch (error) {
+    console.error('Error fetching video:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch video',
+    });
+  }
+});
+
+// Videos endpoint using real database data
+app.get('/api/v1/videos', async (req, res) => {
+  try {
+    const { page = 1, limit = 20 } = req.query;
+    const offset = (Number(page) - 1) * Number(limit);
+    
+    // Get videos from database using Prisma
+    const videos = await prisma.video.findMany({
+      where: {
+        isPublic: true,
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            username: true,
+            firstName: true,
+            lastName: true,
+            avatarUrl: true,
+            isVerified: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+      skip: offset,
+      take: Number(limit),
+    });
+
+    // Convert to camelCase and serialize BigInt for JSON
+    const serializedVideos = videos.map(video => ({
+      id: video.id,
+      userId: video.userId,
+      title: video.title,
+      description: video.description,
+      videoUrl: video.videoUrl,
+      thumbnailUrl: video.thumbnailUrl,
+      duration: video.duration,
+      fileSize: video.fileSize ? video.fileSize.toString() : null,
+      quality: video.quality,
+      views: video.views,
+      likes: video.likes,
+      comments: video.comments,
+      shares: video.shares,
+      isPublic: video.isPublic,
+      createdAt: video.createdAt.toISOString(),
+      updatedAt: video.updatedAt.toISOString(),
+      user: video.user ? {
+        id: video.user.id,
+        username: video.user.username,
+        firstName: video.user.firstName,
+        lastName: video.user.lastName,
+        avatarUrl: video.user.avatarUrl,
+        isVerified: video.user.isVerified,
+      } : null,
+    }));
+
+    res.json({
+      success: true,
+      data: serializedVideos,
+      pagination: {
+        page: Number(page),
+        limit: Number(limit),
+        total: videos.length,
+      },
+    });
+  } catch (error) {
+    console.error('Error fetching videos:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch videos',
+    });
+  }
+});
+
+// Get comments for content (video or post)
+app.get('/api/v1/social/comments', async (req, res) => {
+  try {
+    const { contentId, contentType } = req.query;
+    
+    if (!contentId || !contentType) {
+      res.status(400).json({
+        success: false,
+        message: 'contentId and contentType are required',
+      });
+      return;
+    }
+    
+    // Get comments from database using Prisma
+    const comments = await prisma.comment.findMany({
+      where: {
+        contentId: String(contentId),
+        contentType: String(contentType).toUpperCase() as any,
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            username: true,
+            firstName: true,
+            lastName: true,
+            avatarUrl: true,
+            isVerified: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+
+    // Convert to camelCase
+    const serializedComments = comments.map(comment => ({
+      id: comment.id,
+      userId: comment.userId,
+      contentId: comment.contentId,
+      contentType: comment.contentType,
+      content: comment.content,
+      likes: comment.likes,
+      parentCommentId: comment.parentId,
+      createdAt: comment.createdAt.toISOString(),
+      updatedAt: comment.updatedAt.toISOString(),
+      username: comment.user.firstName && comment.user.lastName 
+        ? `${comment.user.firstName} ${comment.user.lastName}`
+        : comment.user.username,
+      userAvatar: comment.user.avatarUrl,
+      isVerified: comment.user.isVerified,
+    }));
+
+    res.json({
+      success: true,
+      data: serializedComments,
+    });
+  } catch (error) {
+    console.error('Error fetching comments:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch comments',
+    });
+  }
+});
+
+// Community posts endpoint using real database data
+app.get('/api/v1/community/posts', async (req, res) => {
+  try {
+    const { page = 1, limit = 20 } = req.query;
+    const offset = (Number(page) - 1) * Number(limit);
+    
+    // Get community posts from database using Prisma
+    const posts = await prisma.communityPost.findMany({
+      where: {
+        isPublic: true,
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            username: true,
+            firstName: true,
+            lastName: true,
+            avatarUrl: true,
+            isVerified: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+      skip: offset,
+      take: Number(limit),
+    });
+
+    res.json({
+      success: true,
+      data: posts,
+      pagination: {
+        page: Number(page),
+        limit: Number(limit),
+        total: posts.length,
+      },
+    });
+  } catch (error) {
+    console.error('Error fetching community posts:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch community posts',
+    });
+  }
 });
 
 // Socket.io connection handling
@@ -342,7 +548,7 @@ app.use((err: any, _req: express.Request, res: express.Response, _next: express.
 const startServer = async () => {
   try {
     console.log('🚀 Starting Blue Video API server in LOCAL DEVELOPMENT mode...');
-    console.log('📊 Mock database mode - Prisma ready for production');
+    console.log('📊 Using real database data with Prisma');
     console.log('🔧 Redis disabled for local testing');
     
     server.listen(PORT, () => {
@@ -355,8 +561,9 @@ const startServer = async () => {
       console.log(`   GET  /api/v1/test - Test endpoint`);
       console.log(`   POST /api/v1/auth/login - Mock login`);
       console.log(`   POST /api/v1/auth/register - Mock registration`);
+      console.log(`   GET  /api/v1/videos - Real videos from database`);
       console.log(`   POST /api/v1/videos/upload - Mock video upload`);
-      console.log(`   GET  /api/v1/community/posts - Mock community posts`);
+      console.log(`   GET  /api/v1/community/posts - Real community posts from database`);
       console.log(`\n🔌 WebSocket ready for real-time features`);
     });
   } catch (error) {

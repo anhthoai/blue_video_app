@@ -107,11 +107,19 @@ class VideoCard extends ConsumerWidget {
                         ),
                       ),
                       const SizedBox(width: 8),
-                      Text(authorName ?? 'Username'),
-                      const Spacer(),
+                      Expanded(
+                        child: Text(
+                          authorName ?? 'Username',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
                       Text(
-                        duration ?? '2h ago',
-                        style: Theme.of(context).textTheme.bodySmall,
+                        _formatViewCount(viewCount),
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: Colors.grey[600],
+                            ),
                       ),
                     ],
                   ),
@@ -204,7 +212,8 @@ class VideoCard extends ConsumerWidget {
           ClipRRect(
             borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
             child: CachedNetworkImage(
-              imageUrl: 'https://picsum.photos/400/225?random=$videoId',
+              imageUrl: thumbnailUrl ??
+                  'https://picsum.photos/400/225?random=$videoId',
               width: double.infinity,
               height: double.infinity,
               fit: BoxFit.cover,
@@ -223,6 +232,28 @@ class VideoCard extends ConsumerWidget {
             ),
           ),
 
+          // Duration Overlay (bottom-right corner)
+          if (duration != null)
+            Positioned(
+              bottom: 8,
+              right: 8,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.8),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  duration!,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ),
+
           // Play Button Overlay
           Center(
             child: Container(
@@ -236,27 +267,6 @@ class VideoCard extends ConsumerWidget {
                 Icons.play_arrow,
                 color: Colors.white,
                 size: 32,
-              ),
-            ),
-          ),
-
-          // Duration Badge
-          Positioned(
-            bottom: 8,
-            right: 8,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-              decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.7),
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: const Text(
-                '2:30',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                ),
               ),
             ),
           ),
@@ -306,6 +316,12 @@ class VideoCard extends ConsumerWidget {
     } else {
       return count.toString();
     }
+  }
+
+  String _formatViewCount(int? count) {
+    if (count == null || count == 0) return '0 views';
+    final formatted = _formatCount(count);
+    return '$formatted views';
   }
 
   void _showCommentsSection(BuildContext context) {

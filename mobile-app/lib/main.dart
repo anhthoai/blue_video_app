@@ -7,8 +7,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'core/theme/app_theme.dart';
 import 'core/router/app_router.dart';
 import 'core/services/storage_service.dart';
-import 'core/services/mock_auth_service.dart';
-import 'core/services/test_data_service.dart';
+import 'core/services/auth_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -26,13 +25,16 @@ void main() async {
   await StorageService.init();
   // await NotificationService.init(); // Disabled for testing (requires Firebase)
 
-  // Initialize Mock AuthService (no Firebase required)
+  // Initialize AuthService
   final prefs = await SharedPreferences.getInstance();
-  final authService = MockAuthService(prefs);
+  final authService = AuthService(prefs);
+
+  // Clear any stored user to force login screen
+  await authService.clearStoredUser();
 
   runApp(ProviderScope(
     overrides: [
-      mockAuthServiceProvider.overrideWithValue(authService),
+      authServiceProvider.overrideWithValue(authService),
     ],
     child: const BlueVideoApp(),
   ));
@@ -45,11 +47,7 @@ class BlueVideoApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final router = ref.watch(routerProvider);
 
-    // Initialize test data on first build
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      TestDataService.populateMockData(ref);
-      TestDataService.printTestInstructions();
-    });
+    // App is ready to use real API
 
     return MaterialApp.router(
       title: 'Blue Video App',

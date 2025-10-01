@@ -23,6 +23,24 @@ class VideoModel {
   final String? location;
   final Map<String, dynamic>? metadata;
 
+  // User information
+  final String? username;
+  final String? firstName;
+  final String? lastName;
+  final String? userAvatarUrl;
+  final bool? isUserVerified;
+
+  // Display name (firstName + lastName or username)
+  String get displayName {
+    if (firstName != null && firstName!.isNotEmpty) {
+      if (lastName != null && lastName!.isNotEmpty) {
+        return '$firstName $lastName';
+      }
+      return firstName!;
+    }
+    return username ?? 'User $userId';
+  }
+
   const VideoModel({
     required this.id,
     required this.userId,
@@ -45,6 +63,11 @@ class VideoModel {
     this.isPaid = false,
     this.location,
     this.metadata,
+    this.username,
+    this.firstName,
+    this.lastName,
+    this.userAvatarUrl,
+    this.isUserVerified,
   });
 
   // Copy with method
@@ -70,6 +93,11 @@ class VideoModel {
     bool? isPaid,
     String? location,
     Map<String, dynamic>? metadata,
+    String? username,
+    String? firstName,
+    String? lastName,
+    String? userAvatarUrl,
+    bool? isUserVerified,
   }) {
     return VideoModel(
       id: id ?? this.id,
@@ -93,6 +121,11 @@ class VideoModel {
       isPaid: isPaid ?? this.isPaid,
       location: location ?? this.location,
       metadata: metadata ?? this.metadata,
+      username: username ?? this.username,
+      firstName: firstName ?? this.firstName,
+      lastName: lastName ?? this.lastName,
+      userAvatarUrl: userAvatarUrl ?? this.userAvatarUrl,
+      isUserVerified: isUserVerified ?? this.isUserVerified,
     );
   }
 
@@ -120,11 +153,19 @@ class VideoModel {
       'isPaid': isPaid,
       'location': location,
       'metadata': metadata,
+      'username': username,
+      'firstName': firstName,
+      'lastName': lastName,
+      'userAvatarUrl': userAvatarUrl,
+      'isUserVerified': isUserVerified,
     };
   }
 
   // Create from JSON
   factory VideoModel.fromJson(Map<String, dynamic> json) {
+    // Parse user data if available
+    final userData = json['user'] as Map<String, dynamic>?;
+
     return VideoModel(
       id: json['id'] as String,
       userId: json['userId'] as String,
@@ -133,17 +174,17 @@ class VideoModel {
       videoUrl: json['videoUrl'] as String,
       thumbnailUrl: json['thumbnailUrl'] as String?,
       duration: json['duration'] as int? ?? 0,
-      viewCount: json['viewCount'] as int? ?? 0,
-      likeCount: json['likeCount'] as int? ?? 0,
-      commentCount: json['commentCount'] as int? ?? 0,
-      shareCount: json['shareCount'] as int? ?? 0,
+      viewCount: json['viewCount'] as int? ?? json['views'] as int? ?? 0,
+      likeCount: json['likeCount'] as int? ?? json['likes'] as int? ?? 0,
+      commentCount:
+          json['commentCount'] as int? ?? json['comments'] as int? ?? 0,
+      shareCount: json['shareCount'] as int? ?? json['shares'] as int? ?? 0,
       isPublic: json['isPublic'] as bool? ?? true,
       isFeatured: json['isFeatured'] as bool? ?? false,
       createdAt: DateTime.parse(json['createdAt'] as String),
-      updatedAt:
-          json['updatedAt'] != null
-              ? DateTime.parse(json['updatedAt'] as String)
-              : null,
+      updatedAt: json['updatedAt'] != null
+          ? DateTime.parse(json['updatedAt'] as String)
+          : null,
       tags:
           json['tags'] != null ? List<String>.from(json['tags'] as List) : null,
       category: json['category'] as String?,
@@ -151,6 +192,14 @@ class VideoModel {
       isPaid: json['isPaid'] as bool? ?? false,
       location: json['location'] as String?,
       metadata: json['metadata'] as Map<String, dynamic>?,
+      username: userData?['username'] as String? ?? json['username'] as String?,
+      firstName:
+          userData?['firstName'] as String? ?? json['firstName'] as String?,
+      lastName: userData?['lastName'] as String? ?? json['lastName'] as String?,
+      userAvatarUrl:
+          userData?['avatarUrl'] as String? ?? json['userAvatarUrl'] as String?,
+      isUserVerified:
+          userData?['isVerified'] as bool? ?? json['isUserVerified'] as bool?,
     );
   }
 

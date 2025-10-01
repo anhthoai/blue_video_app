@@ -1,11 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:go_router/go_router.dart';
 
-class TrendingVideos extends StatelessWidget {
+import '../core/services/video_service.dart';
+import '../models/video_model.dart';
+
+class TrendingVideos extends ConsumerWidget {
   const TrendingVideos({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final videosAsync = ref.watch(videoListProvider);
+
     return Container(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -18,8 +25,8 @@ class TrendingVideos extends StatelessWidget {
               Text(
                 'Trending Now',
                 style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
+                      fontWeight: FontWeight.bold,
+                    ),
               ),
               TextButton(
                 onPressed: () {
@@ -33,22 +40,33 @@ class TrendingVideos extends StatelessWidget {
           const SizedBox(height: 12),
 
           // Trending Videos List
-          SizedBox(
-            height: 200,
-            child: ListView.builder(
-              scrollDirection: Axis.horizontal,
-              itemCount: 5, // Replace with actual trending video count
-              itemBuilder: (context, index) {
-                return _buildTrendingVideoCard(context, index);
-              },
+          videosAsync.when(
+            data: (videos) {
+              final trendingVideos = videos.take(10).toList();
+              return SizedBox(
+                height: 200,
+                child: ListView.builder(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: trendingVideos.length,
+                  itemBuilder: (context, index) {
+                    return _buildTrendingVideoCard(
+                        context, trendingVideos[index]);
+                  },
+                ),
+              );
+            },
+            loading: () => const SizedBox(
+              height: 200,
+              child: Center(child: CircularProgressIndicator()),
             ),
+            error: (_, __) => const SizedBox.shrink(),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildTrendingVideoCard(BuildContext context, int index) {
+  Widget _buildTrendingVideoCard(BuildContext context, VideoModel video) {
     return Container(
       width: 160,
       margin: const EdgeInsets.only(right: 12),
@@ -57,7 +75,7 @@ class TrendingVideos extends StatelessWidget {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         child: InkWell(
           onTap: () {
-            // Navigate to video detail
+            context.go('/main/video/${video.id}/player');
           },
           borderRadius: BorderRadius.circular(12),
           child: Column(
@@ -71,25 +89,24 @@ class TrendingVideos extends StatelessWidget {
                 child: Stack(
                   children: [
                     CachedNetworkImage(
-                      imageUrl: 'https://picsum.photos/160/120?random=$index',
+                      imageUrl:
+                          video.thumbnailUrl ?? 'https://picsum.photos/160/120',
                       width: 160,
                       height: 120,
                       fit: BoxFit.cover,
-                      placeholder:
-                          (context, url) => Container(
-                            color: Colors.grey[300],
-                            child: const Center(
-                              child: CircularProgressIndicator(),
-                            ),
-                          ),
-                      errorWidget:
-                          (context, url, error) => Container(
-                            color: Colors.grey[300],
-                            child: const Icon(
-                              Icons.video_library,
-                              color: Colors.grey,
-                            ),
-                          ),
+                      placeholder: (context, url) => Container(
+                        color: Colors.grey[300],
+                        child: const Center(
+                          child: CircularProgressIndicator(),
+                        ),
+                      ),
+                      errorWidget: (context, url, error) => Container(
+                        color: Colors.grey[300],
+                        child: const Icon(
+                          Icons.video_library,
+                          color: Colors.grey,
+                        ),
+                      ),
                     ),
 
                     // Play Button Overlay
@@ -119,9 +136,9 @@ class TrendingVideos extends StatelessWidget {
                           color: Colors.black.withOpacity(0.7),
                           borderRadius: BorderRadius.circular(4),
                         ),
-                        child: const Text(
-                          '2:30',
-                          style: TextStyle(
+                        child: Text(
+                          video.formattedDuration,
+                          style: const TextStyle(
                             color: Colors.white,
                             fontSize: 10,
                             fontWeight: FontWeight.w500,
@@ -135,30 +152,34 @@ class TrendingVideos extends StatelessWidget {
 
               // Video Info
               Padding(
-                padding: const EdgeInsets.all(8),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     // Title
                     Text(
-                      'Trending Video ${index + 1}',
+                      video.title,
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
+                            fontWeight: FontWeight.w600,
+                            fontSize: 12,
+                          ),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
 
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 2),
 
                     // Views
                     Text(
-                      '${(index + 1) * 1000}K views',
+                      video.formattedViewCount,
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Theme.of(
-                          context,
-                        ).colorScheme.onSurface.withOpacity(0.6),
-                      ),
+                            color: Theme.of(context)
+                                .colorScheme
+                                .onSurface
+                                .withOpacity(0.6),
+                            fontSize: 11,
+                          ),
                     ),
                   ],
                 ),

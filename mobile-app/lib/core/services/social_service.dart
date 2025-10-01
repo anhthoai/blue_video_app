@@ -4,6 +4,7 @@ import '../../models/comment_model.dart';
 import '../../models/like_model.dart';
 import '../../models/user_model.dart';
 import '../../models/video_model.dart';
+import 'api_service.dart';
 
 class SocialService {
   // Like a video, comment, or user
@@ -427,6 +428,8 @@ class SocialServiceState {
 
 // Social service notifier
 class SocialServiceNotifier extends StateNotifier<SocialServiceState> {
+  final ApiService _apiService = ApiService();
+
   SocialServiceNotifier() : super(const SocialServiceState());
 
   Future<void> likeItem({
@@ -515,34 +518,44 @@ class SocialServiceNotifier extends StateNotifier<SocialServiceState> {
     try {
       state = state.copyWith(isLoading: true, error: null);
 
-      // Generate mock comments directly to avoid circular dependencies
-      final comments = List.generate(10, (index) {
-        final isReply = index % 3 == 0;
-        return CommentModel(
-          id: 'comment_${videoId}_$index',
-          videoId: videoId,
-          userId: 'user_${index % 5}',
-          username: 'User ${index % 5}',
-          userAvatar: 'https://picsum.photos/50/50?random=$index',
-          content: isReply
-              ? 'This is a reply to a comment $index'
-              : 'This is a sample comment $index for video $videoId',
-          timestamp: DateTime.now().subtract(Duration(minutes: index * 5)),
-          likes: (index * 3) % 50,
-          isLiked: index % 2 == 0,
-          parentCommentId: isReply ? 'comment_${videoId}_${index - 1}' : null,
-        );
-      });
+      // Load comments from API
+      final response = await _apiService.getComments(
+        contentId: videoId,
+        contentType: 'video',
+      );
+
+      final comments = <CommentModel>[];
+      if (response['success'] == true && response['data'] != null) {
+        final commentsData = response['data'] as List;
+        for (var commentData in commentsData) {
+          comments.add(CommentModel(
+            id: commentData['id'] ?? 'unknown',
+            videoId: videoId,
+            userId: commentData['userId'] ?? 'unknown',
+            username: commentData['username'] ?? 'User',
+            userAvatar: commentData['userAvatar'],
+            content: commentData['content'] ?? '',
+            timestamp: DateTime.parse(
+                commentData['createdAt'] ?? DateTime.now().toIso8601String()),
+            likes: commentData['likes'] ?? 0,
+            isLiked: commentData['isLiked'] ?? false,
+            parentCommentId: commentData['parentCommentId'],
+          ));
+        }
+      }
 
       final updatedComments =
           Map<String, List<CommentModel>>.from(state.comments);
       updatedComments[videoId] = comments;
+
+      print('Loaded ${comments.length} comments for video $videoId from API');
 
       state = state.copyWith(
         comments: updatedComments,
         isLoading: false,
       );
     } catch (e) {
+      print('Error loading comments: $e');
       state = state.copyWith(
         isLoading: false,
         error: e.toString(),

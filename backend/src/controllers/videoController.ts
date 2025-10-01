@@ -1,17 +1,14 @@
 import { Request, Response } from 'express';
-import { VideoModel } from '../models/Video';
-import { pool } from '../config/database';
 import { StorageService } from '../config/storage';
 import { AuthRequest } from '../middleware/auth';
+import { prisma } from '../lib/prisma';
 import ffmpeg from 'fluent-ffmpeg';
 import path from 'path';
 import fs from 'fs';
 
 export class VideoController {
-  private videoModel: VideoModel;
-
   constructor() {
-    this.videoModel = new VideoModel(pool);
+    // Using Prisma directly instead of VideoModel
   }
 
   /**
@@ -116,7 +113,28 @@ export class VideoController {
       const currentUserId = req.headers['x-user-id'] as string;
       
       const offset = (Number(page) - 1) * Number(limit);
-      const videos = await this.videoModel.getFeed(currentUserId, Number(limit), offset);
+      
+      // Get videos using Prisma
+      const videos = await prisma.video.findMany({
+        where: {
+          isPublic: true,
+        },
+        include: {
+          user: {
+            select: {
+              id: true,
+              username: true,
+              avatarUrl: true,
+              isVerified: true,
+            },
+          },
+        },
+        orderBy: {
+          createdAt: 'desc',
+        },
+        skip: offset,
+        take: Number(limit),
+      });
 
       res.json({
         success: true,
@@ -145,7 +163,29 @@ export class VideoController {
       const currentUserId = req.headers['x-user-id'] as string;
       
       const offset = (Number(page) - 1) * Number(limit);
-      const videos = await this.videoModel.getTrending(currentUserId, Number(limit), offset);
+      
+      // Get trending videos using Prisma (ordered by views and likes)
+      const videos = await prisma.video.findMany({
+        where: {
+          isPublic: true,
+        },
+        include: {
+          user: {
+            select: {
+              id: true,
+              username: true,
+              avatarUrl: true,
+              isVerified: true,
+            },
+          },
+        },
+        orderBy: [
+          { views: 'desc' },
+          { likes: 'desc' },
+        ],
+        skip: offset,
+        take: Number(limit),
+      });
 
       res.json({
         success: true,

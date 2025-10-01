@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../core/services/mock_auth_service.dart';
+import '../../core/services/auth_service.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -227,8 +227,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     });
 
     try {
-      // Use mock auth service
-      final authService = ref.read(mockAuthServiceProvider);
+      // Use real auth service
+      final authService = ref.read(authServiceProvider);
       await authService.signInWithEmailAndPassword(
         email: _emailController.text.trim(),
         password: _passwordController.text.trim(),

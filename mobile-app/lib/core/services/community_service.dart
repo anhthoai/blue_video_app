@@ -5,7 +5,7 @@ import '../../models/video_model.dart';
 import 'api_service.dart';
 
 class CommunityService {
-  // final ApiService _apiService = ApiService(); // Will be used when implementing real API calls
+  final ApiService _apiService = ApiService();
 
   // Create a new community post
   Future<CommunityPost?> createPost({
@@ -60,7 +60,7 @@ class CommunityService {
     }
   }
 
-  // Get community posts with pagination
+  // Get community posts with pagination (from API)
   Future<List<CommunityPost>> getPosts({
     int limit = 20,
     int offset = 0,
@@ -69,55 +69,71 @@ class CommunityService {
     bool featuredOnly = false,
   }) async {
     try {
-      // In a real app, this would make an API call
-      await Future.delayed(const Duration(milliseconds: 1500));
+      final page = (offset ~/ limit) + 1;
+      final response = await _apiService.getCommunityPosts(
+        page: page,
+        limit: limit,
+        category: category,
+        search: null,
+      );
 
-      // Mock data - generate sample posts
-      return List.generate(limit, (index) {
-        final postTypes = PostType.values;
-        final postType = postTypes[index % postTypes.length];
+      if (response['success'] == true && response['data'] != null) {
+        final List<dynamic> items = response['data'];
+        return items.map((json) {
+          return CommunityPost(
+            id: json['id'] ?? '',
+            userId: json['userId'] ?? '',
+            username: json['username'] ?? 'User',
+            userAvatar: json['userAvatar'] ?? '',
+            title: json['title'],
+            content: json['content'],
+            type: _mapPostType(json['type']),
+            images: List<String>.from(json['images'] ?? const []),
+            videos: List<String>.from(json['videos'] ?? const []),
+            videoUrl: null,
+            linkUrl: json['linkUrl'],
+            linkTitle: json['linkTitle'],
+            linkDescription: json['linkDescription'],
+            linkThumbnail: json['linkThumbnail'],
+            pollData: json['pollOptions'],
+            tags: List<String>.from(json['tags'] ?? const []),
+            category: json['category'],
+            likes: json['likes'] ?? 0,
+            comments: json['comments'] ?? 0,
+            shares: json['shares'] ?? 0,
+            views: json['views'] ?? 0,
+            isLiked: false,
+            isBookmarked: false,
+            isPinned: false,
+            isFeatured: json['isFeatured'] ?? false,
+            createdAt:
+                DateTime.tryParse(json['createdAt'] ?? '') ?? DateTime.now(),
+            publishedAt:
+                DateTime.tryParse(json['createdAt'] ?? '') ?? DateTime.now(),
+          );
+        }).toList();
+      }
 
-        return CommunityPost(
-          id: 'post_$index',
-          userId: 'user_${index % 10}',
-          username: 'User ${index % 10}',
-          userAvatar: 'https://picsum.photos/50/50?random=$index',
-          title: 'Community Post $index',
-          content:
-              'This is a sample community post $index with some content to show how it looks.',
-          type: postType,
-          images: postType == PostType.media
-              ? ['https://picsum.photos/400/300?random=$index']
-              : [],
-          videos: postType == PostType.media
-              ? ['https://example.com/video$index.mp4']
-              : [],
-          videoUrl: null,
-          linkUrl: postType == PostType.link
-              ? 'https://example.com/link$index'
-              : null,
-          linkTitle: postType == PostType.link ? 'Link Title $index' : null,
-          linkDescription:
-              postType == PostType.link ? 'Link description $index' : null,
-          linkThumbnail: postType == PostType.link
-              ? 'https://picsum.photos/200/150?random=$index'
-              : null,
-          tags: ['tag${index % 5}', 'community', 'post'],
-          category: category ?? 'general',
-          likes: (index * 10) % 1000,
-          comments: (index * 5) % 100,
-          shares: (index * 3) % 50,
-          views: (index * 50) % 5000,
-          isLiked: index % 3 == 0,
-          isBookmarked: index % 4 == 0,
-          isPinned: index < 3,
-          isFeatured: index < 5,
-          createdAt: DateTime.now().subtract(Duration(hours: index)),
-        );
-      });
+      return [];
     } catch (e) {
       print('Error getting posts: $e');
       return [];
+    }
+  }
+
+  PostType _mapPostType(dynamic type) {
+    final t =
+        (type is String) ? type.toUpperCase() : type?.toString().toUpperCase();
+    switch (t) {
+      case 'TEXT':
+        return PostType.text;
+      case 'LINK':
+        return PostType.link;
+      case 'POLL':
+        return PostType.poll;
+      case 'MEDIA':
+      default:
+        return PostType.media;
     }
   }
 
@@ -525,73 +541,19 @@ class CommunityServiceNotifier extends StateNotifier<CommunityServiceState> {
     print('CommunityServiceNotifier.loadPosts called');
     try {
       state = state.copyWith(isLoading: true, error: null);
-
-      // Generate mock data directly to avoid circular dependencies
-      final posts = List.generate(20, (index) {
-        final postTypes = PostType.values;
-        final postType = postTypes[index % postTypes.length];
-
-        return CommunityPost(
-          id: 'post_$index',
-          userId: 'user_${index % 10}',
-          username: 'User ${index % 10}',
-          userAvatar: 'https://picsum.photos/50/50?random=$index',
-          title: 'Community Post $index',
-          content:
-              'This is a sample community post $index with some content to show how it looks.',
-          type: postType,
-          images: postType == PostType.media
-              ? [
-                  'https://picsum.photos/400/300?random=$index',
-                  'https://picsum.photos/400/300?random=${index + 100}',
-                ]
-              : [],
-          videos: postType == PostType.media
-              ? ['https://example.com/video$index.mp4']
-              : [],
-          videoUrl: null, // Use videos list instead
-          linkUrl: postType == PostType.link
-              ? 'https://example.com/link$index'
-              : null,
-          linkTitle: postType == PostType.link ? 'Link Title $index' : null,
-          linkDescription:
-              postType == PostType.link ? 'Link description $index' : null,
-          linkThumbnail: postType == PostType.link
-              ? 'https://picsum.photos/200/150?random=$index'
-              : null,
-          pollData: postType == PostType.poll
-              ? {
-                  'question': 'What do you think about post $index?',
-                  'options': ['Option 1', 'Option 2', 'Option 3', 'Option 4'],
-                  'votes': {
-                    'option_0': (index * 10) % 100,
-                    'option_1': (index * 15) % 100,
-                    'option_2': (index * 20) % 100,
-                    'option_3': (index * 25) % 100,
-                  },
-                }
-              : null,
-          tags: ['tag${index % 5}', 'community', 'post'],
-          category: ['general', 'tech', 'fun', 'news'][index % 4],
-          likes: (index * 50) % 1000,
-          comments: (index * 5) % 100,
-          shares: (index * 2) % 50,
-          views: (index * 100) % 5000,
-          isLiked: index % 3 == 0,
-          isBookmarked: index % 4 == 0,
-          isPinned: index < 3,
-          isFeatured: index < 5,
-          createdAt: DateTime.now().subtract(Duration(hours: index)),
-          publishedAt: DateTime.now().subtract(Duration(hours: index)),
-        );
-      });
-
-      print('Generated ${posts.length} community posts');
+      final service = CommunityService();
+      final posts = await service.getPosts(
+        limit: 20,
+        offset: 0,
+        category: category,
+        userId: userId,
+        featuredOnly: featuredOnly,
+      );
       state = state.copyWith(
         posts: posts,
         isLoading: false,
       );
-      print('Community service state updated with ${state.posts.length} posts');
+      print('Community posts loaded from API: ${state.posts.length}');
     } catch (e) {
       state = state.copyWith(
         isLoading: false,

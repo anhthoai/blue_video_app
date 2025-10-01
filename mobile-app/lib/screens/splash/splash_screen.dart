@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../core/services/mock_auth_service.dart';
+import '../../core/services/auth_service.dart';
 
 class SplashScreen extends ConsumerStatefulWidget {
   const SplashScreen({super.key});
@@ -46,7 +46,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
     await Future.delayed(const Duration(seconds: 3));
 
     if (mounted) {
-      final authService = ref.read(mockAuthServiceProvider);
+      final authService = ref.read(authServiceProvider);
 
       if (authService.isLoggedIn) {
         context.go('/main');

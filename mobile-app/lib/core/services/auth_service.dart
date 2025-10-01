@@ -1,264 +1,188 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../models/user_model.dart';
+import 'api_service.dart';
 
 class AuthService {
-  final FirebaseAuth _auth = FirebaseAuth.instance;
   final SharedPreferences _prefs;
+  final ApiService _apiService = ApiService();
+  UserModel? _currentUser;
 
-  AuthService(this._prefs);
+  AuthService(this._prefs) {
+    // Don't auto-load user to force login screen
+    // _loadUserFromPrefs();
+  }
 
-  // Getters
-  User? get currentUser => _auth.currentUser;
-  bool get isLoggedIn => currentUser != null;
-  Stream<User?> get authStateChanges => _auth.authStateChanges();
+  bool get isLoggedIn => _currentUser != null;
 
-  // Sign in with email and password
+  UserModel? get currentUser => _currentUser;
+
+  Future<void> _loadUserFromPrefs() async {
+    final userJson = _prefs.getString('current_user');
+    if (userJson != null) {
+      try {
+        _currentUser = UserModel.fromJsonString(userJson);
+      } catch (e) {
+        print('Error loading user from prefs: $e');
+        await _clearStoredUser();
+      }
+    }
+  }
+
+  Future<void> _saveUserToPrefs() async {
+    if (_currentUser != null) {
+      await _prefs.setString('current_user', _currentUser!.toJsonString());
+    } else {
+      await _prefs.remove('current_user');
+    }
+  }
+
+  Future<void> _clearStoredUser() async {
+    _currentUser = null;
+    await _prefs.remove('current_user');
+    await _prefs.remove('access_token');
+    await _prefs.remove('refresh_token');
+  }
+
+  Future<void> clearStoredUser() async {
+    await _clearStoredUser();
+  }
+
   Future<UserModel?> signInWithEmailAndPassword({
     required String email,
     required String password,
   }) async {
     try {
-      final credential = await _auth.signInWithEmailAndPassword(
-        email: email,
-        password: password,
-      );
+      final response = await _apiService.login(email, password);
 
-      if (credential.user != null) {
-        return await _getUserModel(credential.user!);
+      if (response['success'] == true && response['data'] != null) {
+        final userData = response['data']['user'];
+        _currentUser = UserModel(
+          id: userData['id'] ?? 'unknown',
+          email: userData['email'] ?? email,
+          username: userData['username'] ?? 'User',
+          bio: userData['bio'],
+          avatarUrl: userData['avatarUrl'],
+          isVerified: userData['isVerified'] ?? false,
+          createdAt: DateTime.parse(
+              userData['createdAt'] ?? DateTime.now().toIso8601String()),
+        );
+        await _saveUserToPrefs();
+        return _currentUser;
       }
       return null;
     } catch (e) {
-      throw Exception('Sign in failed: $e');
+      print('Login error: $e');
+      return null;
     }
   }
 
-  // Register with email and password
   Future<UserModel?> registerWithEmailAndPassword({
     required String email,
     required String password,
     required String username,
-    String? phoneNumber,
   }) async {
     try {
-      final credential = await _auth.createUserWithEmailAndPassword(
+      final response = await _apiService.register(
+        username: username,
         email: email,
         password: password,
       );
 
-      if (credential.user != null) {
-        // Update display name
-        await credential.user!.updateDisplayName(username);
-
-        // Create user model
-        final userModel = UserModel(
-          id: credential.user!.uid,
-          email: email,
-          username: username,
-          phoneNumber: phoneNumber,
-          createdAt: DateTime.now(),
-          isVerified: false,
-          isVip: false,
-          vipLevel: 0,
-          coinBalance: 0,
-          followerCount: 0,
-          followingCount: 0,
-          videoCount: 0,
-          likeCount: 0,
+      if (response['success'] == true && response['data'] != null) {
+        final userData = response['data']['user'];
+        _currentUser = UserModel(
+          id: userData['id'] ?? 'unknown',
+          email: userData['email'] ?? email,
+          username: userData['username'] ?? username,
+          bio: userData['bio'],
+          avatarUrl: userData['avatarUrl'],
+          isVerified: userData['isVerified'] ?? false,
+          createdAt: DateTime.parse(
+              userData['createdAt'] ?? DateTime.now().toIso8601String()),
         );
-
-        // Save user data
-        await _saveUserModel(userModel);
-
-        return userModel;
+        await _saveUserToPrefs();
+        return _currentUser;
       }
       return null;
     } catch (e) {
-      throw Exception('Registration failed: $e');
+      print('Registration error: $e');
+      return null;
     }
   }
 
-  // Sign in with phone number
-  Future<void> signInWithPhoneNumber({
-    required String phoneNumber,
-    required String verificationId,
-    required String smsCode,
-  }) async {
-    try {
-      final credential = PhoneAuthProvider.credential(
-        verificationId: verificationId,
-        smsCode: smsCode,
-      );
-
-      await _auth.signInWithCredential(credential);
-    } catch (e) {
-      throw Exception('Phone sign in failed: $e');
-    }
-  }
-
-  // Send phone verification code
-  Future<String> sendPhoneVerificationCode(String phoneNumber) async {
-    try {
-      String verificationId = '';
-      await _auth.verifyPhoneNumber(
-        phoneNumber: phoneNumber,
-        verificationCompleted: (PhoneAuthCredential credential) async {
-          await _auth.signInWithCredential(credential);
-        },
-        verificationFailed: (FirebaseAuthException e) {
-          throw Exception('Verification failed: ${e.message}');
-        },
-        codeSent: (String id, int? resendToken) {
-          verificationId = id;
-          _prefs.setString('verification_id', id);
-          if (resendToken != null) {
-            _prefs.setInt('resend_token', resendToken);
-          }
-        },
-        codeAutoRetrievalTimeout: (String id) {
-          verificationId = id;
-          _prefs.setString('verification_id', id);
-        },
-      );
-      return verificationId;
-    } catch (e) {
-      throw Exception('Failed to send verification code: $e');
-    }
-  }
-
-  // Sign out
   Future<void> signOut() async {
     try {
-      await _auth.signOut();
-      await _prefs.clear();
+      await _apiService.logout();
     } catch (e) {
-      throw Exception('Sign out failed: $e');
+      print('Logout API error: $e');
     }
+    await _clearStoredUser();
   }
 
-  // Reset password
   Future<void> resetPassword(String email) async {
     try {
-      await _auth.sendPasswordResetEmail(email: email);
+      // TODO: Implement password reset API call
+      print('Password reset requested for $email');
     } catch (e) {
-      throw Exception('Password reset failed: $e');
+      print('Password reset error: $e');
     }
   }
 
-  // Sign in with Google
-  Future<UserModel?> signInWithGoogle() async {
-    try {
-      // Note: This requires google_sign_in package
-      // For now, we'll create a placeholder implementation
-      throw UnimplementedError('Google sign-in not implemented yet');
-    } catch (e) {
-      throw Exception('Google sign-in failed: $e');
-    }
-  }
-
-  // Sign in with Apple
-  Future<UserModel?> signInWithApple() async {
-    try {
-      // Note: This requires sign_in_with_apple package
-      // For now, we'll create a placeholder implementation
-      throw UnimplementedError('Apple sign-in not implemented yet');
-    } catch (e) {
-      throw Exception('Apple sign-in failed: $e');
-    }
-  }
-
-  // Update user profile
-  Future<void> updateUserProfile({
+  Future<UserModel?> updateUserProfile({
     String? username,
     String? bio,
     String? avatarUrl,
   }) async {
-    try {
-      final user = currentUser;
-      if (user != null) {
-        if (username != null) {
-          await user.updateDisplayName(username);
-        }
+    if (_currentUser != null) {
+      try {
+        final response = await _apiService.updateUserProfile(
+          firstName: null,
+          lastName: null,
+          bio: bio,
+          avatarUrl: avatarUrl,
+        );
 
-        // Update local user model
-        final userModel = await getCurrentUserModel();
-        if (userModel != null) {
-          final updatedModel = userModel.copyWith(
-            username: username ?? userModel.username,
-            bio: bio ?? userModel.bio,
-            avatarUrl: avatarUrl ?? userModel.avatarUrl,
+        if (response['success'] == true && response['data'] != null) {
+          final userData = response['data'];
+          _currentUser = UserModel(
+            id: userData['id'] ?? _currentUser!.id,
+            email: userData['email'] ?? _currentUser!.email,
+            username:
+                userData['username'] ?? username ?? _currentUser!.username,
+            bio: userData['bio'] ?? bio,
+            avatarUrl: userData['avatarUrl'] ?? avatarUrl,
+            isVerified: userData['isVerified'] ?? _currentUser!.isVerified,
+            createdAt: _currentUser!.createdAt,
+            updatedAt: DateTime.now(),
           );
-          await _saveUserModel(updatedModel);
+          await _saveUserToPrefs();
+          return _currentUser;
         }
+      } catch (e) {
+        print('Profile update error: $e');
       }
-    } catch (e) {
-      throw Exception('Profile update failed: $e');
     }
+    return _currentUser;
   }
 
-  // Get current user model
-  Future<UserModel?> getCurrentUserModel() async {
-    try {
-      final userJson = _prefs.getString('user_model');
-      if (userJson != null) {
-        return UserModel.fromJsonString(userJson);
-      }
-      return null;
-    } catch (e) {
-      return null;
-    }
-  }
-
-  // Private methods
-  Future<UserModel> _getUserModel(User user) async {
-    // Try to get existing user model
-    final existingModel = await getCurrentUserModel();
-    if (existingModel != null) {
-      return existingModel;
-    }
-
-    // Create new user model
-    final userModel = UserModel(
-      id: user.uid,
-      email: user.email ?? '',
-      username: user.displayName ?? 'User',
-      avatarUrl: user.photoURL,
-      createdAt: DateTime.now(),
-      isVerified: user.emailVerified,
-      isVip: false,
-      vipLevel: 0,
-      coinBalance: 0,
-      followerCount: 0,
-      followingCount: 0,
-      videoCount: 0,
-      likeCount: 0,
-    );
-
-    await _saveUserModel(userModel);
-    return userModel;
-  }
-
-  Future<void> _saveUserModel(UserModel userModel) async {
-    await _prefs.setString('user_model', userModel.toJsonString());
+  Stream<UserModel?> get authStateChanges {
+    return Stream.value(_currentUser);
   }
 }
 
-// Provider
+// Provider for auth service
 final authServiceProvider = Provider<AuthService>((ref) {
-  // This will be initialized in main.dart
-  throw UnimplementedError('AuthService must be initialized in main.dart');
+  throw UnimplementedError('AuthService requires SharedPreferences');
 });
 
-// Auth state provider
-final authStateProvider = StreamProvider<User?>((ref) {
+final authStateProvider = StreamProvider<UserModel?>((ref) async* {
   final authService = ref.watch(authServiceProvider);
-  return authService.authStateChanges;
+  yield* authService.authStateChanges;
 });
 
-// Current user provider
-final currentUserProvider = FutureProvider<UserModel?>((ref) async {
+final currentUserProvider = Provider<UserModel?>((ref) {
   final authService = ref.watch(authServiceProvider);
-  return await authService.getCurrentUserModel();
+  return authService.currentUser;
 });

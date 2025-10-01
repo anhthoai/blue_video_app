@@ -82,6 +82,22 @@ class VideoService {
     }
   }
 
+  // Get single video by ID
+  Future<VideoModel?> getVideoById(String videoId) async {
+    try {
+      final response = await _apiService.getVideoById(videoId);
+
+      if (response['success'] == true && response['data'] != null) {
+        return VideoModel.fromJson(response['data'] as Map<String, dynamic>);
+      }
+      return null;
+    } catch (e) {
+      print('Error getting video by ID: $e');
+      print('Error details: ${e.toString()}');
+      return null;
+    }
+  }
+
   // Get videos with pagination
   Future<List<VideoModel>> getVideos({
     int page = 1,
@@ -100,9 +116,59 @@ class VideoService {
       if (response['success'] == true && response['data'] != null) {
         final videosData = response['data'] as List;
         return videosData.map((videoData) {
+          return VideoModel.fromJson(videoData as Map<String, dynamic>);
+        }).toList();
+      }
+      return [];
+    } catch (e) {
+      print('Error getting videos: $e');
+      print('Error details: ${e.toString()}');
+      return [];
+    }
+  }
+
+  // Get trending videos
+  Future<List<VideoModel>> getTrendingVideos({
+    int limit = 10,
+    String? category,
+  }) async {
+    try {
+      final response = await _apiService.getVideos(
+        page: 1,
+        limit: limit,
+        category: category,
+      );
+
+      if (response['success'] == true && response['data'] != null) {
+        final videosData = response['data'] as List;
+        return videosData.map((videoData) {
+          return VideoModel.fromJson(videoData as Map<String, dynamic>);
+        }).toList();
+      }
+      return [];
+    } catch (e) {
+      print('Error getting trending videos: $e');
+      return [];
+    }
+  }
+
+  // Get user videos
+  Future<List<VideoModel>> getUserVideos(String userId) async {
+    try {
+      final response = await _apiService.getVideos(
+        page: 1,
+        limit: 20,
+      );
+
+      if (response['success'] == true && response['data'] != null) {
+        final videosData = response['data'] as List;
+        // Filter videos by userId
+        final userVideos =
+            videosData.where((video) => video['userId'] == userId).toList();
+        return userVideos.map((videoData) {
           return VideoModel(
             id: videoData['id'] ?? 'unknown',
-            userId: videoData['userId'] ?? 'unknown',
+            userId: videoData['userId'] ?? userId,
             title: videoData['title'] ?? 'Untitled',
             description: videoData['description'],
             videoUrl: videoData['videoUrl'] ?? '',
@@ -123,69 +189,6 @@ class VideoService {
       }
       return [];
     } catch (e) {
-      print('Error getting videos: $e');
-      return [];
-    }
-  }
-
-  // Get trending videos
-  Future<List<VideoModel>> getTrendingVideos({
-    int limit = 10,
-    String? category,
-  }) async {
-    try {
-      // For now, return mock data
-      return List.generate(limit, (index) {
-        return VideoModel(
-          id: 'trending_video_$index',
-          userId: 'user_${index % 10}',
-          title: 'Trending Video $index',
-          description: 'This is a trending video $index',
-          videoUrl: 'https://example.com/trending_video$index.mp4',
-          thumbnailUrl: 'https://picsum.photos/400/300?random=$index',
-          duration: 120 + (index * 30),
-          viewCount: 10000 + (index * 5000),
-          likeCount: 500 + (index * 100),
-          commentCount: 50 + (index * 10),
-          shareCount: 25 + (index * 5),
-          isPublic: true,
-          isFeatured: true,
-          createdAt: DateTime.now().subtract(Duration(hours: index)),
-          tags: ['trending', 'viral', 'popular'],
-          category: category ?? 'general',
-        );
-      });
-    } catch (e) {
-      print('Error getting trending videos: $e');
-      return [];
-    }
-  }
-
-  // Get user videos
-  Future<List<VideoModel>> getUserVideos(String userId) async {
-    try {
-      // Mock implementation
-      return List.generate(10, (index) {
-        return VideoModel(
-          id: 'user_video_$index',
-          userId: userId,
-          title: 'User Video $index',
-          description: 'This is user video $index',
-          videoUrl: 'https://example.com/user_video$index.mp4',
-          thumbnailUrl: 'https://picsum.photos/400/300?random=$index',
-          duration: 60 + (index * 30),
-          viewCount: 1000 + (index * 100),
-          likeCount: 50 + (index * 10),
-          commentCount: 5 + index,
-          shareCount: 2 + index,
-          isPublic: true,
-          isFeatured: false,
-          createdAt: DateTime.now().subtract(Duration(days: index)),
-          tags: ['user', 'personal'],
-          category: 'general',
-        );
-      });
-    } catch (e) {
       print('Error getting user videos: $e');
       return [];
     }
@@ -194,9 +197,8 @@ class VideoService {
   // Delete video
   Future<bool> deleteVideo(String videoId) async {
     try {
-      // Mock implementation
-      await Future.delayed(const Duration(seconds: 1));
-      return true;
+      final response = await _apiService.deleteVideo(videoId);
+      return response['success'] == true;
     } catch (e) {
       print('Error deleting video: $e');
       return false;
@@ -213,26 +215,38 @@ class VideoService {
     bool? isPublic,
   }) async {
     try {
-      // Mock implementation
-      await Future.delayed(const Duration(seconds: 1));
-      return VideoModel(
-        id: videoId,
-        userId: 'current_user',
-        title: title ?? 'Updated Video',
+      final response = await _apiService.updateVideo(
+        videoId: videoId,
+        title: title,
         description: description,
-        videoUrl: 'https://example.com/video.mp4',
-        thumbnailUrl: 'https://picsum.photos/400/300?random=1',
-        duration: 120,
-        viewCount: 1000,
-        likeCount: 50,
-        commentCount: 10,
-        shareCount: 5,
-        isPublic: isPublic ?? true,
-        isFeatured: false,
-        createdAt: DateTime.now(),
-        tags: tags ?? [],
-        category: category ?? 'general',
+        tags: tags,
+        category: category,
+        isPublic: isPublic,
       );
+
+      if (response['success'] == true && response['data'] != null) {
+        final videoData = response['data'];
+        return VideoModel(
+          id: videoData['id'] ?? videoId,
+          userId: videoData['userId'] ?? 'unknown',
+          title: videoData['title'] ?? title ?? 'Updated Video',
+          description: videoData['description'] ?? description,
+          videoUrl: videoData['videoUrl'] ?? '',
+          thumbnailUrl: videoData['thumbnailUrl'],
+          duration: videoData['duration'],
+          viewCount: videoData['viewCount'] ?? 0,
+          likeCount: videoData['likeCount'] ?? 0,
+          commentCount: videoData['commentCount'] ?? 0,
+          shareCount: videoData['shareCount'] ?? 0,
+          isPublic: videoData['isPublic'] ?? isPublic ?? true,
+          isFeatured: videoData['isFeatured'] ?? false,
+          createdAt: DateTime.parse(
+              videoData['createdAt'] ?? DateTime.now().toIso8601String()),
+          tags: List<String>.from(videoData['tags'] ?? tags ?? []),
+          category: videoData['category'] ?? category ?? 'general',
+        );
+      }
+      return null;
     } catch (e) {
       print('Error updating video: $e');
       return null;

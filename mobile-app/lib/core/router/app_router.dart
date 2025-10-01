@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../services/mock_auth_service.dart';
+import '../services/auth_service.dart';
 import '../../screens/splash/splash_screen.dart';
 import '../../screens/auth/login_screen.dart';
 import '../../screens/auth/register_screen.dart';
@@ -23,7 +23,7 @@ final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
     initialLocation: '/splash',
     redirect: (context, state) async {
-      final authService = ref.read(mockAuthServiceProvider);
+      final authService = ref.read(authServiceProvider);
 
       final isLoggedIn = authService.isLoggedIn;
       final isOnAuthScreen = state.uri.path.startsWith('/auth');

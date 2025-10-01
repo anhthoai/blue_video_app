@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/services/auth_service.dart';
+
 class RegisterScreen extends ConsumerStatefulWidget {
   const RegisterScreen({super.key});
 
@@ -322,11 +324,21 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     });
 
     try {
-      // Simulate registration
-      await Future.delayed(const Duration(seconds: 2));
+      // Use real auth service
+      final authService = ref.read(authServiceProvider);
+      final user = await authService.registerWithEmailAndPassword(
+        username: _usernameController.text.trim(),
+        email: _emailController.text.trim(),
+        password: _passwordController.text.trim(),
+      );
 
-      if (mounted) {
+      if (user != null && mounted) {
         context.go('/main');
+      } else if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content: Text('Registration failed. Please try again.')),
+        );
       }
     } catch (e) {
       if (mounted) {

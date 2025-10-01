@@ -455,6 +455,49 @@ class ApiService {
     return _handleResponse(response);
   }
 
+  // Get single video by ID
+  Future<Map<String, dynamic>> getVideoById(String videoId) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/videos/$videoId'),
+      headers: await _getHeaders(),
+    );
+
+    return _handleResponse(response);
+  }
+
+  // Video management APIs
+  Future<Map<String, dynamic>> updateVideo({
+    required String videoId,
+    String? title,
+    String? description,
+    List<String>? tags,
+    String? category,
+    bool? isPublic,
+  }) async {
+    final response = await http.put(
+      Uri.parse('$baseUrl/videos/$videoId'),
+      headers: await _getHeaders(),
+      body: json.encode({
+        'title': title,
+        'description': description,
+        'tags': tags,
+        'category': category,
+        'isPublic': isPublic,
+      }),
+    );
+
+    return _handleResponse(response);
+  }
+
+  Future<Map<String, dynamic>> deleteVideo(String videoId) async {
+    final response = await http.delete(
+      Uri.parse('$baseUrl/videos/$videoId'),
+      headers: await _getHeaders(),
+    );
+
+    return _handleResponse(response);
+  }
+
   // Health check
   Future<Map<String, dynamic>> healthCheck() async {
     final response = await http.get(
