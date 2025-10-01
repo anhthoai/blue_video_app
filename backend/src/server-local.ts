@@ -7,6 +7,9 @@ import rateLimit from 'express-rate-limit';
 import dotenv from 'dotenv';
 import { createServer } from 'http';
 import { Server as SocketIOServer } from 'socket.io';
+import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
+import { emailService } from './services/emailService';
 import prisma from './lib/prisma';
 
 // Load environment variables
@@ -82,71 +85,343 @@ app.get('/api/v1/test', (_req, res) => {
   });
 });
 
-// Mock authentication endpoint
-app.post('/api/v1/auth/login', (req, res) => {
-  const { email, password } = req.body;
-  
-  if (!email || !password) {
-    res.status(400).json({
-      success: false,
-      message: 'Email and password are required',
-    });
-    return;
-  }
+// Real authentication endpoint
+app.post('/api/v1/auth/login', async (req, res) => {
+  try {
+    const { email, password, rememberMe } = req.body;
+    
+    if (!email || !password) {
+      res.status(400).json({
+        success: false,
+        message: 'Email and password are required',
+      });
+      return;
+    }
 
-  // Mock successful login
-  res.json({
-    success: true,
-    message: 'Login successful (Mock)',
-    data: {
-      user: {
-        id: 'mock-user-id',
-        username: 'testuser',
-        email: email,
-        firstName: 'Test',
-        lastName: 'User',
-        avatarUrl: null,
-        isVerified: false,
-        createdAt: new Date().toISOString(),
+    // Find user by email
+    const user = await prisma.user.findUnique({
+      where: { email },
+    });
+
+    if (!user) {
+      res.status(401).json({
+        success: false,
+        message: 'Invalid email or password',
+      });
+      return;
+    }
+
+    // Verify password
+    const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
+
+    if (!isPasswordValid) {
+      res.status(401).json({
+        success: false,
+        message: 'Invalid email or password',
+      });
+      return;
+    }
+
+    // Check if user is active
+    if (!user.isActive) {
+      res.status(403).json({
+        success: false,
+        message: 'Account is disabled',
+      });
+      return;
+    }
+
+    // Generate tokens
+    const accessTokenExpiry = rememberMe ? '30d' : '24h';
+    const accessToken = jwt.sign(
+      { userId: user.id, email: user.email, role: user.role },
+      process.env['JWT_SECRET'] || 'your-secret-key',
+      { expiresIn: accessTokenExpiry }
+    );
+
+    const refreshToken = jwt.sign(
+      { userId: user.id },
+      process.env['REFRESH_TOKEN_SECRET'] || 'your-refresh-secret',
+      { expiresIn: '90d' }
+    );
+
+    // Return user data and tokens
+    res.json({
+      success: true,
+      message: 'Login successful',
+      data: {
+        user: {
+          id: user.id,
+          username: user.username,
+          email: user.email,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          bio: user.bio,
+          avatarUrl: user.avatarUrl,
+          role: user.role,
+          isVerified: user.isVerified,
+          createdAt: user.createdAt.toISOString(),
+        },
+        accessToken,
+        refreshToken,
       },
-      accessToken: 'mock-access-token',
-      refreshToken: 'mock-refresh-token',
-    },
-  });
+    });
+  } catch (error) {
+    console.error('Login error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Login failed',
+    });
+  }
 });
 
-// Mock user registration
-app.post('/api/v1/auth/register', (req, res) => {
-  const { username, email, password, firstName, lastName, bio } = req.body;
-  
-  if (!username || !email || !password) {
-    res.status(400).json({
-      success: false,
-      message: 'Username, email, and password are required',
-    });
-    return;
-  }
+// Real user registration  
+app.post('/api/v1/auth/register', async (req, res) => {
+  try {
+    const { username, email, password, firstName, lastName, bio } = req.body;
+    
+    if (!username || !email || !password) {
+      res.status(400).json({
+        success: false,
+        message: 'Username, email, and password are required',
+      });
+      return;
+    }
 
-  // Mock successful registration
-  res.status(201).json({
-    success: true,
-    message: 'User registered successfully (Mock)',
-    data: {
-      user: {
-        id: 'mock-user-id',
+    // Check if user already exists
+    const existingUser = await prisma.user.findFirst({
+      where: {
+        OR: [
+          { email },
+          { username },
+        ],
+      },
+    });
+
+    if (existingUser) {
+      res.status(409).json({
+        success: false,
+        message: existingUser.email === email 
+          ? 'Email already registered' 
+          : 'Username already taken',
+      });
+      return;
+    }
+
+    // Check if this is the first user (make them admin)
+    const userCount = await prisma.user.count();
+    const isFirstUser = userCount === 0;
+
+    // Hash password
+    const passwordHash = await bcrypt.hash(password, 10);
+
+    // Create user
+    const newUser = await prisma.user.create({
+      data: {
         username,
         email,
+        passwordHash,
         firstName,
         lastName,
         bio,
-        avatarUrl: null,
-        isVerified: false,
-        createdAt: new Date().toISOString(),
+        role: isFirstUser ? 'ADMIN' : 'USER',
+        isVerified: isFirstUser, // Auto-verify admin
       },
-      accessToken: 'mock-access-token',
-      refreshToken: 'mock-refresh-token',
-    },
-  });
+    });
+
+    // Generate tokens
+    const accessToken = jwt.sign(
+      { userId: newUser.id, email: newUser.email, role: newUser.role },
+      process.env['JWT_SECRET'] || 'your-secret-key',
+      { expiresIn: '24h' }
+    );
+
+    const refreshToken = jwt.sign(
+      { userId: newUser.id },
+      process.env['REFRESH_TOKEN_SECRET'] || 'your-refresh-secret',
+      { expiresIn: '90d' }
+    );
+
+    console.log(`✅ New user registered: ${email} ${isFirstUser ? '(ADMIN)' : ''}`);
+
+    res.status(201).json({
+      success: true,
+      message: `Registration successful${isFirstUser ? ' - You are the first user and have been granted admin privileges!' : ''}`,
+      data: {
+        user: {
+          id: newUser.id,
+          username: newUser.username,
+          email: newUser.email,
+          firstName: newUser.firstName,
+          lastName: newUser.lastName,
+          bio: newUser.bio,
+          avatarUrl: newUser.avatarUrl,
+          role: newUser.role,
+          isVerified: newUser.isVerified,
+          createdAt: newUser.createdAt.toISOString(),
+        },
+        accessToken,
+        refreshToken,
+      },
+    });
+  } catch (error) {
+    console.error('Registration error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Registration failed',
+    });
+  }
+});
+
+// Logout endpoint
+app.post('/api/v1/auth/logout', async (_req, res) => {
+  try {
+    // In a real app, you might invalidate the token in a blacklist
+    res.json({
+      success: true,
+      message: 'Logout successful',
+    });
+  } catch (error) {
+    console.error('Logout error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Logout failed',
+    });
+  }
+});
+
+// Forgot password endpoint
+app.post('/api/v1/auth/forgot-password', async (req, res) => {
+  try {
+    const { email } = req.body;
+    
+    console.log(`🔐 Password reset requested for: ${email}`);
+    
+    if (!email) {
+      console.log('❌ No email provided');
+      res.status(400).json({
+        success: false,
+        message: 'Email is required',
+      });
+      return;
+    }
+
+    // Find user by email
+    const user = await prisma.user.findUnique({
+      where: { email },
+    });
+
+    if (!user) {
+      // Don't reveal if user exists or not for security
+      console.log(`⚠️  User not found for email: ${email}`);
+      res.json({
+        success: true,
+        message: 'If an account with that email exists, a password reset link has been sent.',
+      });
+      return;
+    }
+
+    console.log(`✅ User found: ${user.username} (${user.id})`);
+
+    // Generate reset token (valid for 1 hour)
+    const resetToken = jwt.sign(
+      { userId: user.id, email: user.email, type: 'password_reset' },
+      process.env['JWT_SECRET'] || 'your-secret-key',
+      { expiresIn: '1h' }
+    );
+
+    console.log(`🎫 Reset token generated: ${resetToken.substring(0, 20)}...`);
+
+    // Send email with reset link
+    if (emailService.isEmailConfigured()) {
+      console.log('📧 Attempting to send email...');
+      const emailSent = await emailService.sendPasswordResetEmail(email, resetToken);
+      if (emailSent) {
+        console.log(`✅ Password reset email sent to: ${email}`);
+      } else {
+        console.log(`⚠️  Failed to send email, but token generated`);
+      }
+    } else {
+      console.log('⚠️  Email service not configured, showing token in development mode');
+    }
+
+    // Always log token for testing in development
+    if (process.env['NODE_ENV'] === 'development') {
+      console.log(`\n${'='.repeat(80)}`);
+      console.log(`📧 PASSWORD RESET TOKEN (Development Mode)`);
+      console.log(`${'='.repeat(80)}`);
+      console.log(`Email: ${email}`);
+      console.log(`Token: ${resetToken}`);
+      console.log(`Reset Link: ${process.env['FRONTEND_URL'] || 'http://localhost:8080'}/auth/reset-password?token=${resetToken}`);
+      console.log(`${'='.repeat(80)}\n`);
+    }
+
+    res.json({
+      success: true,
+      message: 'If an account with that email exists, a password reset link has been sent.',
+      // In development, return the token for testing
+      ...(process.env['NODE_ENV'] === 'development' && { resetToken }),
+    });
+  } catch (error) {
+    console.error('❌ Forgot password error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Password reset request failed',
+    });
+  }
+});
+
+// Reset password endpoint
+app.post('/api/v1/auth/reset-password', async (req, res) => {
+  try {
+    const { token, newPassword } = req.body;
+    
+    if (!token || !newPassword) {
+      res.status(400).json({
+        success: false,
+        message: 'Token and new password are required',
+      });
+      return;
+    }
+
+    // Verify reset token
+    const decoded = jwt.verify(
+      token,
+      process.env['JWT_SECRET'] || 'your-secret-key'
+    ) as { userId: string; type: string };
+
+    if (decoded.type !== 'password_reset') {
+      res.status(400).json({
+        success: false,
+        message: 'Invalid reset token',
+      });
+      return;
+    }
+
+    // Hash new password
+    const passwordHash = await bcrypt.hash(newPassword, 10);
+
+    // Update user password
+    await prisma.user.update({
+      where: { id: decoded.userId },
+      data: { passwordHash },
+    });
+
+    console.log(`✅ Password reset successful for user: ${decoded.userId}`);
+
+    res.json({
+      success: true,
+      message: 'Password reset successful',
+    });
+  } catch (error) {
+    console.error('Reset password error:', error);
+    res.status(400).json({
+      success: false,
+      message: error instanceof jwt.JsonWebTokenError 
+        ? 'Invalid or expired reset token'
+        : 'Password reset failed',
+    });
+  }
 });
 
 // Mock video upload endpoint

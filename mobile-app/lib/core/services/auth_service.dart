@@ -10,8 +10,8 @@ class AuthService {
   UserModel? _currentUser;
 
   AuthService(this._prefs) {
-    // Don't auto-load user to force login screen
-    // _loadUserFromPrefs();
+    // Load saved user if "Remember me" was checked
+    _loadUserFromPrefs();
   }
 
   bool get isLoggedIn => _currentUser != null;
@@ -52,12 +52,16 @@ class AuthService {
   Future<UserModel?> signInWithEmailAndPassword({
     required String email,
     required String password,
+    bool rememberMe = false,
   }) async {
     try {
-      final response = await _apiService.login(email, password);
+      final response =
+          await _apiService.login(email, password, rememberMe: rememberMe);
 
       if (response['success'] == true && response['data'] != null) {
         final userData = response['data']['user'];
+        final tokens = response['data'];
+
         _currentUser = UserModel(
           id: userData['id'] ?? 'unknown',
           email: userData['email'] ?? email,
@@ -68,7 +72,16 @@ class AuthService {
           createdAt: DateTime.parse(
               userData['createdAt'] ?? DateTime.now().toIso8601String()),
         );
-        await _saveUserToPrefs();
+
+        // Save tokens
+        await _prefs.setString('access_token', tokens['accessToken'] ?? '');
+        await _prefs.setString('refresh_token', tokens['refreshToken'] ?? '');
+
+        // Save user if remember me is checked
+        if (rememberMe) {
+          await _saveUserToPrefs();
+        }
+
         return _currentUser;
       }
       return null;
@@ -92,6 +105,8 @@ class AuthService {
 
       if (response['success'] == true && response['data'] != null) {
         final userData = response['data']['user'];
+        final tokens = response['data'];
+
         _currentUser = UserModel(
           id: userData['id'] ?? 'unknown',
           email: userData['email'] ?? email,
@@ -102,6 +117,12 @@ class AuthService {
           createdAt: DateTime.parse(
               userData['createdAt'] ?? DateTime.now().toIso8601String()),
         );
+
+        // Save tokens
+        await _prefs.setString('access_token', tokens['accessToken'] ?? '');
+        await _prefs.setString('refresh_token', tokens['refreshToken'] ?? '');
+
+        // Always save user after registration
         await _saveUserToPrefs();
         return _currentUser;
       }
@@ -121,12 +142,23 @@ class AuthService {
     await _clearStoredUser();
   }
 
-  Future<void> resetPassword(String email) async {
+  Future<bool> forgotPassword(String email) async {
     try {
-      // TODO: Implement password reset API call
-      print('Password reset requested for $email');
+      final response = await _apiService.forgotPassword(email);
+      return response['success'] == true;
     } catch (e) {
-      print('Password reset error: $e');
+      print('Forgot password error: $e');
+      return false;
+    }
+  }
+
+  Future<bool> resetPassword(String token, String newPassword) async {
+    try {
+      final response = await _apiService.resetPassword(token, newPassword);
+      return response['success'] == true;
+    } catch (e) {
+      print('Reset password error: $e');
+      return false;
     }
   }
 

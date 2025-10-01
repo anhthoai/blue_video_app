@@ -56,13 +56,15 @@ class ApiService {
   }
 
   // Authentication APIs
-  Future<Map<String, dynamic>> login(String email, String password) async {
+  Future<Map<String, dynamic>> login(String email, String password,
+      {bool rememberMe = false}) async {
     final response = await http.post(
       Uri.parse('$baseUrl/auth/login'),
       headers: await _getHeaders(),
       body: json.encode({
         'email': email,
         'password': password,
+        'rememberMe': rememberMe,
       }),
     );
 
@@ -115,6 +117,32 @@ class ApiService {
 
   Future<void> logout() async {
     await clearTokens();
+  }
+
+  Future<Map<String, dynamic>> forgotPassword(String email) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/auth/forgot-password'),
+      headers: await _getHeaders(),
+      body: json.encode({
+        'email': email,
+      }),
+    );
+
+    return _handleResponse(response);
+  }
+
+  Future<Map<String, dynamic>> resetPassword(
+      String token, String newPassword) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/auth/reset-password'),
+      headers: await _getHeaders(),
+      body: json.encode({
+        'token': token,
+        'newPassword': newPassword,
+      }),
+    );
+
+    return _handleResponse(response);
   }
 
   // Community Posts APIs

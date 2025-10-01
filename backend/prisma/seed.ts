@@ -20,7 +20,27 @@ async function main() {
 
   // Create sample users
   console.log('👥 Creating sample users...');
+  
+  // First user - Admin account
+  const adminUser = await prisma.user.create({
+    data: {
+      username: 'admin',
+      email: 'admin@example.com',
+      passwordHash: await bcrypt.hash('123456', 10),
+      firstName: 'Admin',
+      lastName: 'User',
+      bio: 'Platform administrator',
+      avatarUrl: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face',
+      isVerified: true,
+      isActive: true,
+      role: 'ADMIN',
+    },
+  });
+  
+  console.log('✅ Created admin user: admin@example.com / 123456');
+  
   const users = await Promise.all([
+    Promise.resolve(adminUser), // Include admin in users array
     prisma.user.create({
       data: {
         username: 'alex_creator',

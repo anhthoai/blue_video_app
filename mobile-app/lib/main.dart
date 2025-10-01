@@ -29,9 +29,6 @@ void main() async {
   final prefs = await SharedPreferences.getInstance();
   final authService = AuthService(prefs);
 
-  // Clear any stored user to force login screen
-  await authService.clearStoredUser();
-
   runApp(ProviderScope(
     overrides: [
       authServiceProvider.overrideWithValue(authService),

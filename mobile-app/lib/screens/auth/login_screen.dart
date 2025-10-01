@@ -17,6 +17,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _passwordController = TextEditingController();
   bool _isLoading = false;
   bool _obscurePassword = true;
+  bool _rememberMe = false;
 
   @override
   void dispose() {
@@ -126,7 +127,31 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   },
                 ),
 
-                const SizedBox(height: 24),
+                const SizedBox(height: 16),
+
+                // Remember Me & Forgot Password Row
+                Row(
+                  children: [
+                    Checkbox(
+                      value: _rememberMe,
+                      onChanged: (value) {
+                        setState(() {
+                          _rememberMe = value ?? false;
+                        });
+                      },
+                    ),
+                    const Text('Remember me'),
+                    const Spacer(),
+                    TextButton(
+                      onPressed: () {
+                        context.go('/auth/forgot-password');
+                      },
+                      child: const Text('Forgot Password?'),
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 16),
 
                 // Login Button
                 SizedBox(
@@ -140,16 +165,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           )
                         : const Text('Sign In'),
                   ),
-                ),
-
-                const SizedBox(height: 16),
-
-                // Forgot Password
-                TextButton(
-                  onPressed: () {
-                    // Navigate to forgot password
-                  },
-                  child: const Text('Forgot Password?'),
                 ),
 
                 const SizedBox(height: 24),
@@ -229,19 +244,24 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     try {
       // Use real auth service
       final authService = ref.read(authServiceProvider);
-      await authService.signInWithEmailAndPassword(
+      final user = await authService.signInWithEmailAndPassword(
         email: _emailController.text.trim(),
         password: _passwordController.text.trim(),
+        rememberMe: _rememberMe,
       );
 
-      if (mounted) {
+      if (user != null && mounted) {
         context.go('/main');
+      } else if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Login failed: Invalid credentials')),
+        );
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Login failed: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Login failed: $e')),
+        );
       }
     } finally {
       if (mounted) {
