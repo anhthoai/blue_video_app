@@ -10,6 +10,7 @@ import { Server as SocketIOServer } from 'socket.io';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { emailService } from './services/emailService';
+import { upload, deleteFromS3 } from './services/s3Service';
 import prisma from './lib/prisma';
 
 // Load environment variables
@@ -597,6 +598,626 @@ app.get('/api/v1/videos', async (req, res) => {
   }
 });
 
+// Helper function to get user ID from JWT token
+const getCurrentUserId = async (req: any): Promise<string | null> => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    console.log('No authorization header found');
+    return null;
+  }
+  
+  try {
+    const token = authHeader.substring(7);
+    const decoded = jwt.verify(token, process.env['JWT_SECRET'] || 'your-secret-key') as any;
+    console.log('JWT decoded:', decoded);
+    const userId = decoded.userId || decoded.id || null;
+    console.log('Extracted user ID from JWT:', userId);
+    
+    // Validate that the user actually exists in the database
+    if (userId) {
+      const userExists = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { id: true, username: true },
+      });
+      
+      if (userExists) {
+        console.log('JWT user exists in database:', userExists);
+        return userId;
+      } else {
+        console.log('JWT user does not exist in database - user should be signed out');
+        return null;
+      }
+    }
+    
+    return null;
+  } catch (error) {
+    console.log('JWT verification failed:', error);
+    return null;
+  }
+};
+
+
+// Get user profile by ID
+app.get('/api/v1/users/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const currentUserId = await getCurrentUserId(req);
+    
+    // If no valid user, return 401 to trigger sign out
+    if (!currentUserId) {
+      res.status(401).json({
+        success: false,
+        message: 'Authentication required - please sign in again',
+      });
+      return;
+    }
+    
+    console.log(`🔍 Fetching profile for user: ${userId}`);
+    
+    // Get user from database using Prisma
+    const user = await prisma.user.findUnique({
+      where: {
+        id: userId,
+      },
+      select: {
+        id: true,
+        username: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        bio: true,
+        avatarUrl: true,
+        isVerified: true,
+        role: true,
+        createdAt: true,
+        updatedAt: true,
+        _count: {
+          select: {
+            followers: true,
+            following: true,
+            videos: true,
+          },
+        },
+      },
+    });
+
+    // Manually count followers as backup
+    const manualFollowersCount = await prisma.follow.count({
+      where: {
+        followingId: userId,
+      },
+    });
+    
+    const manualFollowingCount = await prisma.follow.count({
+      where: {
+        followerId: userId,
+      },
+    });
+    
+    const manualVideosCount = await prisma.video.count({
+      where: {
+        userId: userId,
+      },
+    });
+
+    if (!user) {
+      console.log(`❌ User not found: ${userId}`);
+      res.status(404).json({
+        success: false,
+        message: 'User not found',
+      });
+      return;
+    }
+
+    // Check if current user is following this user
+    let isFollowing = false;
+    let isBlocked = false;
+    
+    if (currentUserId) {
+      const followRelation = await prisma.follow.findUnique({
+        where: {
+          followerId_followingId: {
+            followerId: currentUserId,
+            followingId: userId,
+          },
+        },
+      });
+      isFollowing = !!followRelation;
+
+      const blockRelation = await prisma.userBlock.findUnique({
+        where: {
+          blockerId_blockedId: {
+            blockerId: currentUserId,
+            blockedId: userId,
+          },
+        },
+      });
+      isBlocked = !!blockRelation;
+    }
+
+    console.log(`✅ User found: ${user.username} (${user.id})`);
+    console.log(`📊 Prisma _count - Followers: ${user._count.followers}, Following: ${user._count.following}, Videos: ${user._count.videos}`);
+    console.log(`📊 Manual count - Followers: ${manualFollowersCount}, Following: ${manualFollowingCount}, Videos: ${manualVideosCount}`);
+    console.log(`👥 Current user ${currentUserId} isFollowing: ${isFollowing}`);
+
+    // Use manual counts as they are more reliable
+    const serializedUser = {
+      id: user.id,
+      username: user.username,
+      email: user.email,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      bio: user.bio,
+      avatarUrl: user.avatarUrl,
+      isVerified: user.isVerified,
+      role: user.role,
+      followersCount: manualFollowersCount,
+      followingCount: manualFollowingCount,
+      videosCount: manualVideosCount,
+      isFollowing,
+      isBlocked,
+      createdAt: user.createdAt.toISOString(),
+      updatedAt: user.updatedAt.toISOString(),
+    };
+
+    res.json({
+      success: true,
+      data: serializedUser,
+    });
+  } catch (error) {
+    console.error('Error fetching user profile:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch user profile',
+    });
+  }
+});
+
+// Report user
+app.post('/api/v1/users/:userId/report', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { reason, description } = req.body;
+    const reporterId = await getCurrentUserId(req);
+    
+    // If no valid user, return 401 to trigger sign out
+    if (!reporterId) {
+      res.status(401).json({
+        success: false,
+        message: 'Authentication required - please sign in again',
+      });
+      return;
+    }
+    
+    console.log(`🚨 User report: ${userId} - ${reason} by user: ${reporterId}`);
+    
+    if (!reason) {
+      res.status(400).json({
+        success: false,
+        message: 'Report reason is required',
+      });
+      return;
+    }
+
+    // Check if user exists
+    const reportedUser = await prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!reportedUser) {
+      res.status(404).json({
+        success: false,
+        message: 'User not found',
+      });
+      return;
+    }
+
+    // Check if user is trying to report themselves
+    if (reporterId === userId) {
+      res.status(400).json({
+        success: false,
+        message: 'Cannot report yourself',
+      });
+      return;
+    }
+
+    // Create the report in database
+    const report = await prisma.userReport.create({
+      data: {
+        reporterId,
+        reportedId: userId,
+        reason,
+        description: description || null,
+        status: 'PENDING',
+      },
+    });
+
+    console.log(`✅ Report created: ${report.id}`);
+
+    res.json({
+      success: true,
+      message: 'User reported successfully',
+      data: {
+        reportId: report.id,
+      },
+    });
+  } catch (error) {
+    console.error('Error reporting user:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to report user',
+    });
+  }
+});
+
+// Block user
+app.post('/api/v1/users/:userId/block', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const blockerId = await getCurrentUserId(req);
+    
+    // If no valid user, return 401 to trigger sign out
+    if (!blockerId) {
+      res.status(401).json({
+        success: false,
+        message: 'Authentication required - please sign in again',
+      });
+      return;
+    }
+    
+    console.log(`🚫 Blocking user: ${userId} by user: ${blockerId}`);
+
+    // Check if user exists
+    const userToBlock = await prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!userToBlock) {
+      res.status(404).json({
+        success: false,
+        message: 'User not found',
+      });
+      return;
+    }
+
+    // Check if user is trying to block themselves
+    if (blockerId === userId) {
+      res.status(400).json({
+        success: false,
+        message: 'Cannot block yourself',
+      });
+      return;
+    }
+
+    // Check if already blocked
+    const existingBlock = await prisma.userBlock.findUnique({
+      where: {
+        blockerId_blockedId: {
+          blockerId,
+          blockedId: userId,
+        },
+      },
+    });
+
+    if (existingBlock) {
+      res.status(400).json({
+        success: false,
+        message: 'User is already blocked',
+      });
+      return;
+    }
+
+    // Create the block in database
+    const block = await prisma.userBlock.create({
+      data: {
+        blockerId,
+        blockedId: userId,
+      },
+    });
+
+    // Also unfollow the user if currently following
+    await prisma.follow.deleteMany({
+      where: {
+        followerId: blockerId,
+        followingId: userId,
+      },
+    });
+
+    console.log(`✅ User blocked: ${block.id}`);
+
+    res.json({
+      success: true,
+      message: 'User blocked successfully',
+      data: {
+        blockId: block.id,
+      },
+    });
+  } catch (error) {
+    console.error('Error blocking user:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to block user',
+    });
+  }
+});
+
+// Unblock user
+app.delete('/api/v1/users/:userId/block', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const blockerId = await getCurrentUserId(req);
+    
+    // If no valid user, return 401 to trigger sign out
+    if (!blockerId) {
+      res.status(401).json({
+        success: false,
+        message: 'Authentication required - please sign in again',
+      });
+      return;
+    }
+    
+    console.log(`✅ Unblocking user: ${userId} by user: ${blockerId}`);
+
+    // Check if block exists
+    const existingBlock = await prisma.userBlock.findUnique({
+      where: {
+        blockerId_blockedId: {
+          blockerId,
+          blockedId: userId,
+        },
+      },
+    });
+
+    if (!existingBlock) {
+      res.status(404).json({
+        success: false,
+        message: 'User is not blocked',
+      });
+      return;
+    }
+
+    // Remove the block from database
+    await prisma.userBlock.delete({
+      where: {
+        id: existingBlock.id,
+      },
+    });
+
+    console.log(`✅ User unblocked: ${userId}`);
+
+    res.json({
+      success: true,
+      message: 'User unblocked successfully',
+    });
+  } catch (error) {
+    console.error('Error unblocking user:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to unblock user',
+    });
+  }
+});
+
+// Follow user
+app.post('/api/v1/users/:userId/follow', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const followerId = await getCurrentUserId(req);
+    
+    // If no valid user, return 401 to trigger sign out
+    if (!followerId) {
+      res.status(401).json({
+        success: false,
+        message: 'Authentication required - please sign in again',
+      });
+      return;
+    }
+    
+    console.log(`👥 Following user: ${userId} by user: ${followerId}`);
+    
+    // Debug: Check if both users exist
+    const followerExists = await prisma.user.findUnique({
+      where: { id: followerId },
+      select: { id: true, username: true },
+    });
+    
+    const targetUserExists = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, username: true },
+    });
+    
+    console.log(`Follower exists:`, followerExists);
+    console.log(`Target user exists:`, targetUserExists);
+    
+    if (!followerExists) {
+      res.status(400).json({
+        success: false,
+        message: 'Follower user not found',
+      });
+      return;
+    }
+    
+    if (!targetUserExists) {
+      res.status(400).json({
+        success: false,
+        message: 'Target user not found',
+      });
+      return;
+    }
+
+    // Check if user exists
+    const userToFollow = await prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!userToFollow) {
+      res.status(404).json({
+        success: false,
+        message: 'User not found',
+      });
+      return;
+    }
+
+    // Check if user is trying to follow themselves
+    if (followerId === userId) {
+      res.status(400).json({
+        success: false,
+        message: 'Cannot follow yourself',
+      });
+      return;
+    }
+
+    // Check if already following
+    const existingFollow = await prisma.follow.findUnique({
+      where: {
+        followerId_followingId: {
+          followerId,
+          followingId: userId,
+        },
+      },
+    });
+
+    if (existingFollow) {
+      res.status(400).json({
+        success: false,
+        message: 'Already following this user',
+      });
+      return;
+    }
+
+    // Check if user is blocked
+    const isBlocked = await prisma.userBlock.findFirst({
+      where: {
+        OR: [
+          {
+            blockerId: followerId,
+            blockedId: userId,
+          },
+          {
+            blockerId: userId,
+            blockedId: followerId,
+          },
+        ],
+      },
+    });
+
+    if (isBlocked) {
+      res.status(403).json({
+        success: false,
+        message: 'Cannot follow this user',
+      });
+      return;
+    }
+
+    // Create the follow relationship in database
+    const follow = await prisma.follow.create({
+      data: {
+        followerId,
+        followingId: userId,
+      },
+    });
+
+    console.log(`✅ User followed: ${follow.id}`);
+    
+    // Debug: Check the followers count after following
+    const updatedUser = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        _count: {
+          select: {
+            followers: true,
+          },
+        },
+      },
+    });
+    console.log(`📊 Followers count after follow: ${updatedUser?._count.followers}`);
+
+    res.json({
+      success: true,
+      message: 'User followed successfully',
+      data: {
+        followId: follow.id,
+      },
+    });
+  } catch (error) {
+    console.error('Error following user:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to follow user',
+    });
+  }
+});
+
+// Unfollow user
+app.delete('/api/v1/users/:userId/follow', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const followerId = await getCurrentUserId(req);
+    
+    // If no valid user, return 401 to trigger sign out
+    if (!followerId) {
+      res.status(401).json({
+        success: false,
+        message: 'Authentication required - please sign in again',
+      });
+      return;
+    }
+    
+    console.log(`👥 Unfollowing user: ${userId} by user: ${followerId}`);
+
+    // Check if follow relationship exists
+    const existingFollow = await prisma.follow.findUnique({
+      where: {
+        followerId_followingId: {
+          followerId,
+          followingId: userId,
+        },
+      },
+    });
+
+    if (!existingFollow) {
+      res.status(404).json({
+        success: false,
+        message: 'Not following this user',
+      });
+      return;
+    }
+
+    // Remove the follow relationship from database
+    await prisma.follow.delete({
+      where: {
+        id: existingFollow.id,
+      },
+    });
+
+    console.log(`✅ User unfollowed: ${userId}`);
+    
+    // Debug: Check the followers count after unfollowing
+    const updatedUser = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        _count: {
+          select: {
+            followers: true,
+          },
+        },
+      },
+    });
+    console.log(`📊 Followers count after unfollow: ${updatedUser?._count.followers}`);
+
+    res.json({
+      success: true,
+      message: 'User unfollowed successfully',
+    });
+  } catch (error) {
+    console.error('Error unfollowing user:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to unfollow user',
+    });
+  }
+});
+
 // Get comments for content (video or post)
 app.get('/api/v1/social/comments', async (req, res) => {
   try {
@@ -846,6 +1467,251 @@ const startServer = async () => {
     process.exit(1);
   }
 };
+
+// Update user profile
+app.put('/api/v1/users/profile', async (req, res) => {
+  try {
+    const currentUserId = await getCurrentUserId(req);
+    
+    // If no valid user, return 401 to trigger sign out
+    if (!currentUserId) {
+      res.status(401).json({
+        success: false,
+        message: 'Authentication required - please sign in again',
+      });
+      return;
+    }
+    
+    const { username, bio, firstName, lastName } = req.body;
+    
+    console.log(`📝 Updating profile for user: ${currentUserId}`);
+    
+    // Validate input
+    if (!username || username.trim().length < 3) {
+      res.status(400).json({
+        success: false,
+        message: 'Username must be at least 3 characters long',
+      });
+      return;
+    }
+    
+    // Check if username is already taken by another user
+    const existingUser = await prisma.user.findFirst({
+      where: {
+        username: username.trim(),
+        id: { not: currentUserId },
+      },
+    });
+    
+    if (existingUser) {
+      res.status(400).json({
+        success: false,
+        message: 'Username is already taken',
+      });
+      return;
+    }
+    
+    // Update user profile
+    const updatedUser = await prisma.user.update({
+      where: { id: currentUserId },
+      data: {
+        username: username.trim(),
+        bio: bio?.trim() || null,
+        firstName: firstName?.trim() || null,
+        lastName: lastName?.trim() || null,
+        updatedAt: new Date(),
+      },
+      select: {
+        id: true,
+        username: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        bio: true,
+        avatarUrl: true,
+        bannerUrl: true,
+        isVerified: true,
+        role: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+    
+    console.log(`✅ Profile updated for user: ${updatedUser.username}`);
+    
+    res.json({
+      success: true,
+      message: 'Profile updated successfully',
+      data: {
+        ...updatedUser,
+        createdAt: updatedUser.createdAt.toISOString(),
+        updatedAt: updatedUser.updatedAt.toISOString(),
+      },
+    });
+  } catch (error) {
+    console.error('Error updating profile:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to update profile',
+    });
+  }
+});
+
+// Upload avatar
+app.post('/api/v1/users/avatar', upload.single('avatar'), async (req, res) => {
+  try {
+    const currentUserId = await getCurrentUserId(req);
+    
+    // If no valid user, return 401 to trigger sign out
+    if (!currentUserId) {
+      res.status(401).json({
+        success: false,
+        message: 'Authentication required - please sign in again',
+      });
+      return;
+    }
+    
+    if (!req.file) {
+      res.status(400).json({
+        success: false,
+        message: 'No avatar file provided',
+      });
+      return;
+    }
+    
+    console.log(`🖼️ Uploading avatar for user: ${currentUserId}`);
+    
+    // Get current user to delete old avatar
+    const currentUser = await prisma.user.findUnique({
+      where: { id: currentUserId },
+      select: { avatarUrl: true },
+    });
+    
+    // Delete old avatar from S3 if it exists
+    if (currentUser?.avatarUrl) {
+      await deleteFromS3(currentUser.avatarUrl);
+    }
+    
+    // Update user with new avatar URL
+    const updatedUser = await prisma.user.update({
+      where: { id: currentUserId },
+      data: {
+        avatarUrl: (req.file as any).location,
+        updatedAt: new Date(),
+      },
+      select: {
+        id: true,
+        username: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        bio: true,
+        avatarUrl: true,
+        bannerUrl: true,
+        isVerified: true,
+        role: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+    
+    console.log(`✅ Avatar uploaded for user: ${updatedUser.username}`);
+    
+    res.json({
+      success: true,
+      message: 'Avatar uploaded successfully',
+      data: {
+        ...updatedUser,
+        createdAt: updatedUser.createdAt.toISOString(),
+        updatedAt: updatedUser.updatedAt.toISOString(),
+      },
+    });
+  } catch (error) {
+    console.error('Error uploading avatar:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to upload avatar',
+    });
+  }
+});
+
+// Upload banner
+app.post('/api/v1/users/banner', upload.single('banner'), async (req, res) => {
+  try {
+    const currentUserId = await getCurrentUserId(req);
+    
+    // If no valid user, return 401 to trigger sign out
+    if (!currentUserId) {
+      res.status(401).json({
+        success: false,
+        message: 'Authentication required - please sign in again',
+      });
+      return;
+    }
+    
+    if (!req.file) {
+      res.status(400).json({
+        success: false,
+        message: 'No banner file provided',
+      });
+      return;
+    }
+    
+    console.log(`🖼️ Uploading banner for user: ${currentUserId}`);
+    
+    // Get current user to delete old banner
+    const currentUser = await prisma.user.findUnique({
+      where: { id: currentUserId },
+      select: { bannerUrl: true },
+    });
+    
+    // Delete old banner from S3 if it exists
+    if (currentUser?.bannerUrl) {
+      await deleteFromS3(currentUser.bannerUrl);
+    }
+    
+    // Update user with new banner URL
+    const updatedUser = await prisma.user.update({
+      where: { id: currentUserId },
+      data: {
+        bannerUrl: (req.file as any).location,
+        updatedAt: new Date(),
+      },
+      select: {
+        id: true,
+        username: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        bio: true,
+        avatarUrl: true,
+        bannerUrl: true,
+        isVerified: true,
+        role: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+    
+    console.log(`✅ Banner uploaded for user: ${updatedUser.username}`);
+    
+    res.json({
+      success: true,
+      message: 'Banner uploaded successfully',
+      data: {
+        ...updatedUser,
+        createdAt: updatedUser.createdAt.toISOString(),
+        updatedAt: updatedUser.updatedAt.toISOString(),
+      },
+    });
+  } catch (error) {
+    console.error('Error uploading banner:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to upload banner',
+    });
+  }
+});
 
 // Start the server
 startServer();

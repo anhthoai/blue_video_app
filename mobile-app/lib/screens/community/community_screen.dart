@@ -117,7 +117,7 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
 
     if (state.posts.isEmpty) {
       return Column(
-        children: [
+          children: [
           _buildEmptyState(
             icon: Icons.article_outlined,
             title: 'No posts yet',
@@ -184,7 +184,7 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
             currentUserId: 'current_user',
             currentUsername: 'Current User',
             currentUserAvatar: 'https://picsum.photos/50/50?random=current',
-            onTap: () {
+                  onTap: () {
               // Navigate to post detail
             },
             onUserTap: () {
@@ -240,7 +240,7 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
               title: Text(video.title),
               subtitle: Text('${video.formattedViewCount} views'),
               trailing: const Icon(Icons.play_arrow),
-              onTap: () {
+                  onTap: () {
                 // Navigate to video player
               },
             ),
@@ -258,9 +258,9 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            icon,
+          children: [
+            Icon(
+              icon,
             size: 64,
             color: Colors.grey,
           ),
@@ -326,10 +326,10 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
     showModalBottomSheet(
       context: context,
       builder: (context) => Container(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
             const Text(
               'Filter Posts',
               style: TextStyle(
@@ -345,18 +345,18 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
                 trailing: _selectedCategory == category
                     ? const Icon(Icons.check, color: Colors.blue)
                     : null,
-                onTap: () {
+                  onTap: () {
                   setState(() {
                     _selectedCategory = category;
                   });
-                  Navigator.pop(context);
+                    Navigator.pop(context);
                   _loadPosts();
                 },
               );
             }),
-          ],
-        ),
-      ),
+              ],
+            ),
+          ),
     );
   }
 

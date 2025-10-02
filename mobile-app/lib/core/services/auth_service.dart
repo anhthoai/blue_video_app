@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -43,6 +44,13 @@ class AuthService {
     await _prefs.remove('current_user');
     await _prefs.remove('access_token');
     await _prefs.remove('refresh_token');
+  }
+
+  // Handle automatic sign out due to invalid authentication
+  Future<void> handleUnauthorized() async {
+    print(
+        '🔐 AuthService: User automatically signed out due to invalid authentication');
+    await _clearStoredUser();
   }
 
   Future<void> clearStoredUser() async {
@@ -162,45 +170,69 @@ class AuthService {
     }
   }
 
-  Future<UserModel?> updateUserProfile({
-    String? username,
-    String? bio,
-    String? avatarUrl,
-  }) async {
-    if (_currentUser != null) {
-      try {
-        final response = await _apiService.updateUserProfile(
-          firstName: null,
-          lastName: null,
-          bio: bio,
-          avatarUrl: avatarUrl,
-        );
-
-        if (response['success'] == true && response['data'] != null) {
-          final userData = response['data'];
-          _currentUser = UserModel(
-            id: userData['id'] ?? _currentUser!.id,
-            email: userData['email'] ?? _currentUser!.email,
-            username:
-                userData['username'] ?? username ?? _currentUser!.username,
-            bio: userData['bio'] ?? bio,
-            avatarUrl: userData['avatarUrl'] ?? avatarUrl,
-            isVerified: userData['isVerified'] ?? _currentUser!.isVerified,
-            createdAt: _currentUser!.createdAt,
-            updatedAt: DateTime.now(),
-          );
-          await _saveUserToPrefs();
-          return _currentUser;
-        }
-      } catch (e) {
-        print('Profile update error: $e');
-      }
-    }
-    return _currentUser;
-  }
-
   Stream<UserModel?> get authStateChanges {
     return Stream.value(_currentUser);
+  }
+
+  // Update user profile
+  Future<UserModel?> updateUserProfile({
+    required String username,
+    String? bio,
+    String? firstName,
+    String? lastName,
+  }) async {
+    try {
+      final response = await _apiService.updateUserProfile(
+        username: username,
+        bio: bio,
+        firstName: firstName,
+        lastName: lastName,
+      );
+
+      if (response['success'] == true && response['data'] != null) {
+        _currentUser = UserModel.fromJson(response['data']);
+        await _saveUserToPrefs();
+        return _currentUser;
+      }
+      return null;
+    } catch (e) {
+      print('Error updating profile: $e');
+      return null;
+    }
+  }
+
+  // Upload avatar
+  Future<UserModel?> uploadAvatar(String imagePath) async {
+    try {
+      final response = await _apiService.uploadAvatar(File(imagePath));
+
+      if (response['success'] == true && response['data'] != null) {
+        _currentUser = UserModel.fromJson(response['data']);
+        await _saveUserToPrefs();
+        return _currentUser;
+      }
+      return null;
+    } catch (e) {
+      print('Error uploading avatar: $e');
+      return null;
+    }
+  }
+
+  // Upload banner
+  Future<UserModel?> uploadBanner(String imagePath) async {
+    try {
+      final response = await _apiService.uploadBanner(File(imagePath));
+
+      if (response['success'] == true && response['data'] != null) {
+        _currentUser = UserModel.fromJson(response['data']);
+        await _saveUserToPrefs();
+        return _currentUser;
+      }
+      return null;
+    } catch (e) {
+      print('Error uploading banner: $e');
+      return null;
+    }
   }
 }
 

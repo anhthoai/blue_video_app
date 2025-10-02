@@ -7,6 +7,7 @@ import 'package:video_player/video_player.dart';
 import '../../models/like_model.dart';
 import '../../models/video_model.dart';
 import '../../core/services/video_service.dart';
+import '../../core/services/api_service.dart';
 import '../../widgets/social/like_button.dart';
 import '../../widgets/social/share_button.dart';
 import '../../widgets/social/comments_section.dart';
@@ -38,10 +39,107 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
   bool _isFullscreen = false;
   bool _isDescriptionExpanded = false;
 
+  // Follow functionality
+  final ApiService _apiService = ApiService();
+  bool _isFollowing = false;
+  bool _isLoadingFollow = false;
+
   @override
   void initState() {
     super.initState();
     _scrollController.addListener(_onScroll);
+  }
+
+  // Load user's follow status
+  Future<void> _loadUserFollowStatus(String userId) async {
+    try {
+      final response = await _apiService.getUserProfile(userId);
+      if (response['success'] == true && response['data'] != null) {
+        setState(() {
+          _isFollowing = response['data']['isFollowing'] ?? false;
+        });
+      }
+    } catch (e) {
+      print('Error loading follow status: $e');
+    }
+  }
+
+  // Toggle follow status
+  Future<void> _toggleFollow(String userId) async {
+    setState(() {
+      _isLoadingFollow = true;
+    });
+
+    try {
+      Map<String, dynamic> response;
+      if (_isFollowing) {
+        response = await _apiService.unfollowUser(userId);
+      } else {
+        response = await _apiService.followUser(userId);
+      }
+
+      if (response['success'] == true) {
+        setState(() {
+          _isFollowing = !_isFollowing;
+        });
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content:
+                  Text(_isFollowing ? 'Following user' : 'Unfollowed user'),
+              duration: const Duration(seconds: 2),
+            ),
+          );
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content:
+                  Text(response['message'] ?? 'Failed to update follow status'),
+              backgroundColor: Colors.red,
+              duration: const Duration(seconds: 2),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      print('Error toggling follow: $e');
+
+      // Check if it's a 401 authentication error
+      if (e.toString().contains('Authentication required')) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Your session has expired. Please sign in again.'),
+              backgroundColor: Colors.orange,
+              duration: Duration(seconds: 2),
+            ),
+          );
+
+          // Wait a moment for the message to show, then redirect
+          await Future.delayed(const Duration(milliseconds: 500));
+          if (mounted) {
+            context.pushReplacement('/auth/login');
+          }
+        }
+      } else if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Failed to update follow status'),
+            backgroundColor: Colors.red,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoadingFollow = false;
+        });
+      }
+    }
   }
 
   @override
@@ -463,6 +561,11 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
   }
 
   Widget _buildUserInfo(VideoModel video) {
+    // Load follow status when video loads
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadUserFollowStatus(video.userId);
+    });
+
     return Container(
       padding: const EdgeInsets.all(16),
       child: Row(
@@ -518,18 +621,26 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
             ),
           ),
           ElevatedButton(
-            onPressed: () {
-              // TODO: Implement follow functionality
-            },
+            onPressed:
+                _isLoadingFollow ? null : () => _toggleFollow(video.userId),
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.blue,
+              backgroundColor: _isFollowing ? Colors.grey : Colors.blue,
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(20),
               ),
             ),
-            child: const Text('Follow'),
+            child: _isLoadingFollow
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                    ),
+                  )
+                : Text(_isFollowing ? 'Following' : 'Follow'),
           ),
         ],
       ),

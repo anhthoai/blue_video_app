@@ -24,6 +24,7 @@ model User {
   lastName    String?  @map("last_name")
   bio         String?
   avatarUrl   String?  @map("avatar_url")
+  bannerUrl   String?  @map("banner_url")
   role        UserRole @default(USER)
   isVerified  Boolean  @default(false) @map("is_verified")
   isActive    Boolean  @default(true) @map("is_active")
@@ -37,6 +38,10 @@ model User {
   likes          Like[]
   followers      Follow[] @relation("UserFollowers")
   following      Follow[] @relation("UserFollowing")
+  reports        UserReport[] @relation("UserReports")
+  reported       UserReport[] @relation("UserReported")
+  blocks         UserBlock[] @relation("UserBlocks")
+  blocked        UserBlock[] @relation("UserBlocked")
   chatRooms      ChatRoom[] @relation("ChatRoomCreator")
   chatMessages   ChatMessage[]
   chatRoomParticipants ChatRoomParticipant[]
@@ -146,6 +151,37 @@ model Follow {
   @@map("follows")
 }
 
+model UserReport {
+  id          String   @id @default(uuid())
+  reporterId  String   @map("reporter_id")
+  reportedId  String   @map("reported_id")
+  reason      String
+  description String?
+  status      ReportStatus @default(PENDING)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  reporter User @relation("UserReports", fields: [reporterId], references: [id], onDelete: Cascade)
+  reported User @relation("UserReported", fields: [reportedId], references: [id], onDelete: Cascade)
+
+  @@map("user_reports")
+}
+
+model UserBlock {
+  id         String   @id @default(uuid())
+  blockerId  String   @map("blocker_id")
+  blockedId  String   @map("blocked_id")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  // Relations
+  blocker User @relation("UserBlocks", fields: [blockerId], references: [id], onDelete: Cascade)
+  blocked User @relation("UserBlocked", fields: [blockedId], references: [id], onDelete: Cascade)
+
+  @@unique([blockerId, blockedId])
+  @@map("user_blocks")
+}
+
 model ChatRoom {
   id        String   @id @default(uuid())
   name      String?
@@ -234,4 +270,13 @@ enum MessageType {
   FILE
 
   @@map("message_type")
+}
+
+enum ReportStatus {
+  PENDING
+  REVIEWED
+  RESOLVED
+  DISMISSED
+
+  @@map("report_status")
 }

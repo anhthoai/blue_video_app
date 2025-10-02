@@ -5,7 +5,10 @@ class UserModel {
   final String email;
   final String username;
   final String? phoneNumber;
+  final String? firstName;
+  final String? lastName;
   final String? avatarUrl;
+  final String? bannerUrl;
   final String? bio;
   final DateTime createdAt;
   final DateTime? updatedAt;
@@ -27,7 +30,10 @@ class UserModel {
     required this.email,
     required this.username,
     this.phoneNumber,
+    this.firstName,
+    this.lastName,
     this.avatarUrl,
+    this.bannerUrl,
     this.bio,
     required this.createdAt,
     this.updatedAt,
@@ -51,7 +57,10 @@ class UserModel {
     String? email,
     String? username,
     String? phoneNumber,
+    String? firstName,
+    String? lastName,
     String? avatarUrl,
+    String? bannerUrl,
     String? bio,
     DateTime? createdAt,
     DateTime? updatedAt,
@@ -73,7 +82,10 @@ class UserModel {
       email: email ?? this.email,
       username: username ?? this.username,
       phoneNumber: phoneNumber ?? this.phoneNumber,
+      firstName: firstName ?? this.firstName,
+      lastName: lastName ?? this.lastName,
       avatarUrl: avatarUrl ?? this.avatarUrl,
+      bannerUrl: bannerUrl ?? this.bannerUrl,
       bio: bio ?? this.bio,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
@@ -99,7 +111,10 @@ class UserModel {
       'email': email,
       'username': username,
       'phoneNumber': phoneNumber,
+      'firstName': firstName,
+      'lastName': lastName,
       'avatarUrl': avatarUrl,
+      'bannerUrl': bannerUrl,
       'bio': bio,
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt?.toIso8601String(),
@@ -125,13 +140,15 @@ class UserModel {
       email: json['email'] as String,
       username: json['username'] as String,
       phoneNumber: json['phoneNumber'] as String?,
+      firstName: json['firstName'] as String?,
+      lastName: json['lastName'] as String?,
       avatarUrl: json['avatarUrl'] as String?,
+      bannerUrl: json['bannerUrl'] as String?,
       bio: json['bio'] as String?,
       createdAt: DateTime.parse(json['createdAt'] as String),
-      updatedAt:
-          json['updatedAt'] != null
-              ? DateTime.parse(json['updatedAt'] as String)
-              : null,
+      updatedAt: json['updatedAt'] != null
+          ? DateTime.parse(json['updatedAt'] as String)
+          : null,
       isVerified: json['isVerified'] as bool? ?? false,
       isVip: json['isVip'] as bool? ?? false,
       vipLevel: json['vipLevel'] as int? ?? 0,
@@ -142,10 +159,9 @@ class UserModel {
       likeCount: json['likeCount'] as int? ?? 0,
       location: json['location'] as String?,
       website: json['website'] as String?,
-      interests:
-          json['interests'] != null
-              ? List<String>.from(json['interests'] as List)
-              : null,
+      interests: json['interests'] != null
+          ? List<String>.from(json['interests'] as List)
+          : null,
       preferences: json['preferences'] as Map<String, dynamic>?,
     );
   }

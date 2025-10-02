@@ -1,5 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:share_plus/share_plus.dart';
+
+import '../../core/services/video_service.dart';
+import '../../core/services/api_service.dart';
+import '../../models/video_model.dart';
 
 class OtherUserProfileScreen extends ConsumerStatefulWidget {
   final String userId;
@@ -16,11 +22,94 @@ class _OtherUserProfileScreenState extends ConsumerState<OtherUserProfileScreen>
   late TabController _tabController;
   bool _isFollowing = false;
   bool _isLoading = false;
+  bool _isBlocked = false;
+  int _followersCount = 0;
+  final VideoService _videoService = VideoService();
+  final ApiService _apiService = ApiService();
+  List<VideoModel> _userVideos = [];
+  bool _isLoadingVideos = false;
+  Map<String, dynamic>? _userProfile;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 4, vsync: this);
+    _loadUserProfile();
+    _loadUserVideos();
+  }
+
+  Future<void> _loadUserProfile() async {
+    try {
+      final response = await _apiService.getUserProfile(widget.userId);
+      if (response['success'] == true && response['data'] != null) {
+        setState(() {
+          _userProfile = response['data'];
+          _followersCount = response['data']['followersCount'] ?? 0;
+          _isFollowing = response['data']['isFollowing'] ?? false;
+          _isBlocked = response['data']['isBlocked'] ?? false;
+        });
+      }
+    } catch (e) {
+      print('Error loading user profile: $e');
+
+      // Check if it's a 401 authentication error
+      if (e.toString().contains('Authentication required')) {
+        if (mounted) {
+          // Show user-friendly message and redirect to login
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Your session has expired. Please sign in again.'),
+              backgroundColor: Colors.orange,
+              duration: Duration(seconds: 2),
+            ),
+          );
+
+          // Wait a moment for the message to show, then redirect
+          await Future.delayed(const Duration(milliseconds: 500));
+          if (mounted) {
+            context.pushReplacement('/auth/login');
+          }
+        }
+      }
+    }
+  }
+
+  Future<void> _loadUserVideos() async {
+    setState(() {
+      _isLoadingVideos = true;
+    });
+
+    try {
+      final videos = await _videoService.getUserVideos(widget.userId);
+      setState(() {
+        _userVideos = videos;
+      });
+    } catch (e) {
+      print('Error loading user videos: $e');
+    } finally {
+      setState(() {
+        _isLoadingVideos = false;
+      });
+    }
+  }
+
+  // Helper method to handle 401 authentication errors
+  Future<void> _handleAuthError() async {
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Your session has expired. Please sign in again.'),
+          backgroundColor: Colors.orange,
+          duration: Duration(seconds: 2),
+        ),
+      );
+
+      // Wait a moment for the message to show, then redirect
+      await Future.delayed(const Duration(milliseconds: 500));
+      if (mounted) {
+        context.pushReplacement('/auth/login');
+      }
+    }
   }
 
   @override
@@ -41,10 +130,37 @@ class _OtherUserProfileScreenState extends ConsumerState<OtherUserProfileScreen>
           // Tab Bar
           TabBar(
             controller: _tabController,
+            labelPadding: const EdgeInsets.symmetric(horizontal: 8),
+            indicatorPadding: const EdgeInsets.symmetric(horizontal: 4),
+            labelStyle: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+            ),
+            unselectedLabelStyle: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+            ),
             tabs: const [
-              Tab(text: 'Videos'),
-              Tab(text: 'Liked'),
-              Tab(text: 'Playlists'),
+              Tab(
+                icon: Icon(Icons.video_library, size: 24),
+                text: 'Videos',
+                height: 60,
+              ),
+              Tab(
+                icon: Icon(Icons.post_add, size: 24),
+                text: 'Posts',
+                height: 60,
+              ),
+              Tab(
+                icon: Icon(Icons.favorite, size: 24),
+                text: 'Liked',
+                height: 60,
+              ),
+              Tab(
+                icon: Icon(Icons.playlist_play, size: 24),
+                text: 'Playlists',
+                height: 60,
+              ),
             ],
           ),
           // Tab Content
@@ -53,6 +169,7 @@ class _OtherUserProfileScreenState extends ConsumerState<OtherUserProfileScreen>
               controller: _tabController,
               children: [
                 _buildVideosTab(),
+                _buildPostsTab(),
                 _buildLikedTab(),
                 _buildPlaylistsTab(),
               ],
@@ -64,6 +181,12 @@ class _OtherUserProfileScreenState extends ConsumerState<OtherUserProfileScreen>
   }
 
   Widget _buildOtherUserHeader() {
+    final username = _userProfile?['username'] ?? 'Loading...';
+    final avatarUrl = _userProfile?['avatarUrl'];
+    final bio = _userProfile?['bio'] ?? '';
+    final isVerified = _userProfile?['isVerified'] ?? false;
+    final isLoading = _userProfile == null;
+
     return Container(
       decoration: const BoxDecoration(
         gradient: LinearGradient(
@@ -89,6 +212,12 @@ class _OtherUserProfileScreenState extends ConsumerState<OtherUserProfileScreen>
                   ),
                   const Spacer(),
                   IconButton(
+                    icon: const Icon(Icons.share, color: Colors.white),
+                    onPressed: () {
+                      _shareProfile(username);
+                    },
+                  ),
+                  IconButton(
                     icon: const Icon(Icons.more_vert, color: Colors.white),
                     onPressed: () {
                       _showOtherUserOptions();
@@ -106,65 +235,105 @@ class _OtherUserProfileScreenState extends ConsumerState<OtherUserProfileScreen>
                   CircleAvatar(
                     radius: 40,
                     backgroundColor: Colors.white,
-                    backgroundImage: NetworkImage(
-                      'https://picsum.photos/100/100?random=${widget.userId.hashCode}',
-                    ),
-                    child: const Icon(
-                      Icons.person,
-                      size: 40,
-                      color: Colors.grey,
-                    ),
+                    backgroundImage:
+                        !isLoading && avatarUrl != null && avatarUrl.isNotEmpty
+                            ? NetworkImage(avatarUrl)
+                            : null,
+                    child: isLoading
+                        ? const CircularProgressIndicator(
+                            color: Colors.blue,
+                            strokeWidth: 2,
+                          )
+                        : (avatarUrl == null || avatarUrl.isEmpty
+                            ? const Icon(
+                                Icons.person,
+                                size: 40,
+                                color: Colors.grey,
+                              )
+                            : null),
                   ),
                   const SizedBox(height: 8),
-                  Text(
-                    'User ${widget.userId}',
-                    style: const TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      if (isLoading)
+                        const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2,
+                          ),
+                        )
+                      else ...[
+                        Text(
+                          username,
+                          style: const TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                        if (isVerified) ...[
+                          const SizedBox(width: 6),
+                          const Icon(Icons.verified,
+                              color: Colors.white, size: 18),
+                        ],
+                      ],
+                    ],
                   ),
-                  const SizedBox(height: 2),
-                  Text(
-                    '@user_${widget.userId}',
-                    style: const TextStyle(
-                      fontSize: 14,
-                      color: Colors.white70,
+                  if (bio.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      bio,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Colors.white70,
+                      ),
+                      textAlign: TextAlign.center,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                  ),
-                  const SizedBox(height: 4),
-                  const Text(
-                    'Sample bio for another user.',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.white70,
-                    ),
-                    textAlign: TextAlign.center,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
+                  ],
                   const SizedBox(height: 8),
                   // Follow/Unfollow Button
-                  ElevatedButton.icon(
-                    onPressed: _isLoading ? null : _toggleFollow,
-                    icon: Icon(
-                      _isFollowing ? Icons.person_remove : Icons.person_add,
-                      size: 16,
-                    ),
-                    label: Text(_isFollowing ? 'Following' : 'Follow'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor:
-                          _isFollowing ? Colors.white : Colors.blue,
-                      foregroundColor:
-                          _isFollowing ? Colors.blue : Colors.white,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(20),
+                  if (!_isBlocked)
+                    ElevatedButton.icon(
+                      onPressed: _isLoading ? null : _toggleFollow,
+                      icon: Icon(
+                        _isFollowing ? Icons.person_remove : Icons.person_add,
+                        size: 16,
                       ),
+                      label: Text(_isFollowing ? 'Following' : 'Follow'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor:
+                            _isFollowing ? Colors.white : Colors.blue,
+                        foregroundColor:
+                            _isFollowing ? Colors.blue : Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 6),
+                        minimumSize: const Size(0, 32),
+                      ),
+                    )
+                  else
+                    Container(
                       padding: const EdgeInsets.symmetric(
                           horizontal: 12, vertical: 6),
-                      minimumSize: const Size(0, 32),
+                      decoration: BoxDecoration(
+                        color: Colors.grey[300],
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: const Text(
+                        'Blocked',
+                        style: TextStyle(
+                          color: Colors.grey,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
                     ),
-                  ),
                   const SizedBox(height: 16),
                 ],
               ),
@@ -176,15 +345,23 @@ class _OtherUserProfileScreenState extends ConsumerState<OtherUserProfileScreen>
   }
 
   Widget _buildOtherUserStats() {
+    final totalLikes =
+        _userVideos.fold(0, (sum, video) => sum + video.likeCount);
+
     return Container(
       padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        border: Border(
+          bottom: BorderSide(color: Colors.grey[300]!),
+        ),
+      ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
-          _buildStatItem('8', 'Videos'),
-          _buildStatItem('567', 'Followers'),
-          _buildStatItem('123', 'Following'),
-          _buildStatItem('2.3K', 'Likes'),
+          _buildStatItem(_userVideos.length.toString(), 'Videos'),
+          _buildStatItem(_followersCount.toString(), 'Followers'),
+          _buildStatItem('0', 'Following'),
+          _buildStatItem(totalLikes.toString(), 'Likes'),
         ],
       ),
     );
@@ -213,65 +390,147 @@ class _OtherUserProfileScreenState extends ConsumerState<OtherUserProfileScreen>
   }
 
   Widget _buildVideosTab() {
+    if (_isLoadingVideos) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_userVideos.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.video_library_outlined,
+                size: 64, color: Colors.grey[400]),
+            const SizedBox(height: 16),
+            Text(
+              'No videos yet',
+              style: TextStyle(color: Colors.grey[600]),
+            ),
+          ],
+        ),
+      );
+    }
+
     return GridView.builder(
       padding: const EdgeInsets.all(16),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 2,
-        crossAxisSpacing: 8,
-        mainAxisSpacing: 8,
-        childAspectRatio: 0.8,
+        crossAxisSpacing: 12,
+        mainAxisSpacing: 12,
+        childAspectRatio: 0.75,
       ),
-      itemCount: 4,
+      itemCount: _userVideos.length,
       itemBuilder: (context, index) {
+        final video = _userVideos[index];
         return Card(
           clipBehavior: Clip.antiAlias,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Container(
-                  color: Colors.grey[300],
-                  child: const Center(
-                    child: Icon(
-                      Icons.play_circle_outline,
-                      size: 40,
-                      color: Colors.grey,
-                    ),
+          child: InkWell(
+            onTap: () {
+              context.push('/main/video/${video.id}/player');
+            },
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      video.thumbnailUrl != null &&
+                              video.thumbnailUrl!.isNotEmpty
+                          ? Image.network(
+                              video.thumbnailUrl!,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) => Container(
+                                color: Colors.grey[300],
+                                child:
+                                    const Icon(Icons.video_library, size: 48),
+                              ),
+                            )
+                          : Container(
+                              color: Colors.grey[300],
+                              child: const Icon(Icons.video_library, size: 48),
+                            ),
+                      Positioned(
+                        bottom: 4,
+                        right: 4,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: Colors.black87,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            video.formattedDuration,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-              ),
-              Padding(
-                padding: const EdgeInsets.all(8),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'User Video ${index + 1}',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 12,
+                Padding(
+                  padding: const EdgeInsets.all(8),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        video.title,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 12,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      '${(index + 1) * 50} views',
-                      style: TextStyle(
-                        fontSize: 10,
-                        color: Colors.grey[600],
+                      const SizedBox(height: 2),
+                      Text(
+                        video.formattedViewCount,
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: Colors.grey[600],
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         );
       },
+    );
+  }
+
+  Widget _buildPostsTab() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.post_add_outlined, size: 64, color: Colors.grey[400]),
+          const SizedBox(height: 16),
+          Text(
+            'No posts yet',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+              color: Colors.grey[600],
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'This user hasn\'t created any posts yet',
+            style: TextStyle(
+              fontSize: 14,
+              color: Colors.grey[600],
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
     );
   }
 
@@ -341,27 +600,78 @@ class _OtherUserProfileScreenState extends ConsumerState<OtherUserProfileScreen>
     );
   }
 
-  void _toggleFollow() async {
+  Future<void> _toggleFollow() async {
     setState(() {
       _isLoading = true;
     });
 
-    // Simulate API call
-    await Future.delayed(const Duration(milliseconds: 500));
+    try {
+      Map<String, dynamic> response;
+      if (_isFollowing) {
+        response = await _apiService.unfollowUser(widget.userId);
+      } else {
+        response = await _apiService.followUser(widget.userId);
+      }
 
-    setState(() {
-      _isFollowing = !_isFollowing;
-      _isLoading = false;
-    });
+      if (response['success'] == true) {
+        // Update local state immediately for UI responsiveness
+        setState(() {
+          _isFollowing = !_isFollowing;
+        });
 
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(_isFollowing ? 'Following user' : 'Unfollowed user'),
-          duration: const Duration(seconds: 2),
-        ),
-      );
+        // Refresh user profile data to get accurate counts from server
+        await _loadUserProfile();
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content:
+                  Text(_isFollowing ? 'Following user' : 'Unfollowed user'),
+              duration: const Duration(seconds: 2),
+            ),
+          );
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content:
+                  Text(response['message'] ?? 'Failed to update follow status'),
+              backgroundColor: Colors.red,
+              duration: const Duration(seconds: 2),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      print('Error toggling follow: $e');
+
+      // Check if it's a 401 authentication error
+      if (e.toString().contains('Authentication required')) {
+        await _handleAuthError();
+      } else if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Failed to update follow status'),
+            backgroundColor: Colors.red,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
+  }
+
+  void _shareProfile(String username) {
+    Share.share(
+      'Check out @$username on Blue Video App!\n\nProfile: bluevideoapp://profile/${widget.userId}',
+      subject: 'Profile of $username',
+    );
   }
 
   void _showOtherUserOptions() {
@@ -377,7 +687,8 @@ class _OtherUserProfileScreenState extends ConsumerState<OtherUserProfileScreen>
               title: const Text('Share Profile'),
               onTap: () {
                 Navigator.pop(context);
-                // TODO: Implement share functionality
+                final username = _userProfile?['username'] ?? 'User';
+                _shareProfile(username);
               },
             ),
             ListTile(
@@ -390,10 +701,14 @@ class _OtherUserProfileScreenState extends ConsumerState<OtherUserProfileScreen>
             ),
             ListTile(
               leading: const Icon(Icons.block),
-              title: const Text('Block User'),
+              title: Text(_isBlocked ? 'Unblock User' : 'Block User'),
               onTap: () {
                 Navigator.pop(context);
-                _showBlockDialog();
+                if (_isBlocked) {
+                  _showUnblockDialog();
+                } else {
+                  _showBlockDialog();
+                }
               },
             ),
           ],
@@ -403,28 +718,111 @@ class _OtherUserProfileScreenState extends ConsumerState<OtherUserProfileScreen>
   }
 
   void _showReportDialog() {
+    String selectedReason = 'Spam';
+    final TextEditingController descriptionController = TextEditingController();
+
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Report User'),
-        content: const Text('Are you sure you want to report this user?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: const Text('Report User'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Please select a reason:'),
+              const SizedBox(height: 8),
+              DropdownButtonFormField<String>(
+                value: selectedReason,
+                decoration: const InputDecoration(
+                  border: OutlineInputBorder(),
+                  contentPadding:
+                      EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                ),
+                items: const [
+                  DropdownMenuItem(value: 'Spam', child: Text('Spam')),
+                  DropdownMenuItem(
+                      value: 'Harassment', child: Text('Harassment')),
+                  DropdownMenuItem(
+                      value: 'Inappropriate Content',
+                      child: Text('Inappropriate Content')),
+                  DropdownMenuItem(
+                      value: 'Fake Account', child: Text('Fake Account')),
+                  DropdownMenuItem(value: 'Other', child: Text('Other')),
+                ],
+                onChanged: (value) {
+                  setState(() {
+                    selectedReason = value!;
+                  });
+                },
+              ),
+              const SizedBox(height: 12),
+              const Text('Additional details (optional):'),
+              const SizedBox(height: 8),
+              TextField(
+                controller: descriptionController,
+                decoration: const InputDecoration(
+                  border: OutlineInputBorder(),
+                  hintText: 'Describe the issue...',
+                ),
+                maxLines: 3,
+              ),
+            ],
           ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('User reported successfully')),
-              );
-            },
-            child: const Text('Report'),
-          ),
-        ],
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () async {
+                Navigator.pop(context);
+                await _reportUser(selectedReason, descriptionController.text);
+              },
+              child: const Text('Report'),
+            ),
+          ],
+        ),
       ),
     );
+  }
+
+  Future<void> _reportUser(String reason, String description) async {
+    try {
+      final response = await _apiService.reportUser(
+        userId: widget.userId,
+        reason: reason,
+        description: description.isEmpty ? null : description,
+      );
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(response['success'] == true
+                ? 'User reported successfully'
+                : response['message'] ?? 'Failed to report user'),
+            backgroundColor:
+                response['success'] == true ? Colors.green : Colors.red,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      print('Error reporting user: $e');
+
+      // Check if it's a 401 authentication error
+      if (e.toString().contains('Authentication required')) {
+        await _handleAuthError();
+      } else if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Failed to report user'),
+            backgroundColor: Colors.red,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    }
   }
 
   void _showBlockDialog() {
@@ -440,17 +838,133 @@ class _OtherUserProfileScreenState extends ConsumerState<OtherUserProfileScreen>
             child: const Text('Cancel'),
           ),
           TextButton(
-            onPressed: () {
+            onPressed: () async {
               Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('User blocked successfully')),
-              );
+              await _blockUser();
             },
             child: const Text('Block'),
           ),
         ],
       ),
     );
+  }
+
+  Future<void> _blockUser() async {
+    try {
+      final response = await _apiService.blockUser(widget.userId);
+
+      if (mounted) {
+        if (response['success'] == true) {
+          setState(() {
+            _isBlocked = true;
+            _isFollowing = false;
+          });
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('User blocked successfully'),
+              backgroundColor: Colors.green,
+              duration: Duration(seconds: 2),
+            ),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(response['message'] ?? 'Failed to block user'),
+              backgroundColor: Colors.red,
+              duration: const Duration(seconds: 2),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      print('Error blocking user: $e');
+
+      // Check if it's a 401 authentication error
+      if (e.toString().contains('Authentication required')) {
+        await _handleAuthError();
+      } else if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Failed to block user'),
+            backgroundColor: Colors.red,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    }
+  }
+
+  void _showUnblockDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Unblock User'),
+        content: const Text(
+            'Are you sure you want to unblock this user? You will be able to see their content again.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              await _unblockUser();
+            },
+            child: const Text('Unblock'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _unblockUser() async {
+    try {
+      final response = await _apiService.unblockUser(widget.userId);
+
+      if (mounted) {
+        if (response['success'] == true) {
+          setState(() {
+            _isBlocked = false;
+          });
+
+          // Refresh user profile data to get accurate counts
+          await _loadUserProfile();
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('User unblocked successfully'),
+              backgroundColor: Colors.green,
+              duration: Duration(seconds: 2),
+            ),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(response['message'] ?? 'Failed to unblock user'),
+              backgroundColor: Colors.red,
+              duration: const Duration(seconds: 2),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      print('Error unblocking user: $e');
+
+      // Check if it's a 401 authentication error
+      if (e.toString().contains('Authentication required')) {
+        await _handleAuthError();
+      } else if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Failed to unblock user'),
+            backgroundColor: Colors.red,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    }
   }
 }
 

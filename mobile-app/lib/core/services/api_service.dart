@@ -47,12 +47,30 @@ class ApiService {
   }
 
   // Handle API response
-  Map<String, dynamic> _handleResponse(http.Response response) {
+  Future<Map<String, dynamic>> _handleResponse(http.Response response) async {
     if (response.statusCode >= 200 && response.statusCode < 300) {
       return json.decode(response.body);
+    } else if (response.statusCode == 401) {
+      // Handle 401 Unauthorized - auto sign out
+      await _handleUnauthorized();
+      throw Exception('Authentication required - please sign in again');
     } else {
       throw Exception('API Error: ${response.statusCode} - ${response.body}');
     }
+  }
+
+  // Handle 401 Unauthorized response
+  Future<void> _handleUnauthorized() async {
+    // Clear tokens and user data
+    await clearTokens();
+
+    // Clear any stored user data
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('user_data');
+    await prefs.remove('remember_me');
+    await prefs.remove('current_user');
+
+    print('🔐 User automatically signed out due to invalid authentication');
   }
 
   // Authentication APIs
@@ -68,7 +86,7 @@ class ApiService {
       }),
     );
 
-    final data = _handleResponse(response);
+    final data = await _handleResponse(response);
 
     if (data['success'] == true && data['data'] != null) {
       final userData = data['data'];
@@ -102,7 +120,7 @@ class ApiService {
       }),
     );
 
-    final data = _handleResponse(response);
+    final data = await _handleResponse(response);
 
     if (data['success'] == true && data['data'] != null) {
       final userData = data['data'];
@@ -128,7 +146,7 @@ class ApiService {
       }),
     );
 
-    return _handleResponse(response);
+    return await _handleResponse(response);
   }
 
   Future<Map<String, dynamic>> resetPassword(
@@ -142,7 +160,7 @@ class ApiService {
       }),
     );
 
-    return _handleResponse(response);
+    return await _handleResponse(response);
   }
 
   // Community Posts APIs
@@ -169,7 +187,7 @@ class ApiService {
       headers: await _getHeaders(),
     );
 
-    return _handleResponse(response);
+    return await _handleResponse(response);
   }
 
   Future<Map<String, dynamic>> createCommunityPost({
@@ -203,7 +221,7 @@ class ApiService {
       }),
     );
 
-    return _handleResponse(response);
+    return await _handleResponse(response);
   }
 
   // Video APIs
@@ -230,7 +248,7 @@ class ApiService {
       headers: await _getHeaders(),
     );
 
-    return _handleResponse(response);
+    return await _handleResponse(response);
   }
 
   Future<Map<String, dynamic>> uploadVideo({
@@ -269,7 +287,7 @@ class ApiService {
     final streamedResponse = await request.send();
     final response = await http.Response.fromStream(streamedResponse);
 
-    return _handleResponse(response);
+    return await _handleResponse(response);
   }
 
   // User APIs
@@ -279,27 +297,7 @@ class ApiService {
       headers: await _getHeaders(),
     );
 
-    return _handleResponse(response);
-  }
-
-  Future<Map<String, dynamic>> updateUserProfile({
-    String? firstName,
-    String? lastName,
-    String? bio,
-    String? avatarUrl,
-  }) async {
-    final response = await http.put(
-      Uri.parse('$baseUrl/users/profile'),
-      headers: await _getHeaders(),
-      body: json.encode({
-        'firstName': firstName,
-        'lastName': lastName,
-        'bio': bio,
-        'avatarUrl': avatarUrl,
-      }),
-    );
-
-    return _handleResponse(response);
+    return await _handleResponse(response);
   }
 
   Future<Map<String, dynamic>> followUser(String userId) async {
@@ -308,7 +306,7 @@ class ApiService {
       headers: await _getHeaders(),
     );
 
-    return _handleResponse(response);
+    return await _handleResponse(response);
   }
 
   Future<Map<String, dynamic>> unfollowUser(String userId) async {
@@ -317,7 +315,42 @@ class ApiService {
       headers: await _getHeaders(),
     );
 
-    return _handleResponse(response);
+    return await _handleResponse(response);
+  }
+
+  Future<Map<String, dynamic>> reportUser({
+    required String userId,
+    required String reason,
+    String? description,
+  }) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/users/$userId/report'),
+      headers: await _getHeaders(),
+      body: json.encode({
+        'reason': reason,
+        'description': description,
+      }),
+    );
+
+    return await _handleResponse(response);
+  }
+
+  Future<Map<String, dynamic>> blockUser(String userId) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/users/$userId/block'),
+      headers: await _getHeaders(),
+    );
+
+    return await _handleResponse(response);
+  }
+
+  Future<Map<String, dynamic>> unblockUser(String userId) async {
+    final response = await http.delete(
+      Uri.parse('$baseUrl/users/$userId/block'),
+      headers: await _getHeaders(),
+    );
+
+    return await _handleResponse(response);
   }
 
   // Social APIs
@@ -336,7 +369,7 @@ class ApiService {
       }),
     );
 
-    return _handleResponse(response);
+    return await _handleResponse(response);
   }
 
   Future<Map<String, dynamic>> addComment({
@@ -356,7 +389,7 @@ class ApiService {
       }),
     );
 
-    return _handleResponse(response);
+    return await _handleResponse(response);
   }
 
   Future<Map<String, dynamic>> getComments({
@@ -381,7 +414,7 @@ class ApiService {
       headers: await _getHeaders(),
     );
 
-    return _handleResponse(response);
+    return await _handleResponse(response);
   }
 
   Future<Map<String, dynamic>> shareContent({
@@ -399,7 +432,7 @@ class ApiService {
       }),
     );
 
-    return _handleResponse(response);
+    return await _handleResponse(response);
   }
 
   // Chat APIs
@@ -421,7 +454,7 @@ class ApiService {
       headers: await _getHeaders(),
     );
 
-    return _handleResponse(response);
+    return await _handleResponse(response);
   }
 
   Future<Map<String, dynamic>> createChatRoom({
@@ -439,7 +472,7 @@ class ApiService {
       }),
     );
 
-    return _handleResponse(response);
+    return await _handleResponse(response);
   }
 
   Future<Map<String, dynamic>> getChatMessages({
@@ -461,7 +494,7 @@ class ApiService {
       headers: await _getHeaders(),
     );
 
-    return _handleResponse(response);
+    return await _handleResponse(response);
   }
 
   Future<Map<String, dynamic>> sendMessage({
@@ -480,7 +513,7 @@ class ApiService {
       }),
     );
 
-    return _handleResponse(response);
+    return await _handleResponse(response);
   }
 
   // Get single video by ID
@@ -490,7 +523,7 @@ class ApiService {
       headers: await _getHeaders(),
     );
 
-    return _handleResponse(response);
+    return await _handleResponse(response);
   }
 
   // Video management APIs
@@ -514,7 +547,7 @@ class ApiService {
       }),
     );
 
-    return _handleResponse(response);
+    return await _handleResponse(response);
   }
 
   Future<Map<String, dynamic>> deleteVideo(String videoId) async {
@@ -523,7 +556,7 @@ class ApiService {
       headers: await _getHeaders(),
     );
 
-    return _handleResponse(response);
+    return await _handleResponse(response);
   }
 
   // Health check
@@ -533,6 +566,73 @@ class ApiService {
       headers: await _getHeaders(),
     );
 
-    return _handleResponse(response);
+    return await _handleResponse(response);
+  }
+
+  // Update user profile
+  Future<Map<String, dynamic>> updateUserProfile({
+    required String username,
+    String? bio,
+    String? firstName,
+    String? lastName,
+  }) async {
+    final response = await http.put(
+      Uri.parse('$baseUrl/users/profile'),
+      headers: await _getHeaders(),
+      body: json.encode({
+        'username': username,
+        'bio': bio,
+        'firstName': firstName,
+        'lastName': lastName,
+      }),
+    );
+
+    return await _handleResponse(response);
+  }
+
+  // Upload avatar
+  Future<Map<String, dynamic>> uploadAvatar(File imageFile) async {
+    final token = await getAccessToken();
+    if (token == null) {
+      throw Exception('No access token available');
+    }
+
+    var request = http.MultipartRequest(
+      'POST',
+      Uri.parse('$baseUrl/users/avatar'),
+    );
+
+    request.headers['Authorization'] = 'Bearer $token';
+    request.files.add(
+      await http.MultipartFile.fromPath('avatar', imageFile.path),
+    );
+
+    var streamedResponse = await request.send();
+    var response = await http.Response.fromStream(streamedResponse);
+
+    return await _handleResponse(response);
+  }
+
+  // Upload banner
+  Future<Map<String, dynamic>> uploadBanner(File imageFile) async {
+    final token = await getAccessToken();
+    if (token == null) {
+      throw Exception('No access token available');
+    }
+
+    var request = http.MultipartRequest(
+      'POST',
+      Uri.parse('$baseUrl/users/banner'),
+    );
+
+    request.headers['Authorization'] = 'Bearer $token';
+    request.files.add(
+      await http.MultipartFile.fromPath('banner', imageFile.path),
+    );
+
+    var streamedResponse = await request.send();
+    var response = await http.Response.fromStream(streamedResponse);
+
+    return await _handleResponse(response);
   }
 }

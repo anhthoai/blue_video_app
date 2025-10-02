@@ -102,15 +102,15 @@ final routerProvider = Provider<GoRouter>((ref) {
 
           // Profile Routes
           GoRoute(
+            path: 'profile/edit',
+            builder: (context, state) => const EditProfileScreen(),
+          ),
+          GoRoute(
             path: 'profile/:userId',
             builder: (context, state) {
               final userId = state.pathParameters['userId']!;
               return OtherUserProfileScreen(userId: userId);
             },
-          ),
-          GoRoute(
-            path: 'profile/edit',
-            builder: (context, state) => const EditProfileScreen(),
           ),
 
           // Chat Routes
