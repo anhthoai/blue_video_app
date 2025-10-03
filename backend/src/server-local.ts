@@ -1,10 +1,15 @@
+/// <reference path="./types/express.d.ts" />
+
+// Load environment variables FIRST before any other imports
+import dotenv from 'dotenv';
+dotenv.config();
+
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import compression from 'compression';
 import rateLimit from 'express-rate-limit';
-import dotenv from 'dotenv';
 import { createServer } from 'http';
 import { Server as SocketIOServer } from 'socket.io';
 import bcrypt from 'bcryptjs';
@@ -12,9 +17,6 @@ import jwt from 'jsonwebtoken';
 import { emailService } from './services/emailService';
 import { upload, deleteFromS3 } from './services/s3Service';
 import prisma from './lib/prisma';
-
-// Load environment variables
-dotenv.config();
 
 const app = express();
 const server = createServer(app);
@@ -1421,52 +1423,9 @@ io.on('connection', (socket) => {
   });
 });
 
-// 404 handler
-app.use('*', (_req, res) => {
-  res.status(404).json({
-    success: false,
-    message: 'Route not found',
-  });
-});
-
-// Global error handler
-app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
-  console.error('Global error handler:', err);
-  
-  res.status(err.status || 500).json({
-    success: false,
-    message: err.message || 'Internal server error',
-    ...(process.env['NODE_ENV'] === 'development' && { stack: err.stack }),
-  });
-});
-
-// Start server
-const startServer = async () => {
-  try {
-    console.log('🚀 Starting Blue Video API server in LOCAL DEVELOPMENT mode...');
-    console.log('📊 Using real database data with Prisma');
-    console.log('🔧 Redis disabled for local testing');
-    
-    server.listen(PORT, () => {
-      console.log(`🚀 Blue Video API server running on port ${PORT}`);
-      console.log(`📊 Health check: http://localhost:${PORT}/health`);
-      console.log(`🔗 API Base URL: http://localhost:${PORT}/api/${process.env['API_VERSION'] || 'v1'}`);
-      console.log(`🌍 Environment: ${process.env['NODE_ENV'] || 'development'}`);
-      console.log(`\n📝 Available endpoints:`);
-      console.log(`   GET  /health - Health check`);
-      console.log(`   GET  /api/v1/test - Test endpoint`);
-      console.log(`   POST /api/v1/auth/login - Mock login`);
-      console.log(`   POST /api/v1/auth/register - Mock registration`);
-      console.log(`   GET  /api/v1/videos - Real videos from database`);
-      console.log(`   POST /api/v1/videos/upload - Mock video upload`);
-      console.log(`   GET  /api/v1/community/posts - Real community posts from database`);
-      console.log(`\n🔌 WebSocket ready for real-time features`);
-    });
-  } catch (error) {
-    console.error('Failed to start server:', error);
-    process.exit(1);
-  }
-};
+// ============================================
+// Profile Management Routes
+// ============================================
 
 // Update user profile
 app.put('/api/v1/users/profile', async (req, res) => {
@@ -1557,19 +1516,43 @@ app.put('/api/v1/users/profile', async (req, res) => {
   }
 });
 
+// Middleware to attach user info for upload
+const attachUserInfoForUpload = async (req: any, res: any, next: any) => {
+  const currentUserId = await getCurrentUserId(req);
+  if (!currentUserId) {
+    res.status(401).json({
+      success: false,
+      message: 'Authentication required - please sign in again',
+    });
+    return;
+  }
+  
+  // Get user info for file directory generation
+  const user = await prisma.user.findUnique({
+    where: { id: currentUserId },
+    select: { id: true, createdAt: true, fileDirectory: true, avatar: true, banner: true },
+  });
+  
+  if (!user) {
+    res.status(401).json({
+      success: false,
+      message: 'User not found',
+    });
+    return;
+  }
+  
+  // Attach user info to request object
+  (req as any).userId = user.id;
+  (req as any).userCreatedAt = user.createdAt;
+  (req as any).currentUser = user;
+  next();
+};
+
 // Upload avatar
-app.post('/api/v1/users/avatar', upload.single('avatar'), async (req, res) => {
+app.post('/api/v1/users/avatar', attachUserInfoForUpload, upload.single('avatar'), async (req, res) => {
   try {
-    const currentUserId = await getCurrentUserId(req);
-    
-    // If no valid user, return 401 to trigger sign out
-    if (!currentUserId) {
-      res.status(401).json({
-        success: false,
-        message: 'Authentication required - please sign in again',
-      });
-      return;
-    }
+    const currentUserId = (req as any).userId;
+    const currentUser = (req as any).currentUser;
     
     if (!req.file) {
       res.status(400).json({
@@ -1579,24 +1562,24 @@ app.post('/api/v1/users/avatar', upload.single('avatar'), async (req, res) => {
       return;
     }
     
+    const fileInfo = req.file as any;
     console.log(`🖼️ Uploading avatar for user: ${currentUserId}`);
     
-    // Get current user to delete old avatar
-    const currentUser = await prisma.user.findUnique({
-      where: { id: currentUserId },
-      select: { avatarUrl: true },
-    });
-    
     // Delete old avatar from S3 if it exists
-    if (currentUser?.avatarUrl) {
-      await deleteFromS3(currentUser.avatarUrl);
+    if (currentUser.avatar && currentUser.fileDirectory) {
+      await deleteFromS3({
+        folder: 'avatars',
+        fileDirectory: currentUser.fileDirectory,
+        filename: currentUser.avatar,
+      });
     }
     
-    // Update user with new avatar URL
+    // Update user with new avatar info
     const updatedUser = await prisma.user.update({
       where: { id: currentUserId },
       data: {
-        avatarUrl: (req.file as any).location,
+        avatar: fileInfo.filename,
+        fileDirectory: fileInfo.fileDirectory,
         updatedAt: new Date(),
       },
       select: {
@@ -1606,8 +1589,11 @@ app.post('/api/v1/users/avatar', upload.single('avatar'), async (req, res) => {
         firstName: true,
         lastName: true,
         bio: true,
+        avatar: true,
+        banner: true,
         avatarUrl: true,
         bannerUrl: true,
+        fileDirectory: true,
         isVerified: true,
         role: true,
         createdAt: true,
@@ -1617,11 +1603,15 @@ app.post('/api/v1/users/avatar', upload.single('avatar'), async (req, res) => {
     
     console.log(`✅ Avatar uploaded for user: ${updatedUser.username}`);
     
+    // Build avatar URL dynamically
+    const { serializeUserWithUrls } = await import('./utils/fileUrl');
+    const serializedUser = serializeUserWithUrls(updatedUser);
+    
     res.json({
       success: true,
       message: 'Avatar uploaded successfully',
       data: {
-        ...updatedUser,
+        ...serializedUser,
         createdAt: updatedUser.createdAt.toISOString(),
         updatedAt: updatedUser.updatedAt.toISOString(),
       },
@@ -1636,18 +1626,10 @@ app.post('/api/v1/users/avatar', upload.single('avatar'), async (req, res) => {
 });
 
 // Upload banner
-app.post('/api/v1/users/banner', upload.single('banner'), async (req, res) => {
+app.post('/api/v1/users/banner', attachUserInfoForUpload, upload.single('banner'), async (req, res) => {
   try {
-    const currentUserId = await getCurrentUserId(req);
-    
-    // If no valid user, return 401 to trigger sign out
-    if (!currentUserId) {
-      res.status(401).json({
-        success: false,
-        message: 'Authentication required - please sign in again',
-      });
-      return;
-    }
+    const currentUserId = (req as any).userId;
+    const currentUser = (req as any).currentUser;
     
     if (!req.file) {
       res.status(400).json({
@@ -1657,24 +1639,24 @@ app.post('/api/v1/users/banner', upload.single('banner'), async (req, res) => {
       return;
     }
     
+    const fileInfo = req.file as any;
     console.log(`🖼️ Uploading banner for user: ${currentUserId}`);
     
-    // Get current user to delete old banner
-    const currentUser = await prisma.user.findUnique({
-      where: { id: currentUserId },
-      select: { bannerUrl: true },
-    });
-    
     // Delete old banner from S3 if it exists
-    if (currentUser?.bannerUrl) {
-      await deleteFromS3(currentUser.bannerUrl);
+    if (currentUser.banner && currentUser.fileDirectory) {
+      await deleteFromS3({
+        folder: 'banners',
+        fileDirectory: currentUser.fileDirectory,
+        filename: currentUser.banner,
+      });
     }
     
-    // Update user with new banner URL
+    // Update user with new banner info
     const updatedUser = await prisma.user.update({
       where: { id: currentUserId },
       data: {
-        bannerUrl: (req.file as any).location,
+        banner: fileInfo.filename,
+        fileDirectory: fileInfo.fileDirectory,
         updatedAt: new Date(),
       },
       select: {
@@ -1684,8 +1666,11 @@ app.post('/api/v1/users/banner', upload.single('banner'), async (req, res) => {
         firstName: true,
         lastName: true,
         bio: true,
+        avatar: true,
+        banner: true,
         avatarUrl: true,
         bannerUrl: true,
+        fileDirectory: true,
         isVerified: true,
         role: true,
         createdAt: true,
@@ -1695,11 +1680,15 @@ app.post('/api/v1/users/banner', upload.single('banner'), async (req, res) => {
     
     console.log(`✅ Banner uploaded for user: ${updatedUser.username}`);
     
+    // Build banner URL dynamically
+    const { serializeUserWithUrls } = await import('./utils/fileUrl');
+    const serializedUser = serializeUserWithUrls(updatedUser);
+    
     res.json({
       success: true,
       message: 'Banner uploaded successfully',
       data: {
-        ...updatedUser,
+        ...serializedUser,
         createdAt: updatedUser.createdAt.toISOString(),
         updatedAt: updatedUser.updatedAt.toISOString(),
       },
@@ -1712,6 +1701,53 @@ app.post('/api/v1/users/banner', upload.single('banner'), async (req, res) => {
     });
   }
 });
+
+// 404 handler
+app.use('*', (_req, res) => {
+  res.status(404).json({
+    success: false,
+    message: 'Route not found',
+  });
+});
+
+// Global error handler
+app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  console.error('Global error handler:', err);
+  
+  res.status(err.status || 500).json({
+    success: false,
+    message: err.message || 'Internal server error',
+    ...(process.env['NODE_ENV'] === 'development' && { stack: err.stack }),
+  });
+});
+
+// Start server
+const startServer = async () => {
+  try {
+    console.log('🚀 Starting Blue Video API server in LOCAL DEVELOPMENT mode...');
+    console.log('📊 Using real database data with Prisma');
+    console.log('🔧 Redis disabled for local testing');
+    
+    server.listen(PORT, () => {
+      console.log(`🚀 Blue Video API server running on port ${PORT}`);
+      console.log(`📊 Health check: http://localhost:${PORT}/health`);
+      console.log(`🔗 API Base URL: http://localhost:${PORT}/api/${process.env['API_VERSION'] || 'v1'}`);
+      console.log(`🌍 Environment: ${process.env['NODE_ENV'] || 'development'}`);
+      console.log(`\n📝 Available endpoints:`);
+      console.log(`   GET  /health - Health check`);
+      console.log(`   GET  /api/v1/test - Test endpoint`);
+      console.log(`   POST /api/v1/auth/login - Mock login`);
+      console.log(`   POST /api/v1/auth/register - Mock registration`);
+      console.log(`   GET  /api/v1/videos - Real videos from database`);
+      console.log(`   POST /api/v1/videos/upload - Mock video upload`);
+      console.log(`   GET  /api/v1/community/posts - Real community posts from database`);
+      console.log(`\n🔌 WebSocket ready for real-time features`);
+    });
+  } catch (error) {
+    console.error('Failed to start server:', error);
+    process.exit(1);
+  }
+};
 
 // Start the server
 startServer();

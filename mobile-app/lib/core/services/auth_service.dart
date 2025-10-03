@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -9,6 +10,7 @@ class AuthService {
   final SharedPreferences _prefs;
   final ApiService _apiService = ApiService();
   UserModel? _currentUser;
+  final List<VoidCallback> _listeners = [];
 
   AuthService(this._prefs) {
     // Load saved user if "Remember me" was checked
@@ -18,6 +20,23 @@ class AuthService {
   bool get isLoggedIn => _currentUser != null;
 
   UserModel? get currentUser => _currentUser;
+
+  // Add listener for user changes
+  void addListener(VoidCallback listener) {
+    _listeners.add(listener);
+  }
+
+  // Remove listener
+  void removeListener(VoidCallback listener) {
+    _listeners.remove(listener);
+  }
+
+  // Notify all listeners
+  void _notifyListeners() {
+    for (final listener in _listeners) {
+      listener();
+    }
+  }
 
   Future<void> _loadUserFromPrefs() async {
     final userJson = _prefs.getString('current_user');
@@ -29,6 +48,12 @@ class AuthService {
         await _clearStoredUser();
       }
     }
+  }
+
+  // Public method to reload user data (useful after profile updates)
+  Future<void> reloadCurrentUser() async {
+    await _loadUserFromPrefs();
+    _notifyListeners();
   }
 
   Future<void> _saveUserToPrefs() async {
@@ -192,6 +217,7 @@ class AuthService {
       if (response['success'] == true && response['data'] != null) {
         _currentUser = UserModel.fromJson(response['data']);
         await _saveUserToPrefs();
+        _notifyListeners();
         return _currentUser;
       }
       return null;
@@ -209,6 +235,7 @@ class AuthService {
       if (response['success'] == true && response['data'] != null) {
         _currentUser = UserModel.fromJson(response['data']);
         await _saveUserToPrefs();
+        _notifyListeners();
         return _currentUser;
       }
       return null;
@@ -226,6 +253,7 @@ class AuthService {
       if (response['success'] == true && response['data'] != null) {
         _currentUser = UserModel.fromJson(response['data']);
         await _saveUserToPrefs();
+        _notifyListeners();
         return _currentUser;
       }
       return null;

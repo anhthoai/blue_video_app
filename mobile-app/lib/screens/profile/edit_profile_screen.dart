@@ -69,6 +69,9 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
       );
 
       if (updatedUser != null && mounted) {
+        // Invalidate provider to force UI update everywhere
+        ref.invalidate(currentUserProvider);
+
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Profile updated successfully!'),
@@ -99,6 +102,20 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
     }
   }
 
+  void _reloadUserData() {
+    // Trigger a rebuild which will re-read from the provider
+    // The AuthService has already updated _currentUser, so the provider will return fresh data
+    setState(() {
+      final user = ref.read(currentUserProvider);
+      if (user != null) {
+        _usernameController.text = user.username;
+        _firstNameController.text = user.firstName ?? '';
+        _lastNameController.text = user.lastName ?? '';
+        _bioController.text = user.bio ?? '';
+      }
+    });
+  }
+
   Future<void> _pickAvatar() async {
     final ImagePicker picker = ImagePicker();
     final XFile? image = await picker.pickImage(
@@ -118,6 +135,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
         final updatedUser = await authService.uploadAvatar(image.path);
 
         if (updatedUser != null && mounted) {
+          _reloadUserData(); // Reload the form with updated data
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('Avatar updated successfully!'),
@@ -167,6 +185,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
         final updatedUser = await authService.uploadBanner(image.path);
 
         if (updatedUser != null && mounted) {
+          _reloadUserData(); // Reload the form with updated data
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('Banner updated successfully!'),

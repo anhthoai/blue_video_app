@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart' as http_parser;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
@@ -603,8 +604,26 @@ class ApiService {
     );
 
     request.headers['Authorization'] = 'Bearer $token';
+
+    // Determine content type from file extension
+    String contentType = 'image/jpeg';
+    final extension = imageFile.path.split('.').last.toLowerCase();
+    if (extension == 'png') {
+      contentType = 'image/png';
+    } else if (extension == 'jpg' || extension == 'jpeg') {
+      contentType = 'image/jpeg';
+    } else if (extension == 'gif') {
+      contentType = 'image/gif';
+    } else if (extension == 'webp') {
+      contentType = 'image/webp';
+    }
+
     request.files.add(
-      await http.MultipartFile.fromPath('avatar', imageFile.path),
+      await http.MultipartFile.fromPath(
+        'avatar',
+        imageFile.path,
+        contentType: http_parser.MediaType.parse(contentType),
+      ),
     );
 
     var streamedResponse = await request.send();
@@ -626,8 +645,26 @@ class ApiService {
     );
 
     request.headers['Authorization'] = 'Bearer $token';
+
+    // Determine content type from file extension
+    String contentType = 'image/jpeg';
+    final extension = imageFile.path.split('.').last.toLowerCase();
+    if (extension == 'png') {
+      contentType = 'image/png';
+    } else if (extension == 'jpg' || extension == 'jpeg') {
+      contentType = 'image/jpeg';
+    } else if (extension == 'gif') {
+      contentType = 'image/gif';
+    } else if (extension == 'webp') {
+      contentType = 'image/webp';
+    }
+
     request.files.add(
-      await http.MultipartFile.fromPath('banner', imageFile.path),
+      await http.MultipartFile.fromPath(
+        'banner',
+        imageFile.path,
+        contentType: http_parser.MediaType.parse(contentType),
+      ),
     );
 
     var streamedResponse = await request.send();

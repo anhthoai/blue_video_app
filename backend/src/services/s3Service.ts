@@ -3,24 +3,68 @@ import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import multer from 'multer';
 import { v4 as uuidv4 } from 'uuid';
 
-// Configure AWS S3 v3
-const s3Client = new S3Client({
-  region: process.env['AWS_REGION'] || 'us-east-1',
-  credentials: {
-    accessKeyId: process.env['AWS_ACCESS_KEY_ID'] || '',
-    secretAccessKey: process.env['AWS_SECRET_ACCESS_KEY'] || '',
-  },
-});
+// Validate S3 credentials
+const S3_ACCESS_KEY_ID = process.env['S3_ACCESS_KEY_ID'];
+const S3_SECRET_ACCESS_KEY = process.env['S3_SECRET_ACCESS_KEY'];
+const BUCKET_NAME = process.env['S3_BUCKET_NAME'] || 'blue-video-storage';
 
-// S3 bucket configuration
-const BUCKET_NAME = process.env['AWS_S3_BUCKET_NAME'] || 'blue-video-storage';
+console.log('🔧 S3 Configuration:');
+console.log('   - Endpoint:', process.env['S3_ENDPOINT'] || 'default AWS');
+console.log('   - Region:', process.env['S3_REGION'] || 'us-east-1');
+console.log('   - Bucket:', BUCKET_NAME);
+console.log('   - Access Key:', S3_ACCESS_KEY_ID ? `${S3_ACCESS_KEY_ID.substring(0, 8)}...` : 'NOT SET');
+console.log('   - Secret Key:', S3_SECRET_ACCESS_KEY ? '***configured***' : 'NOT SET');
+
+if (!S3_ACCESS_KEY_ID || !S3_SECRET_ACCESS_KEY || 
+    S3_ACCESS_KEY_ID === 'dummy' || S3_ACCESS_KEY_ID === 'YOUR_AWS_ACCESS_KEY_ID_HERE') {
+  console.warn('⚠️  WARNING: S3 credentials not configured properly!');
+  console.warn('📝 Please update the following in your .env file:');
+  console.warn('   - S3_ACCESS_KEY_ID (your AWS access key)');
+  console.warn('   - S3_SECRET_ACCESS_KEY (your AWS secret key)');
+  console.warn('   - S3_BUCKET_NAME (your S3 bucket name)');
+  console.warn('   - S3_REGION (AWS region, e.g., us-east-1)');
+  console.warn('   - S3_ENDPOINT (optional, only for S3-compatible services)');
+  console.warn('⚠️  File uploads will NOT work until this is fixed!');
+} else {
+  console.log('✅ S3 credentials configured successfully!');
+}
+
+// Configure AWS S3 v3
+const s3Config: any = {
+  region: process.env['S3_REGION'] || 'auto',
+  credentials: {
+    accessKeyId: S3_ACCESS_KEY_ID || '',
+    secretAccessKey: S3_SECRET_ACCESS_KEY || '',
+  },
+};
+
+// Add custom endpoint if provided (for S3-compatible services like Cloudflare R2)
+if (process.env['S3_ENDPOINT']) {
+  s3Config.endpoint = process.env['S3_ENDPOINT'];
+  s3Config.forcePathStyle = true; // Required for custom endpoints
+  console.log('🌐 Using custom S3 endpoint (R2/compatible service)');
+}
+
+const s3Client = new S3Client(s3Config);
 
 // Custom multer storage for AWS SDK v3
 const s3Storage = {
-  _handleFile: async (_req: any, file: any, cb: any) => {
+  _handleFile: async (req: any, file: any, cb: any) => {
     try {
+      // Get user info from request (should be set by auth middleware)
+      const userId = req.userId;
+      const userCreatedAt = req.userCreatedAt ? new Date(req.userCreatedAt) : new Date();
+      
+      // Generate file directory based on user's creation date (yyyy/mm/dd)
+      const year = userCreatedAt.getFullYear();
+      const month = String(userCreatedAt.getMonth() + 1).padStart(2, '0');
+      const day = String(userCreatedAt.getDate()).padStart(2, '0');
+      const fileDirectory = `${year}/${month}/${day}`;
+      
       const folder = file.fieldname === 'avatar' ? 'avatars' : 'banners';
-      const fileName = `${folder}/${uuidv4()}-${Date.now()}.${file.originalname.split('.').pop()}`;
+      const extension = file.originalname.split('.').pop();
+      const filename = `${uuidv4()}.${extension}`;
+      const key = `${folder}/${fileDirectory}/${filename}`;
       
       // Convert stream to buffer
       const chunks: Buffer[] = [];
@@ -31,19 +75,23 @@ const s3Storage = {
           
           const command = new PutObjectCommand({
             Bucket: BUCKET_NAME,
-            Key: fileName,
+            Key: key,
             Body: buffer,
             ContentType: file.mimetype,
-            ACL: 'public-read',
           });
           
           await s3Client.send(command);
           
-          const location = `https://${BUCKET_NAME}.s3.${process.env['AWS_REGION'] || 'us-east-1'}.amazonaws.com/${fileName}`;
+          console.log(`📤 File uploaded to R2: ${key}`);
+          console.log(`   User: ${userId}`);
+          console.log(`   Directory: ${fileDirectory}`);
+          console.log(`   Filename: ${filename}`);
           
           cb(null, {
-            location,
-            key: fileName,
+            key,
+            filename, // Just the filename
+            fileDirectory, // The directory path
+            folder, // avatars or banners
             bucket: BUCKET_NAME,
             size: buffer.length,
             mimetype: file.mimetype,
@@ -69,21 +117,44 @@ export const upload = multer({
     fileSize: 10 * 1024 * 1024, // 10MB limit
   },
   fileFilter: (_req, file, cb) => {
-    // Check if file is an image
-    if (file.mimetype.startsWith('image/')) {
+    console.log('📎 File upload attempt:', {
+      originalname: file.originalname,
+      mimetype: file.mimetype,
+      fieldname: file.fieldname,
+    });
+    
+    // Check if file is an image by mimetype or extension
+    const isImageMimeType = file.mimetype.startsWith('image/');
+    const imageExtensions = /\.(jpg|jpeg|png|gif|webp|bmp)$/i;
+    const isImageExtension = imageExtensions.test(file.originalname);
+    
+    if (isImageMimeType || isImageExtension) {
+      console.log('✅ Image file accepted');
       cb(null, true);
     } else {
+      console.log('❌ File rejected - not an image');
       cb(new Error('Only image files are allowed') as any, false);
     }
   },
 });
 
 // Helper function to delete file from S3
-export const deleteFromS3 = async (fileUrl: string): Promise<boolean> => {
+export const deleteFromS3 = async (fileInfo: string | { folder: string; fileDirectory: string; filename: string }): Promise<boolean> => {
   try {
-    // Extract key from URL
-    const url = new URL(fileUrl);
-    const key = url.pathname.substring(1); // Remove leading slash
+    let key: string;
+    
+    if (typeof fileInfo === 'string') {
+      // Old format: full URL or key
+      if (fileInfo.startsWith('http')) {
+        const url = new URL(fileInfo);
+        key = url.pathname.substring(1); // Remove leading slash
+      } else {
+        key = fileInfo;
+      }
+    } else {
+      // New format: { folder, fileDirectory, filename }
+      key = `${fileInfo.folder}/${fileInfo.fileDirectory}/${fileInfo.filename}`;
+    }
     
     const command = new DeleteObjectCommand({
       Bucket: BUCKET_NAME,

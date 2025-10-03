@@ -18,7 +18,7 @@ class CurrentUserProfileScreen extends ConsumerStatefulWidget {
 
 class _CurrentUserProfileScreenState
     extends ConsumerState<CurrentUserProfileScreen>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   late TabController _tabController;
   final VideoService _videoService = VideoService();
   List<VideoModel> _userVideos = [];
@@ -29,6 +29,34 @@ class _CurrentUserProfileScreenState
     super.initState();
     _tabController = TabController(length: 5, vsync: this);
     _loadUserVideos();
+    WidgetsBinding.instance.addObserver(this);
+
+    // Listen for user data changes
+    final authService = ref.read(authServiceProvider);
+    authService.addListener(_onUserDataChanged);
+  }
+
+  void _onUserDataChanged() {
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      // Reload user data when app comes back to foreground
+      _reloadUserData();
+    }
+  }
+
+  void _reloadUserData() async {
+    // Force reload user from SharedPreferences
+    final authService = ref.read(authServiceProvider);
+    await authService.reloadCurrentUser();
+    if (mounted) {
+      setState(() {});
+    }
   }
 
   Future<void> _loadUserVideos() async {
@@ -55,6 +83,9 @@ class _CurrentUserProfileScreenState
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    final authService = ref.read(authServiceProvider);
+    authService.removeListener(_onUserDataChanged);
     _tabController.dispose();
     super.dispose();
   }

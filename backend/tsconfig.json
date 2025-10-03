@@ -27,7 +27,12 @@
     "emitDecoratorMetadata": true
   },
   "include": [
-    "src/**/*"
+    "src/**/*",
+    "src/types/**/*.d.ts"
+  ],
+  "typeRoots": [
+    "./node_modules/@types",
+    "./src/types"
   ],
   "exclude": [
     "node_modules",
