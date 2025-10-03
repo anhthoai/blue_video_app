@@ -43,6 +43,9 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
   final ApiService _apiService = ApiService();
   bool _isFollowing = false;
   bool _isLoadingFollow = false;
+  String? _followStatusLoadedForUserId;
+  String? _authorAvatarUrl;
+  String? _authorAvatarLoadedForUserId;
 
   @override
   void initState() {
@@ -89,15 +92,34 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
 
   // Load user's follow status
   Future<void> _loadUserFollowStatus(String userId) async {
+    if (_followStatusLoadedForUserId == userId) return;
     try {
       final response = await _apiService.getUserProfile(userId);
       if (response['success'] == true && response['data'] != null) {
         setState(() {
           _isFollowing = response['data']['isFollowing'] ?? false;
+          _followStatusLoadedForUserId = userId;
         });
       }
     } catch (e) {
       print('Error loading follow status: $e');
+    }
+  }
+
+  // Fallback: fetch author avatar from user profile once
+  Future<void> _loadAuthorAvatar(String userId) async {
+    try {
+      final response = await _apiService.getUserProfile(userId);
+      if (response['success'] == true && response['data'] != null) {
+        final url = response['data']['avatarUrl'] as String?;
+        if (mounted && url != null && url.isNotEmpty) {
+          setState(() {
+            _authorAvatarUrl = url;
+          });
+        }
+      }
+    } catch (e) {
+      print('Error loading author avatar: $e');
     }
   }
 
@@ -322,6 +344,27 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
             WidgetsBinding.instance.addPostFrameCallback((_) {
               _initializeVideo(video.videoUrl);
             });
+          }
+
+          // Load follow status exactly once per userId to avoid loops
+          if (_followStatusLoadedForUserId != video.userId) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              _loadUserFollowStatus(video.userId);
+            });
+          }
+
+          // Fallback: ensure author avatar is loaded once
+          if (_authorAvatarLoadedForUserId != video.userId) {
+            _authorAvatarLoadedForUserId = video.userId;
+            _authorAvatarUrl =
+                (video.userAvatarUrl != null && video.userAvatarUrl!.isNotEmpty)
+                    ? video.userAvatarUrl
+                    : null;
+            if (_authorAvatarUrl == null) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                _loadAuthorAvatar(video.userId);
+              });
+            }
           }
 
           return Column(
@@ -659,13 +702,26 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
               context.go('/main/profile/${video.userId}');
             },
             child: CircleAvatar(
-              key: ValueKey(video.userAvatarUrl ?? 'no-avatar'),
+              key: ValueKey(
+                  ((_authorAvatarUrl != null && _authorAvatarUrl!.isNotEmpty)
+                              ? _authorAvatarUrl!
+                              : (video.userAvatarUrl ?? ''))
+                          .isNotEmpty
+                      ? (_authorAvatarUrl ?? video.userAvatarUrl)!
+                      : 'no-avatar-${video.userId}'),
               radius: 25,
               backgroundColor: Colors.grey[300],
-              backgroundImage: video.userAvatarUrl != null
-                  ? CachedNetworkImageProvider(video.userAvatarUrl!)
-                  : null,
-              child: video.userAvatarUrl == null
+              backgroundImage:
+                  ((_authorAvatarUrl != null && _authorAvatarUrl!.isNotEmpty)
+                              ? _authorAvatarUrl
+                              : video.userAvatarUrl) !=
+                          null
+                      ? CachedNetworkImageProvider(
+                          (_authorAvatarUrl ?? video.userAvatarUrl)!)
+                      : null,
+              child: ((_authorAvatarUrl == null || _authorAvatarUrl!.isEmpty) &&
+                      (video.userAvatarUrl == null ||
+                          (video.userAvatarUrl?.isEmpty ?? true)))
                   ? const Icon(Icons.person, size: 30, color: Colors.grey)
                   : null,
             ),
@@ -1069,7 +1125,8 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
             Row(
               children: [
                 CircleAvatar(
-                  key: ValueKey(video.userAvatarUrl ?? 'no-avatar'),
+                  key: ValueKey(
+                      video.userAvatarUrl ?? 'no-avatar-${video.userId}'),
                   radius: 8,
                   backgroundColor: Colors.grey[300],
                   backgroundImage: video.userAvatarUrl != null

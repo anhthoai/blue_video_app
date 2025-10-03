@@ -60,6 +60,9 @@ class _CommentWidgetState extends ConsumerState<CommentWidget> {
           Row(
             children: [
               CircleAvatar(
+                key: ValueKey(widget.comment.userAvatar.isNotEmpty
+                    ? widget.comment.userAvatar
+                    : 'no-avatar-${widget.comment.userId}'),
                 radius: 16,
                 backgroundColor: Colors.grey[300],
                 backgroundImage: widget.comment.userAvatar.isNotEmpty

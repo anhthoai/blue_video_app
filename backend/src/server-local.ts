@@ -478,6 +478,8 @@ app.get('/api/v1/users/:userId/videos', async (req, res) => {
             firstName: true,
             lastName: true,
             avatarUrl: true,
+            avatar: true,
+            fileDirectory: true,
             isVerified: true,
           },
         },
@@ -588,7 +590,8 @@ app.get('/api/v1/videos/:id', async (req, res) => {
       username: video.user?.username,
       firstName: video.user?.firstName,
       lastName: video.user?.lastName,
-      userAvatarUrl: video.user ? buildAvatarUrl(video.user) : null,
+      // Build full avatar URL using storage fields; fallback to serialized user
+      userAvatarUrl: video.user ? (buildAvatarUrl(video.user) || video.user.avatarUrl || null) : null,
     };
 
     res.json({
@@ -747,6 +750,8 @@ app.get('/api/v1/users/:userId', async (req, res) => {
         lastName: true,
         bio: true,
         avatarUrl: true,
+        avatar: true,
+        fileDirectory: true,
         isVerified: true,
         role: true,
         createdAt: true,
@@ -828,7 +833,7 @@ app.get('/api/v1/users/:userId', async (req, res) => {
       firstName: user.firstName,
       lastName: user.lastName,
       bio: user.bio,
-      avatarUrl: user.avatarUrl,
+      avatarUrl: buildAvatarUrl(user) || user.avatarUrl || null,
       isVerified: user.isVerified,
       role: user.role,
       followersCount: manualFollowersCount,
@@ -1325,6 +1330,8 @@ app.get('/api/v1/social/comments', async (req, res) => {
             firstName: true,
             lastName: true,
             avatarUrl: true,
+            avatar: true,
+            fileDirectory: true,
             isVerified: true,
           },
         },
@@ -1348,7 +1355,7 @@ app.get('/api/v1/social/comments', async (req, res) => {
       username: comment.user.firstName && comment.user.lastName 
         ? `${comment.user.firstName} ${comment.user.lastName}`
         : comment.user.username,
-      userAvatar: comment.user.avatarUrl,
+      userAvatar: buildAvatarUrl(comment.user) || comment.user.avatarUrl || null,
       isVerified: comment.user.isVerified,
     }));
 
