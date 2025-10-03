@@ -155,17 +155,11 @@ class VideoService {
   // Get user videos
   Future<List<VideoModel>> getUserVideos(String userId) async {
     try {
-      final response = await _apiService.getVideos(
-        page: 1,
-        limit: 20,
-      );
+      final response = await _apiService.getUserVideos(userId);
 
       if (response['success'] == true && response['data'] != null) {
         final videosData = response['data'] as List;
-        // Filter videos by userId
-        final userVideos =
-            videosData.where((video) => video['userId'] == userId).toList();
-        return userVideos.map((videoData) {
+        return videosData.map((videoData) {
           return VideoModel(
             id: videoData['id'] ?? 'unknown',
             userId: videoData['userId'] ?? userId,
@@ -174,10 +168,10 @@ class VideoService {
             videoUrl: videoData['videoUrl'] ?? '',
             thumbnailUrl: videoData['thumbnailUrl'],
             duration: videoData['duration'],
-            viewCount: videoData['viewCount'] ?? 0,
-            likeCount: videoData['likeCount'] ?? 0,
-            commentCount: videoData['commentCount'] ?? 0,
-            shareCount: videoData['shareCount'] ?? 0,
+            viewCount: videoData['views'] ?? 0,
+            likeCount: videoData['likes'] ?? 0,
+            commentCount: videoData['comments'] ?? 0,
+            shareCount: videoData['shares'] ?? 0,
             isPublic: videoData['isPublic'] ?? true,
             isFeatured: videoData['isFeatured'] ?? false,
             createdAt: DateTime.parse(

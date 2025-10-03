@@ -29,6 +29,8 @@ class _OtherUserProfileScreenState extends ConsumerState<OtherUserProfileScreen>
   List<VideoModel> _userVideos = [];
   bool _isLoadingVideos = false;
   Map<String, dynamic>? _userProfile;
+  DateTime? _lastLoadTime;
+  bool _isLoadingProfile = false;
 
   @override
   void initState() {
@@ -39,6 +41,17 @@ class _OtherUserProfileScreenState extends ConsumerState<OtherUserProfileScreen>
   }
 
   Future<void> _loadUserProfile() async {
+    if (_isLoadingProfile) return; // Prevent multiple simultaneous loads
+
+    // Debounce: only load if we haven't loaded recently
+    final now = DateTime.now();
+    if (_lastLoadTime != null && now.difference(_lastLoadTime!).inSeconds < 2) {
+      return;
+    }
+
+    _lastLoadTime = now;
+    _isLoadingProfile = true;
+
     try {
       final response = await _apiService.getUserProfile(widget.userId);
       if (response['success'] == true && response['data'] != null) {
@@ -71,10 +84,14 @@ class _OtherUserProfileScreenState extends ConsumerState<OtherUserProfileScreen>
           }
         }
       }
+    } finally {
+      _isLoadingProfile = false;
     }
   }
 
   Future<void> _loadUserVideos() async {
+    if (_isLoadingVideos) return; // Prevent multiple simultaneous loads
+
     setState(() {
       _isLoadingVideos = true;
     });

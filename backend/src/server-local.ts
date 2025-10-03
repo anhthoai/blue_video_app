@@ -40,13 +40,18 @@ app.use(cors({
   credentials: true,
 }));
 
-// Rate limiting
+// Rate limiting (more lenient for development)
 const limiter = rateLimit({
-  windowMs: parseInt(process.env['RATE_LIMIT_WINDOW_MS'] || '900000'), // 15 minutes
-  max: parseInt(process.env['RATE_LIMIT_MAX_REQUESTS'] || '100'), // limit each IP to 100 requests per windowMs
+  windowMs: parseInt(process.env['RATE_LIMIT_WINDOW_MS'] || '60000'), // 1 minute
+  max: parseInt(process.env['RATE_LIMIT_MAX_REQUESTS'] || '1000'), // 1000 requests per minute for development
   message: {
     success: false,
     message: 'Too many requests from this IP, please try again later.',
+  },
+  skip: (req) => {
+    // Skip rate limiting for local development IPs
+    const ip = req.ip || req.connection.remoteAddress || '';
+    return ip === '::1' || ip === '127.0.0.1' || ip.includes('192.168');
   },
 });
 app.use(limiter);
@@ -449,6 +454,84 @@ app.post('/api/v1/videos/upload', (req, res) => {
       createdAt: new Date().toISOString(),
     },
   });
+});
+
+// Get user videos by user ID
+app.get('/api/v1/users/:userId/videos', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { page = 1, limit = 20 } = req.query;
+    const offset = (Number(page) - 1) * Number(limit);
+    
+    // Get videos from database for specific user
+    const videos = await prisma.video.findMany({
+      where: {
+        userId: userId,
+        isPublic: true,
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            username: true,
+            firstName: true,
+            lastName: true,
+            avatarUrl: true,
+            isVerified: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+      skip: offset,
+      take: Number(limit),
+    });
+
+    // Convert to camelCase and serialize BigInt for JSON
+    const serializedVideos = videos.map(video => ({
+      id: video.id,
+      userId: video.userId,
+      title: video.title,
+      description: video.description,
+      videoUrl: video.videoUrl,
+      thumbnailUrl: video.thumbnailUrl,
+      duration: video.duration,
+      fileSize: video.fileSize ? video.fileSize.toString() : null,
+      quality: video.quality,
+      views: video.views,
+      likes: video.likes,
+      comments: video.comments,
+      shares: video.shares,
+      isPublic: video.isPublic,
+      createdAt: video.createdAt.toISOString(),
+      updatedAt: video.updatedAt.toISOString(),
+      user: video.user ? {
+        id: video.user.id,
+        username: video.user.username,
+        firstName: video.user.firstName,
+        lastName: video.user.lastName,
+        avatarUrl: video.user.avatarUrl,
+        isVerified: video.user.isVerified,
+      } : null,
+    }));
+
+    res.json({
+      success: true,
+      data: serializedVideos,
+      pagination: {
+        page: Number(page),
+        limit: Number(limit),
+        total: videos.length,
+      },
+    });
+  } catch (error) {
+    console.error('Error fetching user videos:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch user videos',
+    });
+  }
 });
 
 // Get single video by ID

@@ -11,6 +11,8 @@ class AuthService {
   final ApiService _apiService = ApiService();
   UserModel? _currentUser;
   final List<VoidCallback> _listeners = [];
+  DateTime? _lastNotificationTime;
+  bool _isNotifying = false;
 
   AuthService(this._prefs) {
     // Load saved user if "Remember me" was checked
@@ -31,10 +33,25 @@ class AuthService {
     _listeners.remove(listener);
   }
 
-  // Notify all listeners
+  // Notify all listeners with debouncing
   void _notifyListeners() {
-    for (final listener in _listeners) {
-      listener();
+    if (_isNotifying) return; // Prevent concurrent notifications
+
+    final now = DateTime.now();
+    if (_lastNotificationTime != null &&
+        now.difference(_lastNotificationTime!).inMilliseconds < 100) {
+      return; // Debounce: only notify once per 100ms
+    }
+
+    _lastNotificationTime = now;
+    _isNotifying = true;
+
+    try {
+      for (final listener in _listeners) {
+        listener();
+      }
+    } finally {
+      _isNotifying = false;
     }
   }
 

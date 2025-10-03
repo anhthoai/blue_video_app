@@ -23,6 +23,8 @@ class _CurrentUserProfileScreenState
   final VideoService _videoService = VideoService();
   List<VideoModel> _userVideos = [];
   bool _isLoadingVideos = false;
+  DateTime? _lastReloadTime;
+  bool _isReloading = false;
 
   @override
   void initState() {
@@ -37,7 +39,7 @@ class _CurrentUserProfileScreenState
   }
 
   void _onUserDataChanged() {
-    if (mounted) {
+    if (mounted && !_isReloading) {
       setState(() {});
     }
   }
@@ -45,17 +47,29 @@ class _CurrentUserProfileScreenState
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      // Reload user data when app comes back to foreground
-      _reloadUserData();
+      // Only reload if we haven't reloaded recently (debounce)
+      final now = DateTime.now();
+      if (_lastReloadTime == null ||
+          now.difference(_lastReloadTime!).inSeconds > 5) {
+        _lastReloadTime = now;
+        _reloadUserData();
+      }
     }
   }
 
   void _reloadUserData() async {
-    // Force reload user from SharedPreferences
-    final authService = ref.read(authServiceProvider);
-    await authService.reloadCurrentUser();
-    if (mounted) {
-      setState(() {});
+    if (_isReloading) return; // Prevent multiple simultaneous reloads
+
+    _isReloading = true;
+    try {
+      // Force reload user from SharedPreferences
+      final authService = ref.read(authServiceProvider);
+      await authService.reloadCurrentUser();
+      if (mounted) {
+        setState(() {});
+      }
+    } finally {
+      _isReloading = false;
     }
   }
 
@@ -218,6 +232,7 @@ class _CurrentUserProfileScreenState
                   Stack(
                     children: [
                       CircleAvatar(
+                        key: ValueKey(user.avatarUrl ?? 'no-avatar'),
                         radius: 40,
                         backgroundColor: Colors.white,
                         backgroundImage:

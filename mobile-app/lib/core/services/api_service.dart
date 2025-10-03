@@ -301,6 +301,15 @@ class ApiService {
     return await _handleResponse(response);
   }
 
+  Future<Map<String, dynamic>> getUserVideos(String userId) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/users/$userId/videos'),
+      headers: await _getHeaders(),
+    );
+
+    return await _handleResponse(response);
+  }
+
   Future<Map<String, dynamic>> followUser(String userId) async {
     final response = await http.post(
       Uri.parse('$baseUrl/users/$userId/follow'),
