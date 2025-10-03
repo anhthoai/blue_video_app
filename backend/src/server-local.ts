@@ -16,6 +16,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { emailService } from './services/emailService';
 import { upload, deleteFromS3 } from './services/s3Service';
+import { serializeUserWithUrls, buildAvatarUrl } from './utils/fileUrl';
 import prisma from './lib/prisma';
 
 const app = express();
@@ -506,14 +507,12 @@ app.get('/api/v1/users/:userId/videos', async (req, res) => {
       isPublic: video.isPublic,
       createdAt: video.createdAt.toISOString(),
       updatedAt: video.updatedAt.toISOString(),
-      user: video.user ? {
-        id: video.user.id,
-        username: video.user.username,
-        firstName: video.user.firstName,
-        lastName: video.user.lastName,
-        avatarUrl: video.user.avatarUrl,
-        isVerified: video.user.isVerified,
-      } : null,
+      user: video.user ? serializeUserWithUrls(video.user) : null,
+      // Also include user data at the top level for compatibility
+      username: video.user?.username,
+      firstName: video.user?.firstName,
+      lastName: video.user?.lastName,
+      userAvatarUrl: video.user ? buildAvatarUrl(video.user) : null,
     }));
 
     res.json({
@@ -584,14 +583,12 @@ app.get('/api/v1/videos/:id', async (req, res) => {
       isPublic: video.isPublic,
       createdAt: video.createdAt.toISOString(),
       updatedAt: video.updatedAt.toISOString(),
-      user: video.user ? {
-        id: video.user.id,
-        username: video.user.username,
-        firstName: video.user.firstName,
-        lastName: video.user.lastName,
-        avatarUrl: video.user.avatarUrl,
-        isVerified: video.user.isVerified,
-      } : null,
+      user: video.user ? serializeUserWithUrls(video.user) : null,
+      // Also include user data at the top level for compatibility
+      username: video.user?.username,
+      firstName: video.user?.firstName,
+      lastName: video.user?.lastName,
+      userAvatarUrl: video.user ? buildAvatarUrl(video.user) : null,
     };
 
     res.json({
@@ -655,14 +652,12 @@ app.get('/api/v1/videos', async (req, res) => {
       isPublic: video.isPublic,
       createdAt: video.createdAt.toISOString(),
       updatedAt: video.updatedAt.toISOString(),
-      user: video.user ? {
-        id: video.user.id,
-        username: video.user.username,
-        firstName: video.user.firstName,
-        lastName: video.user.lastName,
-        avatarUrl: video.user.avatarUrl,
-        isVerified: video.user.isVerified,
-      } : null,
+      user: video.user ? serializeUserWithUrls(video.user) : null,
+      // Also include user data at the top level for compatibility
+      username: video.user?.username,
+      firstName: video.user?.firstName,
+      lastName: video.user?.lastName,
+      userAvatarUrl: video.user ? buildAvatarUrl(video.user) : null,
     }));
 
     res.json({

@@ -50,6 +50,43 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
     _scrollController.addListener(_onScroll);
   }
 
+  @override
+  void didUpdateWidget(VideoPlayerScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    // If videoId changed, reset video player
+    if (oldWidget.videoId != widget.videoId) {
+      print(
+          '🎥 Video ID changed from ${oldWidget.videoId} to ${widget.videoId}');
+      _resetVideoPlayer();
+    }
+  }
+
+  void _resetVideoPlayer() {
+    print('🎥 Resetting video player for new video');
+
+    // Set initializing flag to prevent re-entry
+    _isInitializing = true;
+
+    // Dispose current video controller
+    if (_videoController != null) {
+      _videoController!.dispose();
+      _videoController = null;
+    }
+
+    // Reset video state
+    setState(() {
+      _isVideoInitialized = false;
+      _isInitializing = false;
+      _isPlaying = false;
+      _currentPosition = Duration.zero;
+      _totalDuration = const Duration(minutes: 10);
+    });
+
+    // Reset current video URL
+    _currentVideoUrl = null;
+  }
+
   // Load user's follow status
   Future<void> _loadUserFollowStatus(String userId) async {
     try {
@@ -150,25 +187,67 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
     super.dispose();
   }
 
-  void _initializeVideo(String videoUrl) {
-    print('🎥 Initializing video: $videoUrl');
+  String? _currentVideoUrl;
 
-    if (_videoController != null) {
-      _videoController!.dispose();
+  bool _isInitializing = false;
+
+  void _initializeVideo(String videoUrl) {
+    print('🎥 _initializeVideo called with URL: $videoUrl');
+    print('  - _currentVideoUrl: $_currentVideoUrl');
+    print('  - _isInitializing: $_isInitializing');
+    print('  - _videoController: ${_videoController != null}');
+    print('  - _isVideoInitialized: $_isVideoInitialized');
+
+    // Prevent reinitializing if already initializing or already initialized and playing
+    if (_isInitializing ||
+        (_currentVideoUrl == videoUrl &&
+            _videoController != null &&
+            _isVideoInitialized)) {
+      print('🎥 Video already initialized or initializing for URL: $videoUrl');
+      return;
     }
 
+    // Check if this is actually a different video
+    if (_currentVideoUrl == videoUrl && _videoController != null) {
+      print('🎥 Same video URL, checking if we need to reinitialize');
+      if (_isVideoInitialized) {
+        print('🎥 Video already initialized and ready');
+        return;
+      }
+    }
+
+    print('🎥 Actually initializing video: $videoUrl');
+    _isInitializing = true;
+
+    // Dispose current controller if it exists
+    if (_videoController != null) {
+      _videoController!.dispose();
+      _videoController = null;
+    }
+
+    _currentVideoUrl = videoUrl;
     _videoController = VideoPlayerController.networkUrl(Uri.parse(videoUrl))
       ..initialize().then((_) {
         print('✅ Video initialized successfully');
-        setState(() {
-          _isVideoInitialized = true;
-          _totalDuration = _videoController!.value.duration;
-        });
+        _isInitializing = false;
+        if (mounted) {
+          setState(() {
+            _isVideoInitialized = true;
+            _totalDuration = _videoController!.value.duration;
+          });
+        }
       }).catchError((error) {
         print('❌ Video initialization error: $error');
+        _isInitializing = false;
+        if (mounted) {
+          setState(() {
+            _isVideoInitialized = false;
+            _currentVideoUrl = null; // Reset on error
+          });
+        }
       })
       ..addListener(() {
-        if (mounted) {
+        if (mounted && _videoController != null) {
           setState(() {
             _currentPosition = _videoController!.value.position;
           });
@@ -233,8 +312,13 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
             );
           }
 
-          // Initialize video player when video data is loaded
-          if (!_isVideoInitialized && _videoController == null) {
+          // Initialize video player when video data is loaded (only if not already initialized or initializing)
+          if (!_isVideoInitialized &&
+              !_isInitializing &&
+              _videoController == null &&
+              _currentVideoUrl != video.videoUrl) {
+            print(
+                '🎥 Build method triggering initialization for URL: ${video.videoUrl}');
             WidgetsBinding.instance.addPostFrameCallback((_) {
               _initializeVideo(video.videoUrl);
             });
@@ -575,6 +659,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
               context.go('/main/profile/${video.userId}');
             },
             child: CircleAvatar(
+              key: ValueKey(video.userAvatarUrl ?? 'no-avatar'),
               radius: 25,
               backgroundColor: Colors.grey[300],
               backgroundImage: video.userAvatarUrl != null
@@ -984,6 +1069,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
             Row(
               children: [
                 CircleAvatar(
+                  key: ValueKey(video.userAvatarUrl ?? 'no-avatar'),
                   radius: 8,
                   backgroundColor: Colors.grey[300],
                   backgroundImage: video.userAvatarUrl != null
