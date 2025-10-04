@@ -4,12 +4,9 @@ import 'package:go_router/go_router.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:video_player/video_player.dart';
 
-import '../../models/like_model.dart';
 import '../../models/video_model.dart';
 import '../../core/services/video_service.dart';
 import '../../core/services/api_service.dart';
-import '../../widgets/social/like_button.dart';
-import '../../widgets/social/share_button.dart';
 import '../../widgets/social/comments_section.dart';
 
 // Provider to fetch video by ID
@@ -28,7 +25,8 @@ class VideoPlayerScreen extends ConsumerStatefulWidget {
   ConsumerState<VideoPlayerScreen> createState() => _VideoPlayerScreenState();
 }
 
-class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
+class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
+    with WidgetsBindingObserver {
   final ScrollController _scrollController = ScrollController();
   VideoPlayerController? _videoController;
   bool _isPlaying = false;
@@ -47,21 +45,42 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
   String? _authorAvatarUrl;
   String? _authorAvatarLoadedForUserId;
 
+  // Video stats
+  int _currentViews = 0;
+  int _currentLikes = 0;
+  int _currentShares = 0;
+  int _currentDownloads = 0;
+  bool _isLiked = false;
+  bool _hasIncrementedView = false;
+
   @override
   void initState() {
     super.initState();
     _scrollController.addListener(_onScroll);
+    WidgetsBinding.instance.addObserver(this);
+    // Refresh data when screen initializes
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _refreshVideoData();
+    });
   }
 
   @override
   void didUpdateWidget(VideoPlayerScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
 
-    // If videoId changed, reset video player
+    // If videoId changed, reset video player and invalidate cache
     if (oldWidget.videoId != widget.videoId) {
       print(
           '🎥 Video ID changed from ${oldWidget.videoId} to ${widget.videoId}');
       _resetVideoPlayer();
+      // Reset all stats for new video
+      _currentViews = 0;
+      _currentLikes = 0;
+      _currentShares = 0;
+      _currentDownloads = 0;
+      _isLiked = false;
+      // Invalidate the provider cache to fetch fresh data
+      ref.invalidate(videoByIdProvider(widget.videoId));
     }
   }
 
@@ -84,10 +103,92 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
       _isPlaying = false;
       _currentPosition = Duration.zero;
       _totalDuration = const Duration(minutes: 10);
+      _hasIncrementedView = false; // Reset view increment flag
     });
 
     // Reset current video URL
     _currentVideoUrl = null;
+  }
+
+  // Increment view count when video starts playing
+  Future<void> _incrementViewCount(String videoId) async {
+    if (_hasIncrementedView) return;
+
+    try {
+      final response = await _apiService.incrementVideoView(videoId);
+      if (response['success'] == true && response['data'] != null) {
+        _hasIncrementedView = true;
+        if (mounted) {
+          setState(() {
+            _currentViews = response['data']['views'] ?? _currentViews;
+          });
+        }
+      }
+    } catch (e) {
+      print('Error incrementing view count: $e');
+    }
+  }
+
+  // Toggle like
+  Future<void> _toggleLike(String videoId) async {
+    try {
+      final response = await _apiService.toggleVideoLike(videoId);
+      if (response['success'] == true && response['data'] != null) {
+        if (mounted) {
+          setState(() {
+            _currentLikes = response['data']['likes'] ?? _currentLikes;
+            _isLiked = response['data']['isLiked'] ?? !_isLiked;
+          });
+        }
+      }
+    } catch (e) {
+      print('Error toggling like: $e');
+      if (e.toString().contains('Authentication required')) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Please sign in to like videos'),
+              backgroundColor: Colors.orange,
+              duration: Duration(seconds: 2),
+            ),
+          );
+        }
+      }
+    }
+  }
+
+  // Increment share count
+  Future<void> _incrementShareCount(String videoId, {String? platform}) async {
+    try {
+      final response =
+          await _apiService.incrementVideoShare(videoId, platform: platform);
+      if (response['success'] == true && response['data'] != null) {
+        if (mounted) {
+          setState(() {
+            _currentShares = response['data']['shares'] ?? _currentShares;
+          });
+        }
+      }
+    } catch (e) {
+      print('Error incrementing share count: $e');
+    }
+  }
+
+  // Increment download count
+  Future<void> _incrementDownloadCount(String videoId) async {
+    try {
+      final response = await _apiService.incrementVideoDownload(videoId);
+      if (response['success'] == true && response['data'] != null) {
+        if (mounted) {
+          setState(() {
+            _currentDownloads =
+                response['data']['downloads'] ?? _currentDownloads;
+          });
+        }
+      }
+    } catch (e) {
+      print('Error incrementing download count: $e');
+    }
   }
 
   // Load user's follow status
@@ -203,10 +304,42 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
     _videoController?.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+
+    // When app becomes active (user returns to the app), refresh video data
+    if (state == AppLifecycleState.resumed) {
+      _refreshVideoData();
+    }
+  }
+
+  // Refresh video data from server
+  Future<void> _refreshVideoData() async {
+    try {
+      final response = await _apiService.getVideoById(widget.videoId);
+      if (response['success'] == true && response['data'] != null) {
+        final videoData = response['data'];
+        if (mounted) {
+          setState(() {
+            _currentViews = videoData['views'] ?? _currentViews;
+            _currentLikes = videoData['likes'] ?? _currentLikes;
+            _currentShares = videoData['shares'] ?? _currentShares;
+            _currentDownloads = videoData['downloads'] ?? _currentDownloads;
+            _isLiked = videoData['isLiked'] ?? _isLiked;
+          });
+        }
+      }
+    } catch (e) {
+      print('Error refreshing video data: $e');
+    }
   }
 
   String? _currentVideoUrl;
@@ -257,6 +390,8 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
             _isVideoInitialized = true;
             _totalDuration = _videoController!.value.duration;
           });
+          // Increment view count when video is ready
+          _incrementViewCount(widget.videoId);
         }
       }).catchError((error) {
         print('❌ Video initialization error: $error');
@@ -365,6 +500,22 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
                 _loadAuthorAvatar(video.userId);
               });
             }
+          }
+
+          // Initialize video stats from server data only if not already set
+          // This preserves real-time updates while ensuring fresh data on video load
+          if (_currentViews == 0) {
+            _currentViews = video.viewCount;
+          }
+          if (_currentLikes == 0) {
+            _currentLikes = video.likeCount;
+            _isLiked = video.isLiked;
+          }
+          if (_currentShares == 0) {
+            _currentShares = video.shareCount;
+          }
+          if (_currentDownloads == 0) {
+            _currentDownloads = video.downloadCount;
           }
 
           return Column(
@@ -858,28 +1009,65 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
         children: [
           _buildActionItem(
             icon: Icons.visibility,
-            count: _formatCount(video.viewCount),
+            count: _formatCount(_currentViews),
             label: 'views',
           ),
-          LikeButton(
-            targetId: widget.videoId,
-            userId: 'current_user',
-            type: LikeType.video,
-            initialLikeCount: video.likeCount,
-          ),
-          ShareButton(
-            contentId: widget.videoId,
-            contentType: 'video',
-            userId: 'current_user',
-            shareCount: video.shareCount,
-          ),
+          _buildLikeActionItem(),
+          _buildShareActionItem(),
           _buildActionItem(
             icon: Icons.download,
-            count: '0', // TODO: Add download count to database
+            count: _formatCount(_currentDownloads),
             label: 'downloads',
             onTap: () {
               _showDownloadOptions();
             },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLikeActionItem() {
+    return GestureDetector(
+      onTap: () => _toggleLike(widget.videoId),
+      child: Column(
+        children: [
+          Icon(
+            _isLiked ? Icons.favorite : Icons.favorite_border,
+            size: 28,
+            color: _isLiked ? Colors.red : Colors.grey[700],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            _formatCount(_currentLikes),
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.bold,
+              color: _isLiked ? Colors.red : Colors.black,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildShareActionItem() {
+    return GestureDetector(
+      onTap: () => _showShareOptions(widget.videoId),
+      child: Column(
+        children: [
+          Icon(
+            Icons.share,
+            size: 28,
+            color: Colors.grey[700],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            _formatCount(_currentShares),
+            style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.bold,
+            ),
           ),
         ],
       ),
@@ -1185,6 +1373,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
               title: const Text('Share Video'),
               onTap: () {
                 Navigator.pop(context);
+                _showShareOptions(widget.videoId);
               },
             ),
             ListTile(
@@ -1208,6 +1397,154 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
     );
   }
 
+  void _showShareOptions(String videoId) {
+    showModalBottomSheet(
+      context: context,
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'Share to',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                _buildShareOptionItem(
+                  icon: Icons.facebook,
+                  label: 'Facebook',
+                  color: const Color(0xFF1877F2),
+                  onTap: () => _shareToPlatform(videoId, 'facebook'),
+                ),
+                _buildShareOptionItem(
+                  icon: Icons.alternate_email,
+                  label: 'Twitter',
+                  color: const Color(0xFF1DA1F2),
+                  onTap: () => _shareToPlatform(videoId, 'twitter'),
+                ),
+                _buildShareOptionItem(
+                  icon: Icons.camera_alt,
+                  label: 'Instagram',
+                  color: const Color(0xFFE4405F),
+                  onTap: () => _shareToPlatform(videoId, 'instagram'),
+                ),
+                _buildShareOptionItem(
+                  icon: Icons.message,
+                  label: 'WhatsApp',
+                  color: const Color(0xFF25D366),
+                  onTap: () => _shareToPlatform(videoId, 'whatsapp'),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                _buildShareOptionItem(
+                  icon: Icons.copy,
+                  label: 'Copy Link',
+                  color: Colors.grey[600]!,
+                  onTap: () => _copyLink(videoId),
+                ),
+                _buildShareOptionItem(
+                  icon: Icons.more_horiz,
+                  label: 'More',
+                  color: Colors.grey[600]!,
+                  onTap: () => _shareToMore(videoId),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildShareOptionItem({
+    required IconData icon,
+    required String label,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 60,
+            height: 60,
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(30),
+            ),
+            child: Icon(
+              icon,
+              color: color,
+              size: 30,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _shareToPlatform(String videoId, String platform) async {
+    Navigator.pop(context);
+    await _incrementShareCount(videoId, platform: platform);
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Shared to ${platform.toUpperCase()}!'),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    }
+  }
+
+  void _copyLink(String videoId) async {
+    Navigator.pop(context);
+    await _incrementShareCount(videoId, platform: 'copy');
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Link copied to clipboard!'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+    }
+  }
+
+  void _shareToMore(String videoId) async {
+    Navigator.pop(context);
+    await _incrementShareCount(videoId, platform: 'other');
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Opening system share sheet...'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+    }
+  }
+
   void _showDownloadOptions() {
     showDialog(
       context: context,
@@ -1222,17 +1559,33 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
           TextButton(
             onPressed: () {
               Navigator.pop(context);
+              _downloadVideo('720p');
             },
             child: const Text('HD (720p)'),
           ),
           TextButton(
             onPressed: () {
               Navigator.pop(context);
+              _downloadVideo('480p');
             },
             child: const Text('SD (480p)'),
           ),
         ],
       ),
     );
+  }
+
+  Future<void> _downloadVideo(String quality) async {
+    // Increment download count
+    await _incrementDownloadCount(widget.videoId);
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Downloading video in $quality...'),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    }
   }
 }

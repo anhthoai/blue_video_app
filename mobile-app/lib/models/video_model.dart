@@ -12,6 +12,8 @@ class VideoModel {
   final int likeCount;
   final int commentCount;
   final int shareCount;
+  final int downloadCount;
+  final bool isLiked; // Whether current user has liked this video
   final bool isPublic;
   final bool isFeatured;
   final DateTime createdAt;
@@ -53,6 +55,8 @@ class VideoModel {
     this.likeCount = 0,
     this.commentCount = 0,
     this.shareCount = 0,
+    this.downloadCount = 0,
+    this.isLiked = false,
     this.isPublic = true,
     this.isFeatured = false,
     required this.createdAt,
@@ -83,6 +87,8 @@ class VideoModel {
     int? likeCount,
     int? commentCount,
     int? shareCount,
+    int? downloadCount,
+    bool? isLiked,
     bool? isPublic,
     bool? isFeatured,
     DateTime? createdAt,
@@ -111,6 +117,8 @@ class VideoModel {
       likeCount: likeCount ?? this.likeCount,
       commentCount: commentCount ?? this.commentCount,
       shareCount: shareCount ?? this.shareCount,
+      downloadCount: downloadCount ?? this.downloadCount,
+      isLiked: isLiked ?? this.isLiked,
       isPublic: isPublic ?? this.isPublic,
       isFeatured: isFeatured ?? this.isFeatured,
       createdAt: createdAt ?? this.createdAt,
@@ -143,6 +151,8 @@ class VideoModel {
       'likeCount': likeCount,
       'commentCount': commentCount,
       'shareCount': shareCount,
+      'downloadCount': downloadCount,
+      'isLiked': isLiked,
       'isPublic': isPublic,
       'isFeatured': isFeatured,
       'createdAt': createdAt.toIso8601String(),
@@ -179,6 +189,9 @@ class VideoModel {
       commentCount:
           json['commentCount'] as int? ?? json['comments'] as int? ?? 0,
       shareCount: json['shareCount'] as int? ?? json['shares'] as int? ?? 0,
+      downloadCount:
+          json['downloadCount'] as int? ?? json['downloads'] as int? ?? 0,
+      isLiked: json['isLiked'] as bool? ?? false,
       isPublic: json['isPublic'] as bool? ?? true,
       isFeatured: json['isFeatured'] as bool? ?? false,
       createdAt: DateTime.parse(json['createdAt'] as String),

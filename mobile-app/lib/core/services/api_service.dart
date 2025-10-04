@@ -291,6 +291,50 @@ class ApiService {
     return await _handleResponse(response);
   }
 
+  // Increment video view count
+  Future<Map<String, dynamic>> incrementVideoView(String videoId) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/videos/$videoId/view'),
+      headers: await _getHeaders(),
+    );
+
+    return await _handleResponse(response);
+  }
+
+  // Toggle video like
+  Future<Map<String, dynamic>> toggleVideoLike(String videoId) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/videos/$videoId/like'),
+      headers: await _getHeaders(),
+    );
+
+    return await _handleResponse(response);
+  }
+
+  // Increment video share count
+  Future<Map<String, dynamic>> incrementVideoShare(String videoId,
+      {String? platform}) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/videos/$videoId/share'),
+      headers: await _getHeaders(),
+      body: json.encode({
+        if (platform != null) 'platform': platform,
+      }),
+    );
+
+    return await _handleResponse(response);
+  }
+
+  // Increment video download count
+  Future<Map<String, dynamic>> incrementVideoDownload(String videoId) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/videos/$videoId/download'),
+      headers: await _getHeaders(),
+    );
+
+    return await _handleResponse(response);
+  }
+
   // User APIs
   Future<Map<String, dynamic>> getUserProfile(String userId) async {
     final response = await http.get(

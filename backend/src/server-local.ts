@@ -535,10 +535,224 @@ app.get('/api/v1/users/:userId/videos', async (req, res) => {
   }
 });
 
+// Increment video view count
+app.post('/api/v1/videos/:id/view', async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    // Update video view count
+    const video = await prisma.video.update({
+      where: { id },
+      data: {
+        views: {
+          increment: 1,
+        },
+      },
+      select: {
+        id: true,
+        views: true,
+      },
+    });
+
+    res.json({
+      success: true,
+      data: {
+        videoId: video.id,
+        views: video.views,
+      },
+    });
+  } catch (error) {
+    console.error('Error incrementing video view:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to increment video view',
+    });
+  }
+});
+
+// Toggle like on video
+app.post('/api/v1/videos/:id/like', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const currentUserId = await getCurrentUserId(req);
+
+    if (!currentUserId) {
+      res.status(401).json({
+        success: false,
+        message: 'Authentication required - please sign in again',
+      });
+      return;
+    }
+
+    // Check if video exists
+    const video = await prisma.video.findUnique({
+      where: { id },
+    });
+
+    if (!video) {
+      res.status(404).json({
+        success: false,
+        message: 'Video not found',
+      });
+      return;
+    }
+
+    // Check if user has already liked this video
+    const existingLike = await prisma.like.findFirst({
+      where: {
+        userId: currentUserId,
+        targetId: id,
+        targetType: 'VIDEO',
+      },
+    });
+
+    let isLiked: boolean;
+    let updatedVideo;
+
+    if (existingLike) {
+      // Unlike: Delete the like record
+      await prisma.like.delete({
+        where: { id: existingLike.id },
+      });
+
+      // Decrement like count
+      updatedVideo = await prisma.video.update({
+        where: { id },
+        data: {
+          likes: {
+            decrement: 1,
+          },
+        },
+        select: {
+          id: true,
+          likes: true,
+        },
+      });
+      isLiked = false;
+    } else {
+      // Like: Create a like record
+      await prisma.like.create({
+        data: {
+          userId: currentUserId,
+          targetId: id,
+          targetType: 'VIDEO',
+          contentId: id, // Same as targetId for videos
+          contentType: 'VIDEO',
+          type: 'LIKE',
+        },
+      });
+
+      // Increment like count
+      updatedVideo = await prisma.video.update({
+        where: { id },
+        data: {
+          likes: {
+            increment: 1,
+          },
+        },
+        select: {
+          id: true,
+          likes: true,
+        },
+      });
+      isLiked = true;
+    }
+
+    res.json({
+      success: true,
+      data: {
+        videoId: updatedVideo.id,
+        likes: updatedVideo.likes,
+        isLiked,
+      },
+    });
+  } catch (error) {
+    console.error('Error toggling video like:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to toggle video like',
+    });
+  }
+});
+
+// Increment video share count
+app.post('/api/v1/videos/:id/share', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { platform } = req.body; // Optional: track which platform was used
+
+    // Update video share count
+    const video = await prisma.video.update({
+      where: { id },
+      data: {
+        shares: {
+          increment: 1,
+        },
+      },
+      select: {
+        id: true,
+        shares: true,
+      },
+    });
+
+    console.log(`Video ${id} shared${platform ? ` on ${platform}` : ''}`);
+
+    res.json({
+      success: true,
+      data: {
+        videoId: video.id,
+        shares: video.shares,
+      },
+    });
+  } catch (error) {
+    console.error('Error incrementing video share:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to increment video share',
+    });
+  }
+});
+
+// Increment video download count
+app.post('/api/v1/videos/:id/download', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Update video download count
+    const video = await prisma.video.update({
+      where: { id },
+      data: {
+        downloads: {
+          increment: 1,
+        },
+      },
+      select: {
+        id: true,
+        downloads: true,
+      },
+    });
+
+    res.json({
+      success: true,
+      data: {
+        videoId: video.id,
+        downloads: video.downloads || 0,
+      },
+    });
+  } catch (error) {
+    console.error('Error incrementing video download:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to increment video download',
+    });
+  }
+});
+
 // Get single video by ID
 app.get('/api/v1/videos/:id', async (req, res) => {
   try {
     const { id } = req.params;
+    const currentUserId = await getCurrentUserId(req);
     
     // Get video from database using Prisma
     const video = await prisma.video.findUnique({
@@ -553,6 +767,8 @@ app.get('/api/v1/videos/:id', async (req, res) => {
             firstName: true,
             lastName: true,
             avatarUrl: true,
+            avatar: true,
+            fileDirectory: true,
             isVerified: true,
           },
         },
@@ -565,6 +781,19 @@ app.get('/api/v1/videos/:id', async (req, res) => {
         message: 'Video not found',
       });
       return;
+    }
+
+    // Check if current user has liked this video
+    let isLiked = false;
+    if (currentUserId) {
+      const existingLike = await prisma.like.findFirst({
+        where: {
+          userId: currentUserId,
+          targetId: video.id,
+          targetType: 'VIDEO',
+        },
+      });
+      isLiked = !!existingLike;
     }
 
     // Convert to camelCase and serialize BigInt for JSON
@@ -582,6 +811,8 @@ app.get('/api/v1/videos/:id', async (req, res) => {
       likes: video.likes,
       comments: video.comments,
       shares: video.shares,
+      downloads: video.downloads || 0,
+      isLiked: isLiked,
       isPublic: video.isPublic,
       createdAt: video.createdAt.toISOString(),
       updatedAt: video.updatedAt.toISOString(),

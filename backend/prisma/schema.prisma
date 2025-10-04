@@ -71,6 +71,7 @@ model Video {
   likes        Int      @default(0)
   comments     Int      @default(0)
   shares       Int      @default(0)
+  downloads    Int      @default(0)
   isPublic     Boolean  @default(true) @map("is_public")
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
@@ -133,6 +134,8 @@ model Comment {
 model Like {
   id          String      @id @default(uuid())
   userId      String      @map("user_id")
+  targetId    String?     @map("target_id")
+  targetType  String?     @map("target_type")
   contentId   String      @map("content_id")
   contentType ContentType @map("content_type")
   type        LikeType
