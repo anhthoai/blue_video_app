@@ -192,4 +192,117 @@ export const generatePresignedUrl = async (fileName: string, fileType: string, f
   }
 };
 
+// Custom multer storage for chat attachments
+export const chatFileStorage = {
+  _handleFile: async (req: any, file: any, cb: any) => {
+    try {
+      const userCreatedAt = req.userCreatedAt ? new Date(req.userCreatedAt) : new Date();
+      
+      // Generate file directory based on user's creation date (yyyy/mm/dd)
+      const year = userCreatedAt.getFullYear();
+      const month = String(userCreatedAt.getMonth() + 1).padStart(2, '0');
+      const day = String(userCreatedAt.getDate()).padStart(2, '0');
+      const fileDirectory = `${year}/${month}/${day}`;
+      
+      // Determine file type folder based on MIME type
+      let typeFolder = 'doc';
+      if (file.mimetype.startsWith('image/')) {
+        typeFolder = 'photo';
+      } else if (file.mimetype.startsWith('video/')) {
+        typeFolder = 'video';
+      } else if (file.mimetype.startsWith('audio/')) {
+        typeFolder = 'audio';
+      }
+      
+      const extension = file.originalname.split('.').pop();
+      const filename = `${uuidv4()}.${extension}`;
+      const key = `chat/${typeFolder}/${fileDirectory}/${filename}`;
+      
+      // Convert stream to buffer
+      const chunks: Buffer[] = [];
+      file.stream.on('data', (chunk: Buffer) => chunks.push(chunk));
+      file.stream.on('end', async () => {
+        try {
+          const buffer = Buffer.concat(chunks);
+          
+          const command = new PutObjectCommand({
+            Bucket: BUCKET_NAME,
+            Key: key,
+            Body: buffer,
+            ContentType: file.mimetype,
+          });
+          
+          await s3Client.send(command);
+          
+          // Generate file URL
+          const cdnUrl = process.env['CDN_URL'] || process.env['S3_ENDPOINT'];
+          const location = cdnUrl 
+            ? `${cdnUrl}/${key}`
+            : `https://${BUCKET_NAME}.s3.${process.env['S3_REGION'] || 'us-east-1'}.amazonaws.com/${key}`;
+          
+          cb(null, {
+            bucket: BUCKET_NAME,
+            key: key,
+            location: location,
+            folder: `chat/${typeFolder}`,
+            fileDirectory: fileDirectory,
+            filename: filename,
+            size: buffer.length,
+            mimetype: file.mimetype,
+            originalname: file.originalname,
+          });
+        } catch (error) {
+          cb(error);
+        }
+      });
+      
+      file.stream.on('error', (error: any) => {
+        cb(error);
+      });
+    } catch (error) {
+      cb(error);
+    }
+  },
+  _removeFile: async (_req: any, file: any, cb: any) => {
+    try {
+      const command = new DeleteObjectCommand({
+        Bucket: BUCKET_NAME,
+        Key: file.key,
+      });
+      await s3Client.send(command);
+      cb(null);
+    } catch (error) {
+      cb(error);
+    }
+  },
+};
+
+// File filter for chat attachments
+export const chatFileFilter = (_req: any, file: any, cb: any) => {
+  // Allow images, videos, audio, and documents
+  const allowedMimes = [
+    // Images
+    'image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp',
+    // Videos
+    'video/mp4', 'video/mpeg', 'video/webm', 'video/quicktime',
+    // Audio
+    'audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/ogg', 'audio/aac',
+    // Documents
+    'application/pdf',
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'application/vnd.ms-excel',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'application/vnd.ms-powerpoint',
+    'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    'text/plain',
+  ];
+  
+  if (allowedMimes.includes(file.mimetype)) {
+    cb(null, true);
+  } else {
+    cb(new Error(`File type not supported: ${file.mimetype}`), false);
+  }
+};
+
 export default s3Client;

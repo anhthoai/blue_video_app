@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:socket_io_client/socket_io_client.dart' as IO;
 
@@ -151,12 +152,31 @@ class ChatService {
     }
   }
 
+  // Upload chat attachment
+  Future<Map<String, dynamic>?> uploadChatAttachment(File file) async {
+    try {
+      final response = await _apiService.uploadChatAttachment(file);
+
+      if (response['success'] == true && response['data'] != null) {
+        return response['data'];
+      }
+      return null;
+    } catch (e) {
+      print('Error uploading chat attachment: $e');
+      return null;
+    }
+  }
+
   // Send a message
   Future<ChatMessage?> sendMessage({
     required String roomId,
     required String content,
     String? messageType,
     String? fileUrl,
+    String? fileName,
+    String? fileDirectory,
+    int? fileSize,
+    String? mimeType,
   }) async {
     try {
       final response = await _apiService.sendMessage(
@@ -164,6 +184,10 @@ class ChatService {
         content: content,
         messageType: messageType,
         fileUrl: fileUrl,
+        fileName: fileName,
+        fileDirectory: fileDirectory,
+        fileSize: fileSize,
+        mimeType: mimeType,
       );
 
       if (response['success'] == true && response['data'] != null) {
@@ -309,11 +333,35 @@ class ChatServiceNotifier extends StateNotifier<ChatServiceState> {
     }
   }
 
-  Future<void> sendMessage(String roomId, String content) async {
+  Future<Map<String, dynamic>?> uploadChatAttachment(File file) async {
+    try {
+      return await _chatService.uploadChatAttachment(file);
+    } catch (e) {
+      state = state.copyWith(error: e.toString());
+      return null;
+    }
+  }
+
+  Future<void> sendMessage(
+    String roomId,
+    String content, {
+    String? messageType,
+    String? fileUrl,
+    String? fileName,
+    String? fileDirectory,
+    int? fileSize,
+    String? mimeType,
+  }) async {
     try {
       final message = await _chatService.sendMessage(
         roomId: roomId,
         content: content,
+        messageType: messageType,
+        fileUrl: fileUrl,
+        fileName: fileName,
+        fileDirectory: fileDirectory,
+        fileSize: fileSize,
+        mimeType: mimeType,
       );
 
       if (message != null) {

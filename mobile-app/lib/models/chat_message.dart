@@ -20,6 +20,10 @@ class ChatMessage {
   final DateTime updatedAt;
   final MessageType messageType;
   final String? fileUrl;
+  final String? fileName;
+  final String? fileDirectory;
+  final int? fileSize;
+  final String? mimeType;
   final String username;
   final String? userAvatar;
   final bool isEdited;
@@ -38,6 +42,10 @@ class ChatMessage {
     required this.updatedAt,
     required this.messageType,
     this.fileUrl,
+    this.fileName,
+    this.fileDirectory,
+    this.fileSize,
+    this.mimeType,
     required this.username,
     this.userAvatar,
     this.isEdited = false,
@@ -57,6 +65,10 @@ class ChatMessage {
     DateTime? updatedAt,
     MessageType? messageType,
     String? fileUrl,
+    String? fileName,
+    String? fileDirectory,
+    int? fileSize,
+    String? mimeType,
     String? username,
     String? userAvatar,
     bool? isEdited,
@@ -75,6 +87,10 @@ class ChatMessage {
       updatedAt: updatedAt ?? this.updatedAt,
       messageType: messageType ?? this.messageType,
       fileUrl: fileUrl ?? this.fileUrl,
+      fileName: fileName ?? this.fileName,
+      fileDirectory: fileDirectory ?? this.fileDirectory,
+      fileSize: fileSize ?? this.fileSize,
+      mimeType: mimeType ?? this.mimeType,
       username: username ?? this.username,
       userAvatar: userAvatar ?? this.userAvatar,
       isEdited: isEdited ?? this.isEdited,
@@ -96,6 +112,10 @@ class ChatMessage {
       'updatedAt': updatedAt.toIso8601String(),
       'messageType': messageType.name,
       'fileUrl': fileUrl,
+      'fileName': fileName,
+      'fileDirectory': fileDirectory,
+      'fileSize': fileSize,
+      'mimeType': mimeType,
       'username': username,
       'userAvatar': userAvatar,
       'isEdited': isEdited,
@@ -127,6 +147,10 @@ class ChatMessage {
         orElse: () => MessageType.text,
       ),
       fileUrl: json['fileUrl'] as String?,
+      fileName: json['fileName'] as String?,
+      fileDirectory: json['fileDirectory'] as String?,
+      fileSize: json['fileSize'] as int?,
+      mimeType: json['mimeType'] as String?,
       username: json['username'] as String? ?? '',
       userAvatar: json['userAvatar'] as String?,
       isEdited: json['isEdited'] as bool? ?? false,

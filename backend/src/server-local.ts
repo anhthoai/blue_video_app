@@ -15,9 +15,10 @@ import { Server as SocketIOServer } from 'socket.io';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { emailService } from './services/emailService';
-import { upload, deleteFromS3 } from './services/s3Service';
+import { upload, deleteFromS3, chatFileStorage, chatFileFilter } from './services/s3Service';
 import { serializeUserWithUrls, buildAvatarUrl } from './utils/fileUrl';
 import prisma from './lib/prisma';
+import multer from 'multer';
 
 const app = express();
 const server = createServer(app);
@@ -2316,6 +2317,10 @@ app.get('/api/v1/chat/rooms/:roomId/messages', async (req, res) => {
       content: message.content,
       type: message.messageType,
       fileUrl: message.fileUrl,
+      fileName: message.fileName,
+      fileDirectory: message.fileDirectory,
+      fileSize: message.fileSize,
+      mimeType: message.mimeType,
       createdAt: message.createdAt.toISOString(),
       updatedAt: message.updatedAt.toISOString(),
       userId: message.userId,
@@ -2358,7 +2363,7 @@ app.post('/api/v1/chat/rooms/:roomId/messages', async (req, res) => {
     }
 
     const { roomId } = req.params;
-    const { content, type = 'TEXT', fileUrl } = req.body;
+    const { content, type = 'TEXT', fileUrl, fileName, fileDirectory, fileSize, mimeType } = req.body;
 
     if (!content && !fileUrl) {
       res.status(400).json({
@@ -2391,9 +2396,13 @@ app.post('/api/v1/chat/rooms/:roomId/messages', async (req, res) => {
     // Create message
     const message = await prisma.chatMessage.create({
       data: {
-        content: content || null,
+        content: content || '',
         messageType: type.toUpperCase() as any,
         fileUrl: fileUrl || null,
+        fileName: fileName || null,
+        fileDirectory: fileDirectory || null,
+        fileSize: fileSize ? parseInt(fileSize) : null,
+        mimeType: mimeType || null,
         userId: currentUserId,
         roomId: roomId,
       },
@@ -2425,6 +2434,10 @@ app.post('/api/v1/chat/rooms/:roomId/messages', async (req, res) => {
       content: message.content,
       type: message.messageType,
       fileUrl: message.fileUrl,
+      fileName: message.fileName,
+      fileDirectory: message.fileDirectory,
+      fileSize: message.fileSize,
+      mimeType: message.mimeType,
       createdAt: message.createdAt.toISOString(),
       updatedAt: message.updatedAt.toISOString(),
       userId: message.userId,
@@ -2663,6 +2676,57 @@ const attachUserInfoForUpload = async (req: any, res: any, next: any) => {
   (req as any).currentUser = user;
   next();
 };
+
+// Chat file upload configuration
+const chatUpload = multer({ 
+  storage: chatFileStorage,
+  fileFilter: chatFileFilter,
+  limits: { fileSize: 50 * 1024 * 1024 } // 50MB limit
+});
+
+// Upload chat attachment
+app.post('/api/v1/chat/upload', attachUserInfoForUpload, chatUpload.single('file'), async (req, res) => {
+  try {
+    const currentUserId = await getCurrentUserId(req);
+    
+    if (!currentUserId) {
+      res.status(401).json({
+        success: false,
+        message: 'Authentication required - please sign in again',
+      });
+      return;
+    }
+
+    if (!(req as any).file) {
+      res.status(400).json({
+        success: false,
+        message: 'No file uploaded',
+      });
+      return;
+    }
+
+    const file = (req as any).file;
+    
+    res.json({
+      success: true,
+      data: {
+        fileUrl: file.location,
+        fileName: file.filename,
+        fileDirectory: file.fileDirectory,
+        folder: file.folder,
+        fileSize: file.size,
+        mimeType: file.mimetype,
+        originalName: file.originalname,
+      },
+    });
+  } catch (error) {
+    console.error('Error uploading chat attachment:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to upload file',
+    });
+  }
+});
 
 // Upload avatar
 app.post('/api/v1/users/avatar', attachUserInfoForUpload, upload.single('avatar'), async (req, res) => {

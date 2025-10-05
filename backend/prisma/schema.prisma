@@ -225,15 +225,19 @@ model ChatRoomParticipant {
 }
 
 model ChatMessage {
-  id          String      @id @default(uuid())
-  roomId      String      @map("room_id")
-  userId      String      @map("user_id")
-  content     String
-  messageType MessageType @default(TEXT) @map("message_type")
-  fileUrl     String?     @map("file_url")
-  isEdited    Boolean     @default(false) @map("is_edited")
-  createdAt   DateTime    @default(now()) @map("created_at")
-  updatedAt   DateTime    @updatedAt @map("updated_at")
+  id            String      @id @default(uuid())
+  roomId        String      @map("room_id")
+  userId        String      @map("user_id")
+  content       String
+  messageType   MessageType @default(TEXT) @map("message_type")
+  fileUrl       String?     @map("file_url")
+  fileName      String?     @map("file_name")
+  fileDirectory String?     @map("file_directory")
+  fileSize      Int?        @map("file_size")
+  mimeType      String?     @map("mime_type")
+  isEdited      Boolean     @default(false) @map("is_edited")
+  createdAt     DateTime    @default(now()) @map("created_at")
+  updatedAt     DateTime    @updatedAt @map("updated_at")
 
   // Relations
   room ChatRoom @relation(fields: [roomId], references: [id], onDelete: Cascade)
@@ -278,6 +282,7 @@ enum MessageType {
   TEXT
   IMAGE
   VIDEO
+  AUDIO
   FILE
 
   @@map("message_type")

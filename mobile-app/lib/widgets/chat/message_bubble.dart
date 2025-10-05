@@ -162,147 +162,288 @@ class MessageBubble extends StatelessWidget {
   }
 
   Widget _buildImageMessage(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(8),
-      child: CachedNetworkImage(
-        imageUrl: message.attachments?.first ?? '',
-        width: 200,
-        height: 200,
-        fit: BoxFit.cover,
-        placeholder: (context, url) => Container(
-          width: 200,
-          height: 200,
-          color: Colors.grey[300],
-          child: const Center(
-            child: CircularProgressIndicator(),
+    if (message.fileUrl == null || message.fileUrl!.isEmpty) {
+      return Text(
+        message.content.isNotEmpty ? message.content : '📷 Image',
+        style: TextStyle(
+          color: isMe ? Colors.white : Colors.black87,
+          fontSize: 16,
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        ClipRRect(
+          borderRadius: BorderRadius.circular(8),
+          child: CachedNetworkImage(
+            imageUrl: message.fileUrl!,
+            width: 200,
+            height: 200,
+            fit: BoxFit.cover,
+            placeholder: (context, url) => Container(
+              width: 200,
+              height: 200,
+              color: Colors.grey[300],
+              child: const Center(
+                child: CircularProgressIndicator(),
+              ),
+            ),
+            errorWidget: (context, url, error) => Container(
+              width: 200,
+              height: 200,
+              color: Colors.grey[300],
+              child: const Icon(Icons.broken_image, size: 48),
+            ),
           ),
         ),
-        errorWidget: (context, url, error) => Container(
-          width: 200,
-          height: 200,
-          color: Colors.grey[300],
-          child: const Icon(Icons.error),
-        ),
-      ),
+        if (message.content.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          Text(
+            message.content,
+            style: TextStyle(
+              color: isMe ? Colors.white : Colors.black87,
+              fontSize: 14,
+            ),
+          ),
+        ],
+      ],
     );
   }
 
   Widget _buildVideoMessage(BuildContext context) {
-    return Container(
-      width: 200,
-      height: 120,
-      decoration: BoxDecoration(
-        color: Colors.black,
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Stack(
-        children: [
-          // Video thumbnail would go here
-          Container(
+    if (message.fileUrl == null || message.fileUrl!.isEmpty) {
+      return Text(
+        message.content.isNotEmpty ? message.content : '🎥 Video',
+        style: TextStyle(
+          color: isMe ? Colors.white : Colors.black87,
+          fontSize: 16,
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        GestureDetector(
+          onTap: () {
+            // TODO: Open video player
+          },
+          child: Container(
             width: 200,
             height: 120,
-            color: Colors.grey[800],
-            child: const Center(
-              child: Icon(Icons.play_circle_outline,
-                  color: Colors.white, size: 48),
+            decoration: BoxDecoration(
+              color: Colors.black,
+              borderRadius: BorderRadius.circular(8),
             ),
-          ),
-          Positioned(
-            bottom: 8,
-            right: 8,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-              decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.7),
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: const Text(
-                '2:30',
-                style: TextStyle(color: Colors.white, fontSize: 12),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildAudioMessage(BuildContext context) {
-    return Container(
-      width: 200,
-      height: 40,
-      decoration: BoxDecoration(
-        color: isMe ? Colors.white.withOpacity(0.2) : Colors.grey[300],
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Row(
-        children: [
-          IconButton(
-            icon: Icon(
-              Icons.play_arrow,
-              color: isMe ? Colors.white : Colors.black,
-            ),
-            onPressed: () {
-              // Play audio
-            },
-          ),
-          Expanded(
-            child: LinearProgressIndicator(
-              value: 0.3,
-              backgroundColor: Colors.transparent,
-              valueColor: AlwaysStoppedAnimation<Color>(
-                isMe ? Colors.white : Colors.grey[400]!,
-              ),
-            ),
-          ),
-          const Padding(
-            padding: EdgeInsets.only(right: 8),
-            child: Text(
-              '1:23',
-              style: TextStyle(fontSize: 12),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildFileMessage(BuildContext context) {
-    return Container(
-      width: 200,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: isMe ? Colors.white.withOpacity(0.2) : Colors.grey[300],
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
-        children: [
-          Icon(
-            Icons.attach_file,
-            color: isMe ? Colors.white : Colors.black,
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            child: Stack(
               children: [
-                const Text(
-                  'document.pdf',
-                  style: TextStyle(fontWeight: FontWeight.w500),
+                // Video thumbnail placeholder
+                Container(
+                  width: 200,
+                  height: 120,
+                  color: Colors.grey[800],
+                  child: const Center(
+                    child: Icon(Icons.play_circle_outline,
+                        color: Colors.white, size: 48),
+                  ),
                 ),
-                const Text(
-                  '2.4 MB',
-                  style: TextStyle(fontSize: 12),
+                Positioned(
+                  bottom: 8,
+                  right: 8,
+                  child: Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withOpacity(0.7),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: const Row(
+                      children: [
+                        Icon(Icons.videocam, color: Colors.white, size: 12),
+                        SizedBox(width: 4),
+                        Text(
+                          'Video',
+                          style: TextStyle(color: Colors.white, fontSize: 12),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ],
             ),
           ),
-          Icon(
-            Icons.download,
-            color: isMe ? Colors.white : Colors.black,
+        ),
+        if (message.content.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          Text(
+            message.content,
+            style: TextStyle(
+              color: isMe ? Colors.white : Colors.black87,
+              fontSize: 14,
+            ),
           ),
         ],
-      ),
+      ],
+    );
+  }
+
+  Widget _buildAudioMessage(BuildContext context) {
+    if (message.fileUrl == null || message.fileUrl!.isEmpty) {
+      return Text(
+        message.content.isNotEmpty ? message.content : '🎵 Audio',
+        style: TextStyle(
+          color: isMe ? Colors.white : Colors.black87,
+          fontSize: 16,
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: 250,
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: isMe ? Colors.white.withOpacity(0.2) : Colors.grey[300],
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Row(
+            children: [
+              IconButton(
+                icon: Icon(
+                  Icons.play_arrow,
+                  color: isMe ? Colors.white : Colors.black,
+                ),
+                onPressed: () {
+                  // TODO: Play audio
+                },
+              ),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    LinearProgressIndicator(
+                      value: 0.0,
+                      backgroundColor: Colors.transparent,
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        isMe ? Colors.white : Colors.grey[600]!,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      _formatFileSize(message.fileSize),
+                      style: TextStyle(
+                        color: isMe ? Colors.white70 : Colors.grey[600],
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                Icons.audiotrack,
+                color: isMe ? Colors.white70 : Colors.grey[600],
+                size: 20,
+              ),
+            ],
+          ),
+        ),
+        if (message.content.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          Text(
+            message.content,
+            style: TextStyle(
+              color: isMe ? Colors.white : Colors.black87,
+              fontSize: 14,
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildFileMessage(BuildContext context) {
+    if (message.fileUrl == null || message.fileUrl!.isEmpty) {
+      return Text(
+        message.content.isNotEmpty ? message.content : '📄 File',
+        style: TextStyle(
+          color: isMe ? Colors.white : Colors.black87,
+          fontSize: 16,
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        GestureDetector(
+          onTap: () {
+            // TODO: Download file
+          },
+          child: Container(
+            width: 250,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: isMe ? Colors.white.withOpacity(0.2) : Colors.grey[300],
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  _getFileIcon(message.mimeType),
+                  color: isMe ? Colors.white : Colors.black,
+                  size: 32,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        message.fileName ?? 'Document',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w500,
+                          color: isMe ? Colors.white : Colors.black87,
+                          fontSize: 14,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        _formatFileSize(message.fileSize),
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: isMe ? Colors.white70 : Colors.grey[600],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Icon(
+                  Icons.download,
+                  color: isMe ? Colors.white : Colors.black,
+                  size: 24,
+                ),
+              ],
+            ),
+          ),
+        ),
+        if (message.content.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          Text(
+            message.content,
+            style: TextStyle(
+              color: isMe ? Colors.white : Colors.black87,
+              fontSize: 14,
+            ),
+          ),
+        ],
+      ],
     );
   }
 
@@ -413,5 +554,40 @@ class MessageBubble extends StatelessWidget {
         ],
       ],
     );
+  }
+
+  // Helper method to format file size
+  String _formatFileSize(int? bytes) {
+    if (bytes == null || bytes == 0) return '0 B';
+    const suffixes = ['B', 'KB', 'MB', 'GB'];
+    var i = 0;
+    double size = bytes.toDouble();
+    while (size >= 1024 && i < suffixes.length - 1) {
+      size /= 1024;
+      i++;
+    }
+    return '${size.toStringAsFixed(1)} ${suffixes[i]}';
+  }
+
+  // Helper method to get file icon based on MIME type
+  IconData _getFileIcon(String? mimeType) {
+    if (mimeType == null) return Icons.insert_drive_file;
+
+    if (mimeType.contains('pdf')) {
+      return Icons.picture_as_pdf;
+    } else if (mimeType.contains('word') || mimeType.contains('document')) {
+      return Icons.description;
+    } else if (mimeType.contains('sheet') || mimeType.contains('excel')) {
+      return Icons.table_chart;
+    } else if (mimeType.contains('presentation') ||
+        mimeType.contains('powerpoint')) {
+      return Icons.slideshow;
+    } else if (mimeType.contains('text')) {
+      return Icons.text_snippet;
+    } else if (mimeType.contains('zip') || mimeType.contains('rar')) {
+      return Icons.folder_zip;
+    }
+
+    return Icons.insert_drive_file;
   }
 }

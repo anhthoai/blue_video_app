@@ -1,7 +1,8 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:http/http.dart' as http;
-import 'package:http_parser/http_parser.dart' as http_parser;
+import 'package:http_parser/http_parser.dart';
+import 'package:mime/mime.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
@@ -563,16 +564,52 @@ class ApiService {
     required String content,
     String? messageType,
     String? fileUrl,
+    String? fileName,
+    String? fileDirectory,
+    int? fileSize,
+    String? mimeType,
   }) async {
     final response = await http.post(
       Uri.parse('$baseUrl/chat/rooms/$roomId/messages'),
       headers: await _getHeaders(),
       body: json.encode({
         'content': content,
-        'messageType': messageType ?? 'TEXT',
+        'type': messageType ?? 'TEXT',
         'fileUrl': fileUrl,
+        'fileName': fileName,
+        'fileDirectory': fileDirectory,
+        'fileSize': fileSize,
+        'mimeType': mimeType,
       }),
     );
+
+    return await _handleResponse(response);
+  }
+
+  // Upload chat attachment (file, image, video, audio, document)
+  Future<Map<String, dynamic>> uploadChatAttachment(File file) async {
+    final uri = Uri.parse('$baseUrl/chat/upload');
+
+    final request = http.MultipartRequest('POST', uri);
+
+    // Add headers
+    final headers = await _getHeaders();
+    headers.forEach((key, value) {
+      request.headers[key] = value;
+    });
+
+    // Add file
+    request.files.add(
+      await http.MultipartFile.fromPath(
+        'file',
+        file.path,
+        contentType: MediaType.parse(
+            lookupMimeType(file.path) ?? 'application/octet-stream'),
+      ),
+    );
+
+    final streamedResponse = await request.send();
+    final response = await http.Response.fromStream(streamedResponse);
 
     return await _handleResponse(response);
   }
@@ -682,7 +719,7 @@ class ApiService {
       await http.MultipartFile.fromPath(
         'avatar',
         imageFile.path,
-        contentType: http_parser.MediaType.parse(contentType),
+        contentType: MediaType.parse(contentType),
       ),
     );
 
@@ -723,7 +760,7 @@ class ApiService {
       await http.MultipartFile.fromPath(
         'banner',
         imageFile.path,
-        contentType: http_parser.MediaType.parse(contentType),
+        contentType: MediaType.parse(contentType),
       ),
     );
 
