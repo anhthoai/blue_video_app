@@ -8,8 +8,6 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 class ApiService {
   static String get baseUrl =>
       dotenv.env['API_BASE_URL'] ?? 'http://192.168.1.100:3000/api/v1';
-  static String get socketUrl =>
-      dotenv.env['API_SOCKET_URL'] ?? 'http://192.168.1.100:3000';
 
   // Singleton pattern
   static final ApiService _instance = ApiService._internal();
@@ -734,4 +732,29 @@ class ApiService {
 
     return await _handleResponse(response);
   }
+
+  Future<Map<String, dynamic>> searchUsers({
+    String query = '',
+    int limit = 20,
+  }) async {
+    final queryParams = <String, String>{
+      'q': query,
+      'limit': limit.toString(),
+    };
+
+    final uri = Uri.parse('$baseUrl/users/search/users').replace(
+      queryParameters: queryParams,
+    );
+
+    final response = await http.get(
+      uri,
+      headers: await _getHeaders(),
+    );
+
+    return await _handleResponse(response);
+  }
+
+  // Socket.IO URL
+  String get socketUrl =>
+      baseUrl.replaceAll('http://', 'ws://').replaceAll('https://', 'wss://');
 }

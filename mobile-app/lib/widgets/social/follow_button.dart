@@ -37,7 +37,6 @@ class _FollowButtonState extends ConsumerState<FollowButton>
     with SingleTickerProviderStateMixin {
   late AnimationController _animationController;
   late Animation<double> _scaleAnimation;
-  late Animation<Color?> _colorAnimation;
 
   bool _isFollowing = false;
   bool _isLoading = false;
@@ -55,14 +54,6 @@ class _FollowButtonState extends ConsumerState<FollowButton>
     _scaleAnimation = Tween<double>(
       begin: 1.0,
       end: 0.95,
-    ).animate(CurvedAnimation(
-      parent: _animationController,
-      curve: Curves.easeInOut,
-    ));
-
-    _colorAnimation = ColorTween(
-      begin: widget.notFollowingColor ?? Colors.blue,
-      end: widget.followingColor ?? Colors.grey,
     ).animate(CurvedAnimation(
       parent: _animationController,
       curve: Curves.easeInOut,

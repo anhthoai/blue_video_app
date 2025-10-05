@@ -1889,6 +1889,568 @@ app.get('/api/v1/community/posts', async (req, res) => {
   }
 });
 
+// ============================================
+// Chat API Endpoints
+// ============================================
+
+// Get chat rooms for current user
+app.get('/api/v1/chat/rooms', async (req, res) => {
+  try {
+    const currentUserId = await getCurrentUserId(req);
+    
+    if (!currentUserId) {
+      res.status(401).json({
+        success: false,
+        message: 'Authentication required - please sign in again',
+      });
+      return;
+    }
+
+    const { page = 1, limit = 20 } = req.query;
+    const offset = (Number(page) - 1) * Number(limit);
+
+    // Get chat rooms where user is a participant
+    const chatRooms = await prisma.chatRoom.findMany({
+      where: {
+        participants: {
+          some: {
+            userId: currentUserId,
+          },
+        },
+      },
+      include: {
+        participants: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                username: true,
+                firstName: true,
+                lastName: true,
+                avatarUrl: true,
+                avatar: true,
+                fileDirectory: true,
+                isVerified: true,
+              },
+            },
+          },
+        },
+        messages: {
+          orderBy: {
+            createdAt: 'desc',
+          },
+          take: 1,
+          include: {
+            user: {
+              select: {
+                id: true,
+                username: true,
+                firstName: true,
+                lastName: true,
+                avatarUrl: true,
+                avatar: true,
+                fileDirectory: true,
+              },
+            },
+          },
+        },
+        creator: {
+          select: {
+            id: true,
+            username: true,
+            firstName: true,
+            lastName: true,
+          },
+        },
+      },
+      orderBy: {
+        updatedAt: 'desc',
+      },
+      skip: offset,
+      take: Number(limit),
+    });
+
+    // Serialize chat rooms
+    const serializedRooms = chatRooms.map(room => ({
+      id: room.id,
+      name: room.name,
+      type: room.type,
+      isGroup: room.type === 'GROUP',
+      participants: room.participants.map((p: any) => ({
+        id: p.user.id,
+        username: p.user.username,
+        firstName: p.user.firstName,
+        lastName: p.user.lastName,
+        avatarUrl: buildAvatarUrl(p.user) || p.user.avatarUrl,
+        isVerified: p.user.isVerified,
+        joinedAt: p.joinedAt.toISOString(),
+        role: p.role,
+      })),
+      lastMessage: room.messages.length > 0 && room.messages[0] ? {
+        id: room.messages[0].id,
+        content: room.messages[0].content,
+        type: room.messages[0].messageType,
+        createdAt: room.messages[0].createdAt.toISOString(),
+        userId: room.messages[0].userId,
+        username: room.messages[0].user?.username || 'Unknown',
+        userAvatar: room.messages[0].user ? (buildAvatarUrl(room.messages[0].user) || room.messages[0].user.avatarUrl) : null,
+      } : null,
+      unreadCount: 0, // TODO: Implement unread count
+      isOnline: false, // TODO: Implement online status
+      createdAt: room.createdAt.toISOString(),
+      updatedAt: room.updatedAt.toISOString(),
+      createdBy: room.creator ? {
+        id: room.creator.id,
+        username: room.creator.username,
+        firstName: room.creator.firstName,
+        lastName: room.creator.lastName,
+      } : null,
+    }));
+
+    res.json({
+      success: true,
+      data: serializedRooms,
+      pagination: {
+        page: Number(page),
+        limit: Number(limit),
+        total: serializedRooms.length,
+      },
+    });
+  } catch (error) {
+    console.error('Error fetching chat rooms:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch chat rooms',
+    });
+  }
+});
+
+// Get users for chat creation
+app.get('/api/v1/users/search/users', async (req, res) => {
+  try {
+    const currentUserId = await getCurrentUserId(req);
+    
+    if (!currentUserId) {
+      res.status(401).json({
+        success: false,
+        message: 'Authentication required - please sign in again',
+      });
+      return;
+    }
+
+    const { q = '', limit = 20 } = req.query;
+
+    const users = await prisma.user.findMany({
+      where: {
+        AND: [
+          { id: { not: currentUserId } }, // Exclude current user
+          {
+            OR: [
+              { username: { contains: q as string, mode: 'insensitive' } },
+              { firstName: { contains: q as string, mode: 'insensitive' } },
+              { lastName: { contains: q as string, mode: 'insensitive' } },
+            ],
+          },
+        ],
+      },
+      select: {
+        id: true,
+        username: true,
+        firstName: true,
+        lastName: true,
+        avatar: true,
+        fileDirectory: true,
+        isVerified: true,
+      },
+      take: Number(limit),
+    });
+
+    const serializedUsers = users.map(user => ({
+      id: user.id,
+      username: user.username,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      avatarUrl: user.avatar && user.fileDirectory 
+        ? `${process.env['CDN_URL'] || process.env['S3_ENDPOINT']}/${user.fileDirectory}/${user.avatar}`
+        : null,
+      isVerified: user.isVerified,
+    }));
+
+    res.json({
+      success: true,
+      data: serializedUsers,
+    });
+  } catch (error) {
+    console.error('Error searching users:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to search users',
+    });
+  }
+});
+
+// Create a new chat room
+app.post('/api/v1/chat/rooms', async (req, res) => {
+  try {
+    const currentUserId = await getCurrentUserId(req);
+    
+    if (!currentUserId) {
+      res.status(401).json({
+        success: false,
+        message: 'Authentication required - please sign in again',
+      });
+      return;
+    }
+
+    const { name, type = 'PRIVATE', participantIds = [] } = req.body;
+
+    if (!name && type === 'GROUP') {
+      res.status(400).json({
+        success: false,
+        message: 'Room name is required for group chats',
+      });
+      return;
+    }
+
+    // For private messages, ensure only 2 participants
+    if (type === 'PRIVATE' && participantIds.length !== 1) {
+      res.status(400).json({
+        success: false,
+        message: 'Private messages require exactly one other participant',
+      });
+      return;
+    }
+
+    // Validate that all participant IDs exist in the database
+    if (participantIds.length > 0) {
+      const validUsers = await prisma.user.findMany({
+        where: {
+          id: {
+            in: participantIds,
+          },
+        },
+        select: {
+          id: true,
+        },
+      });
+
+      const validUserIds = validUsers.map(user => user.id);
+      const invalidIds = participantIds.filter((id: string) => !validUserIds.includes(id));
+
+      if (invalidIds.length > 0) {
+        res.status(400).json({
+          success: false,
+          message: `Invalid participant IDs: ${invalidIds.join(', ')}`,
+        });
+        return;
+      }
+    }
+
+    // Check if private chat already exists
+    if (type === 'PRIVATE') {
+      const existingRoom = await prisma.chatRoom.findFirst({
+        where: {
+          type: 'PRIVATE',
+          participants: {
+            every: {
+              userId: {
+                in: [currentUserId, participantIds[0]],
+              },
+            },
+          },
+        },
+        include: {
+          participants: true,
+        },
+      });
+
+      if (existingRoom) {
+        return res.json({
+          success: true,
+          data: existingRoom,
+          message: 'Existing chat room found',
+        });
+      }
+    }
+
+    // Create chat room
+    const chatRoom = await prisma.chatRoom.create({
+      data: {
+        name: type === 'PRIVATE' ? null : name,
+        type: type.toUpperCase() as any,
+        createdBy: currentUserId,
+        participants: {
+          create: [
+            { userId: currentUserId },
+            ...participantIds.map((id: string) => ({ userId: id })),
+          ],
+        },
+      },
+      include: {
+        participants: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                username: true,
+                firstName: true,
+                lastName: true,
+                avatarUrl: true,
+                avatar: true,
+                fileDirectory: true,
+                isVerified: true,
+              },
+            },
+          },
+        },
+        creator: {
+          select: {
+            id: true,
+            username: true,
+            firstName: true,
+            lastName: true,
+          },
+        },
+      },
+    });
+
+    return res.json({
+      success: true,
+      data: {
+        id: chatRoom.id,
+        name: chatRoom.name,
+        type: chatRoom.type,
+        isGroup: chatRoom.type === 'GROUP',
+        participants: chatRoom.participants.map((p: any) => ({
+          id: p.user.id,
+          username: p.user.username,
+          firstName: p.user.firstName,
+          lastName: p.user.lastName,
+          avatarUrl: buildAvatarUrl(p.user) || p.user.avatarUrl,
+          isVerified: p.user.isVerified,
+        })),
+        createdAt: chatRoom.createdAt.toISOString(),
+        createdBy: {
+          id: chatRoom.creator.id,
+          username: chatRoom.creator.username,
+          firstName: chatRoom.creator.firstName,
+          lastName: chatRoom.creator.lastName,
+        },
+      },
+    });
+  } catch (error) {
+    console.error('Error creating chat room:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to create chat room',
+    });
+  }
+});
+
+// Get messages for a chat room
+app.get('/api/v1/chat/rooms/:roomId/messages', async (req, res) => {
+  try {
+    const currentUserId = await getCurrentUserId(req);
+    
+    if (!currentUserId) {
+      res.status(401).json({
+        success: false,
+        message: 'Authentication required - please sign in again',
+      });
+      return;
+    }
+
+    const { roomId } = req.params;
+    const { page = 1, limit = 50 } = req.query;
+    const offset = (Number(page) - 1) * Number(limit);
+
+    // Check if user is participant in this room
+    const room = await prisma.chatRoom.findFirst({
+      where: {
+        id: roomId,
+        participants: {
+          some: {
+            userId: currentUserId,
+          },
+        },
+      },
+    });
+
+    if (!room) {
+      res.status(403).json({
+        success: false,
+        message: 'Access denied to this chat room',
+      });
+      return;
+    }
+
+    // Get messages
+    const messages = await prisma.chatMessage.findMany({
+      where: {
+        roomId: roomId,
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            username: true,
+            firstName: true,
+            lastName: true,
+            avatarUrl: true,
+            avatar: true,
+            fileDirectory: true,
+            isVerified: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+      skip: offset,
+      take: Number(limit),
+    });
+
+    // Serialize messages
+    const serializedMessages = messages.map((message: any) => ({
+      id: message.id,
+      content: message.content,
+      type: message.messageType,
+      fileUrl: message.fileUrl,
+      createdAt: message.createdAt.toISOString(),
+      updatedAt: message.updatedAt.toISOString(),
+      userId: message.userId,
+      roomId: message.roomId,
+      username: message.user.username,
+      userAvatar: buildAvatarUrl(message.user) || message.user.avatarUrl,
+      isEdited: message.updatedAt > message.createdAt,
+      isDeleted: false, // ChatMessage model doesn't have isDeleted field
+    }));
+
+    res.json({
+      success: true,
+      data: serializedMessages.reverse(), // Reverse to get chronological order
+      pagination: {
+        page: Number(page),
+        limit: Number(limit),
+        total: serializedMessages.length,
+      },
+    });
+  } catch (error) {
+    console.error('Error fetching messages:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch messages',
+    });
+  }
+});
+
+// Send a message to a chat room
+app.post('/api/v1/chat/rooms/:roomId/messages', async (req, res) => {
+  try {
+    const currentUserId = await getCurrentUserId(req);
+    
+    if (!currentUserId) {
+      res.status(401).json({
+        success: false,
+        message: 'Authentication required - please sign in again',
+      });
+      return;
+    }
+
+    const { roomId } = req.params;
+    const { content, type = 'TEXT', fileUrl } = req.body;
+
+    if (!content && !fileUrl) {
+      res.status(400).json({
+        success: false,
+        message: 'Message content or file is required',
+      });
+      return;
+    }
+
+    // Check if user is participant in this room
+    const room = await prisma.chatRoom.findFirst({
+      where: {
+        id: roomId,
+        participants: {
+          some: {
+            userId: currentUserId,
+          },
+        },
+      },
+    });
+
+    if (!room) {
+      res.status(403).json({
+        success: false,
+        message: 'Access denied to this chat room',
+      });
+      return;
+    }
+
+    // Create message
+    const message = await prisma.chatMessage.create({
+      data: {
+        content: content || null,
+        messageType: type.toUpperCase() as any,
+        fileUrl: fileUrl || null,
+        userId: currentUserId,
+        roomId: roomId,
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            username: true,
+            firstName: true,
+            lastName: true,
+            avatarUrl: true,
+            avatar: true,
+            fileDirectory: true,
+            isVerified: true,
+          },
+        },
+      },
+    });
+
+    // Update room's updatedAt timestamp
+    await prisma.chatRoom.update({
+      where: { id: roomId },
+      data: { updatedAt: new Date() },
+    });
+
+    // Serialize message
+    const serializedMessage = {
+      id: message.id,
+      content: message.content,
+      type: message.messageType,
+      fileUrl: message.fileUrl,
+      createdAt: message.createdAt.toISOString(),
+      updatedAt: message.updatedAt.toISOString(),
+      userId: message.userId,
+      roomId: message.roomId,
+      username: message.user.username,
+      userAvatar: buildAvatarUrl(message.user) || message.user.avatarUrl,
+      isEdited: false,
+      isDeleted: false,
+    };
+
+    // Emit to Socket.IO for real-time updates
+    io.to(`chat-${roomId}`).emit('new-message', serializedMessage);
+
+    res.json({
+      success: true,
+      data: serializedMessage,
+    });
+  } catch (error) {
+    console.error('Error sending message:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to send message',
+    });
+  }
+});
+
 // Socket.io connection handling
 io.on('connection', (socket) => {
   console.log(`User connected: ${socket.id}`);

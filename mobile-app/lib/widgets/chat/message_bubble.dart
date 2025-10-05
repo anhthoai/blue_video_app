@@ -30,9 +30,22 @@ class MessageBubble extends StatelessWidget {
           children: [
             if (!isMe) ...[
               CircleAvatar(
+                key: ValueKey('avatar_${message.userId}_${message.userAvatar}'),
                 radius: 16,
                 backgroundColor: Colors.grey[300],
-                child: const Icon(Icons.person, size: 16),
+                backgroundImage:
+                    message.userAvatar != null && message.userAvatar!.isNotEmpty
+                        ? CachedNetworkImageProvider(message.userAvatar!)
+                        : null,
+                child: message.userAvatar == null || message.userAvatar!.isEmpty
+                    ? Text(
+                        message.username.isNotEmpty
+                            ? message.username[0].toUpperCase()
+                            : 'U',
+                        style: const TextStyle(
+                            fontSize: 12, fontWeight: FontWeight.w600),
+                      )
+                    : null,
               ),
               const SizedBox(width: 8),
             ],
@@ -73,9 +86,22 @@ class MessageBubble extends StatelessWidget {
             if (isMe) ...[
               const SizedBox(width: 8),
               CircleAvatar(
+                key: ValueKey('avatar_${message.userId}_${message.userAvatar}'),
                 radius: 16,
                 backgroundColor: Colors.grey[300],
-                child: const Icon(Icons.person, size: 16),
+                backgroundImage:
+                    message.userAvatar != null && message.userAvatar!.isNotEmpty
+                        ? CachedNetworkImageProvider(message.userAvatar!)
+                        : null,
+                child: message.userAvatar == null || message.userAvatar!.isEmpty
+                    ? Text(
+                        message.username.isNotEmpty
+                            ? message.username[0].toUpperCase()
+                            : 'U',
+                        style: const TextStyle(
+                            fontSize: 12, fontWeight: FontWeight.w600),
+                      )
+                    : null,
               ),
             ],
           ],

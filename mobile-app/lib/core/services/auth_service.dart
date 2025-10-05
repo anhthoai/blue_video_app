@@ -73,7 +73,7 @@ class AuthService {
     await _loadUserFromPrefs();
 
     // Then fetch fresh data from API if we have a token
-    final token = await _prefs.getString('access_token');
+    final token = _prefs.getString('access_token');
     if (token != null && _currentUser != null) {
       try {
         final response = await _apiService.getUserProfile(_currentUser!.id);
@@ -295,6 +295,11 @@ class AuthService {
       print('Error uploading banner: $e');
       return null;
     }
+  }
+
+  // Get access token
+  Future<String?> getAccessToken() async {
+    return _prefs.getString('access_token');
   }
 }
 

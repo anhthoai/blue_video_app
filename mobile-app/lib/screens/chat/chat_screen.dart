@@ -1,9 +1,12 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 import '../../core/services/chat_service.dart';
+import '../../core/services/auth_service.dart';
 import '../../models/chat_message.dart';
+import '../../models/chat_room.dart';
 import '../../widgets/chat/message_bubble.dart';
 import '../../widgets/chat/typing_indicator.dart';
 
@@ -25,7 +28,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   @override
   void initState() {
     super.initState();
-    _loadMessages();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _initializeAndLoadMessages();
+    });
   }
 
   @override
@@ -36,9 +41,20 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     super.dispose();
   }
 
-  Future<void> _loadMessages() async {
+  Future<void> _initializeAndLoadMessages() async {
+    final currentUser = ref.read(currentUserProvider);
+    final authService = ref.read(authServiceProvider);
     final chatService = ref.read(chatServiceStateProvider.notifier);
-    await chatService.loadMessages(widget.chatId);
+
+    if (currentUser != null) {
+      // Initialize chat service with user data
+      final token = await authService.getAccessToken();
+      if (token != null) {
+        chatService.initialize(currentUser.id, token);
+        chatService.joinChatRoom(widget.chatId);
+        await chatService.loadMessages(widget.chatId);
+      }
+    }
   }
 
   Future<void> _sendMessage() async {
@@ -48,10 +64,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     _messageController.clear();
 
     final chatService = ref.read(chatServiceStateProvider.notifier);
-    await chatService.sendMessage(
-      roomId: widget.chatId,
-      content: content,
-    );
+    await chatService.sendMessage(widget.chatId, content);
 
     // Scroll to bottom
     if (_scrollController.hasClients) {
@@ -99,26 +112,26 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           IconButton(
             icon: const Icon(Icons.videocam),
             onPressed: () {
-              // Start video call
+              _startVideoCall();
             },
           ),
           IconButton(
             icon: const Icon(Icons.phone),
             onPressed: () {
-              // Start voice call
+              _startVoiceCall();
             },
           ),
           PopupMenuButton<String>(
             onSelected: (value) {
               switch (value) {
                 case 'info':
-                  // Show chat info
+                  _showChatInfo();
                   break;
                 case 'mute':
-                  // Mute notifications
+                  _toggleMute();
                   break;
                 case 'clear':
-                  // Clear chat history
+                  _clearChatHistory();
                   break;
               }
             },
@@ -174,9 +187,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                       final messageIndex = _isTyping ? index - 1 : index;
                       final message = messages[messageIndex];
 
+                      final currentUser = ref.read(currentUserProvider);
                       return MessageBubble(
                         message: message,
-                        isMe: message.senderId == 'current_user',
+                        isMe: message.senderId == currentUser?.id,
                         onReply: () {
                           // Handle reply
                         },
@@ -194,26 +208,80 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   }
 
   Widget _buildAppBarTitle() {
+    final chatState = ref.watch(chatServiceStateProvider);
+    final currentUser = ref.watch(currentUserProvider);
+
+    // Find the current chat room from the state
+    ChatRoom? currentRoom;
+    try {
+      currentRoom = chatState.rooms.firstWhere(
+        (room) => room.id == widget.chatId,
+      );
+    } catch (e) {
+      currentRoom = null;
+    }
+
+    if (currentRoom == null) {
+      return const Row(
+        children: [
+          CircleAvatar(
+            radius: 16,
+            backgroundColor: Colors.grey,
+            child: Icon(Icons.person, size: 20),
+          ),
+          SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              'Chat Room',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+            ),
+          ),
+        ],
+      );
+    }
+
+    final displayName = currentRoom.getDisplayName(currentUser?.id);
+    final displayAvatar = currentRoom.getDisplayAvatar(currentUser?.id);
+    final otherParticipants = currentRoom.getOtherParticipants(currentUser?.id);
+
     return Row(
       children: [
         CircleAvatar(
           radius: 16,
           backgroundColor: Colors.grey[300],
-          child: const Icon(Icons.person, size: 20),
+          backgroundImage: displayAvatar.isNotEmpty
+              ? CachedNetworkImageProvider(displayAvatar)
+              : null,
+          child: displayAvatar.isEmpty
+              ? Text(
+                  otherParticipants.isNotEmpty &&
+                          otherParticipants.first.username.isNotEmpty
+                      ? otherParticipants.first.username[0].toUpperCase()
+                      : 'U',
+                  style: const TextStyle(fontSize: 14),
+                )
+              : null,
         ),
         const SizedBox(width: 12),
-        const Expanded(
+        Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
-                'Chat Room',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                displayName,
+                style:
+                    const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                overflow: TextOverflow.ellipsis,
               ),
               Text(
-                'Online',
-                style: TextStyle(fontSize: 12, color: Colors.green),
+                currentRoom.isOnline
+                    ? 'Online'
+                    : '${currentRoom.participants.length} members',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: currentRoom.isOnline ? Colors.green : Colors.grey,
+                ),
               ),
             ],
           ),
@@ -397,6 +465,68 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  void _startVideoCall() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Video call feature coming soon!')),
+    );
+  }
+
+  void _startVoiceCall() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Voice call feature coming soon!')),
+    );
+  }
+
+  void _showChatInfo() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Chat Info'),
+        content:
+            const Text('Chat information and settings will be available here.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _toggleMute() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Mute notifications feature coming soon!')),
+    );
+  }
+
+  void _clearChatHistory() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Clear Chat History'),
+        content: const Text(
+            'Are you sure you want to clear all messages in this chat? This action cannot be undone.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                    content: Text('Clear chat history feature coming soon!')),
+              );
+            },
+            child: const Text('Clear'),
+          ),
+        ],
       ),
     );
   }

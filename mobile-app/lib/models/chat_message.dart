@@ -14,67 +14,75 @@ enum MessageType {
 class ChatMessage {
   final String id;
   final String roomId;
-  final String senderId;
+  final String userId;
   final String content;
-  final DateTime timestamp;
+  final DateTime createdAt;
+  final DateTime updatedAt;
   final MessageType messageType;
+  final String? fileUrl;
+  final String username;
+  final String? userAvatar;
+  final bool isEdited;
+  final bool isDeleted;
   final bool isRead;
   final String? replyToMessageId;
   final List<String>? attachments;
   final Map<String, dynamic>? metadata;
-  final bool isEdited;
-  final DateTime? editedAt;
-  final bool isDeleted;
-  final DateTime? deletedAt;
 
   const ChatMessage({
     required this.id,
     required this.roomId,
-    required this.senderId,
+    required this.userId,
     required this.content,
-    required this.timestamp,
+    required this.createdAt,
+    required this.updatedAt,
     required this.messageType,
+    this.fileUrl,
+    required this.username,
+    this.userAvatar,
+    this.isEdited = false,
+    this.isDeleted = false,
     this.isRead = false,
     this.replyToMessageId,
     this.attachments,
     this.metadata,
-    this.isEdited = false,
-    this.editedAt,
-    this.isDeleted = false,
-    this.deletedAt,
   });
 
   ChatMessage copyWith({
     String? id,
     String? roomId,
-    String? senderId,
+    String? userId,
     String? content,
-    DateTime? timestamp,
+    DateTime? createdAt,
+    DateTime? updatedAt,
     MessageType? messageType,
+    String? fileUrl,
+    String? username,
+    String? userAvatar,
+    bool? isEdited,
+    bool? isDeleted,
     bool? isRead,
     String? replyToMessageId,
     List<String>? attachments,
     Map<String, dynamic>? metadata,
-    bool? isEdited,
-    DateTime? editedAt,
-    bool? isDeleted,
-    DateTime? deletedAt,
   }) {
     return ChatMessage(
       id: id ?? this.id,
       roomId: roomId ?? this.roomId,
-      senderId: senderId ?? this.senderId,
+      userId: userId ?? this.userId,
       content: content ?? this.content,
-      timestamp: timestamp ?? this.timestamp,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
       messageType: messageType ?? this.messageType,
+      fileUrl: fileUrl ?? this.fileUrl,
+      username: username ?? this.username,
+      userAvatar: userAvatar ?? this.userAvatar,
+      isEdited: isEdited ?? this.isEdited,
+      isDeleted: isDeleted ?? this.isDeleted,
       isRead: isRead ?? this.isRead,
       replyToMessageId: replyToMessageId ?? this.replyToMessageId,
       attachments: attachments ?? this.attachments,
       metadata: metadata ?? this.metadata,
-      isEdited: isEdited ?? this.isEdited,
-      editedAt: editedAt ?? this.editedAt,
-      isDeleted: isDeleted ?? this.isDeleted,
-      deletedAt: deletedAt ?? this.deletedAt,
     );
   }
 
@@ -82,44 +90,51 @@ class ChatMessage {
     return {
       'id': id,
       'roomId': roomId,
-      'senderId': senderId,
+      'userId': userId,
       'content': content,
-      'timestamp': timestamp.toIso8601String(),
+      'createdAt': createdAt.toIso8601String(),
+      'updatedAt': updatedAt.toIso8601String(),
       'messageType': messageType.name,
+      'fileUrl': fileUrl,
+      'username': username,
+      'userAvatar': userAvatar,
+      'isEdited': isEdited,
+      'isDeleted': isDeleted,
       'isRead': isRead,
       'replyToMessageId': replyToMessageId,
       'attachments': attachments,
       'metadata': metadata,
-      'isEdited': isEdited,
-      'editedAt': editedAt?.toIso8601String(),
-      'isDeleted': isDeleted,
-      'deletedAt': deletedAt?.toIso8601String(),
     };
   }
 
   factory ChatMessage.fromJson(Map<String, dynamic> json) {
     return ChatMessage(
-      id: json['id'] as String,
-      roomId: json['roomId'] as String,
-      senderId: json['senderId'] as String,
-      content: json['content'] as String,
-      timestamp: DateTime.parse(json['timestamp'] as String),
+      id: json['id'] as String? ?? '',
+      roomId: json['roomId'] as String? ?? '',
+      userId: json['userId'] as String? ?? '',
+      content: json['content'] as String? ?? '',
+      createdAt: json['createdAt'] != null
+          ? DateTime.parse(json['createdAt'] as String)
+          : DateTime.now(),
+      updatedAt: json['updatedAt'] != null
+          ? DateTime.parse(json['updatedAt'] as String)
+          : DateTime.now(),
       messageType: MessageType.values.firstWhere(
-        (e) => e.name == json['messageType'],
+        (e) =>
+            e.name.toLowerCase() ==
+            (((json['type'] ?? json['messageType']) as String?) ?? 'text')
+                .toLowerCase(),
         orElse: () => MessageType.text,
       ),
+      fileUrl: json['fileUrl'] as String?,
+      username: json['username'] as String? ?? '',
+      userAvatar: json['userAvatar'] as String?,
+      isEdited: json['isEdited'] as bool? ?? false,
+      isDeleted: json['isDeleted'] as bool? ?? false,
       isRead: json['isRead'] as bool? ?? false,
       replyToMessageId: json['replyToMessageId'] as String?,
       attachments: (json['attachments'] as List<dynamic>?)?.cast<String>(),
       metadata: json['metadata'] as Map<String, dynamic>?,
-      isEdited: json['isEdited'] as bool? ?? false,
-      editedAt: json['editedAt'] != null
-          ? DateTime.parse(json['editedAt'] as String)
-          : null,
-      isDeleted: json['isDeleted'] as bool? ?? false,
-      deletedAt: json['deletedAt'] != null
-          ? DateTime.parse(json['deletedAt'] as String)
-          : null,
     );
   }
 
@@ -132,6 +147,9 @@ class ChatMessage {
   }
 
   // Helper methods
+  String get senderId => userId; // Alias for compatibility
+  DateTime get timestamp => createdAt; // Alias for compatibility
+
   bool get isText => messageType == MessageType.text;
   bool get isImage => messageType == MessageType.image;
   bool get isVideo => messageType == MessageType.video;
@@ -143,7 +161,7 @@ class ChatMessage {
 
   String get formattedTime {
     final now = DateTime.now();
-    final difference = now.difference(timestamp);
+    final difference = now.difference(createdAt);
 
     if (difference.inDays > 0) {
       return '${difference.inDays}d ago';
@@ -157,8 +175,8 @@ class ChatMessage {
   }
 
   String get shortTime {
-    final hour = timestamp.hour.toString().padLeft(2, '0');
-    final minute = timestamp.minute.toString().padLeft(2, '0');
+    final hour = createdAt.hour.toString().padLeft(2, '0');
+    final minute = createdAt.minute.toString().padLeft(2, '0');
     return '$hour:$minute';
   }
 
@@ -173,6 +191,6 @@ class ChatMessage {
 
   @override
   String toString() {
-    return 'ChatMessage(id: $id, roomId: $roomId, senderId: $senderId, content: $content, timestamp: $timestamp, messageType: $messageType)';
+    return 'ChatMessage(id: $id, roomId: $roomId, userId: $userId, content: $content, createdAt: $createdAt, messageType: $messageType)';
   }
 }

@@ -1,7 +1,7 @@
 import 'dart:convert';
 
 import 'chat_message.dart';
-import 'user_model.dart';
+import 'chat_participant.dart';
 
 class ChatRoom {
   final String id;
@@ -9,7 +9,7 @@ class ChatRoom {
   final String? description;
   final String? avatarUrl;
   final bool isGroup;
-  final List<UserModel> participants;
+  final List<ChatParticipant> participants;
   final ChatMessage? lastMessage;
   final int unreadCount;
   final bool isOnline;
@@ -44,7 +44,7 @@ class ChatRoom {
     String? description,
     String? avatarUrl,
     bool? isGroup,
-    List<UserModel>? participants,
+    List<ChatParticipant>? participants,
     ChatMessage? lastMessage,
     int? unreadCount,
     bool? isOnline,
@@ -96,27 +96,32 @@ class ChatRoom {
 
   factory ChatRoom.fromJson(Map<String, dynamic> json) {
     return ChatRoom(
-      id: json['id'] as String,
-      name: json['name'] as String,
+      id: json['id'] as String? ?? '',
+      name: json['name'] as String? ?? '',
       description: json['description'] as String?,
       avatarUrl: json['avatarUrl'] as String?,
-      isGroup: json['isGroup'] as bool,
-      participants: (json['participants'] as List<dynamic>)
-          .map((p) => UserModel.fromJson(p as Map<String, dynamic>))
-          .toList(),
+      isGroup: json['isGroup'] as bool? ?? json['type'] == 'GROUP',
+      participants: (json['participants'] as List<dynamic>?)
+              ?.map((p) => ChatParticipant.fromJson(p as Map<String, dynamic>))
+              .toList() ??
+          [],
       lastMessage: json['lastMessage'] != null
           ? ChatMessage.fromJson(json['lastMessage'] as Map<String, dynamic>)
           : null,
       unreadCount: json['unreadCount'] as int? ?? 0,
       isOnline: json['isOnline'] as bool? ?? false,
-      createdAt: DateTime.parse(json['createdAt'] as String),
+      createdAt: json['createdAt'] != null
+          ? DateTime.parse(json['createdAt'] as String)
+          : DateTime.now(),
       updatedAt: json['updatedAt'] != null
           ? DateTime.parse(json['updatedAt'] as String)
           : null,
       settings: json['settings'] as Map<String, dynamic>?,
       isMuted: json['isMuted'] as bool? ?? false,
       isPinned: json['isPinned'] as bool? ?? false,
-      createdBy: json['createdBy'] as String?,
+      createdBy: json['createdBy'] != null
+          ? (json['createdBy'] as Map<String, dynamic>)['id'] as String?
+          : null,
     );
   }
 
@@ -133,7 +138,7 @@ class ChatRoom {
     if (isGroup) {
       return name;
     } else if (participants.isNotEmpty) {
-      return participants.first.username;
+      return participants.first.displayName;
     }
     return name;
   }
@@ -173,7 +178,7 @@ class ChatRoom {
     if (lastMessage == null) return '';
 
     final now = DateTime.now();
-    final difference = now.difference(lastMessage!.timestamp);
+    final difference = now.difference(lastMessage!.createdAt);
 
     if (difference.inDays > 0) {
       return '${difference.inDays}d';
@@ -188,10 +193,63 @@ class ChatRoom {
 
   bool get hasUnreadMessages => unreadCount > 0;
 
-  List<UserModel> get otherParticipants {
+  List<ChatParticipant> get otherParticipants {
     // Return participants excluding the current user
     // In a real app, you would filter out the current user
     return participants;
+  }
+
+  // Methods that consider current user
+  String getDisplayName(String? currentUserId) {
+    if (isGroup) {
+      return name;
+    } else {
+      // For individual chats, show the OTHER participant's name (not current user)
+      final otherParticipants =
+          participants.where((p) => p.id != currentUserId).toList();
+      if (otherParticipants.isNotEmpty) {
+        return otherParticipants.first.displayName;
+      }
+      return participants.isNotEmpty ? participants.first.displayName : name;
+    }
+  }
+
+  String getDisplayAvatar(String? currentUserId) {
+    if (avatarUrl != null) return avatarUrl!;
+    if (isGroup) {
+      // For group chats, we'll handle this in the widget with multiple avatars
+      return participants.isNotEmpty ? participants.first.avatarUrl ?? '' : '';
+    } else {
+      // For individual chats, show the OTHER participant's avatar
+      final otherParticipants =
+          participants.where((p) => p.id != currentUserId).toList();
+      if (otherParticipants.isNotEmpty) {
+        return otherParticipants.first.avatarUrl ?? '';
+      }
+      return participants.isNotEmpty ? participants.first.avatarUrl ?? '' : '';
+    }
+  }
+
+  // Get other participants (excluding current user)
+  List<ChatParticipant> getOtherParticipants(String? currentUserId) {
+    return participants.where((p) => p.id != currentUserId).toList();
+  }
+
+  // Get first two participants for group avatar display
+  List<ChatParticipant> getFirstTwoParticipants(String? currentUserId) {
+    if (isGroup) {
+      // For groups, show current user + first other participant
+      final otherParticipants = getOtherParticipants(currentUserId);
+      final currentUserParticipant =
+          participants.where((p) => p.id == currentUserId).firstOrNull;
+
+      if (currentUserParticipant != null && otherParticipants.isNotEmpty) {
+        return [currentUserParticipant, otherParticipants.first];
+      } else if (otherParticipants.isNotEmpty) {
+        return otherParticipants.take(2).toList();
+      }
+    }
+    return participants.take(2).toList();
   }
 
   int get participantCount => participants.length;
