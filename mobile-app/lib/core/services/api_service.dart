@@ -426,26 +426,6 @@ class ApiService {
     return await _handleResponse(response);
   }
 
-  Future<Map<String, dynamic>> addComment({
-    required String contentId,
-    required String contentType,
-    required String content,
-    String? parentId,
-  }) async {
-    final response = await http.post(
-      Uri.parse('$baseUrl/social/comment'),
-      headers: await _getHeaders(),
-      body: json.encode({
-        'contentId': contentId,
-        'contentType': contentType,
-        'content': content,
-        'parentId': parentId,
-      }),
-    );
-
-    return await _handleResponse(response);
-  }
-
   Future<Map<String, dynamic>> getComments({
     required String contentId,
     required String contentType,
@@ -468,6 +448,35 @@ class ApiService {
       headers: await _getHeaders(),
     );
 
+    return await _handleResponse(response);
+  }
+
+  // Add comment to content
+  Future<Map<String, dynamic>> addComment({
+    required String contentId,
+    required String contentType,
+    required String content,
+    String? parentCommentId,
+  }) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/social/comments'),
+      headers: await _getHeaders(),
+      body: jsonEncode({
+        'contentId': contentId,
+        'contentType': contentType,
+        'content': content,
+        'parentCommentId': parentCommentId,
+      }),
+    );
+    return await _handleResponse(response);
+  }
+
+  // Toggle like on comment
+  Future<Map<String, dynamic>> toggleCommentLike(String commentId) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/social/comments/$commentId/like'),
+      headers: await _getHeaders(),
+    );
     return await _handleResponse(response);
   }
 

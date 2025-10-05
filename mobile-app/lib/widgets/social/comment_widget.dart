@@ -3,8 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 
 import '../../models/comment_model.dart';
-import '../../models/like_model.dart';
-import 'like_button.dart';
 
 class CommentWidget extends ConsumerStatefulWidget {
   final CommentModel comment;
@@ -12,6 +10,8 @@ class CommentWidget extends ConsumerStatefulWidget {
   final VoidCallback? onReply;
   final VoidCallback? onEdit;
   final VoidCallback? onDelete;
+  final VoidCallback? onLike;
+  final bool isReply;
 
   const CommentWidget({
     super.key,
@@ -20,6 +20,8 @@ class CommentWidget extends ConsumerStatefulWidget {
     this.onReply,
     this.onEdit,
     this.onDelete,
+    this.onLike,
+    this.isReply = false,
   });
 
   @override
@@ -27,7 +29,7 @@ class CommentWidget extends ConsumerStatefulWidget {
 }
 
 class _CommentWidgetState extends ConsumerState<CommentWidget> {
-  bool _showReplies = false;
+  bool _showReplies = false; // Start with replies hidden
 
   @override
   Widget build(BuildContext context) {
@@ -37,7 +39,7 @@ class _CommentWidgetState extends ConsumerState<CommentWidget> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildMainComment(),
-          if (widget.comment.hasReplies) ...[
+          if (widget.comment.hasReplies && _showReplies) ...[
             const SizedBox(height: 8),
             _buildRepliesSection(),
           ],
@@ -157,37 +159,52 @@ class _CommentWidgetState extends ConsumerState<CommentWidget> {
           const SizedBox(height: 8),
           Row(
             children: [
-              LikeButton(
-                targetId: widget.comment.id,
-                type: LikeType.comment,
-                userId: widget.currentUserId,
-                initialLikeCount: widget.comment.likes,
-                initialIsLiked: widget.comment.isLiked,
-                size: 18,
-                showCount: true,
-              ),
-              const SizedBox(width: 16),
               GestureDetector(
-                onTap: widget.onReply,
+                onTap: widget.onLike,
                 child: Row(
-                  mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(
-                      Icons.reply,
-                      size: 18,
-                      color: Colors.grey[600],
+                      widget.comment.isLiked
+                          ? Icons.favorite
+                          : Icons.favorite_border,
+                      color: widget.comment.isLiked ? Colors.red : Colors.grey,
+                      size: 16,
                     ),
                     const SizedBox(width: 4),
                     Text(
-                      'Reply',
+                      widget.comment.likes.toString(),
                       style: TextStyle(
-                        color: Colors.grey[600],
                         fontSize: 12,
+                        color:
+                            widget.comment.isLiked ? Colors.red : Colors.grey,
                       ),
                     ),
                   ],
                 ),
               ),
+              const SizedBox(width: 16),
+              if (!widget.isReply)
+                GestureDetector(
+                  onTap: widget.onReply,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.reply,
+                        size: 18,
+                        color: Colors.grey[600],
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Reply',
+                        style: TextStyle(
+                          color: Colors.grey[600],
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               if (widget.comment.hasReplies) ...[
                 const SizedBox(width: 16),
                 GestureDetector(
@@ -226,8 +243,6 @@ class _CommentWidgetState extends ConsumerState<CommentWidget> {
   }
 
   Widget _buildRepliesSection() {
-    if (!_showReplies) return const SizedBox.shrink();
-
     return Container(
       margin: const EdgeInsets.only(left: 24),
       child: Column(

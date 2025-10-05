@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 import '../../core/services/social_service.dart';
 import '../../models/comment_model.dart';
@@ -59,7 +60,7 @@ class _CommentsSectionState extends ConsumerState<CommentsSection> {
     }
   }
 
-  Future<void> _addComment() async {
+  Future<void> _addComment({String? parentCommentId}) async {
     if (_commentController.text.trim().isEmpty) return;
 
     final content = _commentController.text.trim();
@@ -73,6 +74,7 @@ class _CommentsSectionState extends ConsumerState<CommentsSection> {
         username: widget.currentUsername,
         userAvatar: widget.currentUserAvatar,
         content: content,
+        parentCommentId: parentCommentId,
       );
 
       // Scroll to top to show new comment
@@ -170,18 +172,26 @@ class _CommentsSectionState extends ConsumerState<CommentsSection> {
                         itemCount: comments.length,
                         itemBuilder: (context, index) {
                           final comment = comments[index];
-                          return CommentWidget(
-                            comment: comment,
-                            currentUserId: widget.currentUserId,
-                            onReply: () {
-                              _showReplyDialog(comment);
-                            },
-                            onEdit: () {
-                              _showEditDialog(comment);
-                            },
-                            onDelete: () {
-                              _showDeleteDialog(comment);
-                            },
+                          return Column(
+                            children: [
+                              CommentWidget(
+                                comment: comment,
+                                currentUserId: widget.currentUserId,
+                                onReply: () {
+                                  _showReplyDialog(comment);
+                                },
+                                onEdit: () {
+                                  _showEditDialog(comment);
+                                },
+                                onDelete: () {
+                                  _showDeleteDialog(comment);
+                                },
+                                onLike: () {
+                                  _toggleCommentLike(comment);
+                                },
+                              ),
+                              const SizedBox(height: 16),
+                            ],
                           );
                         },
                       ),
@@ -237,10 +247,11 @@ class _CommentsSectionState extends ConsumerState<CommentsSection> {
       child: Row(
         children: [
           CircleAvatar(
+            key: ValueKey(widget.currentUserAvatar),
             radius: 16,
             backgroundColor: Colors.grey[300],
             backgroundImage: widget.currentUserAvatar.isNotEmpty
-                ? NetworkImage(widget.currentUserAvatar)
+                ? CachedNetworkImageProvider(widget.currentUserAvatar)
                 : null,
             child: widget.currentUserAvatar.isEmpty
                 ? const Icon(Icons.person, size: 16)
@@ -315,6 +326,7 @@ class _CommentsSectionState extends ConsumerState<CommentsSection> {
                     username: widget.currentUsername,
                     userAvatar: widget.currentUserAvatar,
                     content: replyController.text.trim(),
+                    parentCommentId: parentComment.id,
                   );
                 } catch (e) {
                   ScaffoldMessenger.of(context).showSnackBar(
@@ -391,5 +403,16 @@ class _CommentsSectionState extends ConsumerState<CommentsSection> {
         ],
       ),
     );
+  }
+
+  Future<void> _toggleCommentLike(CommentModel comment) async {
+    try {
+      final socialService = ref.read(socialServiceStateProvider.notifier);
+      await socialService.toggleCommentLike(comment.id, widget.videoId);
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to toggle like: $e')),
+      );
+    }
   }
 }

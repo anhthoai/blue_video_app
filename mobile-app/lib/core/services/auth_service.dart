@@ -69,7 +69,24 @@ class AuthService {
 
   // Public method to reload user data (useful after profile updates)
   Future<void> reloadCurrentUser() async {
+    // First try to load from cache
     await _loadUserFromPrefs();
+
+    // Then fetch fresh data from API if we have a token
+    final token = await _prefs.getString('access_token');
+    if (token != null && _currentUser != null) {
+      try {
+        final response = await _apiService.getUserProfile(_currentUser!.id);
+        if (response['success'] == true && response['data'] != null) {
+          _currentUser = UserModel.fromJson(response['data']);
+          await _saveUserToPrefs();
+          print('✅ Reloaded current user with fresh data from API');
+        }
+      } catch (e) {
+        print('⚠️ Failed to reload user from API, using cached data: $e');
+      }
+    }
+
     _notifyListeners();
   }
 

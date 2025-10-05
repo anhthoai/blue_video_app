@@ -1538,6 +1538,7 @@ app.delete('/api/v1/users/:userId/follow', async (req, res) => {
 app.get('/api/v1/social/comments', async (req, res) => {
   try {
     const { contentId, contentType } = req.query;
+    const currentUserId = await getCurrentUserId(req);
     
     if (!contentId || !contentType) {
       res.status(400).json({
@@ -1572,23 +1573,65 @@ app.get('/api/v1/social/comments', async (req, res) => {
       },
     });
 
-    // Convert to camelCase
-    const serializedComments = comments.map(comment => ({
-      id: comment.id,
-      userId: comment.userId,
-      contentId: comment.contentId,
-      contentType: comment.contentType,
-      content: comment.content,
-      likes: comment.likes,
-      parentCommentId: comment.parentId,
-      createdAt: comment.createdAt.toISOString(),
-      updatedAt: comment.updatedAt.toISOString(),
-      username: comment.user.firstName && comment.user.lastName 
-        ? `${comment.user.firstName} ${comment.user.lastName}`
-        : comment.user.username,
-      userAvatar: buildAvatarUrl(comment.user) || comment.user.avatarUrl || null,
-      isVerified: comment.user.isVerified,
-    }));
+    // Check which comments current user has liked
+    const commentIds = comments.map(c => c.id);
+    const userLikes = currentUserId ? await prisma.like.findMany({
+      where: {
+        userId: currentUserId,
+        targetId: { in: commentIds },
+        targetType: 'COMMENT',
+      },
+      select: {
+        targetId: true,
+      },
+    }) : [];
+    
+    const likedCommentIds = new Set(userLikes.map(l => l.targetId));
+
+    // Convert to camelCase with hierarchical structure
+    const parentComments = comments.filter(c => !c.parentId);
+    const childComments = comments.filter(c => c.parentId);
+    
+    const serializedComments = parentComments.map(comment => {
+      const replies = childComments
+        .filter(c => c.parentId === comment.id)
+        .map(reply => ({
+          id: reply.id,
+          userId: reply.userId,
+          contentId: reply.contentId,
+          contentType: reply.contentType,
+          content: reply.content,
+          likes: reply.likes,
+          isLiked: likedCommentIds.has(reply.id),
+          parentCommentId: reply.parentId,
+          createdAt: reply.createdAt.toISOString(),
+          updatedAt: reply.updatedAt.toISOString(),
+          username: reply.user.firstName && reply.user.lastName 
+            ? `${reply.user.firstName} ${reply.user.lastName}`
+            : reply.user.username,
+          userAvatar: buildAvatarUrl(reply.user) || reply.user.avatarUrl || null,
+          isVerified: reply.user.isVerified,
+        }));
+
+      return {
+        id: comment.id,
+        userId: comment.userId,
+        contentId: comment.contentId,
+        contentType: comment.contentType,
+        content: comment.content,
+        likes: comment.likes,
+        isLiked: likedCommentIds.has(comment.id),
+        parentCommentId: comment.parentId,
+        createdAt: comment.createdAt.toISOString(),
+        updatedAt: comment.updatedAt.toISOString(),
+        username: comment.user.firstName && comment.user.lastName 
+          ? `${comment.user.firstName} ${comment.user.lastName}`
+          : comment.user.username,
+        userAvatar: buildAvatarUrl(comment.user) || comment.user.avatarUrl || null,
+        isVerified: comment.user.isVerified,
+        replies: replies,
+      };
+    });
 
     res.json({
       success: true,
@@ -1599,6 +1642,201 @@ app.get('/api/v1/social/comments', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to fetch comments',
+    });
+  }
+});
+
+// Add comment to content (video or post)
+app.post('/api/v1/social/comments', async (req, res) => {
+  try {
+    const { contentId, contentType, content, parentCommentId } = req.body;
+    const currentUserId = await getCurrentUserId(req);
+
+    if (!currentUserId) {
+      res.status(401).json({
+        success: false,
+        message: 'Authentication required - please sign in again',
+      });
+      return;
+    }
+
+    if (!contentId || !contentType || !content) {
+      res.status(400).json({
+        success: false,
+        message: 'contentId, contentType, and content are required',
+      });
+      return;
+    }
+
+    // Create comment in database
+    const comment = await prisma.comment.create({
+      data: {
+        userId: currentUserId,
+        contentId: String(contentId),
+        contentType: String(contentType).toUpperCase() as any,
+        content: String(content),
+        parentId: parentCommentId || null,
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            username: true,
+            firstName: true,
+            lastName: true,
+            avatarUrl: true,
+            avatar: true,
+            fileDirectory: true,
+            isVerified: true,
+          },
+        },
+      },
+    });
+
+    // Update comment count on the video
+    await prisma.video.update({
+      where: { id: contentId },
+      data: {
+        comments: {
+          increment: 1,
+        },
+      },
+    });
+
+    // Convert to camelCase
+    const serializedComment = {
+      id: comment.id,
+      userId: comment.userId,
+      contentId: comment.contentId,
+      contentType: comment.contentType,
+      content: comment.content,
+      likes: comment.likes,
+      isLiked: false,
+      parentCommentId: comment.parentId,
+      createdAt: comment.createdAt.toISOString(),
+      updatedAt: comment.updatedAt.toISOString(),
+      username: comment.user.firstName && comment.user.lastName 
+        ? `${comment.user.firstName} ${comment.user.lastName}`
+        : comment.user.username,
+      userAvatar: buildAvatarUrl(comment.user) || comment.user.avatarUrl || null,
+      isVerified: comment.user.isVerified,
+      replies: [],
+    };
+
+    res.json({
+      success: true,
+      data: serializedComment,
+    });
+  } catch (error) {
+    console.error('Error adding comment:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to add comment',
+    });
+  }
+});
+
+// Toggle like on comment
+app.post('/api/v1/social/comments/:commentId/like', async (req, res) => {
+  try {
+    const { commentId } = req.params;
+    const currentUserId = await getCurrentUserId(req);
+
+    if (!currentUserId) {
+      res.status(401).json({
+        success: false,
+        message: 'Authentication required - please sign in again',
+      });
+      return;
+    }
+
+    // Check if comment exists
+    const comment = await prisma.comment.findUnique({
+      where: { id: commentId },
+    });
+
+    if (!comment) {
+      res.status(404).json({
+        success: false,
+        message: 'Comment not found',
+      });
+      return;
+    }
+
+    // Check if user has already liked this comment
+    const existingLike = await prisma.like.findFirst({
+      where: {
+        userId: currentUserId,
+        targetId: commentId,
+        targetType: 'COMMENT',
+      },
+    });
+
+    let isLiked: boolean;
+    let updatedComment;
+
+    if (existingLike) {
+      // Unlike: Delete the like record
+      await prisma.like.delete({
+        where: { id: existingLike.id },
+      });
+
+      // Decrement like count
+      updatedComment = await prisma.comment.update({
+        where: { id: commentId },
+        data: {
+          likes: {
+            decrement: 1,
+          },
+        },
+        select: {
+          id: true,
+          likes: true,
+        },
+      });
+      isLiked = false;
+    } else {
+      // Like: Create a like record
+      await prisma.like.create({
+        data: {
+          userId: currentUserId,
+          targetId: commentId,
+          targetType: 'COMMENT',
+          contentId: comment.contentId,
+          contentType: comment.contentType,
+          type: 'LIKE',
+        },
+      });
+
+      // Increment like count
+      updatedComment = await prisma.comment.update({
+        where: { id: commentId },
+        data: {
+          likes: {
+            increment: 1,
+          },
+        },
+        select: {
+          id: true,
+          likes: true,
+        },
+      });
+      isLiked = true;
+    }
+
+    res.json({
+      success: true,
+      data: {
+        commentId: updatedComment.id,
+        likes: updatedComment.likes,
+        isLiked,
+      },
+    });
+  } catch (error) {
+    console.error('Error toggling comment like:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to toggle comment like',
     });
   }
 });

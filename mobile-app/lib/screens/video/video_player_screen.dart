@@ -7,6 +7,7 @@ import 'package:video_player/video_player.dart';
 import '../../models/video_model.dart';
 import '../../core/services/video_service.dart';
 import '../../core/services/api_service.dart';
+import '../../core/services/auth_service.dart';
 import '../../widgets/social/comments_section.dart';
 
 // Provider to fetch video by ID
@@ -1345,11 +1346,19 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
   }
 
   Widget _buildCommentsSection() {
+    final currentUser = ref.watch(currentUserProvider);
+    if (currentUser == null) {
+      return const SizedBox.shrink();
+    }
+
     return CommentsSection(
       videoId: widget.videoId,
-      currentUserId: 'current_user',
-      currentUsername: 'Current User',
-      currentUserAvatar: 'https://picsum.photos/50/50?random=current',
+      currentUserId: currentUser.id,
+      currentUsername:
+          currentUser.firstName != null && currentUser.lastName != null
+              ? '${currentUser.firstName} ${currentUser.lastName}'
+              : currentUser.username,
+      currentUserAvatar: currentUser.avatarUrl ?? '',
     );
   }
 

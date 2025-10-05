@@ -29,6 +29,9 @@ void main() async {
   final prefs = await SharedPreferences.getInstance();
   final authService = AuthService(prefs);
 
+  // Reload current user with fresh data from API
+  await authService.reloadCurrentUser();
+
   runApp(ProviderScope(
     overrides: [
       authServiceProvider.overrideWithValue(authService),

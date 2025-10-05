@@ -521,13 +521,34 @@ class SocialServiceNotifier extends StateNotifier<SocialServiceState> {
       // Load comments from API
       final response = await _apiService.getComments(
         contentId: videoId,
-        contentType: 'video',
+        contentType: 'VIDEO',
       );
 
       final comments = <CommentModel>[];
       if (response['success'] == true && response['data'] != null) {
         final commentsData = response['data'] as List;
         for (var commentData in commentsData) {
+          // Process replies if they exist
+          final replies = <CommentModel>[];
+          if (commentData['replies'] != null) {
+            final repliesData = commentData['replies'] as List;
+            for (var replyData in repliesData) {
+              replies.add(CommentModel(
+                id: replyData['id'] ?? 'unknown',
+                videoId: videoId,
+                userId: replyData['userId'] ?? 'unknown',
+                username: replyData['username'] ?? 'User',
+                userAvatar: replyData['userAvatar'],
+                content: replyData['content'] ?? '',
+                timestamp: DateTime.parse(
+                    replyData['createdAt'] ?? DateTime.now().toIso8601String()),
+                likes: replyData['likes'] ?? 0,
+                isLiked: replyData['isLiked'] ?? false,
+                parentCommentId: replyData['parentCommentId'],
+              ));
+            }
+          }
+
           comments.add(CommentModel(
             id: commentData['id'] ?? 'unknown',
             videoId: videoId,
@@ -540,6 +561,7 @@ class SocialServiceNotifier extends StateNotifier<SocialServiceState> {
             likes: commentData['likes'] ?? 0,
             isLiked: commentData['isLiked'] ?? false,
             parentCommentId: commentData['parentCommentId'],
+            replies: replies,
           ));
         }
       }
@@ -569,26 +591,60 @@ class SocialServiceNotifier extends StateNotifier<SocialServiceState> {
     required String username,
     required String userAvatar,
     required String content,
+    String? parentCommentId,
   }) async {
     try {
       state = state.copyWith(isLoading: true, error: null);
 
-      final socialService = SocialService();
-      final comment = await socialService.addComment(
-        videoId: videoId,
-        userId: userId,
-        username: username,
-        userAvatar: userAvatar,
+      // Add comment via API
+      final response = await _apiService.addComment(
+        contentId: videoId,
+        contentType: 'VIDEO',
         content: content,
+        parentCommentId: parentCommentId,
       );
 
-      if (comment != null) {
+      if (response['success'] == true && response['data'] != null) {
+        final commentData = response['data'];
+        final comment = CommentModel(
+          id: commentData['id'] ?? 'unknown',
+          videoId: videoId,
+          userId: commentData['userId'] ?? 'unknown',
+          username: commentData['username'] ?? 'User',
+          userAvatar: commentData['userAvatar'],
+          content: commentData['content'] ?? '',
+          timestamp: DateTime.parse(
+              commentData['createdAt'] ?? DateTime.now().toIso8601String()),
+          likes: commentData['likes'] ?? 0,
+          isLiked: commentData['isLiked'] ?? false,
+          parentCommentId: commentData['parentCommentId'],
+        );
+
         final updatedComments =
             Map<String, List<CommentModel>>.from(state.comments);
-        if (updatedComments[videoId] != null) {
-          updatedComments[videoId] = [comment, ...updatedComments[videoId]!];
+
+        if (parentCommentId != null) {
+          // This is a reply - add it to the parent comment's replies
+          if (updatedComments[videoId] != null) {
+            final comments = updatedComments[videoId]!;
+            final parentIndex =
+                comments.indexWhere((c) => c.id == parentCommentId);
+            if (parentIndex != -1) {
+              final parentComment = comments[parentIndex];
+              final updatedReplies = [...parentComment.replies, comment];
+              final updatedParentComment =
+                  parentComment.copyWith(replies: updatedReplies);
+              comments[parentIndex] = updatedParentComment;
+              updatedComments[videoId] = comments;
+            }
+          }
         } else {
-          updatedComments[videoId] = [comment];
+          // This is a top-level comment
+          if (updatedComments[videoId] != null) {
+            updatedComments[videoId] = [comment, ...updatedComments[videoId]!];
+          } else {
+            updatedComments[videoId] = [comment];
+          }
         }
 
         state = state.copyWith(
@@ -606,6 +662,39 @@ class SocialServiceNotifier extends StateNotifier<SocialServiceState> {
         isLoading: false,
         error: e.toString(),
       );
+    }
+  }
+
+  // Toggle like on comment
+  Future<void> toggleCommentLike(String commentId, String videoId) async {
+    try {
+      final response = await _apiService.toggleCommentLike(commentId);
+
+      if (response['success'] == true && response['data'] != null) {
+        final data = response['data'];
+        final updatedComments =
+            Map<String, List<CommentModel>>.from(state.comments);
+
+        if (updatedComments[videoId] != null) {
+          final comments = updatedComments[videoId]!;
+          final commentIndex = comments.indexWhere((c) => c.id == commentId);
+
+          if (commentIndex != -1) {
+            final comment = comments[commentIndex];
+            final updatedComment = comment.copyWith(
+              likes: data['likes'] ?? comment.likes,
+              isLiked: data['isLiked'] ?? comment.isLiked,
+            );
+
+            comments[commentIndex] = updatedComment;
+            updatedComments[videoId] = comments;
+
+            state = state.copyWith(comments: updatedComments);
+          }
+        }
+      }
+    } catch (e) {
+      print('Error toggling comment like: $e');
     }
   }
 
