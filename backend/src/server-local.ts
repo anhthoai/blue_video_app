@@ -15,7 +15,7 @@ import { Server as SocketIOServer } from 'socket.io';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { emailService } from './services/emailService';
-import { upload, deleteFromS3, chatFileStorage, chatFileFilter } from './services/s3Service';
+import { upload, deleteFromS3, chatFileStorage, chatFileFilter, videoUpload } from './services/s3Service';
 import { serializeUserWithUrls, buildAvatarUrl, buildFileUrlSync } from './utils/fileUrl';
 import prisma from './lib/prisma';
 import multer from 'multer';
@@ -80,6 +80,53 @@ app.get('/health', (_req, res) => {
     redis: process.env['USE_REDIS'] === 'true' ? 'Enabled' : 'Disabled',
   });
 });
+
+// Authentication middleware
+const authenticateToken = async (req: any, res: any, next: any) => {
+  try {
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
+
+    if (!token) {
+      return res.status(401).json({
+        success: false,
+        message: 'Authentication required',
+      });
+    }
+
+    const JWT_SECRET = process.env['JWT_SECRET'] || 'your_super_secret_jwt_key_here';
+    const decoded = jwt.verify(token, JWT_SECRET) as any;
+    
+    // Attach user info to request
+    req.user = {
+      id: decoded.userId,
+      email: decoded.email,
+    };
+    
+    next();
+  } catch (error) {
+    return res.status(401).json({
+      success: false,
+      message: 'Invalid or expired token',
+    });
+  }
+};
+
+// Helper to get current user ID (optional auth)
+const getCurrentUserId = async (req: any): Promise<string | null> => {
+  try {
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1];
+    
+    if (!token) return null;
+    
+    const JWT_SECRET = process.env['JWT_SECRET'] || 'your_super_secret_jwt_key_here';
+    const decoded = jwt.verify(token, JWT_SECRET) as any;
+    return decoded.userId;
+  } catch (error) {
+    return null;
+  }
+};
 
 // Mock API endpoints for testing
 app.get('/api/v1/test', (_req, res) => {
@@ -507,9 +554,19 @@ app.get('/api/v1/users/:userId/videos', async (req, res) => {
       likes: video.likes,
       comments: video.comments,
       shares: video.shares,
+      downloads: video.downloads || 0,
       isPublic: video.isPublic,
       createdAt: video.createdAt.toISOString(),
       updatedAt: video.updatedAt.toISOString(),
+      // New fields for video playback
+      fileName: video.fileName,
+      fileDirectory: video.fileDirectory,
+      remotePlayUrl: video.remotePlayUrl,
+      embedCode: video.embedCode,
+      cost: video.cost,
+      status: video.status,
+      tags: video.tags,
+      subtitles: video.subtitles,
       user: video.user ? serializeUserWithUrls(video.user) : null,
       // Also include user data at the top level for compatibility
       username: video.user?.username,
@@ -801,6 +858,15 @@ app.get('/api/v1/videos/trending', async (req, res) => {
       isPublic: video.isPublic,
       createdAt: video.createdAt.toISOString(),
       updatedAt: video.updatedAt.toISOString(),
+      // New fields for video playback
+      fileName: video.fileName,
+      fileDirectory: video.fileDirectory,
+      remotePlayUrl: video.remotePlayUrl,
+      embedCode: video.embedCode,
+      cost: video.cost,
+      status: video.status,
+      tags: video.tags,
+      subtitles: video.subtitles,
       user: video.user ? serializeUserWithUrls(video.user) : null,
       username: video.user?.username,
       firstName: video.user?.firstName,
@@ -822,6 +888,97 @@ app.get('/api/v1/videos/trending', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to fetch trending videos',
+    });
+  }
+});
+
+// Upload video
+app.post('/api/v1/videos/upload', authenticateToken, videoUpload.fields([
+  { name: 'video', maxCount: 1 },
+  { name: 'thumbnail', maxCount: 1 }
+]), async (req: any, res) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: 'User not authenticated',
+      });
+    }
+
+    const files = req.files as { [fieldname: string]: Express.Multer.File[] };
+    const videoFile = files['video']?.[0];
+    const thumbnailFile = files['thumbnail']?.[0];
+
+    if (!videoFile) {
+      return res.status(400).json({
+        success: false,
+        message: 'Video file is required',
+      });
+    }
+
+    const {
+      title,
+      description,
+      categoryId,
+      tags,
+      cost,
+      status,
+      duration,
+    } = req.body;
+
+    // Parse tags
+    const tagsArray = tags ? tags.split(',').map((tag: string) => tag.trim()) : [];
+
+    // Create video record
+    const video = await prisma.video.create({
+      data: {
+        userId,
+        title,
+        description: description || null,
+        categoryId: categoryId || null,
+        fileName: (videoFile as any).filename,
+        fileDirectory: (videoFile as any).fileDirectory,
+        thumbnailUrl: thumbnailFile ? `thumbnails/${(thumbnailFile as any).fileDirectory}/${(thumbnailFile as any).filename}` : null,
+        duration: duration ? parseInt(duration) : null,
+        fileSize: BigInt(videoFile.size),
+        tags: tagsArray,
+        cost: cost ? parseInt(cost) : 0,
+        status: (status as any) || 'PUBLIC',
+        quality: [],
+        subtitles: [],
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            username: true,
+            firstName: true,
+            lastName: true,
+            avatar: true,
+            fileDirectory: true,
+            isVerified: true,
+          },
+        },
+      },
+    });
+
+    return res.json({
+      success: true,
+      message: 'Video uploaded successfully',
+      data: {
+        id: video.id,
+        title: video.title,
+        fileName: video.fileName,
+        fileDirectory: video.fileDirectory,
+        status: video.status,
+      },
+    });
+  } catch (error) {
+    console.error('Error uploading video:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to upload video',
     });
   }
 });
@@ -894,6 +1051,15 @@ app.get('/api/v1/videos/:id', async (req, res) => {
       isPublic: video.isPublic,
       createdAt: video.createdAt.toISOString(),
       updatedAt: video.updatedAt.toISOString(),
+      // New fields for video playback
+      fileName: video.fileName,
+      fileDirectory: video.fileDirectory,
+      remotePlayUrl: video.remotePlayUrl,
+      embedCode: video.embedCode,
+      cost: video.cost,
+      status: video.status,
+      tags: video.tags,
+      subtitles: video.subtitles,
       user: video.user ? serializeUserWithUrls(video.user) : null,
       // Also include user data at the top level for compatibility
       username: video.user?.username,
@@ -961,9 +1127,19 @@ app.get('/api/v1/videos', async (req, res) => {
       likes: video.likes,
       comments: video.comments,
       shares: video.shares,
+      downloads: video.downloads || 0,
       isPublic: video.isPublic,
       createdAt: video.createdAt.toISOString(),
       updatedAt: video.updatedAt.toISOString(),
+      // New fields for video playback
+      fileName: video.fileName,
+      fileDirectory: video.fileDirectory,
+      remotePlayUrl: video.remotePlayUrl,
+      embedCode: video.embedCode,
+      cost: video.cost,
+      status: video.status,
+      tags: video.tags,
+      subtitles: video.subtitles,
       user: video.user ? serializeUserWithUrls(video.user) : null,
       // Also include user data at the top level for compatibility
       username: video.user?.username,
@@ -1042,6 +1218,15 @@ app.get('/api/v1/categories/:categoryId/videos', async (req, res) => {
       isPublic: video.isPublic,
       createdAt: video.createdAt.toISOString(),
       updatedAt: video.updatedAt.toISOString(),
+      // New fields for video playback
+      fileName: video.fileName,
+      fileDirectory: video.fileDirectory,
+      remotePlayUrl: video.remotePlayUrl,
+      embedCode: video.embedCode,
+      cost: video.cost,
+      status: video.status,
+      tags: video.tags,
+      subtitles: video.subtitles,
       user: video.user ? serializeUserWithUrls(video.user) : null,
       username: video.user?.username,
       firstName: video.user?.firstName,
@@ -1131,42 +1316,7 @@ app.get('/api/v1/categories', async (_req, res) => {
 });
 
 // Helper function to get user ID from JWT token
-const getCurrentUserId = async (req: any): Promise<string | null> => {
-  const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    console.log('No authorization header found');
-    return null;
-  }
-  
-  try {
-    const token = authHeader.substring(7);
-    const decoded = jwt.verify(token, process.env['JWT_SECRET'] || 'your-secret-key') as any;
-    console.log('JWT decoded:', decoded);
-    const userId = decoded.userId || decoded.id || null;
-    console.log('Extracted user ID from JWT:', userId);
-    
-    // Validate that the user actually exists in the database
-    if (userId) {
-      const userExists = await prisma.user.findUnique({
-        where: { id: userId },
-        select: { id: true, username: true },
-      });
-      
-      if (userExists) {
-        console.log('JWT user exists in database:', userExists);
-        return userId;
-      } else {
-        console.log('JWT user does not exist in database - user should be signed out');
-        return null;
-      }
-    }
-    
-    return null;
-  } catch (error) {
-    console.log('JWT verification failed:', error);
-    return null;
-  }
-};
+// Note: getCurrentUserId is already defined at line 116 - removed duplicate
 
 
 // Get user profile by ID

@@ -12,6 +12,7 @@ import '../../screens/main/main_screen.dart';
 import '../../screens/video/video_detail_screen.dart';
 import '../../screens/video/video_player_screen.dart';
 import '../../screens/video/upload_video_screen.dart';
+import '../../screens/video/upload_video_screen_new.dart';
 import '../../screens/profile/other_user_profile_screen.dart';
 import '../../screens/profile/edit_profile_screen.dart';
 import '../../screens/chat/chat_screen.dart';
@@ -95,7 +96,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
             path: 'upload',
-            builder: (context, state) => const UploadVideoScreen(),
+            builder: (context, state) => const UploadVideoScreenNew(),
           ),
           GoRoute(
             path: 'create-post',

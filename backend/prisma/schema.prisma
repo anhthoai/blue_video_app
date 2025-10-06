@@ -57,31 +57,50 @@ model User {
   @@map("users")
 }
 
+enum VideoStatus {
+  PUBLIC
+  VIP
+  PRIVATE
+  UNLISTED
+
+  @@map("video_status")
+}
+
 model Video {
-  id           String   @id @default(uuid())
-  userId       String   @map("user_id")
-  categoryId   String?  @map("category_id")
-  title        String
-  description  String?
-  videoUrl     String   @map("video_url")
-  thumbnailUrl String?  @map("thumbnail_url")
-  duration     Int?
-  fileSize     BigInt?  @map("file_size")
-  quality      String?
-  views        Int      @default(0)
-  likes        Int      @default(0)
-  comments     Int      @default(0)
-  shares       Int      @default(0)
-  downloads    Int      @default(0)
-  isPublic     Boolean  @default(true) @map("is_public")
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
+  id             String       @id @default(uuid())
+  userId         String       @map("user_id")
+  categoryId     String?      @map("category_id")
+  title          String
+  description    String?
+  fileName       String?      @map("file_name")
+  fileDirectory  String?      @map("file_directory")
+  remotePlayUrl  String?      @map("remote_play_url")
+  embedCode      String?      @map("embed_code") @db.Text
+  videoUrl       String?      @map("video_url") // Deprecated, kept for backward compatibility
+  thumbnailUrl   String?      @map("thumbnail_url")
+  duration       Int?
+  fileSize       BigInt?      @map("file_size")
+  quality        String[]     @default([]) // Array of available qualities: ["360", "720", "1080"]
+  subtitles      String[]     @default([]) // Array of subtitle languages: ["eng", "rus", "tha"]
+  tags           String[]     @default([]) // Array of tags
+  cost           Int          @default(0) // Cost in coins (0 = free)
+  status         VideoStatus  @default(PUBLIC) // PUBLIC, VIP, PRIVATE, UNLISTED
+  views          Int          @default(0)
+  likes          Int          @default(0)
+  comments       Int          @default(0)
+  shares         Int          @default(0)
+  downloads      Int          @default(0)
+  isPublic       Boolean      @default(true) @map("is_public") // Deprecated, use status instead
+  createdAt      DateTime     @default(now()) @map("created_at")
+  updatedAt      DateTime     @updatedAt @map("updated_at")
 
   // Relations
   user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   category Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
-
+  
   @@index([categoryId])
+  @@index([status])
+  @@index([userId])
   @@map("videos")
 }
 

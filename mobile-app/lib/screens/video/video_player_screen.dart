@@ -3,11 +3,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:video_player/video_player.dart';
+import 'package:webview_flutter/webview_flutter.dart';
 
 import '../../models/video_model.dart';
 import '../../core/services/video_service.dart';
 import '../../core/services/api_service.dart';
 import '../../core/services/auth_service.dart';
+import '../../core/services/file_url_service.dart';
 import '../../widgets/social/comments_section.dart';
 import '../../widgets/common/presigned_image.dart';
 
@@ -31,6 +33,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
     with WidgetsBindingObserver {
   final ScrollController _scrollController = ScrollController();
   VideoPlayerController? _videoController;
+  WebViewController? _webViewController;
   bool _isPlaying = false;
   bool _showControls = true;
   Duration _currentPosition = Duration.zero;
@@ -38,6 +41,9 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
   bool _isVideoInitialized = false;
   bool _isFullscreen = false;
   bool _isDescriptionExpanded = false;
+  bool _isEmbedVideo = false;
+  bool _isPreviewMode = false;
+  bool _hasShownPreviewWarning = false;
 
   // Follow functionality
   final ApiService _apiService = ApiService();
@@ -348,32 +354,36 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
 
   bool _isInitializing = false;
 
-  void _initializeVideo(String videoUrl) {
-    print('🎥 _initializeVideo called with URL: $videoUrl');
-    print('  - _currentVideoUrl: $_currentVideoUrl');
-    print('  - _isInitializing: $_isInitializing');
-    print('  - _videoController: ${_videoController != null}');
-    print('  - _isVideoInitialized: $_isVideoInitialized');
+  Future<void> _initializeVideo(VideoModel video) async {
+    print('🎥 _initializeVideo called for video: ${video.title}');
+    print('  - embedCode: ${video.embedCode != null}');
+    print('  - remotePlayUrl: ${video.remotePlayUrl}');
+    print(
+        '  - fileName/fileDirectory: ${video.fileName}/${video.fileDirectory}');
+    print('  - requiresVIP: ${video.requiresVIP}');
+    print('  - cost: ${video.cost}');
 
-    // Prevent reinitializing if already initializing or already initialized and playing
-    if (_isInitializing ||
-        (_currentVideoUrl == videoUrl &&
-            _videoController != null &&
-            _isVideoInitialized)) {
-      print('🎥 Video already initialized or initializing for URL: $videoUrl');
+    // Check VIP access
+    final authService = ref.read(authServiceProvider);
+    final currentUser = authService.currentUser;
+    final isUserVIP = currentUser?.isVip ?? false;
+    final isUserPaid = video.isPaid; // Check if user has paid for this video
+
+    // Determine if preview mode
+    final needsVIPAccess = video.requiresVIP && !isUserVIP && !isUserPaid;
+    final needsPayment = video.hasCost && !isUserPaid;
+
+    setState(() {
+      _isPreviewMode = needsVIPAccess || needsPayment;
+    });
+
+    // Prevent reinitializing if already initializing
+    if (_isInitializing) {
+      print('🎥 Video already initializing');
       return;
     }
 
-    // Check if this is actually a different video
-    if (_currentVideoUrl == videoUrl && _videoController != null) {
-      print('🎥 Same video URL, checking if we need to reinitialize');
-      if (_isVideoInitialized) {
-        print('🎥 Video already initialized and ready');
-        return;
-      }
-    }
-
-    print('🎥 Actually initializing video: $videoUrl');
+    print('🎥 Actually initializing video');
     _isInitializing = true;
 
     // Dispose current controller if it exists
@@ -381,6 +391,72 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
       _videoController!.dispose();
       _videoController = null;
     }
+
+    // Priority 1: Embed Code
+    if (video.embedCode != null && video.embedCode!.isNotEmpty) {
+      print('🎥 Using embed code');
+      setState(() {
+        _isEmbedVideo = true;
+        _isVideoInitialized = true;
+        _isInitializing = false;
+      });
+      _initializeEmbedVideo(video.embedCode!);
+      return;
+    }
+
+    // Priority 2: Remote Play URL
+    String? playbackUrl;
+    if (video.remotePlayUrl != null && video.remotePlayUrl!.isNotEmpty) {
+      print('🎥 Using remote play URL');
+      playbackUrl = video.remotePlayUrl;
+    }
+    // Priority 3: Presigned URL from fileName/fileDirectory
+    else if (video.fileName != null && video.fileDirectory != null) {
+      print('🎥 Getting presigned URL from fileName/fileDirectory');
+      final objectKey = 'videos/${video.fileDirectory}/${video.fileName}';
+      playbackUrl = await FileUrlService().getAccessibleUrl(objectKey);
+    }
+    // Fallback: videoUrl for backward compatibility
+    else if (video.videoUrl.isNotEmpty) {
+      print('🎥 Using legacy videoUrl');
+      playbackUrl = video.videoUrl;
+    }
+
+    if (playbackUrl == null || playbackUrl.isEmpty) {
+      print('❌ No playback URL available');
+      setState(() {
+        _isInitializing = false;
+      });
+      return;
+    }
+
+    _initializeVideoPlayer(playbackUrl, video);
+  }
+
+  void _initializeEmbedVideo(String embedCode) {
+    print('🎥 Initializing embed video');
+    // For embed code, we'll use WebView
+    _webViewController = WebViewController()
+      ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      ..loadHtmlString('''
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <style>
+              body { margin: 0; padding: 0; background: #000; }
+              iframe { width: 100vw; height: 100vh; border: none; }
+            </style>
+          </head>
+          <body>
+            $embedCode
+          </body>
+        </html>
+      ''');
+  }
+
+  void _initializeVideoPlayer(String videoUrl, VideoModel video) {
+    print('🎥 Initializing video player with URL: $videoUrl');
 
     _currentVideoUrl = videoUrl;
     _videoController = VideoPlayerController.networkUrl(Uri.parse(videoUrl))
@@ -390,8 +466,21 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
         if (mounted) {
           setState(() {
             _isVideoInitialized = true;
+            _isEmbedVideo = false;
             _totalDuration = _videoController!.value.duration;
           });
+
+          // Setup preview mode if needed
+          if (_isPreviewMode) {
+            _setupPreviewMode();
+          }
+
+          // Auto-play
+          _videoController!.play();
+          setState(() {
+            _isPlaying = true;
+          });
+
           // Increment view count when video is ready
           _incrementViewCount(widget.videoId);
         }
@@ -401,7 +490,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
         if (mounted) {
           setState(() {
             _isVideoInitialized = false;
-            _currentVideoUrl = null; // Reset on error
+            _currentVideoUrl = null;
           });
         }
       })
@@ -410,8 +499,79 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
           setState(() {
             _currentPosition = _videoController!.value.position;
           });
+
+          // Check preview limit (15 seconds for free users)
+          if (_isPreviewMode &&
+              !_hasShownPreviewWarning &&
+              _currentPosition.inSeconds >= 10) {
+            _hasShownPreviewWarning = true;
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text(
+                    '5 seconds remaining! Upgrade to VIP for full access.'),
+                duration: Duration(seconds: 2),
+              ),
+            );
+          }
+
+          if (_isPreviewMode && _currentPosition.inSeconds >= 15) {
+            _handlePreviewLimitReached();
+          }
         }
       });
+  }
+
+  void _setupPreviewMode() {
+    print('⏱️ Setting up 15-second preview mode');
+    Future.delayed(const Duration(seconds: 2), () {
+      if (mounted && _isPreviewMode) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Preview mode: Only 15 seconds available'),
+            duration: Duration(seconds: 3),
+          ),
+        );
+      }
+    });
+  }
+
+  void _handlePreviewLimitReached() {
+    if (_videoController != null && _isPlaying) {
+      _videoController!.pause();
+      setState(() {
+        _isPlaying = false;
+      });
+      _showUpgradeDialog();
+    }
+  }
+
+  void _showUpgradeDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: const Text('Preview Limit Reached'),
+        content: const Text(
+          'You\'ve watched 15 seconds. Upgrade to VIP or purchase this video to watch the full content.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              // TODO: Navigate to upgrade/purchase screen
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Upgrade feature coming soon!')),
+              );
+            },
+            child: const Text('Upgrade'),
+          ),
+        ],
+      ),
+    );
   }
 
   void _onScroll() {
@@ -479,7 +639,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
             print(
                 '🎥 Build method triggering initialization for URL: ${video.videoUrl}');
             WidgetsBinding.instance.addPostFrameCallback((_) {
-              _initializeVideo(video.videoUrl);
+              _initializeVideo(video);
             });
           }
 
@@ -571,6 +731,18 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
   }
 
   Widget _buildVideoPlayer(VideoModel video) {
+    // For embed videos, show WebView
+    if (_isEmbedVideo && _webViewController != null) {
+      return Container(
+        height: _isFullscreen
+            ? MediaQuery.of(context).size.height
+            : MediaQuery.of(context).size.width * 9 / 16,
+        width: double.infinity,
+        color: Colors.black,
+        child: WebViewWidget(controller: _webViewController!),
+      );
+    }
+
     return GestureDetector(
       onTap: () {
         if (_isVideoInitialized && _videoController != null) {

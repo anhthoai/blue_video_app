@@ -41,16 +41,16 @@ class VideoService {
     required File videoFile,
     required String title,
     String? description,
-    String? thumbnailPath,
+    File? thumbnailFile,
     List<String>? tags,
     String? category,
   }) async {
     try {
       final response = await _apiService.uploadVideo(
+        videoFile: videoFile,
+        thumbnailFile: thumbnailFile,
         title: title,
         description: description,
-        videoFile: videoFile,
-        thumbnailPath: thumbnailPath,
       );
 
       if (response['success'] == true && response['data'] != null) {
@@ -302,7 +302,7 @@ class VideoUploadNotifier extends StateNotifier<VideoUploadState> {
     required File videoFile,
     required String title,
     String? description,
-    String? thumbnailPath,
+    File? thumbnailFile,
     List<String>? tags,
     String? category,
   }) async {
@@ -321,7 +321,7 @@ class VideoUploadNotifier extends StateNotifier<VideoUploadState> {
         videoFile: videoFile,
         title: title,
         description: description,
-        thumbnailPath: thumbnailPath,
+        thumbnailFile: thumbnailFile,
         tags: tags,
         category: category,
       );

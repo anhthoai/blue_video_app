@@ -251,45 +251,6 @@ class ApiService {
     return await _handleResponse(response);
   }
 
-  Future<Map<String, dynamic>> uploadVideo({
-    required String title,
-    String? description,
-    required File videoFile,
-    String? thumbnailPath,
-  }) async {
-    final request = http.MultipartRequest(
-      'POST',
-      Uri.parse('$baseUrl/videos/upload'),
-    );
-
-    // Add headers
-    final headers = await _getHeaders();
-    request.headers.addAll(headers);
-
-    // Add video file
-    request.files.add(await http.MultipartFile.fromPath(
-      'video',
-      videoFile.path,
-    ));
-
-    // Add thumbnail if provided
-    if (thumbnailPath != null) {
-      request.files.add(await http.MultipartFile.fromPath(
-        'thumbnail',
-        thumbnailPath,
-      ));
-    }
-
-    // Add other fields
-    request.fields['title'] = title;
-    if (description != null) request.fields['description'] = description;
-
-    final streamedResponse = await request.send();
-    final response = await http.Response.fromStream(streamedResponse);
-
-    return await _handleResponse(response);
-  }
-
   // Increment video view count
   Future<Map<String, dynamic>> incrementVideoView(String videoId) async {
     final response = await http.post(
@@ -895,6 +856,90 @@ class ApiService {
     } catch (e) {
       print('Error getting videos by category: $e');
       return [];
+    }
+  }
+
+  // Upload video
+  Future<Map<String, dynamic>> uploadVideo({
+    required File videoFile,
+    File? thumbnailFile,
+    required String title,
+    String? description,
+    String? categoryId,
+    List<String>? tags,
+    int? cost,
+    String? status,
+    int? duration,
+    Function(double)? onProgress,
+  }) async {
+    try {
+      final uri = Uri.parse('$baseUrl/videos/upload');
+      final request = http.MultipartRequest('POST', uri);
+
+      // Add headers
+      final headers = await _getHeaders();
+      request.headers.addAll(headers);
+
+      // Add video file
+      final videoStream = http.ByteStream(videoFile.openRead());
+      final videoLength = await videoFile.length();
+      final videoMultipart = http.MultipartFile(
+        'video',
+        videoStream,
+        videoLength,
+        filename: videoFile.path.split('/').last,
+      );
+      request.files.add(videoMultipart);
+
+      // Add thumbnail if provided
+      if (thumbnailFile != null) {
+        final thumbnailStream = http.ByteStream(thumbnailFile.openRead());
+        final thumbnailLength = await thumbnailFile.length();
+        final thumbnailMultipart = http.MultipartFile(
+          'thumbnail',
+          thumbnailStream,
+          thumbnailLength,
+          filename: thumbnailFile.path.split('/').last,
+        );
+        request.files.add(thumbnailMultipart);
+      }
+
+      // Add fields
+      request.fields['title'] = title;
+      if (description != null) request.fields['description'] = description;
+      if (categoryId != null) request.fields['categoryId'] = categoryId;
+      if (tags != null && tags.isNotEmpty)
+        request.fields['tags'] = tags.join(',');
+      if (cost != null) request.fields['cost'] = cost.toString();
+      if (status != null) request.fields['status'] = status;
+      if (duration != null) request.fields['duration'] = duration.toString();
+
+      // Send request with progress tracking
+      final streamedResponse = await request.send();
+
+      // Track upload progress
+      int bytesUploaded = 0;
+      int totalBytes = videoLength +
+          (thumbnailFile != null ? await thumbnailFile.length() : 0);
+
+      streamedResponse.stream.listen(
+        (List<int> chunk) {
+          bytesUploaded += chunk.length;
+          if (onProgress != null && totalBytes > 0) {
+            onProgress(bytesUploaded / totalBytes);
+          }
+        },
+      );
+
+      // Get response
+      final response = await http.Response.fromStream(streamedResponse);
+      return await _handleResponse(response);
+    } catch (e) {
+      print('Error uploading video: $e');
+      return {
+        'success': false,
+        'message': 'Upload failed: $e',
+      };
     }
   }
 

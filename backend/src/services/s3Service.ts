@@ -305,4 +305,96 @@ export const chatFileFilter = (_req: any, file: any, cb: any) => {
   }
 };
 
+// Video storage configuration
+export const videoStorage: any = {
+  _handleFile: async (req: any, file: any, cb: any) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return cb(new Error('User not authenticated'));
+      }
+      
+      // Generate file directory based on upload date (yyyy/mm/dd)
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = String(now.getMonth() + 1).padStart(2, '0');
+      const day = String(now.getDate()).padStart(2, '0');
+      const fileDirectory = `${year}/${month}/${day}`;
+      
+      const extension = file.originalname.split('.').pop();
+      const filename = `${uuidv4()}.${extension}`;
+      const key = `videos/${fileDirectory}/${filename}`;
+      
+      // Convert stream to buffer
+      const chunks: Buffer[] = [];
+      file.stream.on('data', (chunk: Buffer) => chunks.push(chunk));
+      file.stream.on('end', async () => {
+        try {
+          const buffer = Buffer.concat(chunks);
+          
+          const command = new PutObjectCommand({
+            Bucket: BUCKET_NAME,
+            Key: key,
+            Body: buffer,
+            ContentType: file.mimetype,
+          });
+          
+          await s3Client.send(command);
+          
+          cb(null, {
+            bucket: BUCKET_NAME,
+            key: key,
+            fileDirectory: fileDirectory,
+            filename: filename,
+            size: buffer.length,
+            mimetype: file.mimetype,
+            originalname: file.originalname,
+          });
+        } catch (error) {
+          cb(error);
+        }
+      });
+      
+      file.stream.on('error', (error: any) => {
+        cb(error);
+      });
+    } catch (error) {
+      cb(error);
+    }
+  },
+  _removeFile: async (_req: any, file: any, cb: any) => {
+    try {
+      const command = new DeleteObjectCommand({
+        Bucket: BUCKET_NAME,
+        Key: file.key,
+      });
+      await s3Client.send(command);
+      cb(null);
+    } catch (error) {
+      cb(error);
+    }
+  },
+};
+
+// Video file filter
+export const videoFileFilter = (_req: any, file: any, cb: any) => {
+  const allowedExtensions = (process.env['ALLOWED_VIDEO_EXTENSIONS'] || '.mp4,.mkv,.m4v,.mov,.webm,.avi,.flv,.wmv').split(',');
+  const ext = '.' + file.originalname.split('.').pop()?.toLowerCase();
+  
+  if (allowedExtensions.includes(ext)) {
+    cb(null, true);
+  } else {
+    cb(new Error(`Only video files are allowed: ${allowedExtensions.join(', ')}`));
+  }
+};
+
+// Video upload instance
+export const videoUpload = multer({
+  storage: videoStorage,
+  limits: {
+    fileSize: parseInt(process.env['MAX_FILE_SIZE']?.replace('MB', '') || '5000') * 1024 * 1024,
+  },
+  fileFilter: videoFileFilter,
+});
+
 export default s3Client;

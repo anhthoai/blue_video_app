@@ -5,7 +5,11 @@ class VideoModel {
   final String userId;
   final String title;
   final String? description;
-  final String videoUrl;
+  final String videoUrl; // Deprecated, for backward compatibility
+  final String? fileName;
+  final String? fileDirectory;
+  final String? remotePlayUrl;
+  final String? embedCode;
   final String? thumbnailUrl;
   final int duration; // in seconds
   final int viewCount;
@@ -14,13 +18,17 @@ class VideoModel {
   final int shareCount;
   final int downloadCount;
   final bool isLiked; // Whether current user has liked this video
-  final bool isPublic;
+  final bool isPublic; // Deprecated, use status instead
+  final String status; // PUBLIC, VIP, PRIVATE, UNLISTED
   final bool isFeatured;
   final DateTime createdAt;
   final DateTime? updatedAt;
   final List<String>? tags;
+  final List<String>? quality; // Available qualities: ["360", "720", "1080"]
+  final List<String>? subtitles; // Available subtitles: ["eng", "rus", "tha"]
   final String? category;
-  final int? price; // in coins
+  final int? price; // Deprecated, use cost instead
+  final int cost; // Cost in coins
   final bool isPaid;
   final String? location;
   final Map<String, dynamic>? metadata;
@@ -49,6 +57,10 @@ class VideoModel {
     required this.title,
     this.description,
     required this.videoUrl,
+    this.fileName,
+    this.fileDirectory,
+    this.remotePlayUrl,
+    this.embedCode,
     this.thumbnailUrl,
     this.duration = 0,
     this.viewCount = 0,
@@ -58,12 +70,16 @@ class VideoModel {
     this.downloadCount = 0,
     this.isLiked = false,
     this.isPublic = true,
+    this.status = 'PUBLIC',
     this.isFeatured = false,
     required this.createdAt,
     this.updatedAt,
     this.tags,
+    this.quality,
+    this.subtitles,
     this.category,
     this.price,
+    this.cost = 0,
     this.isPaid = false,
     this.location,
     this.metadata,
@@ -181,7 +197,12 @@ class VideoModel {
       userId: json['userId'] as String,
       title: json['title'] as String,
       description: json['description'] as String?,
-      videoUrl: json['videoUrl'] as String,
+      videoUrl:
+          json['videoUrl'] as String? ?? json['remotePlayUrl'] as String? ?? '',
+      fileName: json['fileName'] as String?,
+      fileDirectory: json['fileDirectory'] as String?,
+      remotePlayUrl: json['remotePlayUrl'] as String?,
+      embedCode: json['embedCode'] as String?,
       thumbnailUrl: json['thumbnailUrl'] as String?,
       duration: json['duration'] as int? ?? 0,
       viewCount: json['viewCount'] as int? ?? json['views'] as int? ?? 0,
@@ -193,6 +214,7 @@ class VideoModel {
           json['downloadCount'] as int? ?? json['downloads'] as int? ?? 0,
       isLiked: json['isLiked'] as bool? ?? false,
       isPublic: json['isPublic'] as bool? ?? true,
+      status: json['status'] as String? ?? 'PUBLIC',
       isFeatured: json['isFeatured'] as bool? ?? false,
       createdAt: DateTime.parse(json['createdAt'] as String),
       updatedAt: json['updatedAt'] != null
@@ -200,8 +222,15 @@ class VideoModel {
           : null,
       tags:
           json['tags'] != null ? List<String>.from(json['tags'] as List) : null,
+      quality: json['quality'] != null
+          ? List<String>.from(json['quality'] as List)
+          : null,
+      subtitles: json['subtitles'] != null
+          ? List<String>.from(json['subtitles'] as List)
+          : null,
       category: json['category'] as String?,
       price: json['price'] as int?,
+      cost: json['cost'] as int? ?? 0,
       isPaid: json['isPaid'] as bool? ?? false,
       location: json['location'] as String?,
       metadata: json['metadata'] as Map<String, dynamic>?,
@@ -260,6 +289,37 @@ class VideoModel {
     } else {
       return likeCount.toString();
     }
+  }
+
+  // Get playback URL with priority: embedCode > remotePlayUrl > presigned URL from fileName/fileDirectory
+  String? getPlaybackUrl() {
+    // Priority 1: Embed code (if available)
+    if (embedCode != null && embedCode!.isNotEmpty) {
+      return null; // Embed code will be handled separately in player
+    }
+
+    // Priority 2: Remote play URL
+    if (remotePlayUrl != null && remotePlayUrl!.isNotEmpty) {
+      return remotePlayUrl;
+    }
+
+    // Priority 3: Construct from fileName and fileDirectory (will use presigned URL)
+    if (fileName != null && fileDirectory != null) {
+      return 'videos/$fileDirectory/$fileName';
+    }
+
+    // Fallback: Use videoUrl for backward compatibility
+    return videoUrl.isNotEmpty ? videoUrl : null;
+  }
+
+  // Check if user needs VIP to watch
+  bool get requiresVIP {
+    return status == 'VIP' || (!isPublic && status != 'PUBLIC');
+  }
+
+  // Check if video has cost
+  bool get hasCost {
+    return cost > 0;
   }
 
   // Equality
