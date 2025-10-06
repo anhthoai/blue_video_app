@@ -5,6 +5,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import '../../core/services/social_service.dart';
 import '../../models/comment_model.dart';
 import 'comment_widget.dart';
+import '../common/presigned_image.dart';
 
 class CommentsSection extends ConsumerStatefulWidget {
   final String videoId;
@@ -246,16 +247,28 @@ class _CommentsSectionState extends ConsumerState<CommentsSection> {
       ),
       child: Row(
         children: [
-          CircleAvatar(
-            key: ValueKey(widget.currentUserAvatar),
-            radius: 16,
-            backgroundColor: Colors.grey[300],
-            backgroundImage: widget.currentUserAvatar.isNotEmpty
-                ? CachedNetworkImageProvider(widget.currentUserAvatar)
-                : null,
-            child: widget.currentUserAvatar.isEmpty
-                ? const Icon(Icons.person, size: 16)
-                : null,
+          SizedBox(
+            width: 32,
+            height: 32,
+            child: widget.currentUserAvatar.isNotEmpty
+                ? ClipOval(
+                    child: PresignedImage(
+                      imageUrl: widget.currentUserAvatar,
+                      width: 32,
+                      height: 32,
+                      fit: BoxFit.cover,
+                      errorWidget: const CircleAvatar(
+                        radius: 16,
+                        backgroundColor: Colors.grey,
+                        child: Icon(Icons.person, size: 16),
+                      ),
+                    ),
+                  )
+                : const CircleAvatar(
+                    radius: 16,
+                    backgroundColor: Colors.grey,
+                    child: Icon(Icons.person, size: 16),
+                  ),
           ),
           const SizedBox(width: 12),
           Expanded(

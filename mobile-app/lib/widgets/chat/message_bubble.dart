@@ -11,6 +11,8 @@ import 'package:chewie/chewie.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 import '../../models/chat_message.dart';
+import '../../core/services/file_url_service.dart';
+import '../common/presigned_image.dart';
 
 class MessageBubble extends StatefulWidget {
   final ChatMessage message;
@@ -86,23 +88,48 @@ class _MessageBubbleState extends State<MessageBubble> {
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
             if (!isMe) ...[
-              CircleAvatar(
-                key: ValueKey('avatar_${message.userId}_${message.userAvatar}'),
-                radius: 16,
-                backgroundColor: Colors.grey[300],
-                backgroundImage:
-                    message.userAvatar != null && message.userAvatar!.isNotEmpty
-                        ? CachedNetworkImageProvider(message.userAvatar!)
-                        : null,
-                child: message.userAvatar == null || message.userAvatar!.isEmpty
-                    ? Text(
-                        message.username.isNotEmpty
-                            ? message.username[0].toUpperCase()
-                            : 'U',
-                        style: const TextStyle(
-                            fontSize: 12, fontWeight: FontWeight.w600),
+              SizedBox(
+                width: 32,
+                height: 32,
+                child: message.userAvatar != null &&
+                        message.userAvatar!.isNotEmpty
+                    ? ClipOval(
+                        child: PresignedImage(
+                          imageUrl: message.userAvatar,
+                          width: 32,
+                          height: 32,
+                          fit: BoxFit.cover,
+                          placeholder: Container(
+                            color: Colors.grey[300],
+                            child: const Center(
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                          ),
+                          errorWidget: Container(
+                            color: Colors.grey[300],
+                            child: Center(
+                              child: Text(
+                                message.username.isNotEmpty
+                                    ? message.username[0].toUpperCase()
+                                    : 'U',
+                                style: const TextStyle(
+                                    fontSize: 12, fontWeight: FontWeight.w600),
+                              ),
+                            ),
+                          ),
+                        ),
                       )
-                    : null,
+                    : CircleAvatar(
+                        radius: 16,
+                        backgroundColor: Colors.grey[300],
+                        child: Text(
+                          message.username.isNotEmpty
+                              ? message.username[0].toUpperCase()
+                              : 'U',
+                          style: const TextStyle(
+                              fontSize: 12, fontWeight: FontWeight.w600),
+                        ),
+                      ),
               ),
               const SizedBox(width: 8),
             ],
@@ -142,23 +169,48 @@ class _MessageBubbleState extends State<MessageBubble> {
             ),
             if (isMe) ...[
               const SizedBox(width: 8),
-              CircleAvatar(
-                key: ValueKey('avatar_${message.userId}_${message.userAvatar}'),
-                radius: 16,
-                backgroundColor: Colors.grey[300],
-                backgroundImage:
-                    message.userAvatar != null && message.userAvatar!.isNotEmpty
-                        ? CachedNetworkImageProvider(message.userAvatar!)
-                        : null,
-                child: message.userAvatar == null || message.userAvatar!.isEmpty
-                    ? Text(
-                        message.username.isNotEmpty
-                            ? message.username[0].toUpperCase()
-                            : 'U',
-                        style: const TextStyle(
-                            fontSize: 12, fontWeight: FontWeight.w600),
+              SizedBox(
+                width: 32,
+                height: 32,
+                child: message.userAvatar != null &&
+                        message.userAvatar!.isNotEmpty
+                    ? ClipOval(
+                        child: PresignedImage(
+                          imageUrl: message.userAvatar,
+                          width: 32,
+                          height: 32,
+                          fit: BoxFit.cover,
+                          placeholder: Container(
+                            color: Colors.grey[300],
+                            child: const Center(
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                          ),
+                          errorWidget: Container(
+                            color: Colors.grey[300],
+                            child: Center(
+                              child: Text(
+                                message.username.isNotEmpty
+                                    ? message.username[0].toUpperCase()
+                                    : 'U',
+                                style: const TextStyle(
+                                    fontSize: 12, fontWeight: FontWeight.w600),
+                              ),
+                            ),
+                          ),
+                        ),
                       )
-                    : null,
+                    : CircleAvatar(
+                        radius: 16,
+                        backgroundColor: Colors.grey[300],
+                        child: Text(
+                          message.username.isNotEmpty
+                              ? message.username[0].toUpperCase()
+                              : 'U',
+                          style: const TextStyle(
+                              fontSize: 12, fontWeight: FontWeight.w600),
+                        ),
+                      ),
               ),
             ],
           ],
@@ -242,27 +294,25 @@ class _MessageBubbleState extends State<MessageBubble> {
         GestureDetector(
           onTap: () =>
               _openImageViewer(context, message.fileUrl!, message.content),
-          child: ClipRRect(
+          child: PresignedImage(
+            imageUrl: message.fileUrl,
+            width: 200,
+            height: 200,
+            fit: BoxFit.cover,
             borderRadius: BorderRadius.circular(8),
-            child: CachedNetworkImage(
-              imageUrl: message.fileUrl!,
+            placeholder: Container(
               width: 200,
               height: 200,
-              fit: BoxFit.cover,
-              placeholder: (context, url) => Container(
-                width: 200,
-                height: 200,
-                color: Colors.grey[300],
-                child: const Center(
-                  child: CircularProgressIndicator(),
-                ),
+              color: Colors.grey[300],
+              child: const Center(
+                child: CircularProgressIndicator(),
               ),
-              errorWidget: (context, url, error) => Container(
-                width: 200,
-                height: 200,
-                color: Colors.grey[300],
-                child: const Icon(Icons.broken_image, size: 48),
-              ),
+            ),
+            errorWidget: Container(
+              width: 200,
+              height: 200,
+              color: Colors.grey[300],
+              child: const Icon(Icons.broken_image, size: 48),
             ),
           ),
         ),
@@ -297,13 +347,13 @@ class _MessageBubbleState extends State<MessageBubble> {
                   minScale: 0.5,
                   maxScale: 4.0,
                   child: Center(
-                    child: CachedNetworkImage(
+                    child: PresignedImage(
                       imageUrl: imageUrl,
                       fit: BoxFit.contain,
-                      placeholder: (context, url) => const Center(
+                      placeholder: const Center(
                         child: CircularProgressIndicator(color: Colors.white),
                       ),
-                      errorWidget: (context, url, error) => const Icon(
+                      errorWidget: const Icon(
                         Icons.broken_image,
                         color: Colors.white,
                         size: 48,
@@ -408,13 +458,19 @@ class _MessageBubbleState extends State<MessageBubble> {
     );
   }
 
-  void _openVideoPlayer(BuildContext context, String videoUrl) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => _ChatVideoPlayer(videoUrl: videoUrl),
-      ),
-    );
+  void _openVideoPlayer(BuildContext context, String videoUrl) async {
+    // Get presigned URL if needed
+    final fileUrlService = FileUrlService();
+    final accessibleUrl = await fileUrlService.getAccessibleUrl(videoUrl);
+
+    if (accessibleUrl != null && context.mounted) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => _ChatVideoPlayer(videoUrl: accessibleUrl),
+        ),
+      );
+    }
   }
 
   Widget _buildAudioMessage(BuildContext context) {
@@ -516,7 +572,13 @@ class _MessageBubbleState extends State<MessageBubble> {
     if (_isPlaying) {
       await _audioPlayer!.pause();
     } else {
-      await _audioPlayer!.play(UrlSource(widget.message.fileUrl!));
+      // Get presigned URL if needed
+      final fileUrlService = FileUrlService();
+      final accessibleUrl =
+          await fileUrlService.getAccessibleUrl(widget.message.fileUrl);
+      if (accessibleUrl != null) {
+        await _audioPlayer!.play(UrlSource(accessibleUrl));
+      }
     }
   }
 
@@ -666,6 +728,14 @@ class _MessageBubbleState extends State<MessageBubble> {
     });
 
     try {
+      // Get presigned URL if needed
+      final fileUrlService = FileUrlService();
+      final accessibleUrl = await fileUrlService.getAccessibleUrl(url);
+
+      if (accessibleUrl == null) {
+        throw Exception('Could not get accessible URL for file');
+      }
+
       // Request appropriate storage permission based on Android version
       if (Platform.isAndroid) {
         // For Android 13+ (API 33+), we don't need WRITE_EXTERNAL_STORAGE
@@ -730,8 +800,8 @@ class _MessageBubbleState extends State<MessageBubble> {
       final filePath = '${directory.path}/$fileName';
       final file = File(filePath);
 
-      // Download the file
-      final response = await http.get(Uri.parse(url));
+      // Download the file using presigned URL
+      final response = await http.get(Uri.parse(accessibleUrl));
       await file.writeAsBytes(response.bodyBytes);
 
       setState(() {

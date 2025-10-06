@@ -7,6 +7,7 @@ import 'package:qr_flutter/qr_flutter.dart';
 import '../../core/services/auth_service.dart';
 import '../../core/services/video_service.dart';
 import '../../models/video_model.dart';
+import '../../widgets/common/presigned_image.dart';
 
 class CurrentUserProfileScreen extends ConsumerStatefulWidget {
   const CurrentUserProfileScreen({super.key});
@@ -231,21 +232,38 @@ class _CurrentUserProfileScreenState
                   // Profile Picture with Edit Button
                   Stack(
                     children: [
-                      CircleAvatar(
+                      SizedBox(
                         key: ValueKey(user.avatarUrl ?? 'no-avatar'),
-                        radius: 40,
-                        backgroundColor: Colors.white,
-                        backgroundImage:
+                        width: 80,
+                        height: 80,
+                        child:
                             user.avatarUrl != null && user.avatarUrl!.isNotEmpty
-                                ? NetworkImage(user.avatarUrl!)
-                                : null,
-                        child: user.avatarUrl == null || user.avatarUrl!.isEmpty
-                            ? const Icon(
-                                Icons.person,
-                                size: 40,
-                                color: Colors.grey,
-                              )
-                            : null,
+                                ? ClipOval(
+                                    child: PresignedImage(
+                                      imageUrl: user.avatarUrl,
+                                      width: 80,
+                                      height: 80,
+                                      fit: BoxFit.cover,
+                                      errorWidget: const CircleAvatar(
+                                        radius: 40,
+                                        backgroundColor: Colors.white,
+                                        child: Icon(
+                                          Icons.person,
+                                          size: 40,
+                                          color: Colors.grey,
+                                        ),
+                                      ),
+                                    ),
+                                  )
+                                : const CircleAvatar(
+                                    radius: 40,
+                                    backgroundColor: Colors.white,
+                                    child: Icon(
+                                      Icons.person,
+                                      size: 40,
+                                      color: Colors.grey,
+                                    ),
+                                  ),
                       ),
                       Positioned(
                         bottom: 0,

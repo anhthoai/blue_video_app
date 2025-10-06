@@ -6,6 +6,7 @@ import '../widgets/social/like_button.dart';
 import '../widgets/social/share_button.dart';
 import '../widgets/social/comments_section.dart';
 import '../models/like_model.dart';
+import 'common/presigned_image.dart';
 
 class VideoCard extends ConsumerWidget {
   final String videoId;
@@ -91,19 +92,36 @@ class VideoCard extends ConsumerWidget {
                     children: [
                       GestureDetector(
                         onTap: onAuthorTap,
-                        child: CircleAvatar(
-                          radius: 16,
-                          backgroundColor: Colors.grey[300],
-                          backgroundImage: authorAvatar != null
-                              ? CachedNetworkImageProvider(authorAvatar!)
-                              : null,
-                          child: authorAvatar == null
-                              ? const Icon(
-                                  Icons.person,
-                                  size: 20,
-                                  color: Colors.grey,
+                        child: SizedBox(
+                          width: 32,
+                          height: 32,
+                          child: authorAvatar != null
+                              ? ClipOval(
+                                  child: PresignedImage(
+                                    imageUrl: authorAvatar,
+                                    width: 32,
+                                    height: 32,
+                                    fit: BoxFit.cover,
+                                    errorWidget: const CircleAvatar(
+                                      radius: 16,
+                                      backgroundColor: Colors.grey,
+                                      child: Icon(
+                                        Icons.person,
+                                        size: 20,
+                                        color: Colors.grey,
+                                      ),
+                                    ),
+                                  ),
                                 )
-                              : null,
+                              : const CircleAvatar(
+                                  radius: 16,
+                                  backgroundColor: Colors.grey,
+                                  child: Icon(
+                                    Icons.person,
+                                    size: 20,
+                                    color: Colors.grey,
+                                  ),
+                                ),
                         ),
                       ),
                       const SizedBox(width: 8),

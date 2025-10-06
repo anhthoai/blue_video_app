@@ -791,6 +791,39 @@ class ApiService {
     return await _handleResponse(response);
   }
 
+  // Get presigned URL for file access (when CDN is not configured)
+  Future<String?> getPresignedUrl(String objectKey) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/files/presigned-url'),
+        headers: await _getHeaders(),
+        body: json.encode({'objectKey': objectKey}),
+      );
+
+      final result = await _handleResponse(response);
+      if (result['success'] == true && result['data'] != null) {
+        return result['data']['url'] as String?;
+      }
+      return null;
+    } catch (e) {
+      print('Error getting presigned URL: $e');
+      return null;
+    }
+  }
+
+  // Convert object key to accessible URL (CDN or presigned URL)
+  Future<String?> getAccessibleFileUrl(String? url) async {
+    if (url == null || url.isEmpty) return null;
+
+    // If URL starts with http/https, it's already a CDN URL
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      return url;
+    }
+
+    // Otherwise, it's an object key - get presigned URL
+    return await getPresignedUrl(url);
+  }
+
   // Socket.IO URL
   String get socketUrl =>
       baseUrl.replaceAll('http://', 'ws://').replaceAll('https://', 'wss://');

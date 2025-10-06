@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 
 import '../../models/chat_room.dart';
+import '../common/presigned_image.dart';
 
 class ChatRoomTile extends StatelessWidget {
   final ChatRoom room;
@@ -103,43 +104,57 @@ class ChatRoomTile extends StatelessWidget {
               Positioned(
                 top: 0,
                 left: 0,
-                child: CircleAvatar(
-                  radius: 16,
-                  backgroundColor: Colors.grey[300],
-                  backgroundImage: firstTwo[0].avatarUrl != null &&
+                child: SizedBox(
+                  width: 32,
+                  height: 32,
+                  child: firstTwo[0].avatarUrl != null &&
                           firstTwo[0].avatarUrl!.isNotEmpty
-                      ? CachedNetworkImageProvider(firstTwo[0].avatarUrl!)
-                      : null,
-                  child: firstTwo[0].avatarUrl == null ||
-                          firstTwo[0].avatarUrl!.isEmpty
-                      ? Text(
-                          firstTwo[0].username.isNotEmpty
-                              ? firstTwo[0].username[0].toUpperCase()
-                              : 'U',
-                          style: const TextStyle(fontSize: 12),
+                      ? ClipOval(
+                          child: PresignedImage(
+                            imageUrl: firstTwo[0].avatarUrl,
+                            width: 32,
+                            height: 32,
+                            fit: BoxFit.cover,
+                          ),
                         )
-                      : null,
+                      : CircleAvatar(
+                          radius: 16,
+                          backgroundColor: Colors.grey[300],
+                          child: Text(
+                            firstTwo[0].username.isNotEmpty
+                                ? firstTwo[0].username[0].toUpperCase()
+                                : 'U',
+                            style: const TextStyle(fontSize: 12),
+                          ),
+                        ),
                 ),
               ),
               Positioned(
                 bottom: 0,
                 right: 0,
-                child: CircleAvatar(
-                  radius: 16,
-                  backgroundColor: Colors.grey[300],
-                  backgroundImage: firstTwo[1].avatarUrl != null &&
+                child: SizedBox(
+                  width: 32,
+                  height: 32,
+                  child: firstTwo[1].avatarUrl != null &&
                           firstTwo[1].avatarUrl!.isNotEmpty
-                      ? CachedNetworkImageProvider(firstTwo[1].avatarUrl!)
-                      : null,
-                  child: firstTwo[1].avatarUrl == null ||
-                          firstTwo[1].avatarUrl!.isEmpty
-                      ? Text(
-                          firstTwo[1].username.isNotEmpty
-                              ? firstTwo[1].username[0].toUpperCase()
-                              : 'U',
-                          style: const TextStyle(fontSize: 12),
+                      ? ClipOval(
+                          child: PresignedImage(
+                            imageUrl: firstTwo[1].avatarUrl,
+                            width: 32,
+                            height: 32,
+                            fit: BoxFit.cover,
+                          ),
                         )
-                      : null,
+                      : CircleAvatar(
+                          radius: 16,
+                          backgroundColor: Colors.grey[300],
+                          child: Text(
+                            firstTwo[1].username.isNotEmpty
+                                ? firstTwo[1].username[0].toUpperCase()
+                                : 'U',
+                            style: const TextStyle(fontSize: 12),
+                          ),
+                        ),
                 ),
               ),
             ],
@@ -155,22 +170,43 @@ class ChatRoomTile extends StatelessWidget {
 
     return Stack(
       children: [
-        CircleAvatar(
-          radius: 24,
-          backgroundColor: Colors.grey[300],
-          backgroundImage: displayAvatar.isNotEmpty
-              ? CachedNetworkImageProvider(displayAvatar)
-              : null,
-          child: displayAvatar.isEmpty
-              ? Text(
-                  otherParticipants.isNotEmpty
-                      ? (otherParticipants.first.username.isNotEmpty
-                          ? otherParticipants.first.username[0].toUpperCase()
-                          : 'U')
-                      : 'U',
-                  style: const TextStyle(fontSize: 20),
+        SizedBox(
+          width: 48,
+          height: 48,
+          child: displayAvatar.isNotEmpty
+              ? ClipOval(
+                  child: PresignedImage(
+                    imageUrl: displayAvatar,
+                    width: 48,
+                    height: 48,
+                    fit: BoxFit.cover,
+                    errorWidget: CircleAvatar(
+                      radius: 24,
+                      backgroundColor: Colors.grey[300],
+                      child: Text(
+                        otherParticipants.isNotEmpty
+                            ? (otherParticipants.first.username.isNotEmpty
+                                ? otherParticipants.first.username[0]
+                                    .toUpperCase()
+                                : 'U')
+                            : 'U',
+                        style: const TextStyle(fontSize: 20),
+                      ),
+                    ),
+                  ),
                 )
-              : null,
+              : CircleAvatar(
+                  radius: 24,
+                  backgroundColor: Colors.grey[300],
+                  child: Text(
+                    otherParticipants.isNotEmpty
+                        ? (otherParticipants.first.username.isNotEmpty
+                            ? otherParticipants.first.username[0].toUpperCase()
+                            : 'U')
+                        : 'U',
+                    style: const TextStyle(fontSize: 20),
+                  ),
+                ),
         ),
         if (isOnline && !room.isGroup)
           Positioned(

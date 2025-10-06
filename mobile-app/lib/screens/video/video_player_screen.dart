@@ -9,6 +9,7 @@ import '../../core/services/video_service.dart';
 import '../../core/services/api_service.dart';
 import '../../core/services/auth_service.dart';
 import '../../widgets/social/comments_section.dart';
+import '../../widgets/common/presigned_image.dart';
 
 // Provider to fetch video by ID
 final videoByIdProvider =
@@ -853,7 +854,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
             onTap: () {
               context.go('/main/profile/${video.userId}');
             },
-            child: CircleAvatar(
+            child: SizedBox(
               key: ValueKey(
                   ((_authorAvatarUrl != null && _authorAvatarUrl!.isNotEmpty)
                               ? _authorAvatarUrl!
@@ -861,21 +862,31 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
                           .isNotEmpty
                       ? (_authorAvatarUrl ?? video.userAvatarUrl)!
                       : 'no-avatar-${video.userId}'),
-              radius: 25,
-              backgroundColor: Colors.grey[300],
-              backgroundImage:
-                  ((_authorAvatarUrl != null && _authorAvatarUrl!.isNotEmpty)
-                              ? _authorAvatarUrl
-                              : video.userAvatarUrl) !=
-                          null
-                      ? CachedNetworkImageProvider(
-                          (_authorAvatarUrl ?? video.userAvatarUrl)!)
-                      : null,
-              child: ((_authorAvatarUrl == null || _authorAvatarUrl!.isEmpty) &&
-                      (video.userAvatarUrl == null ||
-                          (video.userAvatarUrl?.isEmpty ?? true)))
-                  ? const Icon(Icons.person, size: 30, color: Colors.grey)
-                  : null,
+              width: 50,
+              height: 50,
+              child: ((_authorAvatarUrl != null && _authorAvatarUrl!.isNotEmpty)
+                          ? _authorAvatarUrl
+                          : video.userAvatarUrl) !=
+                      null
+                  ? ClipOval(
+                      child: PresignedImage(
+                        imageUrl: (_authorAvatarUrl ?? video.userAvatarUrl)!,
+                        width: 50,
+                        height: 50,
+                        fit: BoxFit.cover,
+                        errorWidget: const CircleAvatar(
+                          radius: 25,
+                          backgroundColor: Colors.grey,
+                          child:
+                              Icon(Icons.person, size: 30, color: Colors.white),
+                        ),
+                      ),
+                    )
+                  : const CircleAvatar(
+                      radius: 25,
+                      backgroundColor: Colors.grey,
+                      child: Icon(Icons.person, size: 30, color: Colors.white),
+                    ),
             ),
           ),
           const SizedBox(width: 12),
@@ -1313,17 +1324,32 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
             // Author info
             Row(
               children: [
-                CircleAvatar(
+                SizedBox(
                   key: ValueKey(
                       video.userAvatarUrl ?? 'no-avatar-${video.userId}'),
-                  radius: 8,
-                  backgroundColor: Colors.grey[300],
-                  backgroundImage: video.userAvatarUrl != null
-                      ? CachedNetworkImageProvider(video.userAvatarUrl!)
-                      : null,
-                  child: video.userAvatarUrl == null
-                      ? Icon(Icons.person, size: 10, color: Colors.grey[600])
-                      : null,
+                  width: 16,
+                  height: 16,
+                  child: video.userAvatarUrl != null
+                      ? ClipOval(
+                          child: PresignedImage(
+                            imageUrl: video.userAvatarUrl!,
+                            width: 16,
+                            height: 16,
+                            fit: BoxFit.cover,
+                            errorWidget: CircleAvatar(
+                              radius: 8,
+                              backgroundColor: Colors.grey[300],
+                              child: Icon(Icons.person,
+                                  size: 10, color: Colors.grey[600]),
+                            ),
+                          ),
+                        )
+                      : CircleAvatar(
+                          radius: 8,
+                          backgroundColor: Colors.grey[300],
+                          child: Icon(Icons.person,
+                              size: 10, color: Colors.grey[600]),
+                        ),
                 ),
                 const SizedBox(width: 4),
                 Expanded(

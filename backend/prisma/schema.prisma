@@ -230,7 +230,6 @@ model ChatMessage {
   userId        String      @map("user_id")
   content       String
   messageType   MessageType @default(TEXT) @map("message_type")
-  fileUrl       String?     @map("file_url")
   fileName      String?     @map("file_name")
   fileDirectory String?     @map("file_directory")
   fileSize      Int?        @map("file_size")

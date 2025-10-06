@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 
 import '../../models/comment_model.dart';
+import '../common/presigned_image.dart';
 
 class CommentWidget extends ConsumerStatefulWidget {
   final CommentModel comment;
@@ -61,18 +62,31 @@ class _CommentWidgetState extends ConsumerState<CommentWidget> {
         children: [
           Row(
             children: [
-              CircleAvatar(
+              SizedBox(
                 key: ValueKey(widget.comment.userAvatar.isNotEmpty
                     ? widget.comment.userAvatar
                     : 'no-avatar-${widget.comment.userId}'),
-                radius: 16,
-                backgroundColor: Colors.grey[300],
-                backgroundImage: widget.comment.userAvatar.isNotEmpty
-                    ? CachedNetworkImageProvider(widget.comment.userAvatar)
-                    : null,
-                child: widget.comment.userAvatar.isEmpty
-                    ? const Icon(Icons.person, size: 16)
-                    : null,
+                width: 32,
+                height: 32,
+                child: widget.comment.userAvatar.isNotEmpty
+                    ? ClipOval(
+                        child: PresignedImage(
+                          imageUrl: widget.comment.userAvatar,
+                          width: 32,
+                          height: 32,
+                          fit: BoxFit.cover,
+                          errorWidget: const CircleAvatar(
+                            radius: 16,
+                            backgroundColor: Colors.grey,
+                            child: Icon(Icons.person, size: 16),
+                          ),
+                        ),
+                      )
+                    : const CircleAvatar(
+                        radius: 16,
+                        backgroundColor: Colors.grey,
+                        child: Icon(Icons.person, size: 16),
+                      ),
               ),
               const SizedBox(width: 8),
               Expanded(

@@ -6,6 +6,7 @@ import 'package:share_plus/share_plus.dart';
 import '../../core/services/video_service.dart';
 import '../../core/services/api_service.dart';
 import '../../models/video_model.dart';
+import '../../widgets/common/presigned_image.dart';
 
 class OtherUserProfileScreen extends ConsumerStatefulWidget {
   final String userId;
@@ -249,25 +250,45 @@ class _OtherUserProfileScreenState extends ConsumerState<OtherUserProfileScreen>
               child: Column(
                 children: [
                   // Profile Picture
-                  CircleAvatar(
-                    radius: 40,
-                    backgroundColor: Colors.white,
-                    backgroundImage:
-                        !isLoading && avatarUrl != null && avatarUrl.isNotEmpty
-                            ? NetworkImage(avatarUrl)
-                            : null,
+                  SizedBox(
+                    width: 80,
+                    height: 80,
                     child: isLoading
-                        ? const CircularProgressIndicator(
-                            color: Colors.blue,
-                            strokeWidth: 2,
+                        ? const CircleAvatar(
+                            radius: 40,
+                            backgroundColor: Colors.white,
+                            child: CircularProgressIndicator(
+                              color: Colors.blue,
+                              strokeWidth: 2,
+                            ),
                           )
-                        : (avatarUrl == null || avatarUrl.isEmpty
-                            ? const Icon(
-                                Icons.person,
-                                size: 40,
-                                color: Colors.grey,
+                        : (avatarUrl != null && avatarUrl.isNotEmpty
+                            ? ClipOval(
+                                child: PresignedImage(
+                                  imageUrl: avatarUrl,
+                                  width: 80,
+                                  height: 80,
+                                  fit: BoxFit.cover,
+                                  errorWidget: const CircleAvatar(
+                                    radius: 40,
+                                    backgroundColor: Colors.white,
+                                    child: Icon(
+                                      Icons.person,
+                                      size: 40,
+                                      color: Colors.grey,
+                                    ),
+                                  ),
+                                ),
                               )
-                            : null),
+                            : const CircleAvatar(
+                                radius: 40,
+                                backgroundColor: Colors.white,
+                                child: Icon(
+                                  Icons.person,
+                                  size: 40,
+                                  color: Colors.grey,
+                                ),
+                              )),
                   ),
                   const SizedBox(height: 8),
                   Row(

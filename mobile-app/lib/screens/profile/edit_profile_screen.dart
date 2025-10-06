@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 
 import '../../core/services/auth_service.dart';
+import '../../widgets/common/presigned_image.dart';
 
 class EditProfileScreen extends ConsumerStatefulWidget {
   const EditProfileScreen({super.key});
@@ -271,16 +271,18 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                       ),
                     ),
                     child: user.bannerUrl != null && user.bannerUrl!.isNotEmpty
-                        ? CachedNetworkImage(
-                            imageUrl: user.bannerUrl!,
+                        ? PresignedImage(
+                            imageUrl: user.bannerUrl,
+                            width: double.infinity,
+                            height: 200,
                             fit: BoxFit.cover,
-                            placeholder: (context, url) => Container(
+                            placeholder: Container(
                               color: Colors.grey[300],
                               child: const Center(
                                 child: CircularProgressIndicator(),
                               ),
                             ),
-                            errorWidget: (context, url, error) => Container(
+                            errorWidget: Container(
                               color: Colors.grey[300],
                               child: const Icon(Icons.error),
                             ),
@@ -314,17 +316,31 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
               Center(
                 child: Stack(
                   children: [
-                    CircleAvatar(
-                      radius: 60,
-                      backgroundColor: Colors.grey[300],
-                      backgroundImage:
+                    SizedBox(
+                      width: 120,
+                      height: 120,
+                      child:
                           user.avatarUrl != null && user.avatarUrl!.isNotEmpty
-                              ? NetworkImage(user.avatarUrl!)
-                              : null,
-                      child: user.avatarUrl == null || user.avatarUrl!.isEmpty
-                          ? const Icon(Icons.person,
-                              size: 60, color: Colors.grey)
-                          : null,
+                              ? ClipOval(
+                                  child: PresignedImage(
+                                    imageUrl: user.avatarUrl,
+                                    width: 120,
+                                    height: 120,
+                                    fit: BoxFit.cover,
+                                    errorWidget: const CircleAvatar(
+                                      radius: 60,
+                                      backgroundColor: Colors.grey,
+                                      child: Icon(Icons.person,
+                                          size: 60, color: Colors.white),
+                                    ),
+                                  ),
+                                )
+                              : const CircleAvatar(
+                                  radius: 60,
+                                  backgroundColor: Colors.grey,
+                                  child: Icon(Icons.person,
+                                      size: 60, color: Colors.white),
+                                ),
                     ),
                     Positioned(
                       bottom: 0,

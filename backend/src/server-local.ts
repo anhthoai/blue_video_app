@@ -16,7 +16,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { emailService } from './services/emailService';
 import { upload, deleteFromS3, chatFileStorage, chatFileFilter } from './services/s3Service';
-import { serializeUserWithUrls, buildAvatarUrl } from './utils/fileUrl';
+import { serializeUserWithUrls, buildAvatarUrl, buildFileUrlSync } from './utils/fileUrl';
 import prisma from './lib/prisma';
 import multer from 'multer';
 
@@ -2311,25 +2311,39 @@ app.get('/api/v1/chat/rooms/:roomId/messages', async (req, res) => {
       take: Number(limit),
     });
 
-    // Serialize messages
-    const serializedMessages = messages.map((message: any) => ({
-      id: message.id,
-      content: message.content,
-      type: message.messageType,
-      fileUrl: message.fileUrl,
-      fileName: message.fileName,
-      fileDirectory: message.fileDirectory,
-      fileSize: message.fileSize,
-      mimeType: message.mimeType,
-      createdAt: message.createdAt.toISOString(),
-      updatedAt: message.updatedAt.toISOString(),
-      userId: message.userId,
-      roomId: message.roomId,
-      username: message.user.username,
-      userAvatar: buildAvatarUrl(message.user) || message.user.avatarUrl,
-      isEdited: message.updatedAt > message.createdAt,
-      isDeleted: false, // ChatMessage model doesn't have isDeleted field
-    }));
+    // Serialize messages with dynamic fileUrl
+    const serializedMessages = messages.map((message: any) => {
+      // Determine file folder based on message type
+      let fileFolder: string | undefined;
+      if (message.fileName && message.fileDirectory) {
+        const msgType = message.messageType.toLowerCase();
+        if (msgType === 'image') fileFolder = 'chat/photo';
+        else if (msgType === 'video') fileFolder = 'chat/video';
+        else if (msgType === 'audio') fileFolder = 'chat/audio';
+        else if (msgType === 'file') fileFolder = 'chat/doc';
+      }
+
+      return {
+        id: message.id,
+        content: message.content,
+        type: message.messageType,
+        fileUrl: message.fileName && message.fileDirectory
+          ? (buildFileUrlSync(message.fileDirectory, message.fileName, fileFolder) || '')
+          : null,
+        fileName: message.fileName,
+        fileDirectory: message.fileDirectory,
+        fileSize: message.fileSize,
+        mimeType: message.mimeType,
+        createdAt: message.createdAt.toISOString(),
+        updatedAt: message.updatedAt.toISOString(),
+        userId: message.userId,
+        roomId: message.roomId,
+        username: message.user.username,
+        userAvatar: buildAvatarUrl(message.user) || message.user.avatarUrl,
+        isEdited: message.updatedAt > message.createdAt,
+        isDeleted: false,
+      };
+    });
 
     res.json({
       success: true,
@@ -2363,9 +2377,9 @@ app.post('/api/v1/chat/rooms/:roomId/messages', async (req, res) => {
     }
 
     const { roomId } = req.params;
-    const { content, type = 'TEXT', fileUrl, fileName, fileDirectory, fileSize, mimeType } = req.body;
+    const { content, type = 'TEXT', fileName, fileDirectory, fileSize, mimeType } = req.body;
 
-    if (!content && !fileUrl) {
+    if (!content && !fileName) {
       res.status(400).json({
         success: false,
         message: 'Message content or file is required',
@@ -2398,7 +2412,6 @@ app.post('/api/v1/chat/rooms/:roomId/messages', async (req, res) => {
       data: {
         content: content || '',
         messageType: type.toUpperCase() as any,
-        fileUrl: fileUrl || null,
         fileName: fileName || null,
         fileDirectory: fileDirectory || null,
         fileSize: fileSize ? parseInt(fileSize) : null,
@@ -2428,12 +2441,24 @@ app.post('/api/v1/chat/rooms/:roomId/messages', async (req, res) => {
       data: { updatedAt: new Date() },
     });
 
-    // Serialize message
+    // Determine file folder based on message type
+    let fileFolder: string | undefined;
+    if (message.fileName && message.fileDirectory) {
+      const msgType = message.messageType.toLowerCase();
+      if (msgType === 'image') fileFolder = 'chat/photo';
+      else if (msgType === 'video') fileFolder = 'chat/video';
+      else if (msgType === 'audio') fileFolder = 'chat/audio';
+      else if (msgType === 'file') fileFolder = 'chat/doc';
+    }
+
+    // Serialize message with dynamic fileUrl
     const serializedMessage = {
       id: message.id,
       content: message.content,
       type: message.messageType,
-      fileUrl: message.fileUrl,
+      fileUrl: message.fileName && message.fileDirectory
+        ? (buildFileUrlSync(message.fileDirectory, message.fileName, fileFolder) || '')
+        : null,
       fileName: message.fileName,
       fileDirectory: message.fileDirectory,
       fileSize: message.fileSize,
@@ -2724,6 +2749,50 @@ app.post('/api/v1/chat/upload', attachUserInfoForUpload, chatUpload.single('file
     res.status(500).json({
       success: false,
       message: 'Failed to upload file',
+    });
+  }
+});
+
+// Generate presigned URL for file access
+app.post('/api/v1/files/presigned-url', async (req, res) => {
+  try {
+    const { objectKey } = req.body;
+    
+    if (!objectKey) {
+      res.status(400).json({
+        success: false,
+        message: 'Object key is required',
+      });
+      return;
+    }
+
+    // Import S3 dependencies
+    const { GetObjectCommand } = await import('@aws-sdk/client-s3');
+    const { getSignedUrl } = await import('@aws-sdk/s3-request-presigner');
+    const s3Client = (await import('./services/s3Service')).default;
+
+    const command = new GetObjectCommand({
+      Bucket: process.env['S3_BUCKET_NAME'] || '',
+      Key: objectKey,
+    });
+
+    // Generate presigned URL valid for 1 hour
+    const presignedUrl = await getSignedUrl(s3Client, command, {
+      expiresIn: 3600, // 1 hour
+    });
+
+    res.json({
+      success: true,
+      data: {
+        url: presignedUrl,
+        expiresIn: 3600,
+      },
+    });
+  } catch (error) {
+    console.error('Error generating presigned URL:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to generate presigned URL',
     });
   }
 });
