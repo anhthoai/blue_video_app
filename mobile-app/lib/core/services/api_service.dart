@@ -914,25 +914,40 @@ class ApiService {
       if (status != null) request.fields['status'] = status;
       if (duration != null) request.fields['duration'] = duration.toString();
 
-      // Send request with progress tracking
+      // Send request
       final streamedResponse = await request.send();
 
-      // Track upload progress
-      int bytesUploaded = 0;
-      int totalBytes = videoLength +
-          (thumbnailFile != null ? await thumbnailFile.length() : 0);
+      // Listen to response stream and track progress
+      int bytesReceived = 0;
+      List<int> responseBytes = [];
 
-      streamedResponse.stream.listen(
-        (List<int> chunk) {
-          bytesUploaded += chunk.length;
-          if (onProgress != null && totalBytes > 0) {
-            onProgress(bytesUploaded / totalBytes);
-          }
-        },
+      await for (var chunk in streamedResponse.stream) {
+        responseBytes.addAll(chunk);
+        bytesReceived += chunk.length;
+
+        // Call progress callback if provided
+        if (onProgress != null) {
+          // For upload progress, we use a simple percentage based on response received
+          // Note: This tracks download of response, not upload progress
+          // For true upload progress, we'd need platform-specific implementation
+          onProgress(
+              0.9); // Show 90% when upload is complete and waiting for response
+        }
+      }
+
+      // Convert response bytes to Response object
+      final response = http.Response.bytes(
+        responseBytes,
+        streamedResponse.statusCode,
+        headers: streamedResponse.headers,
+        request: streamedResponse.request,
       );
 
-      // Get response
-      final response = await http.Response.fromStream(streamedResponse);
+      // Call final progress
+      if (onProgress != null) {
+        onProgress(1.0);
+      }
+
       return await _handleResponse(response);
     } catch (e) {
       print('Error uploading video: $e');

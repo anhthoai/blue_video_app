@@ -308,9 +308,13 @@ export const chatFileFilter = (_req: any, file: any, cb: any) => {
 // Video storage configuration
 export const videoStorage: any = {
   _handleFile: async (req: any, file: any, cb: any) => {
+    console.log('🎬 videoStorage._handleFile called for:', file.originalname);
     try {
       const userId = req.user?.id;
+      console.log('👤 User ID in videoStorage:', userId);
+      
       if (!userId) {
+        console.log('❌ No user ID in video storage');
         return cb(new Error('User not authenticated'));
       }
       
@@ -325,12 +329,21 @@ export const videoStorage: any = {
       const filename = `${uuidv4()}.${extension}`;
       const key = `videos/${fileDirectory}/${filename}`;
       
+      console.log('📁 Video file details:', {
+        originalName: file.originalname,
+        mimetype: file.mimetype,
+        fileDirectory,
+        filename,
+        key,
+      });
+      
       // Convert stream to buffer
       const chunks: Buffer[] = [];
       file.stream.on('data', (chunk: Buffer) => chunks.push(chunk));
       file.stream.on('end', async () => {
         try {
           const buffer = Buffer.concat(chunks);
+          console.log(`📦 Buffer size: ${buffer.length} bytes (${(buffer.length / 1024 / 1024).toFixed(2)} MB)`);
           
           const command = new PutObjectCommand({
             Bucket: BUCKET_NAME,
@@ -339,7 +352,9 @@ export const videoStorage: any = {
             ContentType: file.mimetype,
           });
           
+          console.log('☁️ Uploading to S3/R2:', key);
           await s3Client.send(command);
+          console.log('✅ Upload to S3/R2 successful!');
           
           cb(null, {
             bucket: BUCKET_NAME,
@@ -351,6 +366,7 @@ export const videoStorage: any = {
             originalname: file.originalname,
           });
         } catch (error) {
+          console.log('❌ Error uploading to S3/R2:', error);
           cb(error);
         }
       });

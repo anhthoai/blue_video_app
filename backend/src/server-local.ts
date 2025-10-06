@@ -482,28 +482,8 @@ app.post('/api/v1/auth/reset-password', async (req, res) => {
 });
 
 // Mock video upload endpoint
-app.post('/api/v1/videos/upload', (req, res) => {
-  res.json({
-    success: true,
-    message: 'Video upload endpoint ready (Mock)',
-    data: {
-      id: 'mock-video-id',
-      title: req.body.title || 'Mock Video',
-      description: req.body.description || 'Mock description',
-      videoUrl: 'https://example.com/mock-video.mp4',
-      thumbnailUrl: 'https://example.com/mock-thumbnail.jpg',
-      duration: 120,
-      fileSize: 1024000,
-      quality: '720p',
-      views: 0,
-      likes: 0,
-      comments: 0,
-      shares: 0,
-      isPublic: true,
-      createdAt: new Date().toISOString(),
-    },
-  });
-});
+// REMOVED: Mock upload endpoint was blocking the real upload endpoint
+// The real upload endpoint with S3/R2 integration is defined later in this file
 
 // Get user videos by user ID
 app.get('/api/v1/users/:userId/videos', async (req, res) => {
@@ -897,9 +877,15 @@ app.post('/api/v1/videos/upload', authenticateToken, videoUpload.fields([
   { name: 'video', maxCount: 1 },
   { name: 'thumbnail', maxCount: 1 }
 ]), async (req: any, res) => {
+  console.log('🎬 ========== VIDEO UPLOAD REQUEST RECEIVED ==========');
+  console.log('🎬 Timestamp:', new Date().toISOString());
+  
   try {
     const userId = req.user?.id;
+    console.log('👤 User ID from token:', userId);
+    
     if (!userId) {
+      console.log('❌ No user ID - authentication failed');
       return res.status(401).json({
         success: false,
         message: 'User not authenticated',
@@ -910,7 +896,11 @@ app.post('/api/v1/videos/upload', authenticateToken, videoUpload.fields([
     const videoFile = files['video']?.[0];
     const thumbnailFile = files['thumbnail']?.[0];
 
+    console.log('📁 Video file received:', videoFile ? 'YES' : 'NO');
+    console.log('📁 Thumbnail file received:', thumbnailFile ? 'YES' : 'NO');
+
     if (!videoFile) {
+      console.log('❌ No video file in request');
       return res.status(400).json({
         success: false,
         message: 'Video file is required',
@@ -926,9 +916,26 @@ app.post('/api/v1/videos/upload', authenticateToken, videoUpload.fields([
       status,
       duration,
     } = req.body;
+    
+    console.log('📝 Request body:', { title, description, categoryId, tags, cost, status, duration });
 
     // Parse tags
     const tagsArray = tags ? tags.split(',').map((tag: string) => tag.trim()) : [];
+
+    console.log('📹 Creating video record:', {
+      userId,
+      title,
+      description,
+      categoryId,
+      fileName: (videoFile as any).filename,
+      fileDirectory: (videoFile as any).fileDirectory,
+      thumbnailUrl: thumbnailFile ? `thumbnails/${(thumbnailFile as any).fileDirectory}/${(thumbnailFile as any).filename}` : null,
+      duration,
+      fileSize: videoFile.size,
+      tags: tagsArray,
+      cost,
+      status: status || 'PUBLIC',
+    });
 
     // Create video record
     const video = await prisma.video.create({
@@ -961,6 +968,15 @@ app.post('/api/v1/videos/upload', authenticateToken, videoUpload.fields([
           },
         },
       },
+    });
+
+    console.log('✅ Video created successfully:', {
+      id: video.id,
+      title: video.title,
+      fileName: video.fileName,
+      fileDirectory: video.fileDirectory,
+      status: video.status,
+      isPublic: video.isPublic,
     });
 
     return res.json({
@@ -1088,6 +1104,8 @@ app.get('/api/v1/videos', async (req, res) => {
     const { page = 1, limit = 20 } = req.query;
     const offset = (Number(page) - 1) * Number(limit);
     
+    console.log('📺 Fetching videos from database (page:', page, ', limit:', limit, ')');
+    
     // Get videos from database using Prisma
     const videos = await prisma.video.findMany({
       where: {
@@ -1147,6 +1165,16 @@ app.get('/api/v1/videos', async (req, res) => {
       lastName: video.user?.lastName,
       userAvatarUrl: video.user ? buildAvatarUrl(video.user) : null,
     }));
+
+    console.log(`✅ Found ${videos.length} videos in database`);
+    console.log('First video sample:', videos[0] ? {
+      id: videos[0].id,
+      title: videos[0].title,
+      fileName: videos[0].fileName,
+      fileDirectory: videos[0].fileDirectory,
+      remotePlayUrl: videos[0].remotePlayUrl,
+      isPublic: videos[0].isPublic,
+    } : 'No videos');
 
     res.json({
       success: true,

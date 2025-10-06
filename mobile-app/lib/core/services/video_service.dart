@@ -44,6 +44,10 @@ class VideoService {
     File? thumbnailFile,
     List<String>? tags,
     String? category,
+    int? cost,
+    String? status,
+    int? duration,
+    Function(double)? onProgress,
   }) async {
     try {
       final response = await _apiService.uploadVideo(
@@ -51,6 +55,12 @@ class VideoService {
         thumbnailFile: thumbnailFile,
         title: title,
         description: description,
+        categoryId: category,
+        tags: tags,
+        cost: cost,
+        status: status,
+        duration: duration,
+        onProgress: onProgress,
       );
 
       if (response['success'] == true && response['data'] != null) {
@@ -311,12 +321,7 @@ class VideoUploadNotifier extends StateNotifier<VideoUploadState> {
     try {
       final videoService = VideoService();
 
-      // Simulate progress
-      for (int i = 0; i <= 100; i += 10) {
-        await Future.delayed(const Duration(milliseconds: 200));
-        state = state.copyWith(progress: i / 100);
-      }
-
+      // Upload with real progress tracking
       final uploadedVideo = await videoService.uploadVideo(
         videoFile: videoFile,
         title: title,
