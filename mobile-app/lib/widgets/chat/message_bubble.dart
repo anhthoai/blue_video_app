@@ -1,9 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:audioplayers/audioplayers.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:open_file/open_file.dart';
+import 'dart:io';
+import 'package:path_provider/path_provider.dart';
+import 'package:http/http.dart' as http;
+import 'package:video_player/video_player.dart';
+import 'package:chewie/chewie.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 import '../../models/chat_message.dart';
 
-class MessageBubble extends StatelessWidget {
+class MessageBubble extends StatefulWidget {
   final ChatMessage message;
   final bool isMe;
   final VoidCallback? onReply;
@@ -18,9 +27,57 @@ class MessageBubble extends StatelessWidget {
   });
 
   @override
+  State<MessageBubble> createState() => _MessageBubbleState();
+}
+
+class _MessageBubbleState extends State<MessageBubble> {
+  AudioPlayer? _audioPlayer;
+  bool _isPlaying = false;
+  Duration _duration = Duration.zero;
+  Duration _position = Duration.zero;
+  bool _isDownloading = false;
+  double _downloadProgress = 0.0;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.message.messageType == MessageType.audio) {
+      _initAudioPlayer();
+    }
+  }
+
+  @override
+  void dispose() {
+    _audioPlayer?.dispose();
+    super.dispose();
+  }
+
+  void _initAudioPlayer() {
+    _audioPlayer = AudioPlayer();
+    _audioPlayer!.onDurationChanged.listen((duration) {
+      setState(() {
+        _duration = duration;
+      });
+    });
+    _audioPlayer!.onPositionChanged.listen((position) {
+      setState(() {
+        _position = position;
+      });
+    });
+    _audioPlayer!.onPlayerStateChanged.listen((state) {
+      setState(() {
+        _isPlaying = state == PlayerState.playing;
+      });
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final message = widget.message;
+    final isMe = widget.isMe;
+
     return GestureDetector(
-      onLongPress: () => onLongPress?.call(),
+      onLongPress: () => widget.onLongPress?.call(),
       child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
         child: Row(
@@ -111,6 +168,7 @@ class MessageBubble extends StatelessWidget {
   }
 
   Widget _buildReplyPreview(BuildContext context) {
+    final isMe = widget.isMe;
     return Container(
       padding: const EdgeInsets.all(8),
       margin: const EdgeInsets.only(bottom: 8),
@@ -135,6 +193,9 @@ class MessageBubble extends StatelessWidget {
   }
 
   Widget _buildMessageContent(BuildContext context) {
+    final message = widget.message;
+    final isMe = widget.isMe;
+
     switch (message.messageType) {
       case MessageType.text:
         return Text(
@@ -162,6 +223,9 @@ class MessageBubble extends StatelessWidget {
   }
 
   Widget _buildImageMessage(BuildContext context) {
+    final message = widget.message;
+    final isMe = widget.isMe;
+
     if (message.fileUrl == null || message.fileUrl!.isEmpty) {
       return Text(
         message.content.isNotEmpty ? message.content : '📷 Image',
@@ -175,26 +239,30 @@ class MessageBubble extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        ClipRRect(
-          borderRadius: BorderRadius.circular(8),
-          child: CachedNetworkImage(
-            imageUrl: message.fileUrl!,
-            width: 200,
-            height: 200,
-            fit: BoxFit.cover,
-            placeholder: (context, url) => Container(
+        GestureDetector(
+          onTap: () =>
+              _openImageViewer(context, message.fileUrl!, message.content),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: CachedNetworkImage(
+              imageUrl: message.fileUrl!,
               width: 200,
               height: 200,
-              color: Colors.grey[300],
-              child: const Center(
-                child: CircularProgressIndicator(),
+              fit: BoxFit.cover,
+              placeholder: (context, url) => Container(
+                width: 200,
+                height: 200,
+                color: Colors.grey[300],
+                child: const Center(
+                  child: CircularProgressIndicator(),
+                ),
               ),
-            ),
-            errorWidget: (context, url, error) => Container(
-              width: 200,
-              height: 200,
-              color: Colors.grey[300],
-              child: const Icon(Icons.broken_image, size: 48),
+              errorWidget: (context, url, error) => Container(
+                width: 200,
+                height: 200,
+                color: Colors.grey[300],
+                child: const Icon(Icons.broken_image, size: 48),
+              ),
             ),
           ),
         ),
@@ -212,7 +280,60 @@ class MessageBubble extends StatelessWidget {
     );
   }
 
+  void _openImageViewer(BuildContext context, String imageUrl, String caption) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => Scaffold(
+          backgroundColor: Colors.black,
+          appBar: AppBar(
+            backgroundColor: Colors.black,
+            iconTheme: const IconThemeData(color: Colors.white),
+          ),
+          body: Column(
+            children: [
+              Expanded(
+                child: InteractiveViewer(
+                  minScale: 0.5,
+                  maxScale: 4.0,
+                  child: Center(
+                    child: CachedNetworkImage(
+                      imageUrl: imageUrl,
+                      fit: BoxFit.contain,
+                      placeholder: (context, url) => const Center(
+                        child: CircularProgressIndicator(color: Colors.white),
+                      ),
+                      errorWidget: (context, url, error) => const Icon(
+                        Icons.broken_image,
+                        color: Colors.white,
+                        size: 48,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              if (caption.isNotEmpty)
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(16),
+                  color: Colors.black87,
+                  child: Text(
+                    caption,
+                    style: const TextStyle(color: Colors.white, fontSize: 16),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildVideoMessage(BuildContext context) {
+    final message = widget.message;
+    final isMe = widget.isMe;
+
     if (message.fileUrl == null || message.fileUrl!.isEmpty) {
       return Text(
         message.content.isNotEmpty ? message.content : '🎥 Video',
@@ -227,9 +348,7 @@ class MessageBubble extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         GestureDetector(
-          onTap: () {
-            // TODO: Open video player
-          },
+          onTap: () => _openVideoPlayer(context, message.fileUrl!),
           child: Container(
             width: 200,
             height: 120,
@@ -289,7 +408,19 @@ class MessageBubble extends StatelessWidget {
     );
   }
 
+  void _openVideoPlayer(BuildContext context, String videoUrl) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => _ChatVideoPlayer(videoUrl: videoUrl),
+      ),
+    );
+  }
+
   Widget _buildAudioMessage(BuildContext context) {
+    final message = widget.message;
+    final isMe = widget.isMe;
+
     if (message.fileUrl == null || message.fileUrl!.isEmpty) {
       return Text(
         message.content.isNotEmpty ? message.content : '🎵 Audio',
@@ -314,31 +445,45 @@ class MessageBubble extends StatelessWidget {
             children: [
               IconButton(
                 icon: Icon(
-                  Icons.play_arrow,
+                  _isPlaying ? Icons.pause : Icons.play_arrow,
                   color: isMe ? Colors.white : Colors.black,
                 ),
-                onPressed: () {
-                  // TODO: Play audio
-                },
+                onPressed: _toggleAudioPlayback,
               ),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     LinearProgressIndicator(
-                      value: 0.0,
+                      value: _duration.inMilliseconds > 0
+                          ? _position.inMilliseconds / _duration.inMilliseconds
+                          : 0.0,
                       backgroundColor: Colors.transparent,
                       valueColor: AlwaysStoppedAnimation<Color>(
                         isMe ? Colors.white : Colors.grey[600]!,
                       ),
                     ),
                     const SizedBox(height: 4),
-                    Text(
-                      _formatFileSize(message.fileSize),
-                      style: TextStyle(
-                        color: isMe ? Colors.white70 : Colors.grey[600],
-                        fontSize: 12,
-                      ),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          _formatDuration(_position),
+                          style: TextStyle(
+                            color: isMe ? Colors.white70 : Colors.grey[600],
+                            fontSize: 12,
+                          ),
+                        ),
+                        Text(
+                          _duration.inMilliseconds > 0
+                              ? _formatDuration(_duration)
+                              : _formatFileSize(message.fileSize),
+                          style: TextStyle(
+                            color: isMe ? Colors.white70 : Colors.grey[600],
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -365,7 +510,27 @@ class MessageBubble extends StatelessWidget {
     );
   }
 
+  Future<void> _toggleAudioPlayback() async {
+    if (_audioPlayer == null || widget.message.fileUrl == null) return;
+
+    if (_isPlaying) {
+      await _audioPlayer!.pause();
+    } else {
+      await _audioPlayer!.play(UrlSource(widget.message.fileUrl!));
+    }
+  }
+
+  String _formatDuration(Duration duration) {
+    String twoDigits(int n) => n.toString().padLeft(2, '0');
+    final minutes = twoDigits(duration.inMinutes.remainder(60));
+    final seconds = twoDigits(duration.inSeconds.remainder(60));
+    return '$minutes:$seconds';
+  }
+
   Widget _buildFileMessage(BuildContext context) {
+    final message = widget.message;
+    final isMe = widget.isMe;
+
     if (message.fileUrl == null || message.fileUrl!.isEmpty) {
       return Text(
         message.content.isNotEmpty ? message.content : '📄 File',
@@ -380,9 +545,8 @@ class MessageBubble extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         GestureDetector(
-          onTap: () {
-            // TODO: Download file
-          },
+          onTap: () =>
+              _downloadFile(message.fileUrl!, message.fileName ?? 'document'),
           child: Container(
             width: 250,
             padding: const EdgeInsets.all(12),
@@ -413,19 +577,31 @@ class MessageBubble extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                       ),
                       const SizedBox(height: 4),
-                      Text(
-                        _formatFileSize(message.fileSize),
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: isMe ? Colors.white70 : Colors.grey[600],
+                      if (_isDownloading &&
+                          message.fileUrl == widget.message.fileUrl)
+                        LinearProgressIndicator(
+                          value: _downloadProgress,
+                          backgroundColor: Colors.transparent,
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            isMe ? Colors.white : Colors.grey[600]!,
+                          ),
+                        )
+                      else
+                        Text(
+                          _formatFileSize(message.fileSize),
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: isMe ? Colors.white70 : Colors.grey[600],
+                          ),
                         ),
-                      ),
                     ],
                   ),
                 ),
                 const SizedBox(width: 8),
                 Icon(
-                  Icons.download,
+                  _isDownloading && message.fileUrl == widget.message.fileUrl
+                      ? Icons.hourglass_empty
+                      : Icons.download,
                   color: isMe ? Colors.white : Colors.black,
                   size: 24,
                 ),
@@ -445,6 +621,148 @@ class MessageBubble extends StatelessWidget {
         ],
       ],
     );
+  }
+
+  Future<void> _openFile(String filePath, String fileName) async {
+    try {
+      // Use open_file package which handles FileProvider automatically
+      final result = await OpenFile.open(filePath);
+
+      if (result.type != ResultType.done && mounted) {
+        String message;
+        switch (result.type) {
+          case ResultType.noAppToOpen:
+            message = 'No app found to open this file type';
+            break;
+          case ResultType.fileNotFound:
+            message = 'File not found';
+            break;
+          case ResultType.permissionDenied:
+            message = 'Permission denied to open file';
+            break;
+          default:
+            message = result.message;
+        }
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(message)),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not open file: ${e.toString()}')),
+        );
+      }
+    }
+  }
+
+  Future<void> _downloadFile(String url, String fileName) async {
+    if (_isDownloading) return;
+
+    setState(() {
+      _isDownloading = true;
+      _downloadProgress = 0.0;
+    });
+
+    try {
+      // Request appropriate storage permission based on Android version
+      if (Platform.isAndroid) {
+        // For Android 13+ (API 33+), we don't need WRITE_EXTERNAL_STORAGE
+        // For Android 10-12, we need WRITE_EXTERNAL_STORAGE
+        // For Android 9 and below, we need WRITE_EXTERNAL_STORAGE
+        PermissionStatus status;
+
+        // Try to get permission status (will auto-grant on Android 13+)
+        try {
+          status = await Permission.storage.status;
+          if (!status.isGranted && !status.isPermanentlyDenied) {
+            status = await Permission.storage.request();
+          }
+        } catch (e) {
+          // On Android 13+, storage permission doesn't exist, so we can proceed
+          status = PermissionStatus.granted;
+        }
+
+        // If permanently denied, guide user to settings
+        if (status.isPermanentlyDenied) {
+          setState(() {
+            _isDownloading = false;
+          });
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: const Text(
+                    'Storage permission required. Please enable it in settings.'),
+                action: SnackBarAction(
+                  label: 'Settings',
+                  onPressed: () => openAppSettings(),
+                ),
+              ),
+            );
+          }
+          return;
+        }
+      }
+
+      // Get Downloads directory - use app-specific storage (no permission needed)
+      Directory? directory;
+      if (Platform.isAndroid) {
+        // Use app-specific external storage (accessible via file manager)
+        final externalDir = await getExternalStorageDirectory();
+        if (externalDir != null) {
+          // Create Downloads folder
+          directory = Directory('${externalDir.path}/Downloads');
+          if (!await directory.exists()) {
+            await directory.create(recursive: true);
+          }
+        } else {
+          directory = await getApplicationDocumentsDirectory();
+        }
+      } else {
+        directory = await getApplicationDocumentsDirectory();
+      }
+
+      if (directory == null) {
+        throw Exception('Could not access Downloads folder');
+      }
+
+      final filePath = '${directory.path}/$fileName';
+      final file = File(filePath);
+
+      // Download the file
+      final response = await http.get(Uri.parse(url));
+      await file.writeAsBytes(response.bodyBytes);
+
+      setState(() {
+        _isDownloading = false;
+        _downloadProgress = 1.0;
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Downloaded: $fileName'),
+            action: SnackBarAction(
+              label: 'Open',
+              onPressed: () => _openFile(filePath, fileName),
+            ),
+            duration: const Duration(seconds: 5),
+          ),
+        );
+      }
+    } catch (e) {
+      setState(() {
+        _isDownloading = false;
+        _downloadProgress = 0.0;
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Download failed: $e')),
+        );
+      }
+    }
   }
 
   Widget _buildLocationMessage(BuildContext context) {
@@ -505,6 +823,7 @@ class MessageBubble extends StatelessWidget {
   }
 
   Widget _buildSystemMessage(BuildContext context) {
+    final message = widget.message;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
@@ -523,6 +842,9 @@ class MessageBubble extends StatelessWidget {
   }
 
   Widget _buildMessageFooter(BuildContext context) {
+    final message = widget.message;
+    final isMe = widget.isMe;
+
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -589,5 +911,129 @@ class MessageBubble extends StatelessWidget {
     }
 
     return Icons.insert_drive_file;
+  }
+}
+
+// Simple video player widget for chat videos
+class _ChatVideoPlayer extends StatefulWidget {
+  final String videoUrl;
+
+  const _ChatVideoPlayer({required this.videoUrl});
+
+  @override
+  State<_ChatVideoPlayer> createState() => _ChatVideoPlayerState();
+}
+
+class _ChatVideoPlayerState extends State<_ChatVideoPlayer> {
+  late VideoPlayerController _videoPlayerController;
+  ChewieController? _chewieController;
+  bool _isLoading = true;
+  String? _errorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    _initializePlayer();
+  }
+
+  @override
+  void dispose() {
+    _chewieController?.dispose();
+    _videoPlayerController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _initializePlayer() async {
+    try {
+      _videoPlayerController = VideoPlayerController.networkUrl(
+        Uri.parse(widget.videoUrl),
+      );
+
+      await _videoPlayerController.initialize();
+
+      _chewieController = ChewieController(
+        videoPlayerController: _videoPlayerController,
+        autoPlay: true,
+        looping: false,
+        aspectRatio: _videoPlayerController.value.aspectRatio,
+        autoInitialize: true,
+        errorBuilder: (context, errorMessage) {
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.error, color: Colors.white, size: 48),
+                const SizedBox(height: 16),
+                Text(
+                  errorMessage,
+                  style: const TextStyle(color: Colors.white),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
+          );
+        },
+      );
+
+      setState(() {
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+        _errorMessage = e.toString();
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        iconTheme: const IconThemeData(color: Colors.white),
+        title: const Text('Video', style: TextStyle(color: Colors.white)),
+      ),
+      body: Center(
+        child: _isLoading
+            ? const Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  CircularProgressIndicator(color: Colors.white),
+                  SizedBox(height: 16),
+                  Text(
+                    'Loading video...',
+                    style: TextStyle(color: Colors.white),
+                  ),
+                ],
+              )
+            : _errorMessage != null
+                ? Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.error, color: Colors.white, size: 48),
+                      const SizedBox(height: 16),
+                      const Text(
+                        'Failed to load video',
+                        style: TextStyle(color: Colors.white, fontSize: 18),
+                      ),
+                      const SizedBox(height: 8),
+                      Padding(
+                        padding: const EdgeInsets.all(20),
+                        child: Text(
+                          _errorMessage!,
+                          style: const TextStyle(
+                              color: Colors.white70, fontSize: 12),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ],
+                  )
+                : _chewieController != null
+                    ? Chewie(controller: _chewieController!)
+                    : const SizedBox(),
+      ),
+    );
   }
 }
