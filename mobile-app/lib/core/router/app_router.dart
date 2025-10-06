@@ -20,6 +20,8 @@ import '../../screens/settings/settings_screen.dart';
 import '../../screens/search/search_screen.dart';
 import '../../screens/test/test_instructions_screen.dart';
 import '../../screens/community/create_post_screen.dart';
+import '../../screens/discover/category_detail_screen.dart';
+import '../../models/category_model.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
@@ -123,6 +125,15 @@ final routerProvider = Provider<GoRouter>((ref) {
             builder: (context, state) {
               final chatId = state.pathParameters['chatId']!;
               return ChatScreen(chatId: chatId);
+            },
+          ),
+
+          // Discover/Category Routes
+          GoRoute(
+            path: 'category/:categoryId',
+            builder: (context, state) {
+              final categoryData = state.extra as CategoryModel;
+              return CategoryDetailScreen(category: categoryData);
             },
           ),
 

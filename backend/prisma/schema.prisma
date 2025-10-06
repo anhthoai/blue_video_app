@@ -60,6 +60,7 @@ model User {
 model Video {
   id           String   @id @default(uuid())
   userId       String   @map("user_id")
+  categoryId   String?  @map("category_id")
   title        String
   description  String?
   videoUrl     String   @map("video_url")
@@ -77,8 +78,10 @@ model Video {
   updatedAt    DateTime @updatedAt @map("updated_at")
 
   // Relations
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
 
+  @@index([categoryId])
   @@map("videos")
 }
 
@@ -294,4 +297,26 @@ enum ReportStatus {
   DISMISSED
 
   @@map("report_status")
+}
+
+model Category {
+  id            String    @id @default(uuid())
+  parentId      String?   @map("parent_id")
+  categoryName  String    @map("category_name")
+  categoryOrder Int       @default(0) @map("category_order")
+  categoryDesc  String?   @map("category_desc")
+  categoryThumb String?   @map("category_thumb") // Filename only (e.g., "category-uuid.jpg")
+  fileDirectory String?   @map("file_directory") // Format: yyyy/mm/dd
+  isDefault     Boolean   @default(false) @map("is_default")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  parent        Category?  @relation("CategoryHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
+  children      Category[] @relation("CategoryHierarchy")
+  videos        Video[]
+
+  @@index([parentId])
+  @@index([categoryOrder])
+  @@map("categories")
 }

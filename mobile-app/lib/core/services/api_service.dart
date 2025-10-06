@@ -824,6 +824,80 @@ class ApiService {
     return await getPresignedUrl(url);
   }
 
+  // Get trending videos
+  Future<List<Map<String, dynamic>>> getTrendingVideos({
+    int page = 1,
+    int limit = 20,
+  }) async {
+    try {
+      final url = '$baseUrl/videos/trending?page=$page&limit=$limit';
+      print('📡 API Call: GET $url');
+      final response = await http.get(
+        Uri.parse(url),
+        headers: await _getHeaders(),
+      );
+
+      print('📥 Response Status: ${response.statusCode}');
+      print(
+          '📥 Response Body: ${response.body.substring(0, response.body.length > 200 ? 200 : response.body.length)}...');
+
+      final result = await _handleResponse(response);
+      if (result['success'] == true && result['data'] != null) {
+        final videos = List<Map<String, dynamic>>.from(result['data'] as List);
+        print('✅ Trending API returned ${videos.length} videos');
+        return videos;
+      }
+      print('⚠️ Trending API returned no data or success=false');
+      return [];
+    } catch (e) {
+      print('❌ Error getting trending videos: $e');
+      return [];
+    }
+  }
+
+  // Get all categories
+  Future<List<Map<String, dynamic>>> getCategories() async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/categories'),
+        headers: await _getHeaders(),
+      );
+
+      final result = await _handleResponse(response);
+      if (result['success'] == true && result['data'] != null) {
+        return List<Map<String, dynamic>>.from(result['data'] as List);
+      }
+      return [];
+    } catch (e) {
+      print('Error getting categories: $e');
+      return [];
+    }
+  }
+
+  // Get videos by category
+  Future<List<Map<String, dynamic>>> getVideosByCategory(
+    String categoryId, {
+    int page = 1,
+    int limit = 20,
+  }) async {
+    try {
+      final response = await http.get(
+        Uri.parse(
+            '$baseUrl/categories/$categoryId/videos?page=$page&limit=$limit'),
+        headers: await _getHeaders(),
+      );
+
+      final result = await _handleResponse(response);
+      if (result['success'] == true && result['data'] != null) {
+        return List<Map<String, dynamic>>.from(result['data'] as List);
+      }
+      return [];
+    } catch (e) {
+      print('Error getting videos by category: $e');
+      return [];
+    }
+  }
+
   // Socket.IO URL
   String get socketUrl =>
       baseUrl.replaceAll('http://', 'ws://').replaceAll('https://', 'wss://');

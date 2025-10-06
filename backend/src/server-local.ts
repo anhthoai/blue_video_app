@@ -749,6 +749,83 @@ app.post('/api/v1/videos/:id/download', async (req, res) => {
   }
 });
 
+// Get trending videos (sorted by views)
+// IMPORTANT: This must come BEFORE /api/v1/videos/:id to avoid route collision
+app.get('/api/v1/videos/trending', async (req, res) => {
+  try {
+    const { page = 1, limit = 20 } = req.query;
+    const offset = (Number(page) - 1) * Number(limit);
+    
+    const videos = await prisma.video.findMany({
+      where: {
+        isPublic: true,
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            username: true,
+            firstName: true,
+            lastName: true,
+            avatar: true,
+            avatarUrl: true,
+            fileDirectory: true,
+            isVerified: true,
+          },
+        },
+      },
+      orderBy: [
+        { views: 'desc' },
+        { createdAt: 'desc' },
+      ],
+      skip: offset,
+      take: Number(limit),
+    });
+
+    const serializedVideos = videos.map(video => ({
+      id: video.id,
+      userId: video.userId,
+      categoryId: video.categoryId,
+      title: video.title,
+      description: video.description,
+      videoUrl: video.videoUrl,
+      thumbnailUrl: video.thumbnailUrl,
+      duration: video.duration,
+      fileSize: video.fileSize ? video.fileSize.toString() : null,
+      quality: video.quality,
+      views: video.views,
+      likes: video.likes,
+      comments: video.comments,
+      shares: video.shares,
+      downloads: video.downloads,
+      isPublic: video.isPublic,
+      createdAt: video.createdAt.toISOString(),
+      updatedAt: video.updatedAt.toISOString(),
+      user: video.user ? serializeUserWithUrls(video.user) : null,
+      username: video.user?.username,
+      firstName: video.user?.firstName,
+      lastName: video.user?.lastName,
+      userAvatarUrl: video.user ? buildAvatarUrl(video.user) : null,
+    }));
+
+    res.json({
+      success: true,
+      data: serializedVideos,
+      pagination: {
+        page: Number(page),
+        limit: Number(limit),
+        total: videos.length,
+      },
+    });
+  } catch (error) {
+    console.error('Error fetching trending videos:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch trending videos',
+    });
+  }
+});
+
 // Get single video by ID
 app.get('/api/v1/videos/:id', async (req, res) => {
   try {
@@ -909,6 +986,146 @@ app.get('/api/v1/videos', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to fetch videos',
+    });
+  }
+});
+
+// Get videos by category
+app.get('/api/v1/categories/:categoryId/videos', async (req, res) => {
+  try {
+    const { categoryId } = req.params;
+    const { page = 1, limit = 20 } = req.query;
+    const offset = (Number(page) - 1) * Number(limit);
+    
+    const videos = await prisma.video.findMany({
+      where: {
+        categoryId: categoryId,
+        isPublic: true,
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            username: true,
+            firstName: true,
+            lastName: true,
+            avatar: true,
+            avatarUrl: true,
+            fileDirectory: true,
+            isVerified: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+      skip: offset,
+      take: Number(limit),
+    });
+
+    const serializedVideos = videos.map(video => ({
+      id: video.id,
+      userId: video.userId,
+      categoryId: video.categoryId,
+      title: video.title,
+      description: video.description,
+      videoUrl: video.videoUrl,
+      thumbnailUrl: video.thumbnailUrl,
+      duration: video.duration,
+      fileSize: video.fileSize ? video.fileSize.toString() : null,
+      quality: video.quality,
+      views: video.views,
+      likes: video.likes,
+      comments: video.comments,
+      shares: video.shares,
+      downloads: video.downloads,
+      isPublic: video.isPublic,
+      createdAt: video.createdAt.toISOString(),
+      updatedAt: video.updatedAt.toISOString(),
+      user: video.user ? serializeUserWithUrls(video.user) : null,
+      username: video.user?.username,
+      firstName: video.user?.firstName,
+      lastName: video.user?.lastName,
+      userAvatarUrl: video.user ? buildAvatarUrl(video.user) : null,
+    }));
+
+    res.json({
+      success: true,
+      data: serializedVideos,
+      pagination: {
+        page: Number(page),
+        limit: Number(limit),
+        total: videos.length,
+      },
+    });
+  } catch (error) {
+    console.error('Error fetching videos by category:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch videos',
+    });
+  }
+});
+
+// Get all categories (hierarchical structure)
+app.get('/api/v1/categories', async (_req, res) => {
+  try {
+    const categories = await prisma.category.findMany({
+      orderBy: {
+        categoryOrder: 'asc',
+      },
+      include: {
+        children: {
+          orderBy: {
+            categoryOrder: 'asc',
+          },
+        },
+        _count: {
+          select: {
+            videos: true,
+          },
+        },
+      },
+    });
+
+    // Build category tree (only parent categories at root level)
+    const rootCategories = categories.filter(cat => !cat.parentId);
+
+    const serializedCategories = rootCategories.map(category => ({
+      id: category.id,
+      parentId: category.parentId,
+      categoryName: category.categoryName,
+      categoryOrder: category.categoryOrder,
+      categoryDesc: category.categoryDesc,
+      categoryThumb: category.categoryThumb 
+        ? buildFileUrlSync(category.fileDirectory, category.categoryThumb, 'categories')
+        : null,
+      isDefault: category.isDefault,
+      createdAt: category.createdAt.toISOString(),
+      videoCount: category._count.videos,
+      children: category.children.map(child => ({
+        id: child.id,
+        parentId: child.parentId,
+        categoryName: child.categoryName,
+        categoryOrder: child.categoryOrder,
+        categoryDesc: child.categoryDesc,
+        categoryThumb: child.categoryThumb
+          ? buildFileUrlSync(child.fileDirectory, child.categoryThumb, 'categories')
+          : null,
+        isDefault: child.isDefault,
+        createdAt: child.createdAt.toISOString(),
+      })),
+    }));
+
+    res.json({
+      success: true,
+      data: serializedCategories,
+    });
+  } catch (error) {
+    console.error('Error fetching categories:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch categories',
     });
   }
 });

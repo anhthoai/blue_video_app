@@ -16,6 +16,7 @@ async function main() {
   await prisma.follow.deleteMany();
   await prisma.communityPost.deleteMany();
   await prisma.video.deleteMany();
+  await prisma.category.deleteMany();
   await prisma.user.deleteMany();
 
   // Create sample users
@@ -122,6 +123,171 @@ async function main() {
   ]);
 
   console.log(`✅ Created ${users.length} users`);
+
+  // Create categories
+  console.log('📂 Creating categories...');
+  
+  // Create default "Members" category for uncategorized videos
+  const members = await prisma.category.upsert({
+    where: { id: 'cat-members' },
+    update: {},
+    create: {
+      id: 'cat-members',
+      categoryName: 'Members',
+      categoryOrder: 0, // First category
+      categoryDesc: 'General videos from our community members',
+      isDefault: true,
+    },
+  });
+
+  const music = await prisma.category.upsert({
+    where: { id: 'cat-music' },
+    update: {},
+    create: {
+      id: 'cat-music',
+      categoryName: 'Music',
+      categoryOrder: 1,
+      categoryDesc: 'Music videos, covers, and performances',
+      isDefault: false,
+    },
+  });
+
+  const gaming = await prisma.category.upsert({
+    where: { id: 'cat-gaming' },
+    update: {},
+    create: {
+      id: 'cat-gaming',
+      categoryName: 'Gaming',
+      categoryOrder: 2,
+      categoryDesc: 'Game plays, walkthroughs, and reviews',
+      isDefault: false,
+    },
+  });
+
+  const sports = await prisma.category.upsert({
+    where: { id: 'cat-sports' },
+    update: {},
+    create: {
+      id: 'cat-sports',
+      categoryName: 'Sports',
+      categoryOrder: 3,
+      categoryDesc: 'Sports highlights, tutorials, and analysis',
+      isDefault: false,
+    },
+  });
+
+  const education = await prisma.category.upsert({
+    where: { id: 'cat-education' },
+    update: {},
+    create: {
+      id: 'cat-education',
+      categoryName: 'Education',
+      categoryOrder: 4,
+      categoryDesc: 'Educational content and tutorials',
+      isDefault: false,
+    },
+  });
+
+  const comedy = await prisma.category.upsert({
+    where: { id: 'cat-comedy' },
+    update: {},
+    create: {
+      id: 'cat-comedy',
+      categoryName: 'Comedy',
+      categoryOrder: 5,
+      categoryDesc: 'Funny videos and entertainment',
+      isDefault: false,
+    },
+  });
+
+  const technology = await prisma.category.upsert({
+    where: { id: 'cat-technology' },
+    update: {},
+    create: {
+      id: 'cat-technology',
+      categoryName: 'Technology',
+      categoryOrder: 6,
+      categoryDesc: 'Tech reviews, tutorials, and news',
+      isDefault: false,
+    },
+  });
+
+  // Create subcategories for Music
+  await prisma.category.upsert({
+    where: { id: 'cat-music-pop' },
+    update: {},
+    create: {
+      id: 'cat-music-pop',
+      parentId: music.id,
+      categoryName: 'Pop',
+      categoryOrder: 1,
+      categoryDesc: 'Pop music videos',
+    },
+  });
+
+  await prisma.category.upsert({
+    where: { id: 'cat-music-rock' },
+    update: {},
+    create: {
+      id: 'cat-music-rock',
+      parentId: music.id,
+      categoryName: 'Rock',
+      categoryOrder: 2,
+      categoryDesc: 'Rock music videos',
+    },
+  });
+
+  // Create subcategories for Gaming
+  await prisma.category.upsert({
+    where: { id: 'cat-gaming-action' },
+    update: {},
+    create: {
+      id: 'cat-gaming-action',
+      parentId: gaming.id,
+      categoryName: 'Action',
+      categoryOrder: 1,
+      categoryDesc: 'Action game videos',
+    },
+  });
+
+  await prisma.category.upsert({
+    where: { id: 'cat-gaming-strategy' },
+    update: {},
+    create: {
+      id: 'cat-gaming-strategy',
+      parentId: gaming.id,
+      categoryName: 'Strategy',
+      categoryOrder: 2,
+      categoryDesc: 'Strategy game videos',
+    },
+  });
+
+  // Create subcategories for Education
+  await prisma.category.upsert({
+    where: { id: 'cat-education-programming' },
+    update: {},
+    create: {
+      id: 'cat-education-programming',
+      parentId: education.id,
+      categoryName: 'Programming',
+      categoryOrder: 1,
+      categoryDesc: 'Programming tutorials and courses',
+    },
+  });
+
+  await prisma.category.upsert({
+    where: { id: 'cat-education-science' },
+    update: {},
+    create: {
+      id: 'cat-education-science',
+      parentId: education.id,
+      categoryName: 'Science',
+      categoryOrder: 2,
+      categoryDesc: 'Science education videos',
+    },
+  });
+
+  console.log('✅ Created 7 categories (including Members default) with 6 subcategories');
 
   // Create follow relationships
   console.log('👥 Creating follow relationships...');
@@ -307,6 +473,7 @@ async function main() {
       prisma.video.create({
         data: {
           userId: users[index % users.length]!.id, // Distribute videos among users
+          categoryId: members.id, // Assign all videos to Members (default) category
           title: videoData.title,
           description: videoData.description,
           videoUrl: videoData.videoUrl,
@@ -814,8 +981,9 @@ async function main() {
   console.log('🎉 Database seeding completed successfully!');
   console.log('\n📊 Summary:');
   console.log(`👥 Users: ${users.length}`);
+  console.log(`📂 Categories: 7 (Members + 6 others, with 6 subcategories)`);
   console.log(`👥 Follows: ${followRelations.length}`);
-  console.log(`🎥 Videos: ${videos.length}`);
+  console.log(`🎥 Videos: ${videos.length} (all in Members category)`);
   console.log(`📝 Posts: ${posts.length}`);
   console.log(`💬 Comments: ${comments.length}`);
   console.log(`👍 Likes: ${likes.length}`);
