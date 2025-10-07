@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:video_player/video_player.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
@@ -10,6 +9,8 @@ import '../../core/services/video_service.dart';
 import '../../core/services/api_service.dart';
 import '../../core/services/auth_service.dart';
 import '../../core/services/file_url_service.dart';
+import '../../core/utils/subtitle_utils.dart';
+import '../../core/utils/language_utils.dart';
 import '../../widgets/social/comments_section.dart';
 import '../../widgets/common/presigned_image.dart';
 
@@ -60,6 +61,11 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
   int _currentDownloads = 0;
   bool _isLiked = false;
   bool _hasIncrementedView = false;
+
+  // Subtitle functionality
+  List<String> _availableSubtitles = [];
+  String? _currentSubtitleCode;
+  bool _subtitlesEnabled = false;
 
   @override
   void initState() {
@@ -342,11 +348,315 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
             _currentShares = videoData['shares'] ?? _currentShares;
             _currentDownloads = videoData['downloads'] ?? _currentDownloads;
             _isLiked = videoData['isLiked'] ?? _isLiked;
+
+            // Load available subtitles
+            final subtitles = videoData['subtitles'];
+            if (subtitles != null && subtitles is List) {
+              _availableSubtitles = List<String>.from(subtitles);
+            }
           });
         }
       }
     } catch (e) {
       print('Error refreshing video data: $e');
+    }
+  }
+
+  // Current video data cache
+  String? _currentVideoFileDirectory;
+  String? _currentVideoFileName;
+
+  // Load subtitle for the video
+  Future<void> _loadSubtitle(String languageCode,
+      {bool showNotification = true}) async {
+    if (_videoController == null) return;
+    if (_currentVideoFileDirectory == null || _currentVideoFileName == null) {
+      print('⚠️  Video file info not available yet');
+      return;
+    }
+
+    try {
+      print('📝 Loading subtitle: $languageCode');
+
+      final subtitleFile = await SubtitleUtils.loadSubtitle(
+        _currentVideoFileDirectory,
+        _currentVideoFileName,
+        languageCode,
+      );
+
+      if (subtitleFile != null) {
+        // setClosedCaptionFile expects Future<ClosedCaptionFile>, so wrap it
+        _videoController!.setClosedCaptionFile(Future.value(subtitleFile));
+        if (mounted) {
+          setState(() {
+            _currentSubtitleCode = languageCode;
+            _subtitlesEnabled = true;
+          });
+        }
+        print('✅ Subtitle loaded: $languageCode');
+
+        if (mounted && showNotification) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                  'Subtitle: ${LanguageUtils.getLanguageName(languageCode)}'),
+              duration: const Duration(seconds: 2),
+            ),
+          );
+        }
+      } else {
+        print('⚠️  Subtitle not available: $languageCode');
+        if (mounted && showNotification) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                  'Subtitle not available for ${LanguageUtils.getLanguageName(languageCode)}'),
+              backgroundColor: Colors.orange,
+              duration: const Duration(seconds: 2),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      print('❌ Error loading subtitle: $e');
+      if (mounted && showNotification) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Failed to load subtitle'),
+            backgroundColor: Colors.red,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    }
+  }
+
+  // Show subtitle selector dialog
+  void _showSubtitleSelector() {
+    if (_availableSubtitles.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No subtitles available for this video'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+      return;
+    }
+
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      isScrollControlled: true,
+      builder: (context) => DraggableScrollableSheet(
+        initialChildSize: 0.6,
+        minChildSize: 0.4,
+        maxChildSize: 0.9,
+        expand: false,
+        builder: (context, scrollController) => Container(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Select Subtitle',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
+              ),
+              const Divider(),
+              const SizedBox(height: 8),
+              Flexible(
+                child: ListView(
+                  controller: scrollController,
+                  shrinkWrap: true,
+                  children: [
+                    // Language options
+                    ...SubtitleUtils.getAvailableSubtitles(_availableSubtitles)
+                        .map((subtitle) => ListTile(
+                              leading: Icon(
+                                _currentSubtitleCode == subtitle.code
+                                    ? Icons.check_circle
+                                    : Icons.circle_outlined,
+                                color: _currentSubtitleCode == subtitle.code
+                                    ? Colors.blue
+                                    : Colors.grey,
+                              ),
+                              title: Text(subtitle.displayName),
+                              subtitle: Text(subtitle.code.toUpperCase()),
+                              onTap: () {
+                                Navigator.pop(context);
+                                _loadSubtitle(subtitle.code);
+                              },
+                            )),
+                    const Divider(),
+                    // Off option
+                    ListTile(
+                      leading: Icon(
+                        !_subtitlesEnabled
+                            ? Icons.check_circle
+                            : Icons.circle_outlined,
+                        color: !_subtitlesEnabled ? Colors.blue : Colors.grey,
+                      ),
+                      title: const Text('Off'),
+                      subtitle: const Text('Disable subtitles'),
+                      onTap: () {
+                        Navigator.pop(context);
+                        if (mounted) {
+                          setState(() {
+                            _subtitlesEnabled = false;
+                            _currentSubtitleCode = null;
+                          });
+                        }
+                        _videoController?.setClosedCaptionFile(null);
+
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Subtitles disabled'),
+                            duration: Duration(seconds: 2),
+                          ),
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // Helper methods for adaptive layout
+  double _getSubtitleBottomPosition() {
+    final mediaQuery = MediaQuery.of(context);
+    final orientation = mediaQuery.orientation;
+    final isLandscape = orientation == Orientation.landscape;
+
+    // Position subtitle very close to the bottom, just above video controls
+    // Controls take up approximately 80-100px (padding + buttons + progress bar)
+    if (_isFullscreen) {
+      return isLandscape
+          ? 95
+          : 85; // Just above fullscreen controls (90-100px from bottom)
+    } else {
+      return isLandscape
+          ? 80
+          : 70; // Just above normal controls (75-85px from bottom)
+    }
+  }
+
+  double _getControlPadding() {
+    final mediaQuery = MediaQuery.of(context);
+    final orientation = mediaQuery.orientation;
+    final isLandscape = orientation == Orientation.landscape;
+
+    if (_isFullscreen) {
+      return isLandscape ? 24 : 20; // More padding in fullscreen
+    } else {
+      return isLandscape ? 20 : 16; // More padding in landscape
+    }
+  }
+
+  double _getControlVerticalPadding() {
+    final mediaQuery = MediaQuery.of(context);
+    final orientation = mediaQuery.orientation;
+    final isLandscape = orientation == Orientation.landscape;
+
+    if (_isFullscreen) {
+      return isLandscape ? 16 : 14; // More padding in fullscreen
+    } else {
+      return isLandscape ? 12 : 8; // More padding in landscape
+    }
+  }
+
+  double _getBottomControlPadding() {
+    final mediaQuery = MediaQuery.of(context);
+    final orientation = mediaQuery.orientation;
+    final isLandscape = orientation == Orientation.landscape;
+
+    // More padding since subtitles are now positioned much lower, close to controls
+    if (_isFullscreen) {
+      return isLandscape ? 40 : 36; // Extra padding in fullscreen
+    } else {
+      return isLandscape ? 34 : 28; // Extra padding in normal mode
+    }
+  }
+
+  double _getSubtitleFontSize() {
+    final mediaQuery = MediaQuery.of(context);
+    final orientation = mediaQuery.orientation;
+    final isLandscape = orientation == Orientation.landscape;
+
+    if (_isFullscreen) {
+      return isLandscape ? 28 : 26; // Larger in fullscreen
+    } else {
+      return isLandscape ? 22 : 20; // Larger in landscape
+    }
+  }
+
+  double _getButtonSize({bool small = false}) {
+    final mediaQuery = MediaQuery.of(context);
+    final orientation = mediaQuery.orientation;
+    final isLandscape = orientation == Orientation.landscape;
+
+    if (_isFullscreen) {
+      return small ? (isLandscape ? 32 : 30) : (isLandscape ? 40 : 38);
+    } else {
+      return small ? (isLandscape ? 26 : 24) : (isLandscape ? 32 : 28);
+    }
+  }
+
+  double _getButtonSpacing() {
+    final mediaQuery = MediaQuery.of(context);
+    final orientation = mediaQuery.orientation;
+    final isLandscape = orientation == Orientation.landscape;
+
+    if (_isFullscreen) {
+      return isLandscape ? 28 : 26; // More spacing in fullscreen
+    } else {
+      return isLandscape ? 22 : 16; // More spacing in landscape
+    }
+  }
+
+  // Load default English subtitle if available
+  void _loadDefaultSubtitle() {
+    print('📝 Checking for default subtitle...');
+    if (_availableSubtitles.isEmpty) {
+      print('  No subtitles available');
+      return;
+    }
+
+    // Try to find English subtitle (eng, en, or english)
+    String? englishCode;
+    for (final code in _availableSubtitles) {
+      final normalized = code.toLowerCase();
+      if (normalized == 'eng' ||
+          normalized == 'en' ||
+          normalized == 'english') {
+        englishCode = code;
+        break;
+      }
+    }
+
+    if (englishCode != null) {
+      print('  Found English subtitle: $englishCode');
+      // Load without notification to avoid spam
+      Future.delayed(const Duration(milliseconds: 500), () {
+        _loadSubtitle(englishCode!, showNotification: false);
+      });
+    } else {
+      print('  No English subtitle found in: $_availableSubtitles');
     }
   }
 
@@ -458,6 +768,12 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
   void _initializeVideoPlayer(String videoUrl, VideoModel video) {
     print('🎥 Initializing video player with URL: $videoUrl');
 
+    // Cache video file info for subtitle loading
+    _currentVideoFileDirectory = video.fileDirectory;
+    _currentVideoFileName = video.fileName;
+    print(
+        '📁 Cached video file info: $_currentVideoFileDirectory/$_currentVideoFileName');
+
     _currentVideoUrl = videoUrl;
     _videoController = VideoPlayerController.networkUrl(Uri.parse(videoUrl))
       ..initialize().then((_) {
@@ -480,6 +796,9 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
           setState(() {
             _isPlaying = true;
           });
+
+          // Load default English subtitle if available
+          _loadDefaultSubtitle();
 
           // Increment view count when video is ready
           _incrementViewCount(widget.videoId);
@@ -680,31 +999,32 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
             _currentDownloads = video.downloadCount;
           }
 
-          return Column(
-            children: [
-              _buildVideoPlayer(video),
-              if (!_isFullscreen)
-                Expanded(
-                  child: Container(
-                    color: Colors.white,
-                    child: SingleChildScrollView(
-                      controller: _scrollController,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _buildUserInfo(video),
-                          _buildVideoInfo(video),
-                          _buildActionButtons(video),
-                          _buildAdsBanner(),
-                          _buildRecommendedVideos(),
-                          _buildCommentsSection(),
-                        ],
+          return _isFullscreen
+              ? _buildVideoPlayer(video) // Only video player in fullscreen
+              : Column(
+                  children: [
+                    _buildVideoPlayer(video),
+                    Expanded(
+                      child: Container(
+                        color: Colors.white,
+                        child: SingleChildScrollView(
+                          controller: _scrollController,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _buildUserInfo(video),
+                              _buildVideoInfo(video),
+                              _buildActionButtons(video),
+                              _buildAdsBanner(),
+                              _buildRecommendedVideos(),
+                              _buildCommentsSection(),
+                            ],
+                          ),
+                        ),
                       ),
                     ),
-                  ),
-                ),
-            ],
-          );
+                  ],
+                );
         },
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, stack) => Center(
@@ -731,12 +1051,19 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
   }
 
   Widget _buildVideoPlayer(VideoModel video) {
+    final mediaQuery = MediaQuery.of(context);
+    final screenSize = mediaQuery.size;
+    final orientation = mediaQuery.orientation;
+    final isLandscape = orientation == Orientation.landscape;
+
     // For embed videos, show WebView
     if (_isEmbedVideo && _webViewController != null) {
       return Container(
         height: _isFullscreen
-            ? MediaQuery.of(context).size.height
-            : MediaQuery.of(context).size.width * 9 / 16,
+            ? screenSize.height
+            : isLandscape
+                ? screenSize.height
+                : screenSize.width * 9 / 16,
         width: double.infinity,
         color: Colors.black,
         child: WebViewWidget(controller: _webViewController!),
@@ -769,8 +1096,10 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
       },
       child: Container(
         height: _isFullscreen
-            ? MediaQuery.of(context).size.height
-            : MediaQuery.of(context).size.width * 9 / 16,
+            ? screenSize.height
+            : isLandscape
+                ? screenSize.height
+                : screenSize.width * 9 / 16,
         width: double.infinity,
         color: Colors.black,
         child: Stack(
@@ -783,7 +1112,53 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
                   child: SizedBox(
                     width: _videoController!.value.size.width,
                     height: _videoController!.value.size.height,
-                    child: VideoPlayer(_videoController!),
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        // Video Player
+                        VideoPlayer(_videoController!),
+                        // Subtitle Display
+                        if (_subtitlesEnabled &&
+                            _videoController!.value.caption.text.isNotEmpty)
+                          Positioned(
+                            bottom:
+                                _getSubtitleBottomPosition(), // Position calculated by helper method
+                            left: 0,
+                            right: 0,
+                            child: Center(
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 10,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.black.withOpacity(
+                                      0.6), // More transparent background
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Text(
+                                  _videoController!.value.caption.text,
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize:
+                                        _getSubtitleFontSize(), // Adaptive to orientation and fullscreen
+                                    fontWeight: FontWeight.w500,
+                                    shadows: [
+                                      Shadow(
+                                        color: Colors.black.withOpacity(
+                                            0.3), // Even more transparent shadow
+                                        offset: const Offset(1, 1),
+                                        blurRadius: 4,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
                   ),
                 ),
               )
@@ -839,12 +1214,16 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
                 ),
               ),
             Positioned(
-              top: 0,
+              top: _isFullscreen
+                  ? MediaQuery.of(context).padding.top
+                  : 0, // Account for status bar in fullscreen
               left: 0,
               right: 0,
               child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding: EdgeInsets.symmetric(
+                  horizontal: _getControlPadding(),
+                  vertical: _getControlVerticalPadding(),
+                ),
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     begin: Alignment.topCenter,
@@ -878,7 +1257,8 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
                 left: 0,
                 right: 0,
                 child: Container(
-                  padding: const EdgeInsets.all(16),
+                  padding: EdgeInsets.all(
+                      _getBottomControlPadding()), // Adaptive padding
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
                       begin: Alignment.bottomCenter,
@@ -955,7 +1335,8 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
                             icon: Icon(
                               _isPlaying ? Icons.pause : Icons.play_arrow,
                               color: Colors.white,
-                              size: 28,
+                              size:
+                                  _getButtonSize(), // Adaptive to orientation and fullscreen
                             ),
                             onPressed: () {
                               if (_videoController != null) {
@@ -971,7 +1352,8 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
                               }
                             },
                           ),
-                          const SizedBox(width: 16),
+                          SizedBox(
+                              width: _getButtonSpacing()), // Adaptive spacing
                           // Volume Button
                           IconButton(
                             icon: Icon(
@@ -979,7 +1361,9 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
                                   ? Icons.volume_off
                                   : Icons.volume_up,
                               color: Colors.white,
-                              size: 24,
+                              size: _getButtonSize(
+                                  small:
+                                      true), // Adaptive to orientation and fullscreen
                             ),
                             onPressed: () {
                               if (_videoController != null) {
@@ -993,7 +1377,28 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
                               }
                             },
                           ),
-                          const SizedBox(width: 16),
+                          SizedBox(
+                              width: _getButtonSpacing()), // Adaptive spacing
+                          // Subtitle Button
+                          if (_availableSubtitles.isNotEmpty)
+                            IconButton(
+                              icon: Icon(
+                                _subtitlesEnabled
+                                    ? Icons.subtitles
+                                    : Icons.subtitles_outlined,
+                                color: _subtitlesEnabled
+                                    ? Colors.blue
+                                    : Colors.white,
+                                size: _isFullscreen
+                                    ? 28
+                                    : 24, // Larger in fullscreen
+                              ),
+                              onPressed: _showSubtitleSelector,
+                              tooltip: 'Subtitles',
+                            ),
+                          if (_availableSubtitles.isNotEmpty)
+                            SizedBox(
+                                width: _getButtonSpacing()), // Adaptive spacing
                           // Fullscreen Button
                           IconButton(
                             icon: Icon(
@@ -1001,7 +1406,9 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
                                   ? Icons.fullscreen_exit
                                   : Icons.fullscreen,
                               color: Colors.white,
-                              size: 24,
+                              size: _getButtonSize(
+                                  small:
+                                      true), // Adaptive to orientation and fullscreen
                             ),
                             onPressed: () {
                               setState(() {

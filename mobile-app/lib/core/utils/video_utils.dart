@@ -88,10 +88,11 @@ class VideoUtils {
           path.join(tempDir.path,
               'thumbnail_${DateTime.now().millisecondsSinceEpoch}.jpg');
 
-      // Generate thumbnail with 640px width for faster loading
-      // -vf scale=640:-1 resizes to 640px width, maintains aspect ratio
+      // Generate thumbnail with 480px width for faster generation & loading
+      // -vf scale=480:-1 resizes to 480px width, maintains aspect ratio
+      // -q:v 5 = slightly lower quality for faster processing (2=best, 31=worst)
       final command =
-          '-i "${videoFile.path}" -ss $timeInSeconds -vframes 1 -vf scale=640:-1 -q:v 2 "$thumbnailPath"';
+          '-i "${videoFile.path}" -ss $timeInSeconds -vframes 1 -vf scale=640:-1 -q:v 5 "$thumbnailPath"';
 
       final session = await FFmpegKit.execute(command);
       final returnCode = await session.getReturnCode();
@@ -128,6 +129,11 @@ class VideoUtils {
       final baseTimestamp = DateTime.now().millisecondsSinceEpoch;
 
       print('🖼️  Generating $count thumbnails from ${duration}s video...');
+      print('⚡ Using PARALLEL generation for faster processing...');
+
+      // Prepare all thumbnail generation tasks
+      final thumbnailTasks = <Future<String?>>[];
+      final thumbnailPaths = <String>[];
 
       // Generate thumbnails at evenly distributed timestamps
       for (int i = 0; i < count; i++) {
@@ -141,29 +147,43 @@ class VideoUtils {
           'thumbnail_${i + 1}_${baseTimestamp + i}.jpg',
         );
 
-        print('   Generating thumbnail ${i + 1}/$count at ${timestamp}s...');
+        thumbnailPaths.add(thumbnailPath);
 
-        final thumbnail = await generateThumbnail(
-          videoFile,
-          timestamp,
-          outputPath: thumbnailPath,
+        print('   Queuing thumbnail ${i + 1}/$count at ${timestamp}s...');
+
+        // Queue the thumbnail generation (execute in parallel)
+        thumbnailTasks.add(
+          generateThumbnail(
+            videoFile,
+            timestamp,
+            outputPath: thumbnailPath,
+          ),
         );
+      }
 
+      // Execute all thumbnail generations IN PARALLEL (much faster!)
+      print('🚀 Starting parallel thumbnail generation...');
+      final results = await Future.wait(thumbnailTasks);
+
+      // Verify results and collect successful thumbnails
+      for (int i = 0; i < results.length; i++) {
+        final thumbnail = results[i];
         if (thumbnail != null) {
           // Verify file exists before adding
           final file = File(thumbnail);
           if (await file.exists()) {
             thumbnails.add(thumbnail);
-            print('   ✅ Thumbnail ${i + 1} saved: $thumbnail');
+            print('   ✅ Thumbnail ${i + 1} saved');
           } else {
-            print('   ⚠️  Thumbnail file not found: $thumbnail');
+            print('   ⚠️  Thumbnail ${i + 1} file not found');
           }
         } else {
           print('   ❌ Failed to generate thumbnail ${i + 1}');
         }
       }
 
-      print('✅ Generated ${thumbnails.length}/$count thumbnails successfully');
+      print(
+          '✅ Generated ${thumbnails.length}/$count thumbnails successfully (PARALLEL)');
       return thumbnails;
     } catch (e) {
       print('❌ Error generating thumbnails: $e');
