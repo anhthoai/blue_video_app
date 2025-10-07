@@ -85,6 +85,10 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
         ],
         bottom: TabBar(
           controller: _tabController,
+          indicatorColor: Colors.white,
+          labelColor: Colors.white,
+          unselectedLabelColor: Colors.white.withOpacity(0.7),
+          indicatorWeight: 3,
           tabs: const [
             Tab(text: 'Posts', icon: Icon(Icons.article)),
             Tab(text: 'Trending', icon: Icon(Icons.trending_up)),
@@ -117,7 +121,7 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
 
     if (state.posts.isEmpty) {
       return Column(
-          children: [
+        children: [
           _buildEmptyState(
             icon: Icons.article_outlined,
             title: 'No posts yet',
@@ -184,7 +188,7 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
             currentUserId: 'current_user',
             currentUsername: 'Current User',
             currentUserAvatar: 'https://picsum.photos/50/50?random=current',
-                  onTap: () {
+            onTap: () {
               // Navigate to post detail
             },
             onUserTap: () {
@@ -222,25 +226,32 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
             child: ListTile(
               leading: ClipRRect(
                 borderRadius: BorderRadius.circular(8),
-                child: Image.network(
-                  video.thumbnailUrl ?? 'https://picsum.photos/60/60',
-                  width: 60,
-                  height: 60,
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) {
-                    return Container(
-                      width: 60,
-                      height: 60,
-                      color: Colors.grey[300],
-                      child: const Icon(Icons.video_library),
-                    );
-                  },
-                ),
+                child: video.calculatedThumbnailUrl != null
+                    ? Image.network(
+                        video.calculatedThumbnailUrl!,
+                        width: 60,
+                        height: 60,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) {
+                          return Container(
+                            width: 60,
+                            height: 60,
+                            color: const Color(0xFFE0E0E0),
+                            child: const Icon(Icons.video_library),
+                          );
+                        },
+                      )
+                    : Container(
+                        width: 60,
+                        height: 60,
+                        color: Colors.grey[300],
+                        child: const Icon(Icons.video_library),
+                      ),
               ),
               title: Text(video.title),
               subtitle: Text('${video.formattedViewCount} views'),
               trailing: const Icon(Icons.play_arrow),
-                  onTap: () {
+              onTap: () {
                 // Navigate to video player
               },
             ),
@@ -258,9 +269,9 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              icon,
+        children: [
+          Icon(
+            icon,
             size: 64,
             color: Colors.grey,
           ),
@@ -326,10 +337,10 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
     showModalBottomSheet(
       context: context,
       builder: (context) => Container(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
             const Text(
               'Filter Posts',
               style: TextStyle(
@@ -345,18 +356,18 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
                 trailing: _selectedCategory == category
                     ? const Icon(Icons.check, color: Colors.blue)
                     : null,
-                  onTap: () {
+                onTap: () {
                   setState(() {
                     _selectedCategory = category;
                   });
-                    Navigator.pop(context);
+                  Navigator.pop(context);
                   _loadPosts();
                 },
               );
             }),
-              ],
-            ),
-          ),
+          ],
+        ),
+      ),
     );
   }
 
