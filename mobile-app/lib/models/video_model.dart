@@ -11,6 +11,7 @@ class VideoModel {
   final String? remotePlayUrl;
   final String? embedCode;
   final String? thumbnailUrl;
+  final List<String>? thumbnails; // Array of generated thumbnails for selection
   final int duration; // in seconds
   final int viewCount;
   final int likeCount;
@@ -51,6 +52,27 @@ class VideoModel {
     return username ?? 'User $userId';
   }
 
+  // Get thumbnail URL - calculates from fileName if thumbnailUrl is empty
+  String? get calculatedThumbnailUrl {
+    // If custom thumbnailUrl exists, use it
+    if (thumbnailUrl != null && thumbnailUrl!.isNotEmpty) {
+      return thumbnailUrl;
+    }
+
+    // Otherwise, calculate from fileName and fileDirectory
+    // Thumbnail is stored as: thumbnails/{fileDirectory}/{fileName}
+    // But with image extension instead of video extension
+    if (fileName != null && fileDirectory != null) {
+      // Replace video extension with .jpg
+      final thumbnailFileName =
+          fileName!.replaceAll(RegExp(r'\.[^.]+$'), '.jpg');
+      return 'thumbnails/$fileDirectory/$thumbnailFileName';
+    }
+
+    // No thumbnail available
+    return null;
+  }
+
   const VideoModel({
     required this.id,
     required this.userId,
@@ -62,6 +84,7 @@ class VideoModel {
     this.remotePlayUrl,
     this.embedCode,
     this.thumbnailUrl,
+    this.thumbnails,
     this.duration = 0,
     this.viewCount = 0,
     this.likeCount = 0,
@@ -204,6 +227,9 @@ class VideoModel {
       remotePlayUrl: json['remotePlayUrl'] as String?,
       embedCode: json['embedCode'] as String?,
       thumbnailUrl: json['thumbnailUrl'] as String?,
+      thumbnails: json['thumbnails'] != null
+          ? List<String>.from(json['thumbnails'] as List)
+          : null,
       duration: json['duration'] as int? ?? 0,
       viewCount: json['viewCount'] as int? ?? json['views'] as int? ?? 0,
       likeCount: json['likeCount'] as int? ?? json['likes'] as int? ?? 0,

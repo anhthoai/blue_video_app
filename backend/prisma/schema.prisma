@@ -78,6 +78,7 @@ model Video {
   embedCode      String?      @map("embed_code") @db.Text
   videoUrl       String?      @map("video_url") // Deprecated, kept for backward compatibility
   thumbnailUrl   String?      @map("thumbnail_url")
+  thumbnails     String[]     @default([]) // Array of generated thumbnail URLs for selection
   duration       Int?
   fileSize       BigInt?      @map("file_size")
   quality        String[]     @default([]) // Array of available qualities: ["360", "720", "1080"]

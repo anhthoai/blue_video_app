@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as path;
 
 import '../../core/services/api_service.dart';
+import '../../core/utils/video_utils.dart';
 import '../../models/category_model.dart';
 
 class UploadVideoScreenNew extends ConsumerStatefulWidget {
@@ -33,6 +34,11 @@ class _UploadVideoScreenNewState extends ConsumerState<UploadVideoScreenNew> {
   bool _isPublic = true;
   bool _isUploading = false;
   double _uploadProgress = 0.0;
+
+  // Thumbnail generation
+  List<String> _generatedThumbnails = [];
+  int _selectedThumbnailIndex = 0;
+  bool _isGeneratingThumbnails = false;
 
   @override
   void initState() {
@@ -67,6 +73,52 @@ class _UploadVideoScreenNewState extends ConsumerState<UploadVideoScreenNew> {
     }
   }
 
+  Future<void> _extractVideoInfoAndGenerateThumbnails(File videoFile) async {
+    setState(() {
+      _isGeneratingThumbnails = true;
+    });
+
+    try {
+      // Extract video duration
+      final duration = await VideoUtils.getVideoDuration(videoFile);
+      print('📹 Video duration extracted: ${duration}s');
+
+      // Generate 5 thumbnails
+      final thumbnails = await VideoUtils.generateThumbnails(videoFile, 5);
+      print('🖼️  Generated ${thumbnails.length} thumbnails');
+
+      setState(() {
+        _videoDuration = duration;
+        _generatedThumbnails = thumbnails;
+        _selectedThumbnailIndex = 0;
+        _isGeneratingThumbnails = false;
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Video processed: ${duration}s, ${thumbnails.length} thumbnails generated',
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      print('⚠️  Error processing video: $e');
+      setState(() {
+        _videoDuration = null;
+        _generatedThumbnails = [];
+        _isGeneratingThumbnails = false;
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error processing video: $e')),
+        );
+      }
+    }
+  }
+
   Future<void> _pickVideo() async {
     try {
       final result = await FilePicker.platform.pickFiles(
@@ -97,14 +149,11 @@ class _UploadVideoScreenNewState extends ConsumerState<UploadVideoScreenNew> {
           }
         });
 
-        // TODO: Extract video info using flutter_ffmpeg
-        // For now, set a placeholder duration
-        setState(() {
-          _videoDuration = 0;
-        });
+        // Extract video duration and generate thumbnails
+        _extractVideoInfoAndGenerateThumbnails(file);
 
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Video selected: $_videoFileName')),
+          const SnackBar(content: Text('Processing video...')),
         );
       }
     } catch (e) {
@@ -166,10 +215,16 @@ class _UploadVideoScreenNewState extends ConsumerState<UploadVideoScreenNew> {
       // Determine status based on isPublic
       final status = _isPublic ? 'PUBLIC' : 'VIP';
 
+      // Use selected generated thumbnail or custom thumbnail
+      File? thumbnailToUpload = _thumbnailFile;
+      if (thumbnailToUpload == null && _generatedThumbnails.isNotEmpty) {
+        thumbnailToUpload = File(_generatedThumbnails[_selectedThumbnailIndex]);
+      }
+
       // Upload video
       final response = await _apiService.uploadVideo(
         videoFile: _videoFile!,
-        thumbnailFile: _thumbnailFile,
+        thumbnailFile: thumbnailToUpload,
         title: _titleController.text,
         description: _descriptionController.text.isEmpty
             ? null
@@ -284,7 +339,138 @@ class _UploadVideoScreenNewState extends ConsumerState<UploadVideoScreenNew> {
               onTap: _isUploading ? null : _pickThumbnail,
             ),
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 16),
+
+          // Auto-Generated Thumbnails
+          if (_isGeneratingThumbnails)
+            const Card(
+              child: Padding(
+                padding: EdgeInsets.all(16.0),
+                child: Row(
+                  children: [
+                    CircularProgressIndicator(),
+                    SizedBox(width: 16),
+                    Text('Generating thumbnails...'),
+                  ],
+                ),
+              ),
+            ),
+
+          if (_generatedThumbnails.isNotEmpty && !_isGeneratingThumbnails) ...[
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Auto-Generated Thumbnails',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Select a thumbnail or upload your own',
+                      style: TextStyle(fontSize: 12, color: Colors.grey),
+                    ),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      height: 80,
+                      child: ListView.builder(
+                        scrollDirection: Axis.horizontal,
+                        itemCount: _generatedThumbnails.length,
+                        itemBuilder: (context, index) {
+                          final isSelected = _selectedThumbnailIndex == index;
+                          return Padding(
+                            padding: const EdgeInsets.only(right: 8.0),
+                            child: GestureDetector(
+                              onTap: () {
+                                setState(() {
+                                  _selectedThumbnailIndex = index;
+                                  _thumbnailFile =
+                                      null; // Clear custom thumbnail
+                                });
+                              },
+                              child: Container(
+                                width: 120,
+                                decoration: BoxDecoration(
+                                  border: Border.all(
+                                    color: isSelected
+                                        ? Theme.of(context).primaryColor
+                                        : Colors.grey,
+                                    width: isSelected ? 3 : 1,
+                                  ),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(8),
+                                  child: Stack(
+                                    children: [
+                                      Image.file(
+                                        File(_generatedThumbnails[index]),
+                                        width: 120,
+                                        height: 80,
+                                        fit: BoxFit.cover,
+                                      ),
+                                      if (isSelected)
+                                        Positioned(
+                                          top: 4,
+                                          right: 4,
+                                          child: Container(
+                                            padding: const EdgeInsets.all(4),
+                                            decoration: BoxDecoration(
+                                              color: Theme.of(context)
+                                                  .primaryColor,
+                                              shape: BoxShape.circle,
+                                            ),
+                                            child: const Icon(
+                                              Icons.check,
+                                              color: Colors.white,
+                                              size: 16,
+                                            ),
+                                          ),
+                                        ),
+                                      Positioned(
+                                        bottom: 4,
+                                        right: 4,
+                                        child: Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 6,
+                                            vertical: 2,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: Colors.black54,
+                                            borderRadius:
+                                                BorderRadius.circular(4),
+                                          ),
+                                          child: Text(
+                                            '#${index + 1}',
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 10,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+          ],
+
+          const SizedBox(height: 8),
 
           // Title
           TextFormField(

@@ -445,12 +445,11 @@ class _CurrentUserProfileScreenState
                   child: Stack(
                     fit: StackFit.expand,
                     children: [
-                      video.thumbnailUrl != null &&
-                              video.thumbnailUrl!.isNotEmpty
-                          ? Image.network(
-                              video.thumbnailUrl!,
+                      video.calculatedThumbnailUrl != null
+                          ? PresignedImage(
+                              imageUrl: video.calculatedThumbnailUrl!,
                               fit: BoxFit.cover,
-                              errorBuilder: (_, __, ___) => Container(
+                              errorWidget: Container(
                                 color: Colors.grey[300],
                                 child:
                                     const Icon(Icons.video_library, size: 48),

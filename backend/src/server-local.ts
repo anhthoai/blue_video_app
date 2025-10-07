@@ -16,6 +16,8 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { emailService } from './services/emailService';
 import { upload, deleteFromS3, chatFileStorage, chatFileFilter, videoUpload } from './services/s3Service';
+import { processVideo } from './services/videoProcessingService';
+import { promises as fs } from 'fs';
 import { serializeUserWithUrls, buildAvatarUrl, buildFileUrlSync } from './utils/fileUrl';
 import prisma from './lib/prisma';
 import multer from 'multer';
@@ -547,6 +549,7 @@ app.get('/api/v1/users/:userId/videos', async (req, res) => {
       status: video.status,
       tags: video.tags,
       subtitles: video.subtitles,
+      thumbnails: video.thumbnails || [],
       user: video.user ? serializeUserWithUrls(video.user) : null,
       // Also include user data at the top level for compatibility
       username: video.user?.username,
@@ -847,6 +850,7 @@ app.get('/api/v1/videos/trending', async (req, res) => {
       status: video.status,
       tags: video.tags,
       subtitles: video.subtitles,
+      thumbnails: video.thumbnails || [],
       user: video.user ? serializeUserWithUrls(video.user) : null,
       username: video.user?.username,
       firstName: video.user?.firstName,
@@ -929,7 +933,7 @@ app.post('/api/v1/videos/upload', authenticateToken, videoUpload.fields([
       categoryId,
       fileName: (videoFile as any).filename,
       fileDirectory: (videoFile as any).fileDirectory,
-      thumbnailUrl: thumbnailFile ? `thumbnails/${(thumbnailFile as any).fileDirectory}/${(thumbnailFile as any).filename}` : null,
+      thumbnailUploaded: thumbnailFile ? 'YES (will use same filename as video)' : 'NO',
       duration,
       fileSize: videoFile.size,
       tags: tagsArray,
@@ -938,6 +942,8 @@ app.post('/api/v1/videos/upload', authenticateToken, videoUpload.fields([
     });
 
     // Create video record
+    // Note: thumbnailUrl is left empty - frontend will calculate it as thumbnails/{fileDirectory}/{fileName}
+    // Only set thumbnailUrl if there's a custom thumbnail URL different from the default pattern
     const video = await prisma.video.create({
       data: {
         userId,
@@ -946,7 +952,7 @@ app.post('/api/v1/videos/upload', authenticateToken, videoUpload.fields([
         categoryId: categoryId || null,
         fileName: (videoFile as any).filename,
         fileDirectory: (videoFile as any).fileDirectory,
-        thumbnailUrl: thumbnailFile ? `thumbnails/${(thumbnailFile as any).fileDirectory}/${(thumbnailFile as any).filename}` : null,
+        thumbnailUrl: null, // Leave empty - frontend will use thumbnails/{fileDirectory}/{fileName}
         duration: duration ? parseInt(duration) : null,
         fileSize: BigInt(videoFile.size),
         tags: tagsArray,
@@ -979,9 +985,15 @@ app.post('/api/v1/videos/upload', authenticateToken, videoUpload.fields([
       isPublic: video.isPublic,
     });
 
+    // Process video asynchronously (extract metadata and generate thumbnails)
+    // Don't await - let it run in background and client can poll for status
+    processVideoAsync(video.id, videoFile, video.fileDirectory || '').catch(err => {
+      console.error('Error processing video async:', err);
+    });
+
     return res.json({
       success: true,
-      message: 'Video uploaded successfully',
+      message: 'Video uploaded successfully, processing thumbnails...',
       data: {
         id: video.id,
         title: video.title,
@@ -995,6 +1007,146 @@ app.post('/api/v1/videos/upload', authenticateToken, videoUpload.fields([
     return res.status(500).json({
       success: false,
       message: 'Failed to upload video',
+    });
+  }
+});
+
+// Async function to process video (runs in background)
+async function processVideoAsync(videoId: string, videoFile: any, fileDirectory: string) {
+  // Check if video conversion/processing is enabled
+  const isVideoConversionEnabled = process.env['VIDEO_CONVERSION'] === 'true';
+  
+  if (!isVideoConversionEnabled) {
+    console.log('⚠️  Video conversion is disabled (VIDEO_CONVERSION=false)');
+    console.log('   Skipping backend video processing - frontend will handle thumbnails');
+    
+    // Clean up temp file if it exists
+    const tempVideoPath = videoFile.tempPath;
+    if (tempVideoPath) {
+      try {
+        await fs.unlink(tempVideoPath);
+        console.log(`🗑️  Cleaned up temp video: ${tempVideoPath}`);
+      } catch (err) {
+        console.error(`⚠️  Failed to clean up temp video: ${err}`);
+      }
+    }
+    return;
+  }
+  
+  const tempVideoPath = videoFile.tempPath;
+  
+  if (!tempVideoPath) {
+    console.log('⚠️  No temp video path available, skipping processing');
+    return;
+  }
+  
+  try {
+    console.log(`🎬 Starting async video processing for: ${videoId}`);
+    console.log(`📁 Using temp video file: ${tempVideoPath}`);
+    
+    const result = await processVideo(tempVideoPath, fileDirectory);
+    
+    // Update video record with metadata and thumbnails
+    await prisma.video.update({
+      where: { id: videoId },
+      data: {
+        duration: Math.round(result.metadata.duration),
+        thumbnailUrl: result.thumbnails[0] || null, // Use first thumbnail as default
+        thumbnails: result.thumbnails, // Store all thumbnails for selection
+      },
+    });
+    
+    console.log(`✅ Video ${videoId} processed successfully`);
+    console.log(`   - Duration: ${result.metadata.duration}s`);
+    console.log(`   - Resolution: ${result.metadata.width}x${result.metadata.height}`);
+    console.log(`   - Thumbnails generated: ${result.thumbnails.length}`);
+    console.log(`🖼️  Generated thumbnails:`, result.thumbnails);
+    
+  } catch (error) {
+    console.error(`❌ Error processing video ${videoId}:`, error);
+  } finally {
+    // Clean up temp file
+    try {
+      await fs.unlink(tempVideoPath);
+      console.log(`🗑️  Cleaned up temp video: ${tempVideoPath}`);
+    } catch (err) {
+      console.error(`⚠️  Failed to clean up temp video: ${err}`);
+    }
+  }
+}
+
+// Update video thumbnail selection
+app.patch('/api/v1/videos/:id/thumbnail', authenticateToken, async (req: any, res) => {
+  try {
+    const { id } = req.params;
+    const { thumbnailIndex } = req.body;
+    const userId = req.user?.id;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: 'User not authenticated',
+      });
+    }
+
+    // Get video to check ownership and thumbnails
+    const video = await prisma.video.findUnique({
+      where: { id },
+      select: { userId: true, thumbnails: true },
+    });
+
+    if (!video) {
+      return res.status(404).json({
+        success: false,
+        message: 'Video not found',
+      });
+    }
+
+    if (video.userId !== userId) {
+      return res.status(403).json({
+        success: false,
+        message: 'Not authorized to update this video',
+      });
+    }
+
+    if (!video.thumbnails || video.thumbnails.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'No thumbnails available for this video',
+      });
+    }
+
+    const index = parseInt(thumbnailIndex);
+    if (isNaN(index) || index < 0 || index >= video.thumbnails.length) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid thumbnail index',
+      });
+    }
+
+    // Update the selected thumbnail
+    const selectedThumbnail = video.thumbnails[index];
+    const updatedVideo = await prisma.video.update({
+      where: { id },
+      data: {
+        thumbnailUrl: selectedThumbnail || null,
+      },
+    });
+
+    console.log(`🖼️  Updated thumbnail for video ${id} to index ${index}`);
+
+    return res.json({
+      success: true,
+      message: 'Thumbnail updated successfully',
+      data: {
+        thumbnailUrl: updatedVideo.thumbnailUrl,
+      },
+    });
+  } catch (error) {
+    console.error('Error updating thumbnail:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to update thumbnail',
     });
   }
 });
@@ -1076,6 +1228,7 @@ app.get('/api/v1/videos/:id', async (req, res) => {
       status: video.status,
       tags: video.tags,
       subtitles: video.subtitles,
+      thumbnails: video.thumbnails || [],
       user: video.user ? serializeUserWithUrls(video.user) : null,
       // Also include user data at the top level for compatibility
       username: video.user?.username,
@@ -1158,6 +1311,7 @@ app.get('/api/v1/videos', async (req, res) => {
       status: video.status,
       tags: video.tags,
       subtitles: video.subtitles,
+      thumbnails: video.thumbnails || [],
       user: video.user ? serializeUserWithUrls(video.user) : null,
       // Also include user data at the top level for compatibility
       username: video.user?.username,
@@ -1255,6 +1409,7 @@ app.get('/api/v1/categories/:categoryId/videos', async (req, res) => {
       status: video.status,
       tags: video.tags,
       subtitles: video.subtitles,
+      thumbnails: video.thumbnails || [],
       user: video.user ? serializeUserWithUrls(video.user) : null,
       username: video.user?.username,
       firstName: video.user?.firstName,

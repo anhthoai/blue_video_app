@@ -326,54 +326,50 @@ export const videoStorage: any = {
       const fileDirectory = `${year}/${month}/${day}`;
       
       const extension = file.originalname.split('.').pop();
-      const filename = `${uuidv4()}.${extension}`;
-      const key = `videos/${fileDirectory}/${filename}`;
       
-      console.log('📁 Video file details:', {
-        originalName: file.originalname,
-        mimetype: file.mimetype,
-        fileDirectory,
-        filename,
-        key,
-      });
-      
-      // Convert stream to buffer
-      const chunks: Buffer[] = [];
-      file.stream.on('data', (chunk: Buffer) => chunks.push(chunk));
-      file.stream.on('end', async () => {
-        try {
-          const buffer = Buffer.concat(chunks);
-          console.log(`📦 Buffer size: ${buffer.length} bytes (${(buffer.length / 1024 / 1024).toFixed(2)} MB)`);
-          
-          const command = new PutObjectCommand({
-            Bucket: BUCKET_NAME,
-            Key: key,
-            Body: buffer,
-            ContentType: file.mimetype,
-          });
-          
-          console.log('☁️ Uploading to S3/R2:', key);
-          await s3Client.send(command);
-          console.log('✅ Upload to S3/R2 successful!');
-          
-          cb(null, {
-            bucket: BUCKET_NAME,
-            key: key,
-            fileDirectory: fileDirectory,
-            filename: filename,
-            size: buffer.length,
-            mimetype: file.mimetype,
-            originalname: file.originalname,
-          });
-        } catch (error) {
-          console.log('❌ Error uploading to S3/R2:', error);
-          cb(error);
-        }
-      });
-      
-      file.stream.on('error', (error: any) => {
-        cb(error);
-      });
+      // Store the video filename in req so thumbnail can use the same name
+      if (file.fieldname === 'video') {
+        // Generate new UUID for video
+        const baseFilename = uuidv4();
+        const filename = `${baseFilename}.${extension}`;
+        req._videoBaseFilename = baseFilename; // Store base name for thumbnail
+        req._videoFileDirectory = fileDirectory; // Store directory for thumbnail
+        
+        const key = `videos/${fileDirectory}/${filename}`;
+        
+        console.log('📁 Video file details:', {
+          originalName: file.originalname,
+          mimetype: file.mimetype,
+          fileDirectory,
+          filename,
+          baseFilename,
+          key,
+        });
+        
+        // Continue with video upload
+        await uploadFileToS3(file, key, fileDirectory, filename, cb);
+      } else if (file.fieldname === 'thumbnail') {
+        // Use the same base filename as video but with image extension
+        const baseFilename = req._videoBaseFilename || uuidv4();
+        const thumbnailFileDirectory = req._videoFileDirectory || fileDirectory;
+        const filename = `${baseFilename}.${extension}`;
+        
+        const key = `thumbnails/${thumbnailFileDirectory}/${filename}`;
+        
+        console.log('📁 Thumbnail file details (using video filename):', {
+          originalName: file.originalname,
+          mimetype: file.mimetype,
+          fileDirectory: thumbnailFileDirectory,
+          filename,
+          baseFilename,
+          key,
+        });
+        
+        // Continue with thumbnail upload
+        await uploadFileToS3(file, key, thumbnailFileDirectory, filename, cb);
+      } else {
+        return cb(new Error('Unknown field: ' + file.fieldname));
+      }
     } catch (error) {
       cb(error);
     }
@@ -392,14 +388,103 @@ export const videoStorage: any = {
   },
 };
 
-// Video file filter
+// Helper function to upload file to S3
+async function uploadFileToS3(file: any, key: string, fileDirectory: string, filename: string, cb: any) {
+  try {
+    // Convert stream to buffer
+    const chunks: Buffer[] = [];
+    file.stream.on('data', (chunk: Buffer) => chunks.push(chunk));
+    file.stream.on('end', async () => {
+      try {
+        const buffer = Buffer.concat(chunks);
+        console.log(`📦 Buffer size: ${buffer.length} bytes (${(buffer.length / 1024 / 1024).toFixed(2)} MB)`);
+        
+        const command = new PutObjectCommand({
+          Bucket: BUCKET_NAME,
+          Key: key,
+          Body: buffer,
+          ContentType: file.mimetype,
+        });
+        
+        console.log('☁️  Uploading to S3/R2:', key);
+        await s3Client.send(command);
+        console.log('✅ Upload to S3/R2 successful!');
+        
+        // Save buffer to temporary local file for ffmpeg processing (only if VIDEO_CONVERSION is enabled and it's a video)
+        let tempPath = null;
+        const isVideoConversionEnabled = process.env['VIDEO_CONVERSION'] === 'true';
+        
+        if (isVideoConversionEnabled && file.fieldname === 'video') {
+          const tempDir = require('path').join(process.cwd(), 'temp', 'videos');
+          await require('fs').promises.mkdir(tempDir, { recursive: true });
+          tempPath = require('path').join(tempDir, filename);
+          await require('fs').promises.writeFile(tempPath, buffer);
+          console.log(`💾 Saved temp copy for processing: ${tempPath}`);
+        } else if (!isVideoConversionEnabled && file.fieldname === 'video') {
+          console.log('⚠️  VIDEO_CONVERSION=false - Skipping temp file creation');
+        }
+        
+        cb(null, {
+          bucket: BUCKET_NAME,
+          key: key,
+          fileDirectory: fileDirectory,
+          filename: filename,
+          size: buffer.length,
+          mimetype: file.mimetype,
+          originalname: file.originalname,
+          tempPath: tempPath, // Will be null if VIDEO_CONVERSION is false
+        });
+      } catch (error) {
+        console.log('❌ Error uploading to S3/R2:', error);
+        cb(error);
+      }
+    });
+    
+    file.stream.on('error', (error: any) => {
+      cb(error);
+    });
+  } catch (error) {
+    cb(error);
+  }
+}
+
+// Video file filter - handles both video and thumbnail uploads
 export const videoFileFilter = (_req: any, file: any, cb: any) => {
-  const allowedExtensions = (process.env['ALLOWED_VIDEO_EXTENSIONS'] || '.mp4,.mkv,.m4v,.mov,.webm,.avi,.flv,.wmv').split(',');
   const ext = '.' + file.originalname.split('.').pop()?.toLowerCase();
+  const mimetype = file.mimetype?.toLowerCase();
   
-  if (allowedExtensions.includes(ext)) {
+  console.log('🎬 File filter check:', {
+    fieldname: file.fieldname,
+    originalname: file.originalname,
+    extension: ext,
+    mimetype: mimetype,
+  });
+  
+  // If it's a thumbnail, check image formats
+  if (file.fieldname === 'thumbnail') {
+    const imageExtensions = ['.jpg', '.jpeg', '.png', '.webp', '.gif'];
+    const imageMimeTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif'];
+    
+    if (imageExtensions.includes(ext) || (mimetype && (imageMimeTypes.includes(mimetype) || mimetype.startsWith('image/')))) {
+      console.log('✅ Thumbnail image accepted');
+      cb(null, true);
+    } else {
+      console.log('❌ Thumbnail image rejected');
+      cb(new Error(`Only image files are allowed for thumbnails: ${imageExtensions.join(', ')}`));
+    }
+    return;
+  }
+  
+  // If it's a video, check video formats
+  const allowedExtensions = (process.env['ALLOWED_VIDEO_EXTENSIONS'] || '.mp4,.mkv,.m4v,.mov,.webm,.avi,.flv,.wmv').split(',');
+  const allowedMimeTypes = (process.env['ALLOWED_VIDEO_TYPES'] || 'video/mp4,video/webm,video/quicktime,video/x-matroska,video/x-m4v').split(',');
+  
+  // Allow if either extension OR mimetype matches
+  if (allowedExtensions.includes(ext) || (mimetype && (allowedMimeTypes.includes(mimetype) || mimetype.startsWith('video/')))) {
+    console.log('✅ Video file accepted');
     cb(null, true);
   } else {
+    console.log('❌ Video file rejected');
     cb(new Error(`Only video files are allowed: ${allowedExtensions.join(', ')}`));
   }
 };

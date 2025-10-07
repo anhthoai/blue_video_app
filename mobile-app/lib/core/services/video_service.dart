@@ -170,25 +170,8 @@ class VideoService {
       if (response['success'] == true && response['data'] != null) {
         final videosData = response['data'] as List;
         return videosData.map((videoData) {
-          return VideoModel(
-            id: videoData['id'] ?? 'unknown',
-            userId: videoData['userId'] ?? userId,
-            title: videoData['title'] ?? 'Untitled',
-            description: videoData['description'],
-            videoUrl: videoData['videoUrl'] ?? '',
-            thumbnailUrl: videoData['thumbnailUrl'],
-            duration: videoData['duration'],
-            viewCount: videoData['views'] ?? 0,
-            likeCount: videoData['likes'] ?? 0,
-            commentCount: videoData['comments'] ?? 0,
-            shareCount: videoData['shares'] ?? 0,
-            isPublic: videoData['isPublic'] ?? true,
-            isFeatured: videoData['isFeatured'] ?? false,
-            createdAt: DateTime.parse(
-                videoData['createdAt'] ?? DateTime.now().toIso8601String()),
-            tags: List<String>.from(videoData['tags'] ?? []),
-            category: videoData['category'],
-          );
+          // Use VideoModel.fromJson to ensure all fields (including fileName and fileDirectory) are parsed
+          return VideoModel.fromJson(videoData as Map<String, dynamic>);
         }).toList();
       }
       return [];

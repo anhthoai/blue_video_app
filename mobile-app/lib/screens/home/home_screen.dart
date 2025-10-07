@@ -99,16 +99,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       return VideoCard(
                         videoId: video.id,
                         title: video.title,
-                        thumbnailUrl: video.thumbnailUrl ??
-                            'https://picsum.photos/400/225?random=$index',
+                        thumbnailUrl: video.calculatedThumbnailUrl,
                         duration: video.formattedDuration,
                         viewCount: video.viewCount,
                         likeCount: video.likeCount,
                         commentCount: video.commentCount,
                         shareCount: video.shareCount,
                         authorName: video.displayName,
-                        authorAvatar: video.userAvatarUrl ??
-                            'https://picsum.photos/50/50?random=$index',
+                        authorAvatar: video.userAvatarUrl,
                         currentUserId: 'mock_user_1',
                         currentUsername: 'Test User',
                         currentUserAvatar: 'https://i.pravatar.cc/150?img=1',

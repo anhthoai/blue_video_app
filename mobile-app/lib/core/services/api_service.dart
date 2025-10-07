@@ -860,6 +860,30 @@ class ApiService {
   }
 
   // Upload video
+  // Update video thumbnail selection
+  Future<Map<String, dynamic>> updateVideoThumbnail(
+    String videoId,
+    int thumbnailIndex,
+  ) async {
+    try {
+      final response = await http.patch(
+        Uri.parse('$baseUrl/videos/$videoId/thumbnail'),
+        headers: await _getHeaders(),
+        body: json.encode({
+          'thumbnailIndex': thumbnailIndex,
+        }),
+      );
+
+      return await _handleResponse(response);
+    } catch (e) {
+      print('Error updating video thumbnail: $e');
+      return {
+        'success': false,
+        'message': 'Failed to update thumbnail: $e',
+      };
+    }
+  }
+
   Future<Map<String, dynamic>> uploadVideo({
     required File videoFile,
     File? thumbnailFile,

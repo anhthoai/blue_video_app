@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 
 import '../core/services/video_service.dart';
 import '../models/video_model.dart';
+import 'common/presigned_image.dart';
 
 class TrendingVideos extends ConsumerWidget {
   const TrendingVideos({super.key});
@@ -88,26 +89,35 @@ class TrendingVideos extends ConsumerWidget {
                 ),
                 child: Stack(
                   children: [
-                    CachedNetworkImage(
-                      imageUrl:
-                          video.thumbnailUrl ?? 'https://picsum.photos/160/120',
-                      width: 160,
-                      height: 120,
-                      fit: BoxFit.cover,
-                      placeholder: (context, url) => Container(
-                        color: Colors.grey[300],
-                        child: const Center(
-                          child: CircularProgressIndicator(),
-                        ),
-                      ),
-                      errorWidget: (context, url, error) => Container(
-                        color: Colors.grey[300],
-                        child: const Icon(
-                          Icons.video_library,
-                          color: Colors.grey,
-                        ),
-                      ),
-                    ),
+                    video.calculatedThumbnailUrl != null
+                        ? PresignedImage(
+                            imageUrl: video.calculatedThumbnailUrl!,
+                            width: 160,
+                            height: 120,
+                            fit: BoxFit.cover,
+                            placeholder: Container(
+                              color: Colors.grey[300],
+                              child: const Center(
+                                child: CircularProgressIndicator(),
+                              ),
+                            ),
+                            errorWidget: Container(
+                              color: Colors.grey[300],
+                              child: const Icon(
+                                Icons.video_library,
+                                color: Colors.grey,
+                              ),
+                            ),
+                          )
+                        : Container(
+                            width: 160,
+                            height: 120,
+                            color: Colors.grey[300],
+                            child: const Icon(
+                              Icons.video_library,
+                              color: Colors.grey,
+                            ),
+                          ),
 
                     // Play Button Overlay
                     Positioned.fill(

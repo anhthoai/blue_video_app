@@ -229,17 +229,16 @@ class VideoCard extends ConsumerWidget {
           // Thumbnail Image
           ClipRRect(
             borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-            child: CachedNetworkImage(
-              imageUrl: thumbnailUrl ??
-                  'https://picsum.photos/400/225?random=$videoId',
+            child: PresignedImage(
+              imageUrl: thumbnailUrl,
               width: double.infinity,
               height: double.infinity,
               fit: BoxFit.cover,
-              placeholder: (context, url) => Container(
+              placeholder: Container(
                 color: Colors.grey[300],
                 child: const Center(child: CircularProgressIndicator()),
               ),
-              errorWidget: (context, url, error) => Container(
+              errorWidget: Container(
                 color: Colors.grey[300],
                 child: const Icon(
                   Icons.video_library,

@@ -791,23 +791,32 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
               Container(
                 width: double.infinity,
                 height: double.infinity,
-                child: CachedNetworkImage(
-                  imageUrl: video.thumbnailUrl ??
-                      'https://picsum.photos/400/225?random=${widget.videoId.hashCode}',
-                  fit: BoxFit.cover,
-                  placeholder: (context, url) => Container(
-                    color: Colors.grey[800],
-                    child: const Center(
-                      child: CircularProgressIndicator(color: Colors.white),
-                    ),
-                  ),
-                  errorWidget: (context, url, error) => Container(
-                    color: Colors.grey[800],
-                    child: const Center(
-                      child: Icon(Icons.error, color: Colors.white, size: 50),
-                    ),
-                  ),
-                ),
+                child: video.calculatedThumbnailUrl != null
+                    ? PresignedImage(
+                        imageUrl: video.calculatedThumbnailUrl!,
+                        fit: BoxFit.cover,
+                        placeholder: Container(
+                          color: Colors.grey[800],
+                          child: const Center(
+                            child:
+                                CircularProgressIndicator(color: Colors.white),
+                          ),
+                        ),
+                        errorWidget: Container(
+                          color: Colors.grey[800],
+                          child: const Center(
+                            child: Icon(Icons.error,
+                                color: Colors.white, size: 50),
+                          ),
+                        ),
+                      )
+                    : Container(
+                        color: Colors.grey[800],
+                        child: const Center(
+                          child: Icon(Icons.video_library,
+                              color: Colors.white, size: 50),
+                        ),
+                      ),
               ),
             // Play/Pause Button or Loading indicator
             if (!_isPlaying)
@@ -1419,26 +1428,33 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
                   children: [
                     ClipRRect(
                       borderRadius: BorderRadius.circular(8),
-                      child: CachedNetworkImage(
-                        imageUrl: video.thumbnailUrl ??
-                            'https://picsum.photos/140/90',
-                        width: double.infinity,
-                        height: double.infinity,
-                        fit: BoxFit.cover,
-                        placeholder: (context, url) => Container(
-                          color: Colors.grey[300],
-                          child: const Center(
-                            child: CircularProgressIndicator(),
-                          ),
-                        ),
-                        errorWidget: (context, url, error) => Container(
-                          color: Colors.grey[300],
-                          child: const Icon(
-                            Icons.video_library,
-                            color: Colors.grey,
-                          ),
-                        ),
-                      ),
+                      child: video.calculatedThumbnailUrl != null
+                          ? PresignedImage(
+                              imageUrl: video.calculatedThumbnailUrl!,
+                              width: double.infinity,
+                              height: double.infinity,
+                              fit: BoxFit.cover,
+                              placeholder: Container(
+                                color: Colors.grey[300],
+                                child: const Center(
+                                  child: CircularProgressIndicator(),
+                                ),
+                              ),
+                              errorWidget: Container(
+                                color: Colors.grey[300],
+                                child: const Icon(
+                                  Icons.video_library,
+                                  color: Colors.grey,
+                                ),
+                              ),
+                            )
+                          : Container(
+                              color: Colors.grey[300],
+                              child: const Icon(
+                                Icons.video_library,
+                                color: Colors.grey,
+                              ),
+                            ),
                     ),
                     // Play button
                     Center(
