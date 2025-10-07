@@ -367,6 +367,34 @@ export const videoStorage: any = {
         
         // Continue with thumbnail upload
         await uploadFileToS3(file, key, thumbnailFileDirectory, filename, cb);
+      } else if (file.fieldname.startsWith('subtitle_')) {
+        // Extract language code from fieldname (subtitle_eng, subtitle_tha, etc.)
+        const langCode = file.fieldname.replace('subtitle_', '');
+        
+        // Use the same base filename as video but with subtitle naming
+        const baseFilename = req._videoBaseFilename || uuidv4();
+        const subtitleFileDirectory = req._videoFileDirectory || fileDirectory;
+        
+        // Build subtitle filename: baseFilename.langCode.srt or baseFilename.srt (for English)
+        // English doesn't need language code suffix
+        const filename = (langCode === 'eng' || langCode === 'en') 
+          ? `${baseFilename}.${extension}`
+          : `${baseFilename}.${langCode}.${extension}`;
+        
+        const key = `subtitles/${subtitleFileDirectory}/${filename}`;
+        
+        console.log('📁 Subtitle file details (using video filename):', {
+          originalName: file.originalname,
+          mimetype: file.mimetype,
+          langCode,
+          fileDirectory: subtitleFileDirectory,
+          filename,
+          baseFilename,
+          key,
+        });
+        
+        // Continue with subtitle upload
+        await uploadFileToS3(file, key, subtitleFileDirectory, filename, cb);
       } else {
         return cb(new Error('Unknown field: ' + file.fieldname));
       }
@@ -471,6 +499,21 @@ export const videoFileFilter = (_req: any, file: any, cb: any) => {
     } else {
       console.log('❌ Thumbnail image rejected');
       cb(new Error(`Only image files are allowed for thumbnails: ${imageExtensions.join(', ')}`));
+    }
+    return;
+  }
+  
+  // If it's a subtitle, check subtitle formats
+  if (file.fieldname.startsWith('subtitle_')) {
+    const subtitleExtensions = ['.srt', '.vtt', '.ass', '.ssa'];
+    const subtitleMimeTypes = ['text/plain', 'text/srt', 'text/vtt', 'application/x-subrip'];
+    
+    if (subtitleExtensions.includes(ext) || (mimetype && (subtitleMimeTypes.includes(mimetype) || mimetype.startsWith('text/')))) {
+      console.log('✅ Subtitle file accepted');
+      cb(null, true);
+    } else {
+      console.log('❌ Subtitle file rejected');
+      cb(new Error(`Only subtitle files are allowed: ${subtitleExtensions.join(', ')}`));
     }
     return;
   }

@@ -195,4 +195,92 @@ class VideoUtils {
       return 0;
     }
   }
+
+  /// Extract subtitles from video file (especially MKV)
+  /// Returns a map of language code -> subtitle file path
+  /// Example: {'eng': '/path/to/subtitle.eng.srt', 'tha': '/path/to/subtitle.tha.srt'}
+  static Future<Map<String, String>> extractSubtitles(
+    File videoFile, {
+    String? outputDir,
+  }) async {
+    try {
+      print('🎬 Extracting subtitles from: ${videoFile.path}');
+
+      final tempDir = await getTemporaryDirectory();
+      final outputDirectory = outputDir ?? tempDir.path;
+      final Map<String, String> subtitles = {};
+
+      // First, probe the video to get subtitle stream information
+      final probeCommand = '-i "${videoFile.path}" -hide_banner';
+      final probeSession = await FFprobeKit.execute(probeCommand);
+      final output = await probeSession.getOutput();
+
+      if (output == null) {
+        print('❌ No FFprobe output');
+        return subtitles;
+      }
+
+      print('📋 FFprobe output:\n$output');
+
+      // Parse subtitle streams from output
+      // Look for lines like: "Stream #0:2(eng): Subtitle: subrip"
+      final streamPattern = RegExp(
+        r'Stream #0:(\d+)\(([a-z]{2,3})\): Subtitle:',
+        caseSensitive: false,
+      );
+
+      final matches = streamPattern.allMatches(output);
+
+      if (matches.isEmpty) {
+        print('ℹ️  No embedded subtitles found');
+        return subtitles;
+      }
+
+      print('✅ Found ${matches.length} subtitle stream(s)');
+
+      // Extract each subtitle stream
+      for (final match in matches) {
+        final streamIndex = match.group(1);
+        final langCode = match.group(2)?.toLowerCase();
+
+        if (streamIndex == null || langCode == null) continue;
+
+        print(
+            '📝 Extracting subtitle stream $streamIndex (language: $langCode)');
+
+        // Generate output filename
+        final timestamp = DateTime.now().millisecondsSinceEpoch;
+        final outputPath = path.join(
+          outputDirectory,
+          'subtitle_${langCode}_$timestamp.srt',
+        );
+
+        // Extract subtitle using FFmpeg
+        // -map 0:streamIndex selects the specific subtitle stream
+        final extractCommand =
+            '-i "${videoFile.path}" -map 0:$streamIndex -c:s srt "$outputPath"';
+
+        final extractSession = await FFmpegKit.execute(extractCommand);
+        final returnCode = await extractSession.getReturnCode();
+
+        if (returnCode != null && returnCode.getValue() == 0) {
+          final file = File(outputPath);
+          if (await file.exists()) {
+            subtitles[langCode] = outputPath;
+            print('   ✅ Extracted: $langCode -> $outputPath');
+          } else {
+            print('   ⚠️  File not created: $outputPath');
+          }
+        } else {
+          print('   ❌ Failed to extract subtitle stream $streamIndex');
+        }
+      }
+
+      print('🎉 Successfully extracted ${subtitles.length} subtitle(s)');
+      return subtitles;
+    } catch (e) {
+      print('❌ Error extracting subtitles: $e');
+      return {};
+    }
+  }
 }

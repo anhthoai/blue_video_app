@@ -894,6 +894,7 @@ class ApiService {
     int? cost,
     String? status,
     int? duration,
+    Map<String, File>? subtitleFiles, // langCode -> subtitle file
     Function(double)? onProgress,
   }) async {
     try {
@@ -926,6 +927,27 @@ class ApiService {
           filename: thumbnailFile.path.split('/').last,
         );
         request.files.add(thumbnailMultipart);
+      }
+
+      // Add subtitle files if provided
+      if (subtitleFiles != null && subtitleFiles.isNotEmpty) {
+        for (final entry in subtitleFiles.entries) {
+          final langCode = entry.key;
+          final subtitleFile = entry.value;
+
+          final subtitleStream = http.ByteStream(subtitleFile.openRead());
+          final subtitleLength = await subtitleFile.length();
+          final subtitleMultipart = http.MultipartFile(
+            'subtitle_$langCode', // Field name: subtitle_eng, subtitle_tha, etc.
+            subtitleStream,
+            subtitleLength,
+            filename: subtitleFile.path.split('/').last,
+          );
+          request.files.add(subtitleMultipart);
+        }
+
+        // Add subtitle language codes as a field
+        request.fields['subtitles'] = subtitleFiles.keys.join(',');
       }
 
       // Add fields

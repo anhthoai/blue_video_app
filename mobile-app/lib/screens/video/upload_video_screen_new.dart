@@ -40,6 +40,10 @@ class _UploadVideoScreenNewState extends ConsumerState<UploadVideoScreenNew> {
   int _selectedThumbnailIndex = 0;
   bool _isGeneratingThumbnails = false;
 
+  // Subtitle extraction
+  Map<String, String> _extractedSubtitles = {}; // langCode -> file path
+  List<String> _subtitleLanguages = []; // List of language codes
+
   @override
   void initState() {
     super.initState();
@@ -87,18 +91,26 @@ class _UploadVideoScreenNewState extends ConsumerState<UploadVideoScreenNew> {
       final thumbnails = await VideoUtils.generateThumbnails(videoFile, 5);
       print('🖼️  Generated ${thumbnails.length} thumbnails');
 
+      // Extract embedded subtitles (especially from MKV files)
+      final subtitles = await VideoUtils.extractSubtitles(videoFile);
+      print('📝 Extracted ${subtitles.length} subtitle(s)');
+
       setState(() {
         _videoDuration = duration;
         _generatedThumbnails = thumbnails;
         _selectedThumbnailIndex = 0;
+        _extractedSubtitles = subtitles;
+        _subtitleLanguages = subtitles.keys.toList();
         _isGeneratingThumbnails = false;
       });
 
       if (mounted) {
+        final subtitleInfo =
+            subtitles.isNotEmpty ? ', ${subtitles.length} subtitle(s)' : '';
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              'Video processed: ${duration}s, ${thumbnails.length} thumbnails generated',
+              'Video processed: ${duration}s, ${thumbnails.length} thumbnails$subtitleInfo',
             ),
           ),
         );
@@ -108,6 +120,8 @@ class _UploadVideoScreenNewState extends ConsumerState<UploadVideoScreenNew> {
       setState(() {
         _videoDuration = null;
         _generatedThumbnails = [];
+        _extractedSubtitles = {};
+        _subtitleLanguages = [];
         _isGeneratingThumbnails = false;
       });
 
@@ -221,6 +235,15 @@ class _UploadVideoScreenNewState extends ConsumerState<UploadVideoScreenNew> {
         thumbnailToUpload = File(_generatedThumbnails[_selectedThumbnailIndex]);
       }
 
+      // Prepare subtitle files for upload
+      Map<String, File>? subtitleFilesToUpload;
+      if (_extractedSubtitles.isNotEmpty) {
+        subtitleFilesToUpload = {};
+        for (final entry in _extractedSubtitles.entries) {
+          subtitleFilesToUpload[entry.key] = File(entry.value);
+        }
+      }
+
       // Upload video
       final response = await _apiService.uploadVideo(
         videoFile: _videoFile!,
@@ -234,6 +257,7 @@ class _UploadVideoScreenNewState extends ConsumerState<UploadVideoScreenNew> {
         cost: cost,
         status: status,
         duration: _videoDuration,
+        subtitleFiles: subtitleFilesToUpload,
         onProgress: (progress) {
           setState(() {
             _uploadProgress = progress;

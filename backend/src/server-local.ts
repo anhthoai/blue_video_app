@@ -877,10 +877,7 @@ app.get('/api/v1/videos/trending', async (req, res) => {
 });
 
 // Upload video
-app.post('/api/v1/videos/upload', authenticateToken, videoUpload.fields([
-  { name: 'video', maxCount: 1 },
-  { name: 'thumbnail', maxCount: 1 }
-]), async (req: any, res) => {
+app.post('/api/v1/videos/upload', authenticateToken, videoUpload.any(), async (req: any, res) => {
   console.log('🎬 ========== VIDEO UPLOAD REQUEST RECEIVED ==========');
   console.log('🎬 Timestamp:', new Date().toISOString());
   
@@ -896,12 +893,14 @@ app.post('/api/v1/videos/upload', authenticateToken, videoUpload.fields([
       });
     }
 
-    const files = req.files as { [fieldname: string]: Express.Multer.File[] };
-    const videoFile = files['video']?.[0];
-    const thumbnailFile = files['thumbnail']?.[0];
+    const files = req.files as Express.Multer.File[];
+    const videoFile = files.find(f => f.fieldname === 'video');
+    const thumbnailFile = files.find(f => f.fieldname === 'thumbnail');
+    const subtitleFiles = files.filter(f => f.fieldname.startsWith('subtitle_'));
 
     console.log('📁 Video file received:', videoFile ? 'YES' : 'NO');
     console.log('📁 Thumbnail file received:', thumbnailFile ? 'YES' : 'NO');
+    console.log('📁 Subtitle files received:', subtitleFiles.length);
 
     if (!videoFile) {
       console.log('❌ No video file in request');
@@ -919,12 +918,16 @@ app.post('/api/v1/videos/upload', authenticateToken, videoUpload.fields([
       cost,
       status,
       duration,
+      subtitles,
     } = req.body;
     
-    console.log('📝 Request body:', { title, description, categoryId, tags, cost, status, duration });
+    console.log('📝 Request body:', { title, description, categoryId, tags, cost, status, duration, subtitles });
 
     // Parse tags
     const tagsArray = tags ? tags.split(',').map((tag: string) => tag.trim()) : [];
+    
+    // Parse subtitle languages
+    const subtitleLanguages = subtitles ? subtitles.split(',').map((lang: string) => lang.trim()) : [];
 
     console.log('📹 Creating video record:', {
       userId,
@@ -959,7 +962,7 @@ app.post('/api/v1/videos/upload', authenticateToken, videoUpload.fields([
         cost: cost ? parseInt(cost) : 0,
         status: (status as any) || 'PUBLIC',
         quality: [],
-        subtitles: [],
+        subtitles: subtitleLanguages,
       },
       include: {
         user: {
