@@ -145,6 +145,10 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
         ],
         bottom: TabBar(
           controller: _tabController,
+          indicatorColor: Colors.white,
+          labelColor: Colors.white,
+          unselectedLabelColor: Colors.white.withOpacity(0.7),
+          indicatorWeight: 3,
           tabs: const [
             Tab(text: 'Trending'),
             Tab(text: 'Categories'),
@@ -201,32 +205,56 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
                     ),
                     child: Stack(
                       children: [
-                        if (video.thumbnailUrl != null)
+                        if (video.calculatedThumbnailUrl != null)
                           ClipRRect(
                             borderRadius: BorderRadius.circular(8),
-                            child: Image.network(
-                              video.thumbnailUrl!,
+                            child: PresignedImage(
+                              imageUrl: video.calculatedThumbnailUrl!,
                               width: 56,
                               height: 56,
                               fit: BoxFit.cover,
-                              errorBuilder: (_, __, ___) => Center(
-                                child: Text(
-                                  '${index + 1}',
-                                  style: const TextStyle(
-                                    fontSize: 20,
-                                    fontWeight: FontWeight.bold,
+                              placeholder: Container(
+                                color: Colors.grey[300],
+                                child: Center(
+                                  child: Text(
+                                    '${index + 1}',
+                                    style: const TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                      color: const Color(0xFF757575),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              errorWidget: Container(
+                                color: Colors.grey[300],
+                                child: Center(
+                                  child: Text(
+                                    '${index + 1}',
+                                    style: const TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                      color: const Color(0xFF757575),
+                                    ),
                                   ),
                                 ),
                               ),
                             ),
                           )
                         else
-                          Center(
-                            child: Text(
-                              '${index + 1}',
-                              style: const TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
+                          Container(
+                            decoration: BoxDecoration(
+                              color: Colors.grey[300],
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Center(
+                              child: Text(
+                                '${index + 1}',
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  color: const Color(0xFF757575),
+                                ),
                               ),
                             ),
                           ),
