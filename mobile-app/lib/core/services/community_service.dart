@@ -8,55 +8,58 @@ class CommunityService {
   final ApiService _apiService = ApiService();
 
   // Create a new community post
-  Future<CommunityPost?> createPost({
-    required String userId,
-    required String username,
-    required String userAvatar,
+  Future<Map<String, dynamic>> createPost({
     required String title,
     required String content,
     required PostType type,
     List<String>? images,
     List<String>? videos,
-    String? videoUrl,
     String? linkUrl,
     String? linkTitle,
     String? linkDescription,
-    String? linkThumbnail,
-    Map<String, dynamic>? pollData,
+    Map<String, dynamic>? pollOptions,
     List<String>? tags,
     String? category,
+    int? cost,
+    bool? requiresVip,
+    bool? allowComments,
+    bool? allowCommentLinks,
+    bool? isPinned,
+    bool? isNsfw,
+    String? replyRestriction,
   }) async {
     try {
-      // In a real app, this would make an API call
-      await Future.delayed(const Duration(milliseconds: 1000));
-
-      final post = CommunityPost(
-        id: 'post_${DateTime.now().millisecondsSinceEpoch}',
-        userId: userId,
-        username: username,
-        userAvatar: userAvatar,
+      // Call the API service to create the post
+      final response = await _apiService.createCommunityPost(
         title: title,
         content: content,
-        type: type,
+        type: type.name,
         images: images ?? [],
         videos: videos ?? [],
-        videoUrl: videoUrl,
         linkUrl: linkUrl,
         linkTitle: linkTitle,
         linkDescription: linkDescription,
-        linkThumbnail: linkThumbnail,
-        pollData: pollData,
+        pollOptions: pollOptions,
         tags: tags ?? [],
         category: category,
-        createdAt: DateTime.now(),
-        publishedAt: DateTime.now(),
+        cost: cost ?? 0,
+        requiresVip: requiresVip ?? false,
+        allowComments: allowComments ?? true,
+        allowCommentLinks: allowCommentLinks ?? false,
+        isPinned: isPinned ?? false,
+        isNsfw: isNsfw ?? false,
+        replyRestriction: replyRestriction ?? 'FOLLOWERS',
       );
 
-      print('Created post: ${post.id}');
-      return post;
+      if (response['success'] == true) {
+        // Post created successfully
+        return {'success': true, 'post': response['data']};
+      } else {
+        return {'success': false, 'message': response['message']};
+      }
     } catch (e) {
       print('Error creating post: $e');
-      return null;
+      return {'success': false, 'message': e.toString()};
     }
   }
 

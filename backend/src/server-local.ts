@@ -19,8 +19,11 @@ import { upload, deleteFromS3, chatFileStorage, chatFileFilter, videoUpload } fr
 import { processVideo } from './services/videoProcessingService';
 import { promises as fs } from 'fs';
 import { serializeUserWithUrls, buildAvatarUrl, buildFileUrlSync } from './utils/fileUrl';
-import prisma from './lib/prisma';
+import { PrismaClient } from '@prisma/client';
 import multer from 'multer';
+
+// Initialize Prisma Client
+const prisma = new PrismaClient();
 
 const app = express();
 const server = createServer(app);
@@ -2439,6 +2442,107 @@ app.get('/api/v1/community/posts', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to fetch community posts',
+    });
+  }
+});
+
+// Create community post endpoint
+app.post('/api/v1/community/posts', authenticateToken, async (req, res) => {
+  try {
+    const {
+      title,
+      content,
+      type,
+      images,
+      videos,
+      linkUrl,
+      linkTitle,
+      linkDescription,
+      pollOptions,
+      tags,
+      cost,
+      requiresVip,
+      allowComments,
+      allowCommentLinks,
+      isPinned,
+      isNsfw,
+      replyRestriction,
+    } = req.body;
+
+    // Get current user from database
+    const currentUser = await prisma.user.findUnique({
+      where: { id: (req as any).user.id },
+      select: { id: true, username: true, role: true },
+    });
+
+    if (!currentUser) {
+      return res.status(401).json({
+        success: false,
+        message: 'User not found',
+      });
+    }
+
+    // For now, skip coin validation since coins field doesn't exist yet
+    // TODO: Add coins field to User model when implementing payment system
+
+    // Create the post data (using Prisma field names)
+    const postData = {
+      userId: currentUser.id,
+      title,
+      content,
+      type,
+      images: images || [],
+      videos: videos || [],
+      linkUrl,
+      linkTitle,
+      linkDescription,
+      pollOptions,
+      tags: tags || [],
+      cost: cost || 0,
+      requiresVip: requiresVip || false,
+      allowComments: allowComments !== false, // Default to true
+      allowCommentLinks: allowCommentLinks || false,
+      isPinned: isPinned || false,
+      isNsfw: isNsfw || false,
+      replyRestriction: replyRestriction || 'FOLLOWERS',
+    };
+
+    // Use Prisma to create the post directly
+    const newPost = await prisma.communityPost.create({
+      data: postData,
+      include: {
+        user: {
+          select: {
+            id: true,
+            username: true,
+            firstName: true,
+            lastName: true,
+            avatarUrl: true,
+            isVerified: true,
+          },
+        },
+      },
+    });
+
+    // Return the created post with user info
+    const postWithUser = {
+      ...newPost,
+      username: newPost.user.username,
+      userAvatar: newPost.user.avatarUrl,
+      isLiked: false, // Default for now
+    };
+
+    return res.json({
+      success: true,
+      message: 'Post created successfully',
+      data: postWithUser,
+    });
+
+  } catch (error) {
+    console.error('Error creating community post:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to create post',
     });
   }
 });

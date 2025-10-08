@@ -125,6 +125,16 @@ model CommunityPost {
   shares          Int      @default(0)
   views           Int      @default(0)
   isPublic        Boolean  @default(true) @map("is_public")
+
+  // New fields for enhanced community posts
+  cost            Int      @default(0) @map("cost") // Coins required to view
+  requiresVip     Boolean  @default(false) @map("requires_vip") // VIP requirement
+  allowComments   Boolean  @default(true) @map("allow_comments") // Allow comments/replies
+  allowCommentLinks Boolean @default(false) @map("allow_comment_links") // Allow links in comments
+  isPinned        Boolean  @default(false) @map("is_pinned") // Pin this post
+  isNsfw          Boolean  @default(false) @map("is_nsfw") // NSFW content
+  replyRestriction ReplyRestriction @default(FOLLOWERS) @map("reply_restriction") // Who can reply
+
   createdAt       DateTime @default(now()) @map("created_at")
   updatedAt       DateTime @updatedAt @map("updated_at")
 
@@ -317,6 +327,16 @@ enum ReportStatus {
   DISMISSED
 
   @@map("report_status")
+}
+
+enum ReplyRestriction {
+  FOLLOWERS
+  PAID_VIEWERS
+  FOLLOWING
+  VERIFIED_FOLLOWING
+  NO_ONE
+
+  @@map("reply_restriction")
 }
 
 model Category {

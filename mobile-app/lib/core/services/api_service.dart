@@ -191,9 +191,9 @@ class ApiService {
   }
 
   Future<Map<String, dynamic>> createCommunityPost({
-    required String type,
     String? title,
     String? content,
+    String? type,
     List<String>? images,
     List<String>? videos,
     String? linkUrl,
@@ -202,6 +202,13 @@ class ApiService {
     Map<String, dynamic>? pollOptions,
     List<String>? tags,
     String? category,
+    int? cost,
+    bool? requiresVip,
+    bool? allowComments,
+    bool? allowCommentLinks,
+    bool? isPinned,
+    bool? isNsfw,
+    String? replyRestriction,
   }) async {
     final response = await http.post(
       Uri.parse('$baseUrl/community/posts'),
@@ -218,6 +225,13 @@ class ApiService {
         'pollOptions': pollOptions,
         'tags': tags ?? [],
         'category': category,
+        'cost': cost ?? 0,
+        'requiresVip': requiresVip ?? false,
+        'allowComments': allowComments ?? true,
+        'allowCommentLinks': allowCommentLinks ?? false,
+        'isPinned': isPinned ?? false,
+        'isNsfw': isNsfw ?? false,
+        'replyRestriction': replyRestriction ?? 'FOLLOWERS',
       }),
     );
 
@@ -964,12 +978,10 @@ class ApiService {
       final streamedResponse = await request.send();
 
       // Listen to response stream and track progress
-      int bytesReceived = 0;
       List<int> responseBytes = [];
 
       await for (var chunk in streamedResponse.stream) {
         responseBytes.addAll(chunk);
-        bytesReceived += chunk.length;
 
         // Call progress callback if provided
         if (onProgress != null) {

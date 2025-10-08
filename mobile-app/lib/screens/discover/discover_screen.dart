@@ -189,13 +189,13 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
         Expanded(
           child: ListView.builder(
             controller: _trendingScrollController,
-            padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(16),
             itemCount: _trendingVideos.length,
-            itemBuilder: (context, index) {
+      itemBuilder: (context, index) {
               final video = _trendingVideos[index];
-              return Card(
-                margin: const EdgeInsets.only(bottom: 16),
-                child: ListTile(
+        return Card(
+          margin: const EdgeInsets.only(bottom: 16),
+          child: ListTile(
                   leading: Container(
                     width: 56,
                     height: 56,
@@ -271,13 +271,13 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  trailing: const Icon(Icons.trending_up, color: Colors.orange),
-                  onTap: () {
+            trailing: const Icon(Icons.trending_up, color: Colors.orange),
+            onTap: () {
                     context.push('/main/video/${video.id}/player');
-                  },
-                ),
-              );
             },
+          ),
+        );
+      },
           ),
         ),
         if (_isLoadingMoreTrending)
@@ -376,7 +376,7 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
                 Text(
                   category.categoryName,
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.w600,
                       ),
                   textAlign: TextAlign.center,
                 ),
@@ -412,7 +412,7 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
-        children: [
+              children: [
           Icon(Icons.live_tv, size: 80, color: Colors.grey[400]),
           const SizedBox(height: 24),
           Text(
@@ -438,10 +438,10 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
                     color: Colors.grey[500],
                   ),
               textAlign: TextAlign.center,
+                  ),
+                ),
+              ],
             ),
-          ),
-        ],
-      ),
     );
   }
 }

@@ -2,6 +2,8 @@ import { Pool } from 'pg';
 
 export type PostType = 'text' | 'link' | 'poll' | 'media';
 
+export type ReplyRestriction = 'FOLLOWERS' | 'PAID_VIEWERS' | 'FOLLOWING' | 'VERIFIED_FOLLOWING' | 'NO_ONE';
+
 export interface CommunityPost {
   id: string;
   user_id: string;
@@ -22,6 +24,16 @@ export interface CommunityPost {
   shares: number;
   views: number;
   is_public: boolean;
+
+  // New fields for enhanced community posts
+  cost: number;
+  requires_vip: boolean;
+  allow_comments: boolean;
+  allow_comment_links: boolean;
+  is_pinned: boolean;
+  is_nsfw: boolean;
+  reply_restriction: ReplyRestriction;
+
   created_at: Date;
   updated_at: Date;
 }
@@ -39,6 +51,15 @@ export interface CreatePostData {
   poll_options?: any;
   tags?: string[];
   category?: string;
+
+  // New fields for enhanced community posts
+  cost?: number;
+  requires_vip?: boolean;
+  allow_comments?: boolean;
+  allow_comment_links?: boolean;
+  is_pinned?: boolean;
+  is_nsfw?: boolean;
+  reply_restriction?: ReplyRestriction;
 }
 
 export interface UpdatePostData {
@@ -79,14 +100,15 @@ export class CommunityPostModel {
   async create(postData: CreatePostData): Promise<CommunityPost> {
     const query = `
       INSERT INTO community_posts (
-        user_id, title, content, type, images, videos, 
-        link_url, link_title, link_description, poll_options, 
-        tags, category
+        user_id, title, content, type, images, videos,
+        link_url, link_title, link_description, poll_options,
+        tags, category, cost, requires_vip, allow_comments,
+        allow_comment_links, is_pinned, is_nsfw, reply_restriction
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
       RETURNING *
     `;
-    
+
     const values = [
       postData.user_id,
       postData.title || null,
@@ -100,6 +122,13 @@ export class CommunityPostModel {
       postData.poll_options ? JSON.stringify(postData.poll_options) : null,
       postData.tags || null,
       postData.category || null,
+      postData.cost || 0,
+      postData.requires_vip || false,
+      postData.allow_comments !== false, // Default to true if not specified
+      postData.allow_comment_links || false,
+      postData.is_pinned || false,
+      postData.is_nsfw || false,
+      postData.reply_restriction || 'FOLLOWERS',
     ];
 
     const result = await this.pool.query(query, values);
