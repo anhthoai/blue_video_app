@@ -15,10 +15,10 @@ import { Server as SocketIOServer } from 'socket.io';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { emailService } from './services/emailService';
-import { upload, deleteFromS3, chatFileStorage, chatFileFilter, videoUpload } from './services/s3Service';
+import { upload, deleteFromS3, chatFileStorage, chatFileFilter, videoUpload, communityPostUpload, uploadCommunityPostFiles } from './services/s3Service';
 import { processVideo } from './services/videoProcessingService';
 import { promises as fs } from 'fs';
-import { serializeUserWithUrls, buildAvatarUrl, buildFileUrlSync } from './utils/fileUrl';
+import { serializeUserWithUrls, buildAvatarUrl, buildFileUrlSync, buildFileUrl, buildCommunityPostFileUrl } from './utils/fileUrl';
 import { PrismaClient } from '@prisma/client';
 import multer from 'multer';
 
@@ -2416,7 +2416,9 @@ app.get('/api/v1/community/posts', async (req, res) => {
             username: true,
             firstName: true,
             lastName: true,
+            avatar: true,
             avatarUrl: true,
+            fileDirectory: true,
             isVerified: true,
           },
         },
@@ -2428,9 +2430,44 @@ app.get('/api/v1/community/posts', async (req, res) => {
       take: Number(limit),
     });
 
+    // Add file URLs to posts
+    const postsWithUrls = await Promise.all(
+      posts.map(async (post) => {
+        // Build image URLs
+        const imageUrls = await Promise.all(
+          post.images.map((fileName) =>
+            buildCommunityPostFileUrl(post.fileDirectory, fileName)
+          )
+        );
+
+        // Build video URLs
+        const videoUrls = await Promise.all(
+          post.videos.map((fileName) =>
+            buildCommunityPostFileUrl(post.fileDirectory, fileName)
+          )
+        );
+
+        // Build avatar URL (async)
+        const avatarUrl = post.user.avatar && post.user.fileDirectory
+          ? await buildFileUrl(post.user.fileDirectory, post.user.avatar, 'avatars')
+          : post.user.avatarUrl;
+
+        return {
+          ...post,
+          username: post.user.username,
+          firstName: post.user.firstName,
+          lastName: post.user.lastName,
+          isVerified: post.user.isVerified,
+          userAvatar: avatarUrl,
+          imageUrls: imageUrls.filter((url) => url != null),
+          videoUrls: videoUrls.filter((url) => url != null),
+        };
+      })
+    );
+
     res.json({
       success: true,
-      data: posts,
+      data: postsWithUrls,
       pagination: {
         page: Number(page),
         limit: Number(limit),
@@ -2447,27 +2484,35 @@ app.get('/api/v1/community/posts', async (req, res) => {
 });
 
 // Create community post endpoint
-app.post('/api/v1/community/posts', authenticateToken, async (req, res) => {
+app.post('/api/v1/community/posts', authenticateToken, communityPostUpload.array('files', 10), async (req, res) => {
   try {
     const {
-      title,
       content,
-      type,
-      images,
-      videos,
       linkUrl,
       linkTitle,
       linkDescription,
       pollOptions,
-      tags,
-      cost,
-      requiresVip,
-      allowComments,
-      allowCommentLinks,
-      isPinned,
-      isNsfw,
+      tags: tagsString,
+      cost: costString,
+      requiresVip: requiresVipString,
+      allowComments: allowCommentsString,
+      allowCommentLinks: allowCommentLinksString,
+      isPinned: isPinnedString,
+      isNsfw: isNsfwString,
       replyRestriction,
-    } = req.body;
+    } = req.body || {};
+
+    // Parse form data strings to proper types
+    const tags = tagsString ? JSON.parse(tagsString) : [];
+    const cost = costString ? parseInt(costString) : 0;
+    const requiresVip = requiresVipString === 'true';
+    const allowComments = allowCommentsString !== 'false'; // Default to true
+    const allowCommentLinks = allowCommentLinksString === 'true';
+    const isPinned = isPinnedString === 'true';
+    const isNsfw = isNsfwString === 'true';
+
+    // Get uploaded files
+    const uploadedFiles = req.files as Express.Multer.File[] || [];
 
     // Get current user from database
     const currentUser = await prisma.user.findUnique({
@@ -2485,31 +2530,67 @@ app.post('/api/v1/community/posts', authenticateToken, async (req, res) => {
     // For now, skip coin validation since coins field doesn't exist yet
     // TODO: Add coins field to User model when implementing payment system
 
-    // Create the post data (using Prisma field names)
-    const postData = {
-      userId: currentUser.id,
-      title,
-      content,
-      type,
-      images: images || [],
-      videos: videos || [],
-      linkUrl,
-      linkTitle,
-      linkDescription,
-      pollOptions,
-      tags: tags || [],
-      cost: cost || 0,
-      requiresVip: requiresVip || false,
-      allowComments: allowComments !== false, // Default to true
-      allowCommentLinks: allowCommentLinks || false,
-      isPinned: isPinned || false,
-      isNsfw: isNsfw || false,
-      replyRestriction: replyRestriction || 'FOLLOWERS',
-    };
-
-    // Use Prisma to create the post directly
+    // Create the post first to get the post ID
     const newPost = await prisma.communityPost.create({
-      data: postData,
+      data: {
+        userId: currentUser.id,
+        content: content || null,
+        type: 'MEDIA' as const, // Always MEDIA type for posts with text + media
+        images: [], // Will be updated after file upload
+        videos: [], // Will be updated after file upload
+        fileDirectory: null, // Will be updated after file upload
+        linkUrl: linkUrl || null,
+        linkTitle: linkTitle || null,
+        linkDescription: linkDescription || null,
+        pollOptions: pollOptions || null,
+        tags: tags || [],
+        cost: cost || 0,
+        requiresVip: requiresVip || false,
+        allowComments: allowComments !== false, // Default to true
+        allowCommentLinks: allowCommentLinks || false,
+        isPinned: isPinned || false,
+        isNsfw: isNsfw || false,
+        replyRestriction: replyRestriction || 'FOLLOWERS',
+      },
+    });
+
+    // Upload files to S3 if any files were uploaded
+    let fileDirectory: string | null = null;
+    let images: string[] = [];
+    let videos: string[] = [];
+
+    if (uploadedFiles.length > 0) {
+      try {
+        const uploadResult = await uploadCommunityPostFiles(uploadedFiles, newPost.id);
+        fileDirectory = uploadResult.fileDirectory;
+        images = uploadResult.images;
+        videos = uploadResult.videos;
+
+        // Update the post with file information
+        await prisma.communityPost.update({
+          where: { id: newPost.id },
+          data: {
+            fileDirectory,
+            images,
+            videos,
+          },
+        });
+      } catch (uploadError) {
+        console.error('Error uploading files:', uploadError);
+        // Delete the post if file upload failed
+        await prisma.communityPost.delete({
+          where: { id: newPost.id },
+        });
+        return res.status(500).json({
+          success: false,
+          message: 'Failed to upload files',
+        });
+      }
+    }
+
+    // Fetch the final post with user info
+    const finalPost = await prisma.communityPost.findUnique({
+      where: { id: newPost.id },
       include: {
         user: {
           select: {
@@ -2517,18 +2598,35 @@ app.post('/api/v1/community/posts', authenticateToken, async (req, res) => {
             username: true,
             firstName: true,
             lastName: true,
+            avatar: true,
             avatarUrl: true,
+            fileDirectory: true,
             isVerified: true,
           },
         },
       },
     });
 
+    if (!finalPost) {
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to create post',
+      });
+    }
+
+    // Build avatar URL (async)
+    const avatarUrl = finalPost.user.avatar && finalPost.user.fileDirectory
+      ? await buildFileUrl(finalPost.user.fileDirectory, finalPost.user.avatar, 'avatars')
+      : finalPost.user.avatarUrl;
+
     // Return the created post with user info
     const postWithUser = {
-      ...newPost,
-      username: newPost.user.username,
-      userAvatar: newPost.user.avatarUrl,
+      ...finalPost,
+      username: finalPost.user.username,
+      firstName: finalPost.user.firstName,
+      lastName: finalPost.user.lastName,
+      isVerified: finalPost.user.isVerified,
+      userAvatar: avatarUrl,
       isLiked: false, // Default for now
     };
 

@@ -114,41 +114,22 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
           .where((tag) => tag.isNotEmpty)
           .toList();
 
-      // Prepare media arrays
-      final images = _selectedImages.map((file) => file.path).toList();
-      final videos = _selectedVideos.map((file) => file.path).toList();
-
-      // Create post data
-      final postData = {
-        'content': _contentController.text.trim(),
-        'type': 'media', // Since we support text + media in one post
-        'images': images,
-        'videos': videos,
-        'cost': cost,
-        'requiresVip': _requiresVip,
-        'allowComments': _allowComments,
-        'allowCommentLinks': _allowCommentLinks,
-        'isPinned': _isPinned,
-        'isNsfw': _isNsfw,
-        'replyRestriction': _replyRestriction,
-        'tags': tags,
-      };
-
-      // Call API service to create post
+      // Call API service to create post with file uploads
       final response = await _apiService.createCommunityPost(
-        title: postData['title'] as String,
-        content: postData['content'] as String,
-        type: 'media', // Since we support text + media in one post
-        images: postData['images'] as List<String>?,
-        videos: postData['videos'] as List<String>?,
-        cost: postData['cost'] as int?,
-        requiresVip: postData['requiresVip'] as bool?,
-        allowComments: postData['allowComments'] as bool?,
-        allowCommentLinks: postData['allowCommentLinks'] as bool?,
-        isPinned: postData['isPinned'] as bool?,
-        isNsfw: postData['isNsfw'] as bool?,
-        replyRestriction: postData['replyRestriction'] as String?,
-        tags: postData['tags'] as List<String>?,
+        content: _contentController.text.trim().isNotEmpty
+            ? _contentController.text.trim()
+            : null,
+        type: 'MEDIA', // Always MEDIA type for posts with text + media
+        imageFiles: _selectedImages.isNotEmpty ? _selectedImages : null,
+        videoFiles: _selectedVideos.isNotEmpty ? _selectedVideos : null,
+        cost: cost,
+        requiresVip: _requiresVip,
+        allowComments: _allowComments,
+        allowCommentLinks: _allowCommentLinks,
+        isPinned: _isPinned,
+        isNsfw: _isNsfw,
+        replyRestriction: _replyRestriction,
+        tags: tags,
       );
 
       if (response['success'] == true) {
@@ -156,7 +137,8 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Post created successfully!')),
           );
-          context.pop();
+          // Pop with success result to trigger refresh
+          context.pop(true);
         }
       } else {
         throw Exception(response['message'] ?? 'Failed to create post');

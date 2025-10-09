@@ -169,3 +169,44 @@ export function serializeUserWithUrls(user: any): any {
   };
 }
 
+/**
+ * Build community post file URL
+ * @param fileDirectory - File directory path (e.g., "2025/10/02/post-id")
+ * @param fileName - File name (e.g., "uuid.jpg")
+ * @returns Full URL to access the community post file
+ */
+export async function buildCommunityPostFileUrl(
+  fileDirectory: string | null | undefined,
+  fileName: string | null | undefined
+): Promise<string | null> {
+  if (!fileDirectory || !fileName) {
+    return null;
+  }
+
+  // Build object key with "community-posts" prefix
+  const objectKey = `community-posts/${fileDirectory}/${fileName}`;
+
+  // If CDN URL is configured, use it (public access)
+  if (CDN_URL && CDN_URL.trim() !== '') {
+    const cdnUrl = CDN_URL.replace(/\/$/, ''); // Remove trailing slash
+    return `${cdnUrl}/${objectKey}`;
+  }
+
+  // Otherwise, generate S3 presigned URL
+  try {
+    const command = new GetObjectCommand({
+      Bucket: S3_BUCKET_NAME,
+      Key: objectKey,
+    });
+
+    const presignedUrl = await getSignedUrl(s3Client, command, {
+      expiresIn: 3600, // 1 hour
+    });
+
+    return presignedUrl;
+  } catch (error) {
+    console.error('Error generating presigned URL for community post file:', error);
+    return null;
+  }
+}
+

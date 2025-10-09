@@ -87,12 +87,25 @@ class _CommunityPostWidgetState extends ConsumerState<CommunityPostWidget> {
               Row(
                 children: [
                   Text(
-                    widget.post.username,
+                    '${widget.post.firstName ?? ''} ${widget.post.lastName ?? ''}'
+                            .trim()
+                            .isNotEmpty
+                        ? '${widget.post.firstName ?? ''} ${widget.post.lastName ?? ''}'
+                            .trim()
+                        : widget.post.username,
                     style: const TextStyle(
                       fontWeight: FontWeight.w600,
                       fontSize: 16,
                     ),
                   ),
+                  if (widget.post.isVerified) ...[
+                    const SizedBox(width: 4),
+                    const Icon(
+                      Icons.verified,
+                      size: 16,
+                      color: Colors.blue,
+                    ),
+                  ],
                   if (widget.post.isPinned) ...[
                     const SizedBox(width: 8),
                     const Icon(
@@ -214,9 +227,9 @@ class _CommunityPostWidgetState extends ConsumerState<CommunityPostWidget> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (widget.post.title.isNotEmpty) ...[
+        if (widget.post.title?.isNotEmpty == true) ...[
           Text(
-            widget.post.title,
+            widget.post.title!,
             style: const TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.w600,
@@ -248,7 +261,8 @@ class _CommunityPostWidgetState extends ConsumerState<CommunityPostWidget> {
             ),
           ),
         ],
-        if (widget.post.images.isNotEmpty ||
+        if (widget.post.imageUrls.isNotEmpty ||
+            widget.post.videos.isNotEmpty ||
             widget.post.videoUrl != null ||
             widget.post.linkUrl != null) ...[
           const SizedBox(height: 12),

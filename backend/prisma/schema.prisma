@@ -113,6 +113,7 @@ model CommunityPost {
   type            PostType
   images          String[]
   videos          String[]
+  fileDirectory   String?  @map("file_directory") // Storage directory for uploaded files
   linkUrl         String?  @map("link_url")
   linkTitle       String?  @map("link_title")
   linkDescription String?  @map("link_description")

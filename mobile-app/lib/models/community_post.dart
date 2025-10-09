@@ -19,13 +19,18 @@ class CommunityPost {
   final String id;
   final String userId;
   final String username;
+  final String? firstName;
+  final String? lastName;
+  final bool isVerified;
   final String userAvatar;
-  final String title;
+  final String? title;
   final String content;
   final PostType type;
   final PostStatus status;
   final List<String> images;
   final List<String> videos; // Support multiple videos
+  final List<String> imageUrls; // URLs for images
+  final List<String> videoUrls; // URLs for videos
   final String? videoUrl; // Keep for backward compatibility
   final String? linkUrl;
   final String? linkTitle;
@@ -51,13 +56,18 @@ class CommunityPost {
     required this.id,
     required this.userId,
     required this.username,
+    this.firstName,
+    this.lastName,
+    this.isVerified = false,
     required this.userAvatar,
-    required this.title,
+    this.title,
     required this.content,
     required this.type,
     this.status = PostStatus.published,
     this.images = const [],
     this.videos = const [],
+    this.imageUrls = const [],
+    this.videoUrls = const [],
     this.videoUrl,
     this.linkUrl,
     this.linkTitle,
@@ -84,6 +94,9 @@ class CommunityPost {
     String? id,
     String? userId,
     String? username,
+    String? firstName,
+    String? lastName,
+    bool? isVerified,
     String? userAvatar,
     String? title,
     String? content,
@@ -91,6 +104,8 @@ class CommunityPost {
     PostStatus? status,
     List<String>? images,
     List<String>? videos,
+    List<String>? imageUrls,
+    List<String>? videoUrls,
     String? videoUrl,
     String? linkUrl,
     String? linkTitle,
@@ -116,6 +131,9 @@ class CommunityPost {
       id: id ?? this.id,
       userId: userId ?? this.userId,
       username: username ?? this.username,
+      firstName: firstName ?? this.firstName,
+      lastName: lastName ?? this.lastName,
+      isVerified: isVerified ?? this.isVerified,
       userAvatar: userAvatar ?? this.userAvatar,
       title: title ?? this.title,
       content: content ?? this.content,
@@ -123,6 +141,8 @@ class CommunityPost {
       status: status ?? this.status,
       images: images ?? this.images,
       videos: videos ?? this.videos,
+      imageUrls: imageUrls ?? this.imageUrls,
+      videoUrls: videoUrls ?? this.videoUrls,
       videoUrl: videoUrl ?? this.videoUrl,
       linkUrl: linkUrl ?? this.linkUrl,
       linkTitle: linkTitle ?? this.linkTitle,
@@ -151,6 +171,9 @@ class CommunityPost {
       'id': id,
       'userId': userId,
       'username': username,
+      'firstName': firstName,
+      'lastName': lastName,
+      'isVerified': isVerified,
       'userAvatar': userAvatar,
       'title': title,
       'content': content,
@@ -158,6 +181,8 @@ class CommunityPost {
       'status': status.name,
       'images': images,
       'videos': videos,
+      'imageUrls': imageUrls,
+      'videoUrls': videoUrls,
       'videoUrl': videoUrl,
       'linkUrl': linkUrl,
       'linkTitle': linkTitle,
@@ -186,8 +211,11 @@ class CommunityPost {
       id: json['id'] as String,
       userId: json['userId'] as String,
       username: json['username'] as String,
+      firstName: json['firstName'] as String?,
+      lastName: json['lastName'] as String?,
+      isVerified: json['isVerified'] as bool? ?? false,
       userAvatar: json['userAvatar'] as String,
-      title: json['title'] as String,
+      title: json['title'] as String?,
       content: json['content'] as String,
       type: PostType.values.firstWhere(
         (e) => e.name == json['type'],
@@ -199,6 +227,8 @@ class CommunityPost {
       ),
       images: (json['images'] as List<dynamic>?)?.cast<String>() ?? [],
       videos: (json['videos'] as List<dynamic>?)?.cast<String>() ?? [],
+      imageUrls: (json['imageUrls'] as List<dynamic>?)?.cast<String>() ?? [],
+      videoUrls: (json['videoUrls'] as List<dynamic>?)?.cast<String>() ?? [],
       videoUrl: json['videoUrl'] as String?,
       linkUrl: json['linkUrl'] as String?,
       linkTitle: json['linkTitle'] as String?,

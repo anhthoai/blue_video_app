@@ -541,4 +541,101 @@ export const videoUpload = multer({
   fileFilter: videoFileFilter,
 });
 
+// Community post file storage
+const communityPostStorage = multer.diskStorage({
+  destination: (_req, _file, cb) => {
+    cb(null, '/tmp/'); // Temporary directory for processing
+  },
+  filename: (_req, file, cb) => {
+    const uniqueId = uuidv4();
+    const extension = file.originalname.split('.').pop();
+    cb(null, `${uniqueId}.${extension}`);
+  },
+});
+
+// Community post file filter - allow images and videos
+const communityPostFileFilter = (_req: any, file: any, cb: any) => {
+  const allowedImageTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'application/octet-stream'];
+  const allowedVideoTypes = ['video/mp4', 'video/webm', 'video/quicktime', 'video/avi', 'video/mov'];
+  const allowedTypes = [...allowedImageTypes, ...allowedVideoTypes];
+  
+  // Get file extension
+  const fileExtension = file.originalname.split('.').pop()?.toLowerCase();
+  const allowedExtensions = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'mp4', 'webm', 'mov', 'avi'];
+  
+  // Check MIME type or file extension
+  if (allowedTypes.includes(file.mimetype) || (fileExtension && allowedExtensions.includes(fileExtension))) {
+    cb(null, true);
+  } else {
+    cb(new Error(`File type ${file.mimetype} (${fileExtension}) not allowed. Only images and videos are permitted.`));
+  }
+};
+
+// Community post upload instance
+export const communityPostUpload = multer({
+  storage: communityPostStorage,
+  limits: {
+    fileSize: 100 * 1024 * 1024, // 100MB limit for community post files
+    files: 10, // Maximum 10 files per post
+  },
+  fileFilter: communityPostFileFilter,
+});
+
+// Upload community post files to S3
+export const uploadCommunityPostFiles = async (files: Express.Multer.File[], postId: string): Promise<{
+  fileDirectory: string;
+  images: string[];
+  videos: string[];
+}> => {
+  const today = new Date();
+  const fileDirectory = `${today.getFullYear()}/${String(today.getMonth() + 1).padStart(2, '0')}/${String(today.getDate()).padStart(2, '0')}/${postId}`;
+  
+  const images: string[] = [];
+  const videos: string[] = [];
+  
+  for (const file of files) {
+    const fileExtension = file.originalname.split('.').pop();
+    const fileName = `${uuidv4()}.${fileExtension}`;
+    const s3Key = `community-posts/${fileDirectory}/${fileName}`;
+    
+    try {
+      // Upload to S3
+      const uploadCommand = new PutObjectCommand({
+        Bucket: BUCKET_NAME,
+        Key: s3Key,
+        Body: require('fs').readFileSync(file.path),
+        ContentType: file.mimetype,
+      });
+      
+      await s3Client.send(uploadCommand);
+      
+      // Add to appropriate array based on file type and extension
+      const ext = fileExtension?.toLowerCase();
+      const isImage = file.mimetype.startsWith('image/') || 
+                     (ext && ['jpg', 'jpeg', 'png', 'webp', 'gif'].includes(ext));
+      const isVideo = file.mimetype.startsWith('video/') || 
+                     (ext && ['mp4', 'webm', 'mov', 'avi'].includes(ext));
+      
+      if (isImage) {
+        images.push(fileName);
+      } else if (isVideo) {
+        videos.push(fileName);
+      }
+      
+      // Clean up temporary file
+      require('fs').unlinkSync(file.path);
+      
+    } catch (error) {
+      console.error('Error uploading file to S3:', error);
+      throw error;
+    }
+  }
+  
+  return {
+    fileDirectory, // Just yyyy/mm/dd/postId format
+    images,
+    videos,
+  };
+};
+
 export default s3Client;

@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../models/community_post.dart';
@@ -31,17 +32,17 @@ class CommunityService {
     try {
       // Call the API service to create the post
       final response = await _apiService.createCommunityPost(
-        title: title,
         content: content,
         type: type.name,
-        images: images ?? [],
-        videos: videos ?? [],
+        imageFiles:
+            images != null ? images.map((path) => File(path)).toList() : null,
+        videoFiles:
+            videos != null ? videos.map((path) => File(path)).toList() : null,
         linkUrl: linkUrl,
         linkTitle: linkTitle,
         linkDescription: linkDescription,
         pollOptions: pollOptions,
         tags: tags ?? [],
-        category: category,
         cost: cost ?? 0,
         requiresVip: requiresVip ?? false,
         allowComments: allowComments ?? true,
@@ -87,12 +88,17 @@ class CommunityService {
             id: json['id'] ?? '',
             userId: json['userId'] ?? '',
             username: json['username'] ?? 'User',
+            firstName: json['firstName'],
+            lastName: json['lastName'],
+            isVerified: json['isVerified'] ?? false,
             userAvatar: json['userAvatar'] ?? '',
             title: json['title'],
             content: json['content'],
             type: _mapPostType(json['type']),
             images: List<String>.from(json['images'] ?? const []),
             videos: List<String>.from(json['videos'] ?? const []),
+            imageUrls: List<String>.from(json['imageUrls'] ?? const []),
+            videoUrls: List<String>.from(json['videoUrls'] ?? const []),
             videoUrl: null,
             linkUrl: json['linkUrl'],
             linkTitle: json['linkTitle'],
@@ -107,7 +113,7 @@ class CommunityService {
             views: json['views'] ?? 0,
             isLiked: false,
             isBookmarked: false,
-            isPinned: false,
+            isPinned: json['isPinned'] ?? false,
             isFeatured: json['isFeatured'] ?? false,
             createdAt:
                 DateTime.tryParse(json['createdAt'] ?? '') ?? DateTime.now(),

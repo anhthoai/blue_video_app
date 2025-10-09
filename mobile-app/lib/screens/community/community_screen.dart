@@ -168,7 +168,11 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
       return const Center(child: CircularProgressIndicator());
     }
 
-    if (state.trendingPosts.isEmpty) {
+    // Use real posts for trending tab
+    final trendingPosts =
+        state.posts.where((post) => post.isPinned || post.likes > 0).toList();
+
+    if (trendingPosts.isEmpty) {
       return _buildEmptyState(
         icon: Icons.trending_up,
         title: 'No trending posts',
@@ -177,12 +181,12 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
     }
 
     return RefreshIndicator(
-      onRefresh: _loadTrendingPosts,
+      onRefresh: _loadPosts,
       child: ListView.builder(
         padding: const EdgeInsets.symmetric(vertical: 8),
-        itemCount: state.trendingPosts.length,
+        itemCount: trendingPosts.length,
         itemBuilder: (context, index) {
-          final post = state.trendingPosts[index];
+          final post = trendingPosts[index];
           return CommunityPostWidget(
             post: post,
             currentUserId: 'current_user',
@@ -206,29 +210,33 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
       return const Center(child: CircularProgressIndicator());
     }
 
-    if (state.trendingVideos.isEmpty) {
+    // Use video posts for videos tab
+    final videoPosts =
+        state.posts.where((post) => post.videoUrls.isNotEmpty).toList();
+
+    if (videoPosts.isEmpty) {
       return _buildEmptyState(
         icon: Icons.video_library,
-        title: 'No trending videos',
-        subtitle: 'Check back later for trending videos!',
+        title: 'No videos yet',
+        subtitle: 'Check back later for video content!',
       );
     }
 
     return RefreshIndicator(
-      onRefresh: _loadTrendingVideos,
+      onRefresh: _loadPosts,
       child: ListView.builder(
         padding: const EdgeInsets.symmetric(vertical: 8),
-        itemCount: state.trendingVideos.length,
+        itemCount: videoPosts.length,
         itemBuilder: (context, index) {
-          final video = state.trendingVideos[index];
+          final post = videoPosts[index];
           return Card(
             margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: ListTile(
               leading: ClipRRect(
                 borderRadius: BorderRadius.circular(8),
-                child: video.calculatedThumbnailUrl != null
+                child: post.imageUrls.isNotEmpty
                     ? Image.network(
-                        video.calculatedThumbnailUrl!,
+                        post.imageUrls.first,
                         width: 60,
                         height: 60,
                         fit: BoxFit.cover,
@@ -244,12 +252,12 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
                     : Container(
                         width: 60,
                         height: 60,
-                        color: Colors.grey[300],
+                        color: const Color(0xFFE0E0E0),
                         child: const Icon(Icons.video_library),
                       ),
               ),
-              title: Text(video.title),
-              subtitle: Text('${video.formattedViewCount} views'),
+              title: Text(post.title ?? 'Video Post'),
+              subtitle: Text('${post.views} views'),
               trailing: const Icon(Icons.play_arrow),
               onTap: () {
                 // Navigate to video player
@@ -371,8 +379,14 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
     );
   }
 
-  void _createPost() {
-    // Navigate to create post screen
-    context.go('/main/create-post');
+  void _createPost() async {
+    // Navigate to create post screen and wait for result
+    final result = await context.push('/main/create-post');
+
+    // If post was created successfully, refresh the posts
+    if (result == true) {
+      // Refresh the community posts
+      ref.invalidate(communityServiceStateProvider);
+    }
   }
 }

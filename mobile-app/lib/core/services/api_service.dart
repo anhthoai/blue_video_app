@@ -191,17 +191,15 @@ class ApiService {
   }
 
   Future<Map<String, dynamic>> createCommunityPost({
-    String? title,
     String? content,
     String? type,
-    List<String>? images,
-    List<String>? videos,
+    List<File>? imageFiles,
+    List<File>? videoFiles,
     String? linkUrl,
     String? linkTitle,
     String? linkDescription,
     Map<String, dynamic>? pollOptions,
     List<String>? tags,
-    String? category,
     int? cost,
     bool? requiresVip,
     bool? allowComments,
@@ -210,30 +208,57 @@ class ApiService {
     bool? isNsfw,
     String? replyRestriction,
   }) async {
-    final response = await http.post(
+    // Create multipart request
+    final request = http.MultipartRequest(
+      'POST',
       Uri.parse('$baseUrl/community/posts'),
-      headers: await _getHeaders(),
-      body: json.encode({
-        'type': type,
-        'title': title,
-        'content': content,
-        'images': images ?? [],
-        'videos': videos ?? [],
-        'linkUrl': linkUrl,
-        'linkTitle': linkTitle,
-        'linkDescription': linkDescription,
-        'pollOptions': pollOptions,
-        'tags': tags ?? [],
-        'category': category,
-        'cost': cost ?? 0,
-        'requiresVip': requiresVip ?? false,
-        'allowComments': allowComments ?? true,
-        'allowCommentLinks': allowCommentLinks ?? false,
-        'isPinned': isPinned ?? false,
-        'isNsfw': isNsfw ?? false,
-        'replyRestriction': replyRestriction ?? 'FOLLOWERS',
-      }),
     );
+
+    // Add headers
+    final headers = await _getHeaders();
+    request.headers.addAll(headers);
+
+    // Add text fields
+    if (content != null) request.fields['content'] = content;
+    if (type != null) request.fields['type'] = type;
+    if (linkUrl != null) request.fields['linkUrl'] = linkUrl;
+    if (linkTitle != null) request.fields['linkTitle'] = linkTitle;
+    if (linkDescription != null)
+      request.fields['linkDescription'] = linkDescription;
+    if (pollOptions != null)
+      request.fields['pollOptions'] = json.encode(pollOptions);
+    if (tags != null) request.fields['tags'] = json.encode(tags);
+    if (cost != null) request.fields['cost'] = cost.toString();
+    if (requiresVip != null)
+      request.fields['requiresVip'] = requiresVip.toString();
+    if (allowComments != null)
+      request.fields['allowComments'] = allowComments.toString();
+    if (allowCommentLinks != null)
+      request.fields['allowCommentLinks'] = allowCommentLinks.toString();
+    if (isPinned != null) request.fields['isPinned'] = isPinned.toString();
+    if (isNsfw != null) request.fields['isNsfw'] = isNsfw.toString();
+    if (replyRestriction != null)
+      request.fields['replyRestriction'] = replyRestriction;
+
+    // Add image files
+    if (imageFiles != null) {
+      for (final file in imageFiles) {
+        request.files
+            .add(await http.MultipartFile.fromPath('files', file.path));
+      }
+    }
+
+    // Add video files
+    if (videoFiles != null) {
+      for (final file in videoFiles) {
+        request.files
+            .add(await http.MultipartFile.fromPath('files', file.path));
+      }
+    }
+
+    // Send request
+    final streamedResponse = await request.send();
+    final response = await http.Response.fromStream(streamedResponse);
 
     return await _handleResponse(response);
   }

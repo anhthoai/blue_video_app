@@ -27,26 +27,26 @@ class PostContentWidget extends StatelessWidget {
   }
 
   Widget _buildMediaContent(BuildContext context) {
-    if (post.images.isEmpty && post.videos.isEmpty)
+    if (post.imageUrls.isEmpty && post.videoUrls.isEmpty)
       return const SizedBox.shrink();
 
     // Combine all media items
     final allMedia = <Map<String, dynamic>>[];
 
     // Add images
-    for (int i = 0; i < post.images.length; i++) {
+    for (int i = 0; i < post.imageUrls.length; i++) {
       allMedia.add({
         'type': 'image',
-        'url': post.images[i],
+        'url': post.imageUrls[i],
         'index': i,
       });
     }
 
     // Add videos
-    for (int i = 0; i < post.videos.length; i++) {
+    for (int i = 0; i < post.videoUrls.length; i++) {
       allMedia.add({
         'type': 'video',
-        'url': post.videos[i],
+        'url': post.videoUrls[i],
         'index': i,
       });
     }
@@ -429,7 +429,7 @@ class PostContentWidget extends StatelessWidget {
     );
   }
 
-  void _showImageViewer(BuildContext context, List<String> images) {
+  void _showImageViewer(BuildContext context, List<String> imageUrls) {
     showDialog(
       context: context,
       builder: (context) => Dialog(
@@ -437,11 +437,11 @@ class PostContentWidget extends StatelessWidget {
         child: Stack(
           children: [
             PageView.builder(
-              itemCount: images.length,
+              itemCount: imageUrls.length,
               itemBuilder: (context, index) {
                 return InteractiveViewer(
                   child: CachedNetworkImage(
-                    imageUrl: images[index],
+                    imageUrl: imageUrls[index],
                     fit: BoxFit.contain,
                     placeholder: (context, url) => const Center(
                       child: CircularProgressIndicator(color: Colors.white),
