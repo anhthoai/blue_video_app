@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:go_router/go_router.dart';
+import 'package:video_player/video_player.dart';
+import 'package:chewie/chewie.dart';
 
 import '../../models/community_post.dart';
 
@@ -62,13 +64,7 @@ class PostContentWidget extends StatelessWidget {
 
     return GestureDetector(
       onTap: () {
-        if (allMedia.length == 1) {
-          if (allMedia.first['type'] == 'image') {
-            _showImageViewer(context, [allMedia.first['url']]);
-          } else {
-            context.go('/main/video/${post.id}/player');
-          }
-        }
+        _showFullscreenMediaViewer(context, allMedia);
       },
       child: Container(
         height: 200,
@@ -429,41 +425,253 @@ class PostContentWidget extends StatelessWidget {
     );
   }
 
-  void _showImageViewer(BuildContext context, List<String> imageUrls) {
-    showDialog(
-      context: context,
-      builder: (context) => Dialog(
-        backgroundColor: Colors.black,
+  void _showFullscreenMediaViewer(
+      BuildContext context, List<Map<String, dynamic>> allMedia) {
+    if (allMedia.isEmpty) return;
+
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => _FullscreenMediaViewer(
+          allMedia: allMedia,
+        ),
+        fullscreenDialog: true,
+      ),
+    );
+  }
+}
+
+class _FullscreenMediaViewer extends StatefulWidget {
+  final List<Map<String, dynamic>> allMedia;
+
+  const _FullscreenMediaViewer({required this.allMedia});
+
+  @override
+  State<_FullscreenMediaViewer> createState() => _FullscreenMediaViewerState();
+}
+
+class _FullscreenMediaViewerState extends State<_FullscreenMediaViewer> {
+  late PageController _pageController;
+  late ValueNotifier<int> _currentPage;
+  final Map<int, VideoPlayerController?> _videoControllers = {};
+  final Map<int, ChewieController?> _chewieControllers = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _pageController = PageController();
+    _currentPage = ValueNotifier<int>(0);
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    _currentPage.dispose();
+
+    // Dispose all video controllers
+    for (var controller in _videoControllers.values) {
+      controller?.dispose();
+    }
+    for (var controller in _chewieControllers.values) {
+      controller?.dispose();
+    }
+
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      body: SafeArea(
         child: Stack(
           children: [
+            // PageView for swiping through media
             PageView.builder(
-              itemCount: imageUrls.length,
+              controller: _pageController,
+              itemCount: widget.allMedia.length,
+              onPageChanged: (index) {
+                _currentPage.value = index;
+              },
               itemBuilder: (context, index) {
-                return InteractiveViewer(
-                  child: CachedNetworkImage(
-                    imageUrl: imageUrls[index],
-                    fit: BoxFit.contain,
-                    placeholder: (context, url) => const Center(
-                      child: CircularProgressIndicator(color: Colors.white),
-                    ),
-                    errorWidget: (context, url, error) => const Center(
-                      child: Icon(Icons.error, color: Colors.white),
-                    ),
-                  ),
-                );
+                final media = widget.allMedia[index];
+                if (media['type'] == 'image') {
+                  return _buildFullscreenImage(media['url']);
+                } else {
+                  return _buildFullscreenVideo(media['url'], index);
+                }
               },
             ),
+            // Close button with safe area
             Positioned(
-              top: 40,
-              right: 20,
+              top: 16,
+              right: 16,
               child: IconButton(
-                icon: const Icon(Icons.close, color: Colors.white),
+                icon: const Icon(Icons.close, color: Colors.white, size: 30),
                 onPressed: () => Navigator.of(context).pop(),
               ),
             ),
+            // Media counter (e.g., "2 / 5") with safe area
+            if (widget.allMedia.length > 1)
+              Positioned(
+                top: 16,
+                left: 16,
+                child: ValueListenableBuilder<int>(
+                  valueListenable: _currentPage,
+                  builder: (context, page, child) {
+                    return Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withOpacity(0.6),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        '${page + 1} / ${widget.allMedia.length}',
+                        style:
+                            const TextStyle(color: Colors.white, fontSize: 16),
+                      ),
+                    );
+                  },
+                ),
+              ),
           ],
         ),
       ),
     );
+  }
+
+  Widget _buildFullscreenImage(String imageUrl) {
+    return InteractiveViewer(
+      panEnabled: true,
+      scaleEnabled: true,
+      minScale: 0.5,
+      maxScale: 4.0,
+      child: Center(
+        child: CachedNetworkImage(
+          imageUrl: imageUrl,
+          fit: BoxFit.contain,
+          width: double.infinity,
+          height: double.infinity,
+          placeholder: (context, url) => Container(
+            color: Colors.black,
+            child: const Center(
+              child: CircularProgressIndicator(color: Colors.white),
+            ),
+          ),
+          errorWidget: (context, url, error) => Container(
+            color: Colors.black,
+            child: const Center(
+              child: Icon(Icons.error, color: Colors.white, size: 50),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFullscreenVideo(String videoUrl, int index) {
+    return FutureBuilder<VideoPlayerController?>(
+      future: _getVideoController(videoUrl, index),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.done) {
+          if (snapshot.hasError) {
+            return Container(
+              color: Colors.black,
+              child: const Center(
+                child: Icon(Icons.error, color: Colors.white, size: 50),
+              ),
+            );
+          }
+
+          final videoController = snapshot.data;
+          if (videoController == null) {
+            return Container(
+              color: Colors.black,
+              child: const Center(
+                child: Icon(Icons.error, color: Colors.white, size: 50),
+              ),
+            );
+          }
+
+          final chewieController = _getChewieController(videoController, index);
+
+          return Container(
+            constraints: const BoxConstraints.expand(),
+            child: AspectRatio(
+              aspectRatio: 16 / 9, // Standard video aspect ratio
+              child: Chewie(controller: chewieController),
+            ),
+          );
+        } else {
+          return Container(
+            color: Colors.black,
+            child: const Center(
+              child: CircularProgressIndicator(color: Colors.white),
+            ),
+          );
+        }
+      },
+    );
+  }
+
+  Future<VideoPlayerController?> _getVideoController(
+      String videoUrl, int index) async {
+    if (_videoControllers[index] != null) {
+      return _videoControllers[index];
+    }
+
+    try {
+      final controller = VideoPlayerController.networkUrl(Uri.parse(videoUrl));
+      await controller.initialize();
+      _videoControllers[index] = controller;
+      return controller;
+    } catch (e) {
+      print('Error initializing video controller: $e');
+      return null;
+    }
+  }
+
+  ChewieController _getChewieController(
+      VideoPlayerController videoController, int index) {
+    if (_chewieControllers[index] != null) {
+      return _chewieControllers[index]!;
+    }
+
+    final chewieController = ChewieController(
+      videoPlayerController: videoController,
+      autoPlay: true,
+      looping: false,
+      showControls: true,
+      allowFullScreen: false, // Disable fullscreen to prevent layout issues
+      materialProgressColors: ChewieProgressColors(
+        playedColor: Colors.white,
+        handleColor: Colors.white,
+        backgroundColor: Colors.grey.withOpacity(0.3),
+        bufferedColor: Colors.white.withOpacity(0.2),
+      ),
+      // Control styling for better layout
+      allowPlaybackSpeedChanging: false,
+      placeholder: Container(
+        color: Colors.black,
+        child: const Center(
+          child: CircularProgressIndicator(color: Colors.white),
+        ),
+      ),
+      errorBuilder: (context, errorMessage) {
+        return Container(
+          color: Colors.black,
+          child: const Center(
+            child: Icon(Icons.error, color: Colors.white, size: 50),
+          ),
+        );
+      },
+      // Custom options for better control layout
+      optionsTranslation: null, // Use default controls
+      showOptions: false, // Disable options menu to prevent overlap
+      customControls: null, // Use default material controls
+    );
+
+    _chewieControllers[index] = chewieController;
+    return chewieController;
   }
 }
