@@ -160,6 +160,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         onPressed: () {
           context.go('/main/upload');
         },
+        heroTag: 'home_upload',
         backgroundColor: Theme.of(context).colorScheme.primary,
         child: const Icon(Icons.add, color: Colors.white),
       ),

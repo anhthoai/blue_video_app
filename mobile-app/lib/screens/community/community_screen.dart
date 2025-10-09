@@ -106,6 +106,7 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: _createPost,
+        heroTag: 'community_add_post',
         child: const Icon(Icons.add),
       ),
     );

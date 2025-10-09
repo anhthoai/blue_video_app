@@ -111,6 +111,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
         onPressed: () {
           _showNewChatOptions();
         },
+        heroTag: 'chat_new_message',
         child: const Icon(Icons.chat),
       ),
     );

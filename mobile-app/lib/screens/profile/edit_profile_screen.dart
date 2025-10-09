@@ -294,6 +294,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                     right: 16,
                     child: FloatingActionButton.small(
                       onPressed: _isUploadingBanner ? null : _pickBanner,
+                      heroTag: 'edit_profile_banner_camera',
                       child: _isUploadingBanner
                           ? const SizedBox(
                               width: 20,
@@ -347,6 +348,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                       right: 0,
                       child: FloatingActionButton.small(
                         onPressed: _isUploadingAvatar ? null : _pickAvatar,
+                        heroTag: 'edit_profile_avatar_camera',
                         child: _isUploadingAvatar
                             ? const SizedBox(
                                 width: 20,
