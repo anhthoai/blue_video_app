@@ -195,6 +195,8 @@ class ApiService {
     String? type,
     List<File>? imageFiles,
     List<File>? videoFiles,
+    List<File>? videoThumbnails,
+    List<String>? videoDurations,
     String? linkUrl,
     String? linkTitle,
     String? linkDescription,
@@ -254,6 +256,20 @@ class ApiService {
         request.files
             .add(await http.MultipartFile.fromPath('files', file.path));
       }
+    }
+
+    // Add video thumbnails
+    if (videoThumbnails != null && videoDurations != null) {
+      for (int i = 0; i < videoThumbnails.length; i++) {
+        final thumbnail = videoThumbnails[i];
+        if (thumbnail != null) {
+          request.files
+              .add(await http.MultipartFile.fromPath('files', thumbnail.path));
+        }
+      }
+
+      // Send durations as JSON
+      request.fields['videoDurations'] = json.encode(videoDurations);
     }
 
     // Send request

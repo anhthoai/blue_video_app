@@ -3,8 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:go_router/go_router.dart';
+import 'package:path/path.dart' as path;
+import 'package:path_provider/path_provider.dart';
 
 import '../../core/services/api_service.dart';
+import '../../core/utils/video_utils.dart';
 
 class CreatePostScreen extends ConsumerStatefulWidget {
   const CreatePostScreen({super.key});
@@ -37,6 +40,9 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
   // Media
   List<File> _selectedImages = [];
   List<File> _selectedVideos = [];
+  List<int?> _videoDurations = []; // Duration for each video in seconds
+  List<File?> _videoThumbnails = []; // Thumbnail file for each video
+  bool _isProcessingVideos = false;
 
   final ApiService _apiService = ApiService();
 
@@ -61,6 +67,10 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
       );
 
       if (result != null && result.files.isNotEmpty) {
+        setState(() {
+          _isProcessingVideos = true;
+        });
+
         for (var file in result.files) {
           if (file.path != null) {
             final File mediaFile = File(file.path!);
@@ -71,11 +81,18 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
             } else if (['mp4', 'mkv', 'mov', 'avi', 'webm']
                 .contains(extension)) {
               _selectedVideos.add(mediaFile);
+              _videoDurations.add(null); // Placeholder for duration
+              _videoThumbnails.add(null); // Placeholder for thumbnail
             }
           }
         }
 
-        setState(() {});
+        // Process videos to extract duration and generate thumbnails
+        await _processVideos();
+
+        setState(() {
+          _isProcessingVideos = false;
+        });
       }
     } catch (e) {
       print('Error picking media: $e');
@@ -84,6 +101,75 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
           SnackBar(content: Text('Error selecting media: $e')),
         );
       }
+      setState(() {
+        _isProcessingVideos = false;
+      });
+    }
+  }
+
+  Future<void> _processVideos() async {
+    if (_selectedVideos.isEmpty) return;
+
+    try {
+      print('🎬 Processing ${_selectedVideos.length} videos...');
+
+      for (int i = 0; i < _selectedVideos.length; i++) {
+        final videoFile = _selectedVideos[i];
+
+        try {
+          print('📹 Processing video ${i + 1}/${_selectedVideos.length}');
+          print('   Path: ${videoFile.path}');
+          print('   Size: ${await videoFile.length()} bytes');
+
+          // Extract duration
+          print('⏱️  Extracting duration...');
+          final duration = await VideoUtils.getVideoDuration(videoFile);
+          _videoDurations[i] = duration;
+          print('   Duration: ${duration}s');
+
+          // Generate thumbnail with same name as video but .jpg extension
+          try {
+            print('🖼️  Generating thumbnail...');
+            final videoBaseName = path.basenameWithoutExtension(videoFile.path);
+            final tempDir = await getTemporaryDirectory();
+            final thumbnailPath =
+                path.join(tempDir.path, '${videoBaseName}.jpg');
+
+            print('   Thumbnail path: $thumbnailPath');
+
+            // Try generating at 5 seconds, if video is shorter try at 1 second, then 0
+            int seekTime = 5;
+            if (duration != null && duration < 5) {
+              seekTime = duration > 1 ? 1 : 0;
+            }
+            print('   Seeking to: ${seekTime}s');
+
+            final generatedPath = await VideoUtils.generateThumbnail(
+              videoFile,
+              seekTime,
+              outputPath: thumbnailPath,
+            );
+
+            _videoThumbnails[i] = File(generatedPath);
+            print(
+                '✅ Processed video ${i + 1}/${_selectedVideos.length}: duration=${duration}s, thumbnail generated');
+          } catch (e) {
+            print('❌ Error generating thumbnail for video ${i + 1}: $e');
+            print('   Continuing without thumbnail...');
+            _videoThumbnails[i] = null;
+          }
+        } catch (e) {
+          print('❌ Error processing video ${i + 1}: $e');
+          _videoDurations[i] = 0;
+          _videoThumbnails[i] = null;
+        }
+      }
+
+      print('🎬 Video processing completed');
+      print(
+          '   Videos with thumbnails: ${_videoThumbnails.where((t) => t != null).length}/${_selectedVideos.length}');
+    } catch (e) {
+      print('❌ Error processing videos: $e');
     }
   }
 
@@ -114,6 +200,14 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
           .where((tag) => tag.isNotEmpty)
           .toList();
 
+      // Prepare processed video data
+      final validThumbnails =
+          _videoThumbnails.where((t) => t != null).cast<File>().toList();
+      final validDurations = _videoDurations
+          .where((d) => d != null)
+          .map((d) => d.toString())
+          .toList();
+
       // Call API service to create post with file uploads
       final response = await _apiService.createCommunityPost(
         content: _contentController.text.trim().isNotEmpty
@@ -122,6 +216,8 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
         type: 'MEDIA', // Always MEDIA type for posts with text + media
         imageFiles: _selectedImages.isNotEmpty ? _selectedImages : null,
         videoFiles: _selectedVideos.isNotEmpty ? _selectedVideos : null,
+        videoThumbnails: validThumbnails.isNotEmpty ? validThumbnails : null,
+        videoDurations: validDurations.isNotEmpty ? validDurations : null,
         cost: cost,
         requiresVip: _requiresVip,
         allowComments: _allowComments,
@@ -212,6 +308,30 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
                         onTap: _isLoading ? null : _pickMedia,
                       ),
                     ),
+
+                    // Show video processing indicator
+                    if (_isProcessingVideos) ...[
+                      const SizedBox(height: 16),
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.blue.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.blue),
+                        ),
+                        child: const Row(
+                          children: [
+                            SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                            SizedBox(width: 12),
+                            Text('Processing videos...'),
+                          ],
+                        ),
+                      ),
+                    ],
 
                     // Show selected media preview
                     if (_selectedImages.isNotEmpty ||
@@ -445,7 +565,9 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton(
-                        onPressed: _isLoading ? null : _createPost,
+                        onPressed: (_isLoading || _isProcessingVideos)
+                            ? null
+                            : _createPost,
                         style: ElevatedButton.styleFrom(
                           padding: const EdgeInsets.symmetric(vertical: 16),
                         ),
@@ -548,10 +670,14 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
                   scrollDirection: Axis.horizontal,
                   itemCount: _selectedVideos.length,
                   itemBuilder: (context, index) {
+                    final thumbnail = _videoThumbnails[index];
+                    final duration = _videoDurations[index];
+
                     return Padding(
                       padding: const EdgeInsets.only(right: 8),
                       child: Stack(
                         children: [
+                          // Video thumbnail or placeholder
                           Container(
                             width: 80,
                             height: 80,
@@ -559,8 +685,37 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
                               color: const Color(0xFFE0E0E0),
                               borderRadius: BorderRadius.circular(8),
                             ),
-                            child: const Icon(Icons.videocam, size: 32),
+                            child: thumbnail != null
+                                ? ClipRRect(
+                                    borderRadius: BorderRadius.circular(8),
+                                    child: Image.file(
+                                      thumbnail,
+                                      width: 80,
+                                      height: 80,
+                                      fit: BoxFit.cover,
+                                    ),
+                                  )
+                                : const Icon(Icons.videocam, size: 32),
                           ),
+                          // Duration overlay
+                          if (duration != null && duration > 0)
+                            Positioned(
+                              bottom: 4,
+                              left: 4,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 4, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: Colors.black.withOpacity(0.7),
+                                  borderRadius: BorderRadius.circular(3),
+                                ),
+                                child: Text(
+                                  _formatDuration(duration),
+                                  style: const TextStyle(
+                                      color: Colors.white, fontSize: 8),
+                                ),
+                              ),
+                            ),
                           Positioned(
                             top: 4,
                             right: 4,
@@ -595,5 +750,11 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
         ),
       ),
     );
+  }
+
+  String _formatDuration(int durationSeconds) {
+    final minutes = durationSeconds ~/ 60;
+    final remainingSeconds = durationSeconds % 60;
+    return '${minutes}:${remainingSeconds.toString().padLeft(2, '0')}';
   }
 }

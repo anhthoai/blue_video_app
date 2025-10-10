@@ -2447,6 +2447,13 @@ app.get('/api/v1/community/posts', async (req, res) => {
           )
         );
 
+        // Build video thumbnail URLs from database
+        const videoThumbnailUrls = await Promise.all(
+          post.videoThumbnails.map((fileName) =>
+            buildCommunityPostFileUrl(post.fileDirectory, fileName)
+          )
+        );
+
         // Build avatar URL (async)
         const avatarUrl = post.user.avatar && post.user.fileDirectory
           ? await buildFileUrl(post.user.fileDirectory, post.user.avatar, 'avatars')
@@ -2461,6 +2468,7 @@ app.get('/api/v1/community/posts', async (req, res) => {
           userAvatar: avatarUrl,
           imageUrls: imageUrls.filter((url) => url != null),
           videoUrls: videoUrls.filter((url) => url != null),
+          videoThumbnailUrls: videoThumbnailUrls.filter((url) => url != null),
         };
       })
     );
@@ -2558,6 +2566,7 @@ app.post('/api/v1/community/posts', authenticateToken, communityPostUpload.array
     let fileDirectory: string | null = null;
     let images: string[] = [];
     let videos: string[] = [];
+    let durations: string[] = [];
 
     if (uploadedFiles.length > 0) {
       try {
@@ -2565,6 +2574,24 @@ app.post('/api/v1/community/posts', authenticateToken, communityPostUpload.array
         fileDirectory = uploadResult.fileDirectory;
         images = uploadResult.images;
         videos = uploadResult.videos;
+        const videoThumbnails = uploadResult.videoThumbnails;
+
+        // Get durations from request body if provided (from mobile app)
+        const videoDurationsString = req.body?.videoDurations;
+        console.log('📊 Received videoDurations string:', videoDurationsString);
+        if (videoDurationsString) {
+          try {
+            const parsedDurations = JSON.parse(videoDurationsString);
+            // Ensure all durations are strings
+            durations = parsedDurations.map((d: any) => String(d));
+            console.log('✅ Parsed durations:', durations);
+          } catch (error) {
+            console.error('❌ Error parsing video durations:', error);
+            durations = [];
+          }
+        } else {
+          console.log('⚠️  No videoDurations received from mobile app');
+        }
 
         // Update the post with file information
         await prisma.communityPost.update({
@@ -2573,6 +2600,8 @@ app.post('/api/v1/community/posts', authenticateToken, communityPostUpload.array
             fileDirectory,
             images,
             videos,
+            videoThumbnails,
+            duration: durations,
           },
         });
       } catch (uploadError) {

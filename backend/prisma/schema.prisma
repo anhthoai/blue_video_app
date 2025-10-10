@@ -113,6 +113,7 @@ model CommunityPost {
   type            PostType
   images          String[]
   videos          String[]
+  videoThumbnails String[] @default([]) @map("video_thumbnails") // Video thumbnail filenames, matching videos array order
   fileDirectory   String?  @map("file_directory") // Storage directory for uploaded files
   linkUrl         String?  @map("link_url")
   linkTitle       String?  @map("link_title")
@@ -135,6 +136,7 @@ model CommunityPost {
   isPinned        Boolean  @default(false) @map("is_pinned") // Pin this post
   isNsfw          Boolean  @default(false) @map("is_nsfw") // NSFW content
   replyRestriction ReplyRestriction @default(FOLLOWERS) @map("reply_restriction") // Who can reply
+  duration        String[] @default([]) @map("duration") // Duration of each video in seconds, matching videos array order
 
   createdAt       DateTime @default(now()) @map("created_at")
   updatedAt       DateTime @updatedAt @map("updated_at")

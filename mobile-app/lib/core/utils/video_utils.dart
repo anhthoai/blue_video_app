@@ -77,33 +77,91 @@ class VideoUtils {
   /// Generate thumbnail from video at specific timestamp
   /// Optimized to 640px width for faster loading
   /// Returns the path to the generated thumbnail
-  static Future<String?> generateThumbnail(
+  static Future<String> generateThumbnail(
     File videoFile,
     int timeInSeconds, {
     String? outputPath,
   }) async {
     try {
+      // Verify video file exists
+      if (!await videoFile.exists()) {
+        throw Exception('Video file does not exist: ${videoFile.path}');
+      }
+
       final tempDir = await getTemporaryDirectory();
       final thumbnailPath = outputPath ??
           path.join(tempDir.path,
               'thumbnail_${DateTime.now().millisecondsSinceEpoch}.jpg');
 
-      // Generate thumbnail with 480px width for faster generation & loading
-      // -vf scale=480:-1 resizes to 480px width, maintains aspect ratio
-      // -q:v 5 = slightly lower quality for faster processing (2=best, 31=worst)
-      final command =
-          '-i "${videoFile.path}" -ss $timeInSeconds -vframes 1 -vf scale=640:-1 -q:v 5 "$thumbnailPath"';
+      // Delete existing thumbnail if it exists (to avoid FFmpeg asking for overwrite confirmation)
+      final thumbnailFile = File(thumbnailPath);
+      if (await thumbnailFile.exists()) {
+        print('🗑️  Deleting existing thumbnail: $thumbnailPath');
+        await thumbnailFile.delete();
+      }
 
-      final session = await FFmpegKit.execute(command);
-      final returnCode = await session.getReturnCode();
+      print('🎬 Generating thumbnail...');
+      print('   Video: ${videoFile.path}');
+      print('   Output: $thumbnailPath');
+      print('   Time: ${timeInSeconds}s');
+
+      // Try with scale filter first (better quality, smaller file)
+      // -y = automatically overwrite output files without asking
+      // -ss before -i for faster seeking
+      // -vframes 1 = extract only 1 frame
+      // -vf scale=640:-1 resizes to 640px width, maintains aspect ratio
+      // -q:v 5 = slightly lower quality for faster processing (2=best, 31=worst)
+      var command =
+          '-y -ss $timeInSeconds -i ${videoFile.path} -vframes 1 -vf scale=640:-1 -q:v 5 $thumbnailPath';
+
+      print('🔧 FFmpeg command (with scale): $command');
+
+      var session = await FFmpegKit.execute(command);
+      var returnCode = await session.getReturnCode();
+
+      print('📊 FFmpeg return code: ${returnCode?.getValue()}');
+
+      // If failed with scale, try simpler command without scale filter
+      if (returnCode == null || returnCode.getValue() != 0) {
+        print('⚠️  Scaling failed, trying without scale filter...');
+
+        // Simpler command without scale filter
+        command =
+            '-y -ss $timeInSeconds -i ${videoFile.path} -vframes 1 $thumbnailPath';
+        print('🔧 FFmpeg command (no scale): $command');
+
+        session = await FFmpegKit.execute(command);
+        returnCode = await session.getReturnCode();
+        print('📊 FFmpeg return code (retry): ${returnCode?.getValue()}');
+      }
 
       if (returnCode != null && returnCode.getValue() == 0) {
-        return thumbnailPath;
+        // Verify thumbnail was created
+        final thumbnailFile = File(thumbnailPath);
+        if (await thumbnailFile.exists()) {
+          final fileSize = await thumbnailFile.length();
+          print('✅ Thumbnail created successfully (${fileSize} bytes)');
+          return thumbnailPath;
+        } else {
+          throw Exception('Thumbnail file was not created at: $thumbnailPath');
+        }
       }
-      return null;
+
+      // If both attempts failed, print error logs
+      print('❌ FFmpeg FAILED on both attempts!');
+      final logs = await session.getAllLogsAsString();
+      if (logs != null && logs.isNotEmpty) {
+        // Get last 1000 characters of logs (most relevant error info)
+        final relevantLogs =
+            logs.length > 1000 ? logs.substring(logs.length - 1000) : logs;
+        print('📝 FFmpeg error logs:\n$relevantLogs');
+      }
+
+      throw Exception(
+          'FFmpeg failed with return code: ${returnCode?.getValue()}');
     } catch (e) {
-      print('Error generating thumbnail: $e');
-      return null;
+      print('❌ Error generating thumbnail: $e');
+      rethrow;
     }
   }
 

@@ -586,56 +586,151 @@ export const uploadCommunityPostFiles = async (files: Express.Multer.File[], pos
   fileDirectory: string;
   images: string[];
   videos: string[];
+  videoThumbnails: string[];
+  durations: string[];
 }> => {
   const today = new Date();
   const fileDirectory = `${today.getFullYear()}/${String(today.getMonth() + 1).padStart(2, '0')}/${String(today.getDate()).padStart(2, '0')}/${postId}`;
-  
+
   const images: string[] = [];
   const videos: string[] = [];
+  const videoThumbnails: string[] = [];
+  const durations: string[] = [];
+  
+  console.log(`📦 Processing ${files.length} files for post ${postId}`);
+  
+  // Map to track original video filenames to their UUIDs
+  const videoOriginalToUuid = new Map<string, string>();
+
+  // First pass: process videos only
+  console.log('🎬 FIRST PASS: Processing videos...');
+  for (const file of files) {
+    const fileExtension = file.originalname.split('.').pop();
+    const ext = fileExtension?.toLowerCase();
+    const isVideo = file.mimetype.startsWith('video/') ||
+                   (ext && ['mp4', 'webm', 'mov', 'avi'].includes(ext));
+    
+    console.log(`   File: ${file.originalname}, MIME: ${file.mimetype}, isVideo: ${isVideo}`);
+    
+    if (isVideo) {
+      const videoUuid = uuidv4();
+      const fileName = `${videoUuid}.${fileExtension}`;
+      const s3Key = `community-posts/${fileDirectory}/${fileName}`;
+      
+      // Store mapping of original filename (without extension) to UUID
+      const originalBaseName = file.originalname.split('.').slice(0, -1).join('.');
+      videoOriginalToUuid.set(originalBaseName, videoUuid);
+
+      try {
+        const uploadCommand = new PutObjectCommand({
+          Bucket: BUCKET_NAME,
+          Key: s3Key,
+          Body: require('fs').readFileSync(file.path),
+          ContentType: file.mimetype,
+        });
+        await s3Client.send(uploadCommand);
+        
+        videos.push(fileName);
+        durations.push('0'); // Placeholder, will be updated from mobile app data
+        
+        console.log(`✅ Uploaded video: ${fileName} (original: ${file.originalname})`);
+      } catch (error) {
+        console.error('Error uploading video to S3:', error);
+        throw error;
+      }
+    }
+  }
+
+  // Second pass: process images (thumbnails and regular images)
+  console.log('🖼️  SECOND PASS: Processing images...');
+  console.log(`   Video UUID map has ${videoOriginalToUuid.size} entries`);
   
   for (const file of files) {
     const fileExtension = file.originalname.split('.').pop();
-    const fileName = `${uuidv4()}.${fileExtension}`;
-    const s3Key = `community-posts/${fileDirectory}/${fileName}`;
+    const ext = fileExtension?.toLowerCase();
     
-    try {
-      // Upload to S3
-      const uploadCommand = new PutObjectCommand({
-        Bucket: BUCKET_NAME,
-        Key: s3Key,
-        Body: require('fs').readFileSync(file.path),
-        ContentType: file.mimetype,
-      });
+    // Check if it's an image by MIME type OR file extension
+    const isImageByMime = file.mimetype.startsWith('image/') || file.mimetype === 'application/octet-stream';
+    const isImageByExt = ext && ['jpg', 'jpeg', 'png', 'webp', 'gif'].includes(ext);
+    const isImage = isImageByMime && isImageByExt;
+    
+    console.log(`   File: ${file.originalname}, MIME: ${file.mimetype}, isImage: ${isImage}`);
+    
+    if (isImage) {
+      // Check if this is a video thumbnail by matching original filename
+      const originalBaseName = file.originalname.split('.').slice(0, -1).join('.');
+      const matchingVideoUuid = videoOriginalToUuid.get(originalBaseName);
       
-      await s3Client.send(uploadCommand);
+      console.log(`      Base name: "${originalBaseName}", Match: ${matchingVideoUuid ? 'YES (thumbnail)' : 'NO (regular image)'}`);
       
-      // Add to appropriate array based on file type and extension
-      const ext = fileExtension?.toLowerCase();
-      const isImage = file.mimetype.startsWith('image/') || 
-                     (ext && ['jpg', 'jpeg', 'png', 'webp', 'gif'].includes(ext));
-      const isVideo = file.mimetype.startsWith('video/') || 
-                     (ext && ['mp4', 'webm', 'mov', 'avi'].includes(ext));
-      
-      if (isImage) {
-        images.push(fileName);
-      } else if (isVideo) {
-        videos.push(fileName);
+      if (matchingVideoUuid) {
+        // This is a video thumbnail - upload with same UUID as video
+        const fileName = `${matchingVideoUuid}.jpg`;
+        const s3Key = `community-posts/${fileDirectory}/${fileName}`;
+        
+        try {
+          const uploadCommand = new PutObjectCommand({
+            Bucket: BUCKET_NAME,
+            Key: s3Key,
+            Body: require('fs').readFileSync(file.path),
+            ContentType: 'image/jpeg', // Force JPEG content type for thumbnails
+          });
+          await s3Client.send(uploadCommand);
+          
+          // Add thumbnail filename to videoThumbnails array
+          videoThumbnails.push(fileName);
+          
+          console.log(`✅ Uploaded video thumbnail: ${fileName} (for video: ${matchingVideoUuid}.mp4)`);
+        } catch (error) {
+          console.error('Error uploading thumbnail to S3:', error);
+          throw error;
+        }
+      } else {
+        // This is a regular image
+        const fileName = `${uuidv4()}.${fileExtension}`;
+        const s3Key = `community-posts/${fileDirectory}/${fileName}`;
+        
+        try {
+          const uploadCommand = new PutObjectCommand({
+            Bucket: BUCKET_NAME,
+            Key: s3Key,
+            Body: require('fs').readFileSync(file.path),
+            ContentType: file.mimetype,
+          });
+          await s3Client.send(uploadCommand);
+          
+          images.push(fileName);
+          console.log(`✅ Uploaded image: ${fileName}`);
+        } catch (error) {
+          console.error('Error uploading image to S3:', error);
+          throw error;
+        }
       }
-      
-      // Clean up temporary file
-      require('fs').unlinkSync(file.path);
-      
-    } catch (error) {
-      console.error('Error uploading file to S3:', error);
-      throw error;
     }
   }
-  
-  return {
-    fileDirectory, // Just yyyy/mm/dd/postId format
-    images,
-    videos,
-  };
+
+  // Clean up all temporary files
+  for (const file of files) {
+    try {
+      require('fs').unlinkSync(file.path);
+    } catch (error) {
+      console.error('Error cleaning up temp file:', error);
+    }
+  }
+
+          console.log(`📊 Upload Summary:`);
+          console.log(`   Images: ${images.length} (${images.join(', ')})`);
+          console.log(`   Videos: ${videos.length} (${videos.join(', ')})`);
+          console.log(`   Video Thumbnails: ${videoThumbnails.length} (${videoThumbnails.join(', ')})`);
+          console.log(`   Durations: ${durations.length} (${durations.join(', ')})`);
+
+          return {
+            fileDirectory, // Just yyyy/mm/dd/postId format
+            images,
+            videos,
+            videoThumbnails,
+            durations,
+          };
 };
 
 export default s3Client;

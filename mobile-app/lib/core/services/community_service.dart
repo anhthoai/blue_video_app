@@ -99,6 +99,9 @@ class CommunityService {
             videos: List<String>.from(json['videos'] ?? const []),
             imageUrls: List<String>.from(json['imageUrls'] ?? const []),
             videoUrls: List<String>.from(json['videoUrls'] ?? const []),
+            videoThumbnailUrls:
+                List<String>.from(json['videoThumbnailUrls'] ?? const []),
+            duration: List<String>.from(json['duration'] ?? const []),
             videoUrl: null,
             linkUrl: json['linkUrl'],
             linkTitle: json['linkTitle'],

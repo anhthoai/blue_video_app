@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:go_router/go_router.dart';
 import 'package:video_player/video_player.dart';
 import 'package:chewie/chewie.dart';
 
@@ -16,46 +15,78 @@ class PostContentWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    switch (post.type) {
-      case PostType.media:
-        return _buildMediaContent(context);
-      case PostType.link:
-        return _buildLinkContent();
-      case PostType.poll:
-        return _buildPollContent();
-      case PostType.text:
-        return const SizedBox.shrink();
+    print('🎯 PostContentWidget building for post: ${post.id}');
+    print('   Type: ${post.type}');
+    print('   Image URLs: ${post.imageUrls.length}');
+    print('   Video URLs: ${post.videoUrls.length}');
+    print('   Duration: ${post.duration}');
+
+    try {
+      switch (post.type) {
+        case PostType.media:
+          return _buildMediaContent(context);
+        case PostType.link:
+          return _buildLinkContent();
+        case PostType.poll:
+          return _buildPollContent();
+        case PostType.text:
+          return const SizedBox.shrink();
+      }
+    } catch (e, stackTrace) {
+      print('❌ Error in PostContentWidget.build: $e');
+      print('Stack trace: $stackTrace');
+      return Container(
+        padding: const EdgeInsets.all(16),
+        child: Text('Error loading post content: $e'),
+      );
     }
   }
 
   Widget _buildMediaContent(BuildContext context) {
-    if (post.imageUrls.isEmpty && post.videoUrls.isEmpty)
-      return const SizedBox.shrink();
+    print('🎬 Building media content...');
+    print('   Images: ${post.imageUrls.length}');
+    print('   Videos: ${post.videoUrls.length}');
 
-    // Combine all media items
-    final allMedia = <Map<String, dynamic>>[];
+    try {
+      if (post.imageUrls.isEmpty && post.videoUrls.isEmpty) {
+        print('   No media content to display');
+        return const SizedBox.shrink();
+      }
 
-    // Add images
-    for (int i = 0; i < post.imageUrls.length; i++) {
-      allMedia.add({
-        'type': 'image',
-        'url': post.imageUrls[i],
-        'index': i,
-      });
+      // Combine all media items
+      final allMedia = <Map<String, dynamic>>[];
+
+      // Add images
+      for (int i = 0; i < post.imageUrls.length; i++) {
+        print('   Adding image $i: ${post.imageUrls[i]}');
+        allMedia.add({
+          'type': 'image',
+          'url': post.imageUrls[i],
+          'index': i,
+        });
+      }
+
+      // Add videos
+      for (int i = 0; i < post.videoUrls.length; i++) {
+        print('   Adding video $i: ${post.videoUrls[i]}');
+        allMedia.add({
+          'type': 'video',
+          'url': post.videoUrls[i],
+          'videoIndex': i, // Video index for duration lookup
+        });
+      }
+
+      if (allMedia.isEmpty) return const SizedBox.shrink();
+
+      return _buildMediaGrid(context, allMedia);
+    } catch (e, stackTrace) {
+      print('❌ Error in _buildMediaContent: $e');
+      print('Stack trace: $stackTrace');
+      return Container(
+        padding: const EdgeInsets.all(16),
+        child: Text('Error loading media content: $e'),
+      );
     }
-
-    // Add videos
-    for (int i = 0; i < post.videoUrls.length; i++) {
-      allMedia.add({
-        'type': 'video',
-        'url': post.videoUrls[i],
-        'index': i,
-      });
-    }
-
-    if (allMedia.isEmpty) return const SizedBox.shrink();
-
-    return _buildMediaGrid(context, allMedia);
   }
 
   Widget _buildMediaGrid(
@@ -106,31 +137,75 @@ class PostContentWidget extends StatelessWidget {
         ),
       );
     } else {
+      // For videos, show thumbnail with play icon and duration
+      final videoIndex = media['videoIndex'] ?? 0;
+      final videoUrl = post.videoUrls[videoIndex];
+
+      // Use the thumbnail URL from the API response
+      final thumbnailUrl = videoIndex < post.videoThumbnailUrls.length
+          ? post.videoThumbnailUrls[videoIndex]
+          : videoUrl.replaceAll(
+              RegExp(r'\.mp4'), '.jpg'); // Fallback to URL construction
+
+      final durationStr =
+          videoIndex < post.duration.length ? post.duration[videoIndex] : '0';
+      final duration = int.tryParse(durationStr) ?? 0;
+
+      // Debug logging
+      print('🎬 Video display debug:');
+      print('   Video URL: $videoUrl');
+      print('   Thumbnail URL: $thumbnailUrl');
+      print('   Duration: $durationStr -> $duration');
+      print('   Video index: $videoIndex');
+
       return Stack(
         fit: StackFit.expand,
         children: [
-          Container(
-            color: Colors.grey[800],
-            child: const Center(
-              child: Icon(Icons.play_circle_outline,
-                  color: Colors.white, size: 48),
+          // Video thumbnail
+          CachedNetworkImage(
+            imageUrl: thumbnailUrl,
+            fit: BoxFit.cover,
+            placeholder: (context, url) => Container(
+              color: Colors.grey[300],
+              child: const Center(child: CircularProgressIndicator()),
             ),
+            errorWidget: (context, url, error) {
+              print('❌ Failed to load thumbnail: $url');
+              print('   Error: $error');
+              return Container(
+                color: Colors.grey[400],
+                child: const Center(
+                  child: Icon(
+                    Icons.video_library,
+                    color: Colors.white,
+                    size: 48,
+                  ),
+                ),
+              );
+            },
           ),
-          Positioned(
-            bottom: 8,
-            right: 8,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-              decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.7),
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: const Text(
-                '2:30',
-                style: TextStyle(color: Colors.white, fontSize: 12),
+          // Play icon overlay
+          const Center(
+            child:
+                Icon(Icons.play_circle_outline, color: Colors.white, size: 48),
+          ),
+          // Duration overlay
+          if (duration > 0)
+            Positioned(
+              bottom: 8,
+              right: 8,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.7),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  _formatDuration(duration),
+                  style: const TextStyle(color: Colors.white, fontSize: 12),
+                ),
               ),
             ),
-          ),
         ],
       );
     }
@@ -149,6 +224,88 @@ class PostContentWidget extends StatelessWidget {
         ),
       ],
     );
+  }
+
+  Widget _buildMediaItem(BuildContext context, Map<String, dynamic> media) {
+    if (media['type'] == 'image') {
+      return CachedNetworkImage(
+        imageUrl: media['url'],
+        fit: BoxFit.cover,
+        placeholder: (context, url) => Container(
+          color: Colors.grey[300],
+          child: const Center(child: CircularProgressIndicator()),
+        ),
+        errorWidget: (context, url, error) => Container(
+          color: Colors.grey[300],
+          child: const Center(child: Icon(Icons.error)),
+        ),
+      );
+    } else {
+      // For videos, show thumbnail with play icon and duration
+      final videoIndex = media['videoIndex'] ?? 0;
+      final videoUrl = post.videoUrls[videoIndex];
+
+      // Use the thumbnail URL from the API response
+      final thumbnailUrl = videoIndex < post.videoThumbnailUrls.length
+          ? post.videoThumbnailUrls[videoIndex]
+          : videoUrl.replaceAll(
+              RegExp(r'\.mp4'), '.jpg'); // Fallback to URL construction
+
+      final durationStr =
+          videoIndex < post.duration.length ? post.duration[videoIndex] : '0';
+      final duration = int.tryParse(durationStr) ?? 0;
+
+      return Stack(
+        fit: StackFit.expand,
+        children: [
+          // Video thumbnail
+          CachedNetworkImage(
+            imageUrl: thumbnailUrl,
+            fit: BoxFit.cover,
+            placeholder: (context, url) => Container(
+              color: Colors.grey[300],
+              child: const Center(child: CircularProgressIndicator()),
+            ),
+            errorWidget: (context, url, error) {
+              print('❌ Failed to load thumbnail: $url');
+              print('   Error: $error');
+              return Container(
+                color: Colors.grey[400],
+                child: const Center(
+                  child: Icon(
+                    Icons.video_library,
+                    color: Colors.white,
+                    size: 48,
+                  ),
+                ),
+              );
+            },
+          ),
+          // Play icon overlay
+          const Center(
+            child:
+                Icon(Icons.play_circle_outline, color: Colors.white, size: 32),
+          ),
+          // Duration overlay
+          if (duration > 0)
+            Positioned(
+              bottom: 6,
+              right: 6,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.7),
+                  borderRadius: BorderRadius.circular(3),
+                ),
+                child: Text(
+                  _formatDuration(duration),
+                  style: const TextStyle(color: Colors.white, fontSize: 10),
+                ),
+              ),
+            ),
+        ],
+      );
+    }
   }
 
   Widget _buildMultipleMedia(
@@ -192,51 +349,6 @@ class PostContentWidget extends StatelessWidget {
         ],
       ],
     );
-  }
-
-  Widget _buildMediaItem(BuildContext context, Map<String, dynamic> media) {
-    if (media['type'] == 'image') {
-      return CachedNetworkImage(
-        imageUrl: media['url'],
-        fit: BoxFit.cover,
-        placeholder: (context, url) => Container(
-          color: Colors.grey[300],
-          child: const Center(child: CircularProgressIndicator()),
-        ),
-        errorWidget: (context, url, error) => Container(
-          color: Colors.grey[300],
-          child: const Center(child: Icon(Icons.error)),
-        ),
-      );
-    } else {
-      return Stack(
-        fit: StackFit.expand,
-        children: [
-          Container(
-            color: Colors.grey[800],
-            child: const Center(
-              child: Icon(Icons.play_circle_outline,
-                  color: Colors.white, size: 24),
-            ),
-          ),
-          Positioned(
-            bottom: 4,
-            right: 4,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-              decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.7),
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: Text(
-                '${(media['index'] + 1) * 2}:${(media['index'] * 15) % 60}',
-                style: const TextStyle(color: Colors.white, fontSize: 10),
-              ),
-            ),
-          ),
-        ],
-      );
-    }
   }
 
   Widget _buildOverflowItem(BuildContext context, int remainingCount) {
@@ -437,6 +549,12 @@ class PostContentWidget extends StatelessWidget {
         fullscreenDialog: true,
       ),
     );
+  }
+
+  String _formatDuration(int durationSeconds) {
+    final minutes = durationSeconds ~/ 60;
+    final remainingSeconds = durationSeconds % 60;
+    return '${minutes}:${remainingSeconds.toString().padLeft(2, '0')}';
   }
 }
 

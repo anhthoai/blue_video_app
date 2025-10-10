@@ -31,6 +31,8 @@ class CommunityPost {
   final List<String> videos; // Support multiple videos
   final List<String> imageUrls; // URLs for images
   final List<String> videoUrls; // URLs for videos
+  final List<String> videoThumbnailUrls; // URLs for video thumbnails
+  final List<String> duration; // Duration for each video in seconds
   final String? videoUrl; // Keep for backward compatibility
   final String? linkUrl;
   final String? linkTitle;
@@ -68,6 +70,8 @@ class CommunityPost {
     this.videos = const [],
     this.imageUrls = const [],
     this.videoUrls = const [],
+    this.videoThumbnailUrls = const [],
+    this.duration = const [],
     this.videoUrl,
     this.linkUrl,
     this.linkTitle,
@@ -106,6 +110,7 @@ class CommunityPost {
     List<String>? videos,
     List<String>? imageUrls,
     List<String>? videoUrls,
+    List<String>? videoThumbnailUrls,
     String? videoUrl,
     String? linkUrl,
     String? linkTitle,
@@ -143,6 +148,7 @@ class CommunityPost {
       videos: videos ?? this.videos,
       imageUrls: imageUrls ?? this.imageUrls,
       videoUrls: videoUrls ?? this.videoUrls,
+      videoThumbnailUrls: videoThumbnailUrls ?? this.videoThumbnailUrls,
       videoUrl: videoUrl ?? this.videoUrl,
       linkUrl: linkUrl ?? this.linkUrl,
       linkTitle: linkTitle ?? this.linkTitle,
@@ -183,6 +189,7 @@ class CommunityPost {
       'videos': videos,
       'imageUrls': imageUrls,
       'videoUrls': videoUrls,
+      'videoThumbnailUrls': videoThumbnailUrls,
       'videoUrl': videoUrl,
       'linkUrl': linkUrl,
       'linkTitle': linkTitle,
@@ -218,17 +225,21 @@ class CommunityPost {
       title: json['title'] as String?,
       content: json['content'] as String,
       type: PostType.values.firstWhere(
-        (e) => e.name == json['type'],
+        (e) => e.name.toLowerCase() == (json['type'] as String?)?.toLowerCase(),
         orElse: () => PostType.text,
       ),
       status: PostStatus.values.firstWhere(
-        (e) => e.name == json['status'],
+        (e) =>
+            e.name.toLowerCase() == (json['status'] as String?)?.toLowerCase(),
         orElse: () => PostStatus.published,
       ),
       images: (json['images'] as List<dynamic>?)?.cast<String>() ?? [],
       videos: (json['videos'] as List<dynamic>?)?.cast<String>() ?? [],
       imageUrls: (json['imageUrls'] as List<dynamic>?)?.cast<String>() ?? [],
       videoUrls: (json['videoUrls'] as List<dynamic>?)?.cast<String>() ?? [],
+      videoThumbnailUrls:
+          (json['videoThumbnailUrls'] as List<dynamic>?)?.cast<String>() ?? [],
+      duration: (json['duration'] as List<dynamic>?)?.cast<String>() ?? [],
       videoUrl: json['videoUrl'] as String?,
       linkUrl: json['linkUrl'] as String?,
       linkTitle: json['linkTitle'] as String?,

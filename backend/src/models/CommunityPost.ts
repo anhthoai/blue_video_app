@@ -12,6 +12,7 @@ export interface CommunityPost {
   type: PostType;
   images?: string[];
   videos?: string[];
+  videoThumbnails?: string[];
   link_url?: string;
   link_title?: string;
   link_description?: string;
@@ -33,6 +34,7 @@ export interface CommunityPost {
   is_pinned: boolean;
   is_nsfw: boolean;
   reply_restriction: ReplyRestriction;
+  duration?: string[];
 
   created_at: Date;
   updated_at: Date;
@@ -45,6 +47,7 @@ export interface CreatePostData {
   type: PostType;
   images?: string[];
   videos?: string[];
+  videoThumbnails?: string[];
   link_url?: string;
   link_title?: string;
   link_description?: string;
@@ -60,6 +63,7 @@ export interface CreatePostData {
   is_pinned?: boolean;
   is_nsfw?: boolean;
   reply_restriction?: ReplyRestriction;
+  duration?: string[];
 }
 
 export interface UpdatePostData {
