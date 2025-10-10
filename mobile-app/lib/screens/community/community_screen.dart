@@ -22,8 +22,12 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
-    _loadPosts();
-    _loadCategories();
+
+    // Defer loading to avoid infinite rebuild loop
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadPosts();
+      _loadCategories();
+    });
   }
 
   @override
@@ -34,11 +38,9 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
   }
 
   Future<void> _loadPosts() async {
-    print('Loading community posts...');
     try {
       final communityService = ref.read(communityServiceStateProvider.notifier);
       await communityService.loadPosts();
-      print('Community posts loaded successfully');
     } catch (e) {
       print('Error loading community posts: $e');
     }
