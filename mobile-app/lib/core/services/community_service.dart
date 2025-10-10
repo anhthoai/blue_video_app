@@ -542,7 +542,7 @@ class CommunityServiceState {
 // Community service notifier
 class CommunityServiceNotifier extends StateNotifier<CommunityServiceState> {
   CommunityServiceNotifier() : super(const CommunityServiceState()) {
-    print('CommunityServiceNotifier initialized');
+    // CommunityServiceNotifier initialized
   }
 
   Future<void> loadPosts({
@@ -550,7 +550,7 @@ class CommunityServiceNotifier extends StateNotifier<CommunityServiceState> {
     String? userId,
     bool featuredOnly = false,
   }) async {
-    print('CommunityServiceNotifier.loadPosts called');
+    // Loading posts...
     try {
       state = state.copyWith(isLoading: true, error: null);
       final service = CommunityService();
@@ -565,7 +565,7 @@ class CommunityServiceNotifier extends StateNotifier<CommunityServiceState> {
         posts: posts,
         isLoading: false,
       );
-      print('Community posts loaded from API: ${state.posts.length}');
+      // Posts loaded successfully
     } catch (e) {
       state = state.copyWith(
         isLoading: false,

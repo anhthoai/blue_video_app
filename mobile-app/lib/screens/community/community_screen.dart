@@ -49,26 +49,12 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
     await communityService.loadCategories();
   }
 
-  Future<void> _loadTrendingPosts() async {
-    final communityService = ref.read(communityServiceStateProvider.notifier);
-    await communityService.loadTrendingPosts();
-  }
-
-  Future<void> _loadTrendingVideos() async {
-    final communityService = ref.read(communityServiceStateProvider.notifier);
-    await communityService.loadTrendingVideos();
-  }
-
   @override
   Widget build(BuildContext context) {
     final communityState = ref.watch(communityServiceStateProvider);
 
-    // Force load posts if empty and not loading
-    if (communityState.posts.isEmpty && !communityState.isLoading) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _loadPosts();
-      });
-    }
+    // Removed auto-loading logic to prevent infinite loop
+    // Posts are loaded in initState and when user manually refreshes
 
     return Scaffold(
       appBar: AppBar(
@@ -113,29 +99,17 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
   }
 
   Widget _buildPostsTab(CommunityServiceState state) {
-    print(
-        'Community posts state: isLoading=${state.isLoading}, postsCount=${state.posts.length}');
-
     if (state.isLoading) {
       return const Center(child: CircularProgressIndicator());
     }
 
     if (state.posts.isEmpty) {
-      return Column(
-        children: [
-          _buildEmptyState(
-            icon: Icons.article_outlined,
-            title: 'No posts yet',
-            subtitle: 'Be the first to share something!',
-          ),
-          const SizedBox(height: 20),
-          Text('Debug: isLoading=${state.isLoading}, error=${state.error}'),
-          const SizedBox(height: 10),
-          ElevatedButton(
-            onPressed: _loadPosts,
-            child: const Text('Retry Loading Posts'),
-          ),
-        ],
+      return _buildEmptyState(
+        icon: Icons.article_outlined,
+        title: 'No posts yet',
+        subtitle: 'Be the first to share something with the community!',
+        actionText: 'Create Post',
+        onAction: _createPost,
       );
     }
 
@@ -219,7 +193,9 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
       return _buildEmptyState(
         icon: Icons.video_library,
         title: 'No videos yet',
-        subtitle: 'Check back later for video content!',
+        subtitle: 'Be the first to share a video with the community!',
+        actionText: 'Create Post',
+        onAction: _createPost,
       );
     }
 
@@ -274,6 +250,8 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
     required IconData icon,
     required String title,
     required String subtitle,
+    String? actionText,
+    VoidCallback? onAction,
   }) {
     return Center(
       child: Column(
@@ -301,6 +279,20 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
               color: Colors.grey,
             ),
           ),
+          if (actionText != null && onAction != null) ...[
+            const SizedBox(height: 24),
+            ElevatedButton.icon(
+              onPressed: onAction,
+              icon: const Icon(Icons.add),
+              label: Text(actionText),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Theme.of(context).primaryColor,
+                foregroundColor: Colors.white,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -386,8 +378,8 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
 
     // If post was created successfully, refresh the posts
     if (result == true) {
-      // Refresh the community posts
-      ref.invalidate(communityServiceStateProvider);
+      // Reload posts instead of invalidating to avoid recreation
+      await ref.read(communityServiceStateProvider.notifier).loadPosts();
     }
   }
 }
