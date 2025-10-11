@@ -2105,11 +2105,17 @@ app.get('/api/v1/social/comments', async (req, res) => {
       return;
     }
     
+    // Map COMMUNITY_POST to POST for the database enum
+    let mappedContentType = String(contentType).toUpperCase();
+    if (mappedContentType === 'COMMUNITY_POST') {
+      mappedContentType = 'POST';
+    }
+
     // Get comments from database using Prisma
     const comments = await prisma.comment.findMany({
       where: {
         contentId: String(contentId),
-        contentType: String(contentType).toUpperCase() as any,
+        contentType: mappedContentType as any,
       },
       include: {
         user: {
@@ -2225,12 +2231,18 @@ app.post('/api/v1/social/comments', async (req, res) => {
       return;
     }
 
+    // Map COMMUNITY_POST to POST for the database enum
+    let mappedContentType = String(contentType).toUpperCase();
+    if (mappedContentType === 'COMMUNITY_POST') {
+      mappedContentType = 'POST';
+    }
+
     // Create comment in database
     const comment = await prisma.comment.create({
       data: {
         userId: currentUserId,
         contentId: String(contentId),
-        contentType: String(contentType).toUpperCase() as any,
+        contentType: mappedContentType as any,
         content: String(content),
         parentId: parentCommentId || null,
       },

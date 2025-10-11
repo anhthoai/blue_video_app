@@ -514,14 +514,15 @@ class SocialServiceNotifier extends StateNotifier<SocialServiceState> {
     }
   }
 
-  Future<void> loadComments(String videoId) async {
+  Future<void> loadComments(String videoId,
+      {String contentType = 'VIDEO'}) async {
     try {
       state = state.copyWith(isLoading: true, error: null);
 
       // Load comments from API
       final response = await _apiService.getComments(
         contentId: videoId,
-        contentType: 'VIDEO',
+        contentType: contentType,
       );
 
       final comments = <CommentModel>[];

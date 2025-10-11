@@ -543,62 +543,70 @@ class _CommunityPostWidgetState extends ConsumerState<CommunityPostWidget> {
   Widget _buildActions() {
     return Row(
       children: [
-        _buildActionButton(
-          icon: _isLiked ? Icons.favorite : Icons.favorite_border,
-          label: _formatCount(widget.post.likes),
-          color: _isLiked ? Colors.red : null,
-          onTap: _toggleLike,
+        Flexible(
+          child: _buildActionButton(
+            icon: _isLiked ? Icons.favorite : Icons.favorite_border,
+            label: _formatCount(widget.post.likes),
+            color: _isLiked ? Colors.red : null,
+            onTap: _toggleLike,
+          ),
         ),
-        const SizedBox(width: 24),
-        GestureDetector(
-          onTap: () {
-            if (widget.currentUserId != null &&
-                widget.currentUsername != null &&
-                widget.currentUserAvatar != null) {
-              _showCommentsSection();
-            }
-          },
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(
-              color: Colors.transparent,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.comment_outlined, size: 22),
-                const SizedBox(width: 6),
-                Text(
-                  _formatCount(widget.post.comments),
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
+        const SizedBox(width: 16),
+        Flexible(
+          child: GestureDetector(
+            onTap: () {
+              if (widget.currentUserId != null &&
+                  widget.currentUsername != null &&
+                  widget.currentUserAvatar != null) {
+                _showCommentsSection();
+              }
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.transparent,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.comment_outlined, size: 20),
+                  const SizedBox(width: 4),
+                  Text(
+                    _formatCount(widget.post.comments),
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
-        const SizedBox(width: 24),
-        _buildActionButton(
-          icon: Icons.share_outlined,
-          label: _formatCount(widget.post.shares),
-          onTap: () {
-            // Handle share
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                  content: Text('Share functionality not implemented yet')),
-            );
-          },
+        const SizedBox(width: 16),
+        Flexible(
+          child: _buildActionButton(
+            icon: Icons.share_outlined,
+            label: _formatCount(widget.post.shares),
+            onTap: () {
+              // Handle share
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                    content: Text('Share functionality not implemented yet')),
+              );
+            },
+          ),
         ),
-        const SizedBox(width: 24),
-        _buildActionButton(
-          icon: Icons.visibility_outlined,
-          label: _formatCount(widget.post.views),
-          onTap: () {
-            // Views are automatically tracked when post is viewed
-          },
+        const SizedBox(width: 16),
+        Flexible(
+          child: _buildActionButton(
+            icon: Icons.visibility_outlined,
+            label: _formatCount(widget.post.views),
+            onTap: () {
+              // Views are automatically tracked when post is viewed
+            },
+          ),
         ),
       ],
     );
@@ -613,25 +621,25 @@ class _CommunityPostWidgetState extends ConsumerState<CommunityPostWidget> {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
         decoration: BoxDecoration(
           color: Colors.transparent,
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(6),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
               icon,
-              size: 22,
+              size: 20,
               color: color ?? Colors.grey[600],
             ),
-            const SizedBox(width: 6),
+            const SizedBox(width: 4),
             Text(
               label,
               style: TextStyle(
                 color: color ?? Colors.grey[600],
-                fontSize: 13,
+                fontSize: 12,
                 fontWeight: FontWeight.w500,
               ),
             ),

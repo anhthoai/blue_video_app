@@ -52,7 +52,8 @@ class _CommentsSectionState extends ConsumerState<CommentsSection> {
 
     try {
       final socialService = ref.read(socialServiceStateProvider.notifier);
-      await socialService.loadComments(widget.videoId);
+      await socialService.loadComments(widget.videoId,
+          contentType: 'COMMUNITY_POST');
     } finally {
       setState(() {
         _isLoading = false;
