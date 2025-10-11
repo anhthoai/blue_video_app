@@ -679,9 +679,12 @@ class SocialServiceNotifier extends StateNotifier<SocialServiceState> {
 
         if (updatedComments[videoId] != null) {
           final comments = updatedComments[videoId]!;
+
+          // First, try to find the comment in top-level comments
           final commentIndex = comments.indexWhere((c) => c.id == commentId);
 
           if (commentIndex != -1) {
+            // Found in top-level comments
             final comment = comments[commentIndex];
             final updatedComment = comment.copyWith(
               likes: data['likes'] ?? comment.likes,
@@ -692,11 +695,152 @@ class SocialServiceNotifier extends StateNotifier<SocialServiceState> {
             updatedComments[videoId] = comments;
 
             state = state.copyWith(comments: updatedComments);
+          } else {
+            // Search in replies
+            for (int i = 0; i < comments.length; i++) {
+              final parentComment = comments[i];
+              final replyIndex =
+                  parentComment.replies.indexWhere((r) => r.id == commentId);
+
+              if (replyIndex != -1) {
+                // Found in replies
+                final reply = parentComment.replies[replyIndex];
+                final updatedReply = reply.copyWith(
+                  likes: data['likes'] ?? reply.likes,
+                  isLiked: data['isLiked'] ?? reply.isLiked,
+                );
+
+                final updatedReplies =
+                    List<CommentModel>.from(parentComment.replies);
+                updatedReplies[replyIndex] = updatedReply;
+
+                final updatedParentComment =
+                    parentComment.copyWith(replies: updatedReplies);
+                comments[i] = updatedParentComment;
+                updatedComments[videoId] = comments;
+
+                state = state.copyWith(comments: updatedComments);
+                break;
+              }
+            }
           }
         }
       }
     } catch (e) {
       print('Error toggling comment like: $e');
+    }
+  }
+
+  // Edit comment
+  Future<void> editComment(
+      String commentId, String videoId, String content) async {
+    try {
+      final response = await _apiService.editComment(commentId, content);
+
+      if (response['success'] == true && response['data'] != null) {
+        final data = response['data'];
+        final updatedComments =
+            Map<String, List<CommentModel>>.from(state.comments);
+
+        if (updatedComments[videoId] != null) {
+          final comments = updatedComments[videoId]!;
+
+          // First, try to find the comment in top-level comments
+          final commentIndex = comments.indexWhere((c) => c.id == commentId);
+
+          if (commentIndex != -1) {
+            // Found in top-level comments
+            final comment = comments[commentIndex];
+            final updatedComment = comment.copyWith(
+              content: data['content'] ?? comment.content,
+            );
+
+            comments[commentIndex] = updatedComment;
+            updatedComments[videoId] = comments;
+
+            state = state.copyWith(comments: updatedComments);
+          } else {
+            // Search in replies
+            for (int i = 0; i < comments.length; i++) {
+              final parentComment = comments[i];
+              final replyIndex =
+                  parentComment.replies.indexWhere((r) => r.id == commentId);
+
+              if (replyIndex != -1) {
+                // Found in replies
+                final reply = parentComment.replies[replyIndex];
+                final updatedReply = reply.copyWith(
+                  content: data['content'] ?? reply.content,
+                );
+
+                final updatedReplies =
+                    List<CommentModel>.from(parentComment.replies);
+                updatedReplies[replyIndex] = updatedReply;
+
+                final updatedParentComment =
+                    parentComment.copyWith(replies: updatedReplies);
+                comments[i] = updatedParentComment;
+                updatedComments[videoId] = comments;
+
+                state = state.copyWith(comments: updatedComments);
+                break;
+              }
+            }
+          }
+        }
+      }
+    } catch (e) {
+      print('Error editing comment: $e');
+      rethrow;
+    }
+  }
+
+  // Delete comment
+  Future<void> deleteComment(String commentId, String videoId) async {
+    try {
+      final response = await _apiService.deleteComment(commentId);
+
+      if (response['success'] == true) {
+        final updatedComments =
+            Map<String, List<CommentModel>>.from(state.comments);
+
+        if (updatedComments[videoId] != null) {
+          final comments = updatedComments[videoId]!;
+
+          // First, try to remove from top-level comments
+          final commentIndex = comments.indexWhere((c) => c.id == commentId);
+
+          if (commentIndex != -1) {
+            // Found in top-level comments - remove it
+            comments.removeAt(commentIndex);
+          } else {
+            // Search in replies
+            for (int i = 0; i < comments.length; i++) {
+              final parentComment = comments[i];
+              final replyIndex =
+                  parentComment.replies.indexWhere((r) => r.id == commentId);
+
+              if (replyIndex != -1) {
+                // Found in replies - remove it
+                final updatedReplies =
+                    List<CommentModel>.from(parentComment.replies);
+                updatedReplies.removeAt(replyIndex);
+
+                final updatedParentComment =
+                    parentComment.copyWith(replies: updatedReplies);
+                comments[i] = updatedParentComment;
+                break;
+              }
+            }
+          }
+
+          updatedComments[videoId] = comments;
+          state = state.copyWith(comments: updatedComments);
+        }
+      }
+    } catch (e) {
+      print('Error deleting comment: $e');
+      rethrow;
     }
   }
 

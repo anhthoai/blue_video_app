@@ -118,7 +118,7 @@ class PostContentWidget extends StatelessWidget {
     } else if (allMedia.length == 2) {
       return _buildTwoMedia(context, allMedia);
     } else {
-      return _buildMultipleMedia(context, allMedia);
+      return _buildImprovedMultipleMedia(context, allMedia);
     }
   }
 
@@ -308,65 +308,141 @@ class PostContentWidget extends StatelessWidget {
     }
   }
 
-  Widget _buildMultipleMedia(
+  Widget _buildImprovedMultipleMedia(
       BuildContext context, List<Map<String, dynamic>> allMedia) {
-    return Column(
-      children: [
-        // First row - up to 2 items
-        Expanded(
-          child: Row(
-            children: [
-              Expanded(
-                child: _buildMediaItem(context, allMedia[0]),
-              ),
-              if (allMedia.length > 1) ...[
-                const SizedBox(width: 2),
-                Expanded(
-                  child: _buildMediaItem(context, allMedia[1]),
-                ),
-              ],
-            ],
-          ),
-        ),
-        if (allMedia.length > 2) ...[
-          const SizedBox(height: 2),
-          // Second row - remaining items
+    // Separate images and videos
+    final images = allMedia.where((media) => media['type'] == 'image').toList();
+    final videos = allMedia.where((media) => media['type'] == 'video').toList();
+
+    if (images.isNotEmpty) {
+      // First image goes to left (2/3 width)
+      final firstImage = images.first;
+      final remainingImages = images.skip(1).toList();
+
+      // Plan what goes in the right column (2 slots available)
+      final rightColumnItems = <Map<String, dynamic>>[];
+      int remainingImageCount = 0;
+
+      // Priority 1: Show remaining images first (at top)
+      if (remainingImages.isNotEmpty) {
+        rightColumnItems.add(remainingImages.first);
+        remainingImageCount = remainingImages.length - 1;
+
+        // Priority 2: Show video at bottom if videos exist
+        if (videos.isNotEmpty && rightColumnItems.length < 2) {
+          rightColumnItems.add(videos.first);
+        }
+      } else {
+        // No remaining images, show video at top
+        if (videos.isNotEmpty) {
+          rightColumnItems.add(videos.first);
+        }
+      }
+
+      return Row(
+        children: [
+          // First image - 2/3 width
           Expanded(
-            child: Row(
+            flex: 4, // 2/3 of 6 = 4
+            child: _buildMediaItem(context, firstImage),
+          ),
+
+          // Right side - 1/3 width for remaining items
+          Expanded(
+            flex: 2, // 1/3 of 6 = 2
+            child: Column(
               children: [
-                Expanded(
-                  child: _buildMediaItem(context, allMedia[2]),
-                ),
-                if (allMedia.length > 3) ...[
-                  const SizedBox(width: 2),
+                // Top item (with overflow indicator for remaining images)
+                if (rightColumnItems.isNotEmpty)
                   Expanded(
-                    child: _buildOverflowItem(context, allMedia.length - 3),
+                    child: _buildMediaItemWithOverflow(
+                        context,
+                        rightColumnItems[0],
+                        remainingImageCount > 0 ? remainingImageCount : null),
                   ),
-                ],
+
+                // Bottom item (video, no overflow)
+                if (rightColumnItems.length > 1)
+                  Expanded(
+                    child: _buildMediaItem(context, rightColumnItems[1]),
+                  ),
               ],
             ),
           ),
         ],
-      ],
-    );
+      );
+    } else {
+      // No images, only videos - show first video in 2/3, others in 1/3
+      if (videos.isNotEmpty) {
+        final firstVideo = videos.first;
+        final remainingVideos = videos.skip(1).toList();
+
+        return Row(
+          children: [
+            // First video - 2/3 width
+            Expanded(
+              flex: 4,
+              child: _buildMediaItem(context, firstVideo),
+            ),
+
+            // Right side - 1/3 width for remaining videos
+            Expanded(
+              flex: 2,
+              child: Column(
+                children: [
+                  if (remainingVideos.isNotEmpty)
+                    Expanded(
+                      child: _buildMediaItemWithOverflow(
+                          context,
+                          remainingVideos[0],
+                          remainingVideos.length > 1
+                              ? remainingVideos.length - 1
+                              : null),
+                    ),
+                ],
+              ),
+            ),
+          ],
+        );
+      }
+    }
+
+    // Fallback
+    return _buildMediaItem(context, allMedia.first);
+  }
+
+  Widget _buildMediaItemWithOverflow(
+      BuildContext context, Map<String, dynamic> media, int? overflowCount) {
+    if (overflowCount != null && overflowCount > 0) {
+      // Show the media item with overflow text overlaid on top
+      return Stack(
+        fit: StackFit.expand,
+        children: [
+          // The actual media item (image/video) as background
+          _buildMediaItem(context, media),
+          // The overflow text overlaid on top
+          _buildOverflowItem(context, overflowCount),
+        ],
+      );
+    }
+    return _buildMediaItem(context, media);
   }
 
   Widget _buildOverflowItem(BuildContext context, int remainingCount) {
-    return Container(
-      color: Colors.grey[800],
-      child: Center(
-        child: Container(
-          color: Colors.black.withOpacity(0.6),
-          child: Center(
-            child: Text(
-              '+$remainingCount',
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-              ),
+    return Center(
+      child: Text(
+        '+$remainingCount',
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 16,
+          fontWeight: FontWeight.w700,
+          shadows: [
+            Shadow(
+              color: Colors.black,
+              offset: Offset(1, 1),
+              blurRadius: 3,
             ),
-          ),
+          ],
         ),
       ),
     );

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 
 import '../../models/comment_model.dart';
 import '../common/presigned_image.dart';
@@ -30,22 +29,11 @@ class CommentWidget extends ConsumerStatefulWidget {
 }
 
 class _CommentWidgetState extends ConsumerState<CommentWidget> {
-  bool _showReplies = false; // Start with replies hidden
-
   @override
   Widget build(BuildContext context) {
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 4),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildMainComment(),
-          if (widget.comment.hasReplies && _showReplies) ...[
-            const SizedBox(height: 8),
-            _buildRepliesSection(),
-          ],
-        ],
-      ),
+      child: _buildMainComment(),
     );
   }
 
@@ -219,62 +207,9 @@ class _CommentWidgetState extends ConsumerState<CommentWidget> {
                     ],
                   ),
                 ),
-              if (widget.comment.hasReplies) ...[
-                const SizedBox(width: 16),
-                GestureDetector(
-                  onTap: () {
-                    setState(() {
-                      _showReplies = !_showReplies;
-                    });
-                  },
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        _showReplies
-                            ? Icons.keyboard_arrow_up
-                            : Icons.keyboard_arrow_down,
-                        size: 18,
-                        color: Colors.grey[600],
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        '${widget.comment.totalReplies} ${widget.comment.totalReplies == 1 ? 'reply' : 'replies'}',
-                        style: TextStyle(
-                          color: Colors.grey[600],
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
             ],
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildRepliesSection() {
-    return Container(
-      margin: const EdgeInsets.only(left: 24),
-      child: Column(
-        children: widget.comment.replies.map((reply) {
-          return CommentWidget(
-            comment: reply,
-            currentUserId: widget.currentUserId,
-            onReply: () {
-              // Handle reply to reply
-            },
-            onEdit: () {
-              // Handle edit reply
-            },
-            onDelete: () {
-              // Handle delete reply
-            },
-          );
-        }).toList(),
       ),
     );
   }

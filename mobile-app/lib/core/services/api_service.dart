@@ -570,6 +570,26 @@ class ApiService {
     return await _handleResponse(response);
   }
 
+  // Edit comment
+  Future<Map<String, dynamic>> editComment(
+      String commentId, String content) async {
+    final response = await http.put(
+      Uri.parse('$baseUrl/social/comments/$commentId'),
+      headers: await _getHeaders(),
+      body: json.encode({'content': content}),
+    );
+    return await _handleResponse(response);
+  }
+
+  // Delete comment
+  Future<Map<String, dynamic>> deleteComment(String commentId) async {
+    final response = await http.delete(
+      Uri.parse('$baseUrl/social/comments/$commentId'),
+      headers: await _getHeaders(),
+    );
+    return await _handleResponse(response);
+  }
+
   Future<Map<String, dynamic>> shareContent({
     required String contentId,
     required String contentType,

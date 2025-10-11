@@ -192,6 +192,35 @@ class _CommentsSectionState extends ConsumerState<CommentsSection> {
                                   _toggleCommentLike(comment);
                                 },
                               ),
+                              // Render replies with their own callbacks
+                              if (comment.replies.isNotEmpty) ...[
+                                const SizedBox(height: 8),
+                                ...comment.replies.map((reply) => Padding(
+                                      padding: const EdgeInsets.only(
+                                          left: 24, top: 8),
+                                      child: CommentWidget(
+                                        comment: reply,
+                                        currentUserId: widget.currentUserId,
+                                        onReply: () {
+                                          _showReplyDialog(
+                                              comment); // Reply to parent comment
+                                        },
+                                        onEdit: () {
+                                          _showEditDialog(
+                                              reply); // Edit the specific reply
+                                        },
+                                        onDelete: () {
+                                          _showDeleteDialog(
+                                              reply); // Delete the specific reply
+                                        },
+                                        onLike: () {
+                                          _toggleCommentLike(
+                                              reply); // Like the specific reply
+                                        },
+                                        isReply: true,
+                                      ),
+                                    )),
+                              ],
                               const SizedBox(height: 16),
                             ],
                           );
@@ -379,13 +408,29 @@ class _CommentsSectionState extends ConsumerState<CommentsSection> {
             child: const Text('Cancel'),
           ),
           TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              // Handle edit comment
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                    content: Text('Edit functionality coming soon!')),
-              );
+            onPressed: () async {
+              if (editController.text.trim().isNotEmpty) {
+                Navigator.pop(context);
+
+                try {
+                  final socialService =
+                      ref.read(socialServiceStateProvider.notifier);
+                  await socialService.editComment(
+                    comment.id,
+                    widget.videoId,
+                    editController.text.trim(),
+                  );
+
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                        content: Text('Comment updated successfully')),
+                  );
+                } catch (e) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Failed to edit comment: $e')),
+                  );
+                }
+              }
             },
             child: const Text('Save'),
           ),
@@ -399,20 +444,30 @@ class _CommentsSectionState extends ConsumerState<CommentsSection> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Delete Comment'),
-        content: const Text('Are you sure you want to delete this comment?'),
+        content: const Text(
+            'Are you sure you want to delete this comment? This action cannot be undone.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: const Text('Cancel'),
           ),
           TextButton(
-            onPressed: () {
+            onPressed: () async {
               Navigator.pop(context);
-              // Handle delete comment
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                    content: Text('Delete functionality coming soon!')),
-              );
+
+              try {
+                final socialService =
+                    ref.read(socialServiceStateProvider.notifier);
+                await socialService.deleteComment(comment.id, widget.videoId);
+
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Comment deleted successfully')),
+                );
+              } catch (e) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Failed to delete comment: $e')),
+                );
+              }
             },
             child: const Text('Delete', style: TextStyle(color: Colors.red)),
           ),

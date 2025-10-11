@@ -2382,7 +2382,7 @@ app.post('/api/v1/social/comments/:commentId/like', async (req, res) => {
           userId: currentUserId,
           targetId: commentId,
           targetType: 'COMMENT',
-          contentId: comment.contentId,
+          contentId: commentId, // Use commentId as contentId for comment likes
           contentType: comment.contentType,
           type: 'LIKE',
         },
@@ -2417,6 +2417,185 @@ app.post('/api/v1/social/comments/:commentId/like', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to toggle comment like',
+    });
+  }
+});
+
+// Edit comment
+app.put('/api/v1/social/comments/:commentId', async (req, res) => {
+  try {
+    const { commentId } = req.params;
+    const { content } = req.body;
+    const currentUserId = await getCurrentUserId(req);
+
+    if (!currentUserId) {
+      res.status(401).json({
+        success: false,
+        message: 'Authentication required - please sign in again',
+      });
+      return;
+    }
+
+    if (!content || content.trim().isEmpty) {
+      res.status(400).json({
+        success: false,
+        message: 'Comment content is required',
+      });
+      return;
+    }
+
+    // Check if comment exists and user is the author
+    const comment = await prisma.comment.findUnique({
+      where: { id: commentId },
+      select: {
+        id: true,
+        userId: true,
+        content: true,
+      },
+    });
+
+    if (!comment) {
+      res.status(404).json({
+        success: false,
+        message: 'Comment not found',
+      });
+      return;
+    }
+
+    if (comment.userId !== currentUserId) {
+      res.status(403).json({
+        success: false,
+        message: 'You can only edit your own comments',
+      });
+      return;
+    }
+
+    // Update the comment
+    const updatedComment = await prisma.comment.update({
+      where: { id: commentId },
+      data: {
+        content: content.trim(),
+        updatedAt: new Date(),
+      },
+      select: {
+        id: true,
+        content: true,
+        updatedAt: true,
+      },
+    });
+
+    res.json({
+      success: true,
+      data: {
+        commentId: updatedComment.id,
+        content: updatedComment.content,
+        updatedAt: updatedComment.updatedAt,
+      },
+    });
+  } catch (error) {
+    console.error('Error editing comment:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error',
+    });
+  }
+});
+
+// Delete comment
+app.delete('/api/v1/social/comments/:commentId', async (req, res) => {
+  try {
+    const { commentId } = req.params;
+    const currentUserId = await getCurrentUserId(req);
+
+    if (!currentUserId) {
+      res.status(401).json({
+        success: false,
+        message: 'Authentication required - please sign in again',
+      });
+      return;
+    }
+
+    // Check if comment exists and user is the author
+    const comment = await prisma.comment.findUnique({
+      where: { id: commentId },
+      select: {
+        id: true,
+        userId: true,
+        contentId: true,
+        contentType: true,
+        parentId: true,
+      },
+    });
+
+    if (!comment) {
+      res.status(404).json({
+        success: false,
+        message: 'Comment not found',
+      });
+      return;
+    }
+
+    if (comment.userId !== currentUserId) {
+      res.status(403).json({
+        success: false,
+        message: 'You can only delete your own comments',
+      });
+      return;
+    }
+
+    // Delete all likes for this comment
+    await prisma.like.deleteMany({
+      where: {
+        targetId: commentId,
+        targetType: 'COMMENT',
+      },
+    });
+
+    // Only delete replies if this is a parent comment (not a reply itself)
+    if (!comment.parentId) {
+      // Delete all replies to this comment
+      await prisma.comment.deleteMany({
+        where: {
+          parentId: commentId,
+        },
+      });
+    }
+
+    // Delete the comment itself
+    await prisma.comment.delete({
+      where: { id: commentId },
+    });
+
+    // Decrement comment count on the content (video or community post)
+    if (comment.contentType === 'VIDEO') {
+      await prisma.video.update({
+        where: { id: comment.contentId },
+        data: {
+          comments: {
+            decrement: 1,
+          },
+        },
+      });
+    } else if (comment.contentType === 'POST') {
+      await prisma.communityPost.update({
+        where: { id: comment.contentId },
+        data: {
+          comments: {
+            decrement: 1,
+          },
+        },
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'Comment deleted successfully',
+    });
+  } catch (error) {
+    console.error('Error deleting comment:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error',
     });
   }
 });
