@@ -11,7 +11,6 @@ import '../../screens/auth/reset_password_screen.dart';
 import '../../screens/main/main_screen.dart';
 import '../../screens/video/video_detail_screen.dart';
 import '../../screens/video/video_player_screen.dart';
-import '../../screens/video/upload_video_screen.dart';
 import '../../screens/video/upload_video_screen_new.dart';
 import '../../screens/profile/other_user_profile_screen.dart';
 import '../../screens/profile/edit_profile_screen.dart';
@@ -21,6 +20,7 @@ import '../../screens/settings/settings_screen.dart';
 import '../../screens/search/search_screen.dart';
 import '../../screens/test/test_instructions_screen.dart';
 import '../../screens/community/create_post_screen.dart';
+import '../../screens/community/tag_posts_screen.dart';
 import '../../screens/discover/category_detail_screen.dart';
 import '../../models/category_model.dart';
 
@@ -101,6 +101,13 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: 'create-post',
             builder: (context, state) => const CreatePostScreen(),
+          ),
+          GoRoute(
+            path: 'tag/:tag',
+            builder: (context, state) {
+              final tag = state.pathParameters['tag']!;
+              return TagPostsScreen(tag: tag);
+            },
           ),
 
           // Profile Routes

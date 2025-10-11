@@ -592,6 +592,7 @@ class SocialServiceNotifier extends StateNotifier<SocialServiceState> {
     required String userAvatar,
     required String content,
     String? parentCommentId,
+    String contentType = 'VIDEO',
   }) async {
     try {
       state = state.copyWith(isLoading: true, error: null);
@@ -599,7 +600,7 @@ class SocialServiceNotifier extends StateNotifier<SocialServiceState> {
       // Add comment via API
       final response = await _apiService.addComment(
         contentId: videoId,
-        contentType: 'VIDEO',
+        contentType: contentType,
         content: content,
         parentCommentId: parentCommentId,
       );

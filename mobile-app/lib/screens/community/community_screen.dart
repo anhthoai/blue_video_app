@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/services/community_service.dart';
+import '../../core/services/auth_service.dart';
 import '../../widgets/community/community_post_widget.dart';
 
 class CommunityScreen extends ConsumerStatefulWidget {
@@ -23,10 +24,9 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
 
-    // Defer loading to avoid infinite rebuild loop
+    // Always clear tag posts and load fresh posts when community screen is initialized
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _loadPosts();
-      _loadCategories();
+      _clearTagPostsAndLoadPosts();
     });
   }
 
@@ -35,6 +35,15 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
     _tabController.dispose();
     _searchController.dispose();
     super.dispose();
+  }
+
+  // Clear tag posts and load fresh posts
+  void _clearTagPostsAndLoadPosts() {
+    // Clear any tag posts from previous navigation
+    ref.read(communityServiceStateProvider.notifier).clearTagPosts();
+    // Load fresh posts and tags
+    _loadPosts();
+    _loadTags();
   }
 
   Future<void> _loadPosts() async {
@@ -46,14 +55,15 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
     }
   }
 
-  Future<void> _loadCategories() async {
+  Future<void> _loadTags() async {
     final communityService = ref.read(communityServiceStateProvider.notifier);
-    await communityService.loadCategories();
+    await communityService.loadTags();
   }
 
   @override
   Widget build(BuildContext context) {
     final communityState = ref.watch(communityServiceStateProvider);
+    final authState = ref.watch(authServiceProvider);
 
     // Removed auto-loading logic to prevent infinite loop
     // Posts are loaded in initState and when user manually refreshes
@@ -87,8 +97,8 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
       body: TabBarView(
         controller: _tabController,
         children: [
-          _buildPostsTab(communityState),
-          _buildTrendingTab(communityState),
+          _buildPostsTab(communityState, authState),
+          _buildTrendingTab(communityState, authState),
           _buildVideosTab(communityState),
         ],
       ),
@@ -100,7 +110,7 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
     );
   }
 
-  Widget _buildPostsTab(CommunityServiceState state) {
+  Widget _buildPostsTab(CommunityServiceState state, AuthService authState) {
     if (state.isLoading) {
       return const Center(child: CircularProgressIndicator());
     }
@@ -124,9 +134,9 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
           final post = state.posts[index];
           return CommunityPostWidget(
             post: post,
-            currentUserId: 'current_user', // In a real app, get from auth
-            currentUsername: 'Current User',
-            currentUserAvatar: 'https://picsum.photos/50/50?random=current',
+            currentUserId: authState.currentUser?.id,
+            currentUsername: authState.currentUser?.username,
+            currentUserAvatar: authState.currentUser?.avatarUrl ?? '',
             onTap: () {
               // Navigate to post detail
             },
@@ -140,7 +150,7 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
     );
   }
 
-  Widget _buildTrendingTab(CommunityServiceState state) {
+  Widget _buildTrendingTab(CommunityServiceState state, AuthService authState) {
     if (state.isLoading) {
       return const Center(child: CircularProgressIndicator());
     }
@@ -166,9 +176,9 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
           final post = trendingPosts[index];
           return CommunityPostWidget(
             post: post,
-            currentUserId: 'current_user',
-            currentUsername: 'Current User',
-            currentUserAvatar: 'https://picsum.photos/50/50?random=current',
+            currentUserId: authState.currentUser?.id,
+            currentUsername: authState.currentUser?.username,
+            currentUserAvatar: authState.currentUser?.avatarUrl ?? '',
             onTap: () {
               // Navigate to post detail
             },
@@ -352,6 +362,15 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
               ),
             ),
             const SizedBox(height: 16),
+            // Category filter
+            const Text(
+              'Categories',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(height: 8),
             ...['all', 'technology', 'entertainment', 'sports', 'news']
                 .map((category) {
               return ListTile(
@@ -368,10 +387,55 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
                 },
               );
             }),
+            const SizedBox(height: 16),
+            // Tag filter
+            const Text(
+              'Filter by Tag',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              decoration: InputDecoration(
+                hintText: 'Enter tag (e.g., #video, #coin)',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                prefixIcon: const Icon(Icons.tag),
+              ),
+              onSubmitted: (tag) {
+                if (tag.trim().isNotEmpty) {
+                  Navigator.pop(context);
+                  _filterByTag(tag.trim());
+                }
+              },
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(context);
+                _clearFilters();
+              },
+              child: const Text('Clear All Filters'),
+            ),
           ],
         ),
       ),
     );
+  }
+
+  void _filterByTag(String tag) async {
+    // Navigate to tag posts screen
+    context.push('/main/tag/$tag');
+  }
+
+  void _clearFilters() async {
+    setState(() {
+      _selectedCategory = 'all';
+    });
+    await _loadPosts();
   }
 
   void _createPost() async {

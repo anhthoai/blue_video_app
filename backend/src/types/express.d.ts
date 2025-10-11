@@ -2,6 +2,11 @@ declare namespace Express {
   export interface Request {
     userId?: string;
     userCreatedAt?: Date;
+    user?: {
+      id: string;
+      username: string;
+      email: string;
+    };
     currentUser?: {
       id: string;
       createdAt: Date;

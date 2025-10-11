@@ -190,6 +190,81 @@ class ApiService {
     return await _handleResponse(response);
   }
 
+  // Like/Unlike a community post
+  Future<Map<String, dynamic>> likeCommunityPost(String postId) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/community/posts/$postId/like'),
+      headers: await _getHeaders(),
+    );
+    return await _handleResponse(response);
+  }
+
+  // Bookmark/Unbookmark a community post
+  Future<Map<String, dynamic>> bookmarkCommunityPost(String postId) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/community/posts/$postId/bookmark'),
+      headers: await _getHeaders(),
+    );
+    return await _handleResponse(response);
+  }
+
+  // Report a community post
+  Future<Map<String, dynamic>> reportCommunityPost(
+    String postId, {
+    String? reason,
+    String? description,
+  }) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/community/posts/$postId/report'),
+      headers: await _getHeaders(),
+      body: json.encode({
+        'reason': reason ?? 'Inappropriate content',
+        'description': description ?? '',
+      }),
+    );
+    return await _handleResponse(response);
+  }
+
+  // Pin/Unpin a community post
+  Future<Map<String, dynamic>> pinCommunityPost(String postId) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/community/posts/$postId/pin'),
+      headers: await _getHeaders(),
+    );
+    return await _handleResponse(response);
+  }
+
+  // Increment post views
+  Future<Map<String, dynamic>> incrementPostViews(String postId) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/community/posts/$postId/view'),
+      headers: await _getHeaders(),
+    );
+    return await _handleResponse(response);
+  }
+
+  // Get posts by tag
+  Future<Map<String, dynamic>> getPostsByTag(
+    String tag, {
+    int page = 1,
+    int limit = 20,
+  }) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/community/posts/tag/$tag?page=$page&limit=$limit'),
+      headers: await _getHeaders(),
+    );
+    return await _handleResponse(response);
+  }
+
+  // Get all available tags from community posts
+  Future<Map<String, dynamic>> getCommunityTags() async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/community/tags'),
+      headers: await _getHeaders(),
+    );
+    return await _handleResponse(response);
+  }
+
   Future<Map<String, dynamic>> createCommunityPost({
     String? content,
     String? type,

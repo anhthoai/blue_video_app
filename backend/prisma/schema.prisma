@@ -53,6 +53,11 @@ model User {
   chatRooms      ChatRoom[] @relation("ChatRoomCreator")
   chatMessages   ChatMessage[]
   chatRoomParticipants ChatRoomParticipant[]
+  
+  // Community post interactions
+  postLikes      CommunityPostLike[] @relation("UserLikes")
+  postBookmarks  CommunityPostBookmark[] @relation("UserBookmarks")
+  postReports    CommunityPostReport[] @relation("UserReports")
 
   @@map("users")
 }
@@ -143,8 +148,56 @@ model CommunityPost {
 
   // Relations
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Social interactions
+  likesList     CommunityPostLike[] @relation("PostLikes")
+  bookmarksList CommunityPostBookmark[] @relation("PostBookmarks")
+  reportsList   CommunityPostReport[] @relation("PostReports")
 
   @@map("community_posts")
+}
+
+model CommunityPostLike {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  postId    String   @map("post_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations
+  user      User           @relation("UserLikes", fields: [userId], references: [id], onDelete: Cascade)
+  post      CommunityPost  @relation("PostLikes", fields: [postId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, postId])
+  @@map("community_post_likes")
+}
+
+model CommunityPostBookmark {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  postId    String   @map("post_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations
+  user      User           @relation("UserBookmarks", fields: [userId], references: [id], onDelete: Cascade)
+  post      CommunityPost  @relation("PostBookmarks", fields: [postId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, postId])
+  @@map("community_post_bookmarks")
+}
+
+model CommunityPostReport {
+  id          String   @id @default(uuid())
+  userId      String   @map("user_id")
+  postId      String   @map("post_id")
+  reason      String
+  description String?
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  // Relations
+  user        User           @relation("UserReports", fields: [userId], references: [id], onDelete: Cascade)
+  post        CommunityPost  @relation("PostReports", fields: [postId], references: [id], onDelete: Cascade)
+
+  @@map("community_post_reports")
 }
 
 model Comment {

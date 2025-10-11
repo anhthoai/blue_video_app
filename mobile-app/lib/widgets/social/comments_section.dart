@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 
 import '../../core/services/social_service.dart';
 import '../../models/comment_model.dart';
@@ -76,6 +75,7 @@ class _CommentsSectionState extends ConsumerState<CommentsSection> {
         userAvatar: widget.currentUserAvatar,
         content: content,
         parentCommentId: parentCommentId,
+        contentType: 'COMMUNITY_POST', // This is for community posts
       );
 
       // Scroll to top to show new comment
@@ -340,6 +340,8 @@ class _CommentsSectionState extends ConsumerState<CommentsSection> {
                     userAvatar: widget.currentUserAvatar,
                     content: replyController.text.trim(),
                     parentCommentId: parentComment.id,
+                    contentType:
+                        'COMMUNITY_POST', // This is for community posts
                   );
                 } catch (e) {
                   ScaffoldMessenger.of(context).showSnackBar(

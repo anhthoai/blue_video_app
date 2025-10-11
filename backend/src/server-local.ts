@@ -2250,15 +2250,26 @@ app.post('/api/v1/social/comments', async (req, res) => {
       },
     });
 
-    // Update comment count on the video
-    await prisma.video.update({
-      where: { id: contentId },
-      data: {
-        comments: {
-          increment: 1,
+    // Update comment count on the content (video or community post)
+    if (contentType === 'VIDEO') {
+      await prisma.video.update({
+        where: { id: contentId },
+        data: {
+          comments: {
+            increment: 1,
+          },
         },
-      },
-    });
+      });
+    } else if (contentType === 'COMMUNITY_POST') {
+      await prisma.communityPost.update({
+        where: { id: contentId },
+        data: {
+          comments: {
+            increment: 1,
+          },
+        },
+      });
+    }
 
     // Convert to camelCase
     const serializedComment = {
@@ -2398,11 +2409,480 @@ app.post('/api/v1/social/comments/:commentId/like', async (req, res) => {
   }
 });
 
+// Like/Unlike a community post
+app.post('/api/v1/community/posts/:postId/like', authenticateToken, async (req, res) => {
+  try {
+    const { postId } = req.params;
+    const userId = req.user?.id;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: 'User not authenticated',
+      });
+    }
+
+    // Check if user already liked this post
+    const existingLike = await prisma.communityPostLike.findUnique({
+      where: {
+        userId_postId: {
+          userId: userId,
+          postId: postId,
+        },
+      },
+    });
+
+    if (existingLike) {
+      // Unlike: remove the like
+      await prisma.communityPostLike.delete({
+        where: {
+          userId_postId: {
+            userId: userId,
+            postId: postId,
+          },
+        },
+      });
+
+      // Decrement likes count
+      await prisma.communityPost.update({
+        where: { id: postId },
+        data: {
+          likes: {
+            decrement: 1,
+          },
+        },
+      });
+
+      return res.json({
+        success: true,
+        liked: false,
+        message: 'Post unliked successfully',
+      });
+    } else {
+      // Like: create new like
+      await prisma.communityPostLike.create({
+        data: {
+          userId: userId,
+          postId: postId,
+        },
+      });
+
+      // Increment likes count
+      await prisma.communityPost.update({
+        where: { id: postId },
+        data: {
+          likes: {
+            increment: 1,
+          },
+        },
+      });
+
+      return res.json({
+        success: true,
+        liked: true,
+        message: 'Post liked successfully',
+      });
+    }
+    } catch (error) {
+      console.error('Error liking/unliking post:', error);
+      return res.status(500).json({
+        success: false,
+        message: 'Internal server error',
+      });
+    }
+  });
+
+// Bookmark/Unbookmark a community post
+app.post('/api/v1/community/posts/:postId/bookmark', authenticateToken, async (req, res) => {
+  try {
+    const { postId } = req.params;
+    const userId = req.user?.id;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: 'User not authenticated',
+      });
+    }
+
+    // Check if user already bookmarked this post
+    const existingBookmark = await prisma.communityPostBookmark.findUnique({
+      where: {
+        userId_postId: {
+          userId: userId,
+          postId: postId,
+        },
+      },
+    });
+
+    if (existingBookmark) {
+      // Unbookmark: remove the bookmark
+      await prisma.communityPostBookmark.delete({
+        where: {
+          userId_postId: {
+            userId: userId,
+            postId: postId,
+          },
+        },
+      });
+
+      return res.json({
+        success: true,
+        bookmarked: false,
+        message: 'Post unbookmarked successfully',
+      });
+    } else {
+      // Bookmark: create new bookmark
+      await prisma.communityPostBookmark.create({
+        data: {
+          userId: userId,
+          postId: postId,
+        },
+      });
+
+      return res.json({
+        success: true,
+        bookmarked: true,
+        message: 'Post bookmarked successfully',
+      });
+    }
+    } catch (error) {
+      console.error('Error bookmarking/unbookmarking post:', error);
+      return res.status(500).json({
+        success: false,
+        message: 'Internal server error',
+      });
+    }
+  });
+
+// Report a community post
+app.post('/api/v1/community/posts/:postId/report', authenticateToken, async (req, res) => {
+  try {
+    const { postId } = req.params;
+    const userId = req.user?.id;
+    const { reason, description } = req.body;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: 'User not authenticated',
+      });
+    }
+
+    // Create report
+    await prisma.communityPostReport.create({
+      data: {
+        userId: userId,
+        postId: postId,
+        reason: reason || 'Inappropriate content',
+        description: description || '',
+      },
+    });
+
+    return res.json({
+      success: true,
+      message: 'Post reported successfully',
+    });
+    } catch (error) {
+      console.error('Error reporting post:', error);
+      return res.status(500).json({
+        success: false,
+        message: 'Internal server error',
+      });
+    }
+  });
+
+// Pin/Unpin a community post (admin only)
+app.post('/api/v1/community/posts/:postId/pin', authenticateToken, async (req, res) => {
+  try {
+    const { postId } = req.params;
+    const userId = req.user?.id;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: 'User not authenticated',
+      });
+    }
+
+    // Get current post details
+    const post = await prisma.communityPost.findUnique({
+      where: { id: postId },
+      select: { isPinned: true, userId: true },
+    });
+
+    if (!post) {
+      return res.status(404).json({
+        success: false,
+        message: 'Post not found',
+      });
+    }
+
+    // Check if user is the author of the post
+    if (post.userId !== userId) {
+      return res.status(403).json({
+        success: false,
+        message: 'You can only pin your own posts',
+      });
+    }
+
+    // If pinning this post, unpin all other posts by this user first
+    if (!post.isPinned) {
+      await prisma.communityPost.updateMany({
+        where: { 
+          userId: userId,
+          isPinned: true,
+        },
+        data: {
+          isPinned: false,
+        },
+      });
+    }
+
+    // Toggle pin status for this post
+    await prisma.communityPost.update({
+      where: { id: postId },
+      data: {
+        isPinned: !post.isPinned,
+      },
+    });
+
+    return res.json({
+      success: true,
+      pinned: !post.isPinned,
+      message: `Post ${!post.isPinned ? 'pinned' : 'unpinned'} successfully`,
+    });
+    } catch (error) {
+      console.error('Error pinning/unpinning post:', error);
+      return res.status(500).json({
+        success: false,
+        message: 'Internal server error',
+      });
+    }
+  });
+
+// Follow/Unfollow a user
+app.post('/api/v1/users/:userId/follow', authenticateToken, async (req, res) => {
+  try {
+    const { userId: targetUserId } = req.params;
+    const followerId = req.user?.id;
+
+    if (!followerId) {
+      return res.status(401).json({
+        success: false,
+        message: 'User not authenticated',
+      });
+    }
+
+    if (followerId === targetUserId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Cannot follow yourself',
+      });
+    }
+
+    // Check if already following
+    const existingFollow = await prisma.follow.findUnique({
+      where: {
+        followerId_followingId: {
+          followerId: followerId,
+          followingId: targetUserId,
+        },
+      },
+    });
+
+    if (existingFollow) {
+      // Unfollow: remove the follow
+      await prisma.follow.delete({
+        where: {
+          followerId_followingId: {
+            followerId: followerId,
+            followingId: targetUserId,
+          },
+        },
+      });
+
+      return res.json({
+        success: true,
+        following: false,
+        message: 'User unfollowed successfully',
+      });
+    } else {
+      // Follow: create new follow
+      await prisma.follow.create({
+        data: {
+          followerId: followerId,
+          followingId: targetUserId,
+        },
+      });
+
+      return res.json({
+        success: true,
+        following: true,
+        message: 'User followed successfully',
+      });
+    }
+    } catch (error) {
+      console.error('Error following/unfollowing user:', error);
+      return res.status(500).json({
+        success: false,
+        message: 'Internal server error',
+      });
+    }
+  });
+
+// Increment post views
+app.post('/api/v1/community/posts/:postId/view', async (req, res) => {
+  try {
+    const { postId } = req.params;
+
+    await prisma.communityPost.update({
+      where: { id: postId },
+      data: {
+        views: {
+          increment: 1,
+        },
+      },
+    });
+
+    return res.json({
+      success: true,
+      message: 'View count updated',
+    });
+    } catch (error) {
+      console.error('Error updating view count:', error);
+      return res.status(500).json({
+        success: false,
+        message: 'Internal server error',
+      });
+    }
+  });
+
+// Get posts by tag
+app.get('/api/v1/community/posts/tag/:tag', authenticateToken, async (req, res) => {
+  try {
+    const { tag } = req.params;
+    const { page = 1, limit = 20 } = req.query;
+    const offset = (Number(page) - 1) * Number(limit);
+    const currentUserId = req.user?.id;
+
+    // Get posts that contain this tag
+    const posts = await prisma.communityPost.findMany({
+      where: {
+        tags: {
+          has: tag,
+        },
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            username: true,
+            firstName: true,
+            lastName: true,
+            isVerified: true,
+            avatar: true,
+            fileDirectory: true,
+          },
+        },
+      },
+      orderBy: [
+        { isPinned: 'desc' },
+        { createdAt: 'desc' },
+      ],
+      skip: offset,
+      take: Number(limit),
+    });
+
+    // Build URLs for each post
+    const postsWithUrls = await Promise.all(
+      posts.map(async (post) => {
+        // Build image URLs
+        const imageUrls = await Promise.all(
+          post.images.map((fileName) =>
+            buildCommunityPostFileUrl(post.fileDirectory, fileName)
+          )
+        );
+
+        // Build video URLs
+        const videoUrls = await Promise.all(
+          post.videos.map((fileName) =>
+            buildCommunityPostFileUrl(post.fileDirectory, fileName)
+          )
+        );
+
+        // Build video thumbnail URLs from database
+        const videoThumbnailUrls = await Promise.all(
+          post.videoThumbnails.map((fileName) =>
+            buildCommunityPostFileUrl(post.fileDirectory, fileName)
+          )
+        );
+
+        // Build avatar URL (async)
+        const avatarUrl = post.user.avatar && post.user.fileDirectory
+          ? await buildFileUrl(post.user.fileDirectory, post.user.avatar, 'avatars')
+          : null;
+
+        // Check if current user has liked this post
+        const isLiked = currentUserId ? await prisma.communityPostLike.findUnique({
+          where: {
+            userId_postId: {
+              userId: currentUserId,
+              postId: post.id,
+            },
+          },
+        }) : null;
+
+        // Check if current user has bookmarked this post
+        const isBookmarked = currentUserId ? await prisma.communityPostBookmark.findUnique({
+          where: {
+            userId_postId: {
+              userId: currentUserId,
+              postId: post.id,
+            },
+          },
+        }) : null;
+
+        return {
+          ...post,
+          username: post.user.username,
+          firstName: post.user.firstName,
+          lastName: post.user.lastName,
+          isVerified: post.user.isVerified,
+          userAvatar: avatarUrl,
+          imageUrls: imageUrls.filter((url) => url != null),
+          videoUrls: videoUrls.filter((url) => url != null),
+          videoThumbnailUrls: videoThumbnailUrls.filter((url) => url != null),
+          isLiked: isLiked != null,
+          isBookmarked: isBookmarked != null,
+        };
+      })
+    );
+
+    return res.json({
+      success: true,
+      data: postsWithUrls,
+      pagination: {
+        page: Number(page),
+        limit: Number(limit),
+        total: postsWithUrls.length,
+      },
+    });
+    } catch (error) {
+      console.error('Error fetching posts by tag:', error);
+      return res.status(500).json({
+        success: false,
+        message: 'Internal server error',
+      });
+    }
+  });
+
 // Community posts endpoint using real database data
-app.get('/api/v1/community/posts', async (req, res) => {
+app.get('/api/v1/community/posts', authenticateToken, async (req, res) => {
   try {
     const { page = 1, limit = 20 } = req.query;
     const offset = (Number(page) - 1) * Number(limit);
+    const currentUserId = req.user?.id;
     
     // Get community posts from database using Prisma
     const posts = await prisma.communityPost.findMany({
@@ -2430,7 +2910,7 @@ app.get('/api/v1/community/posts', async (req, res) => {
       take: Number(limit),
     });
 
-    // Add file URLs to posts
+    // Add file URLs and user interaction status to posts
     const postsWithUrls = await Promise.all(
       posts.map(async (post) => {
         // Build image URLs
@@ -2457,7 +2937,27 @@ app.get('/api/v1/community/posts', async (req, res) => {
         // Build avatar URL (async)
         const avatarUrl = post.user.avatar && post.user.fileDirectory
           ? await buildFileUrl(post.user.fileDirectory, post.user.avatar, 'avatars')
-          : post.user.avatarUrl;
+          : null;
+
+        // Check if current user has liked this post
+        const isLiked = currentUserId ? await prisma.communityPostLike.findUnique({
+          where: {
+            userId_postId: {
+              userId: currentUserId,
+              postId: post.id,
+            },
+          },
+        }) : null;
+
+        // Check if current user has bookmarked this post
+        const isBookmarked = currentUserId ? await prisma.communityPostBookmark.findUnique({
+          where: {
+            userId_postId: {
+              userId: currentUserId,
+              postId: post.id,
+            },
+          },
+        }) : null;
 
         return {
           ...post,
@@ -2469,6 +2969,8 @@ app.get('/api/v1/community/posts', async (req, res) => {
           imageUrls: imageUrls.filter((url) => url != null),
           videoUrls: videoUrls.filter((url) => url != null),
           videoThumbnailUrls: videoThumbnailUrls.filter((url) => url != null),
+          isLiked: isLiked != null,
+          isBookmarked: isBookmarked != null,
         };
       })
     );
@@ -2670,6 +3172,45 @@ app.post('/api/v1/community/posts', authenticateToken, communityPostUpload.array
     return res.status(500).json({
       success: false,
       message: 'Failed to create post',
+    });
+  }
+});
+
+// Get all available tags from community posts
+app.get('/api/v1/community/tags', authenticateToken, async (_req, res) => {
+  try {
+    // Get all posts with tags
+    const posts = await prisma.communityPost.findMany({
+      select: {
+        tags: true,
+      },
+      where: {
+        isPublic: true,
+      },
+    });
+
+    // Extract all unique tags
+    const allTags = new Set<string>();
+    posts.forEach(post => {
+      post.tags.forEach(tag => {
+        if (tag.trim() !== '') {
+          allTags.add(tag.trim());
+        }
+      });
+    });
+
+    // Convert to array and sort alphabetically
+    const tagsArray = Array.from(allTags).sort();
+
+    return res.json({
+      success: true,
+      tags: tagsArray,
+    });
+  } catch (error) {
+    console.error('Error fetching tags:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to fetch tags',
     });
   }
 });

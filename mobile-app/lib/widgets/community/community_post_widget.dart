@@ -1,13 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 
 import '../../core/services/community_service.dart';
 import '../../models/community_post.dart';
-import '../../models/like_model.dart';
-import '../social/like_button.dart';
-import '../social/share_button.dart';
-import '../social/follow_button.dart';
 import '../social/comments_section.dart';
 import 'post_content_widget.dart';
 
@@ -36,9 +33,219 @@ class CommunityPostWidget extends ConsumerStatefulWidget {
 
 class _CommunityPostWidgetState extends ConsumerState<CommunityPostWidget> {
   bool _isExpanded = false;
+  bool _isLiked = false;
+  bool _isBookmarked = false;
+  bool _isFollowing = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _isLiked = widget.post.isLiked;
+    _isBookmarked = widget.post.isBookmarked;
+
+    // Track view when post is first displayed
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _trackView();
+    });
+  }
+
+  void _trackView() {
+    // Increment view count
+    ref
+        .read(communityServiceStateProvider.notifier)
+        .incrementViews(widget.post.id);
+  }
+
+  void _toggleLike() async {
+    setState(() {
+      _isLiked = !_isLiked;
+    });
+
+    try {
+      await ref
+          .read(communityServiceStateProvider.notifier)
+          .likePost(widget.post.id);
+    } catch (e) {
+      // Revert on error
+      setState(() {
+        _isLiked = !_isLiked;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to like post: $e')),
+      );
+    }
+  }
+
+  void _toggleBookmark() async {
+    setState(() {
+      _isBookmarked = !_isBookmarked;
+    });
+
+    try {
+      await ref
+          .read(communityServiceStateProvider.notifier)
+          .bookmarkPost(widget.post.id);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+            content:
+                Text(_isBookmarked ? 'Post bookmarked' : 'Post unbookmarked')),
+      );
+    } catch (e) {
+      // Revert on error
+      setState(() {
+        _isBookmarked = !_isBookmarked;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to bookmark post: $e')),
+      );
+    }
+  }
+
+  void _toggleFollow() async {
+    setState(() {
+      _isFollowing = !_isFollowing;
+    });
+
+    try {
+      await ref
+          .read(communityServiceStateProvider.notifier)
+          .followUser(widget.post.userId);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+            content: Text(_isFollowing
+                ? 'Following ${widget.post.username}'
+                : 'Unfollowed ${widget.post.username}')),
+      );
+    } catch (e) {
+      // Revert on error
+      setState(() {
+        _isFollowing = !_isFollowing;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to follow user: $e')),
+      );
+    }
+  }
+
+  void _togglePin() async {
+    try {
+      await ref
+          .read(communityServiceStateProvider.notifier)
+          .pinPost(widget.post.id);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+            content:
+                Text(widget.post.isPinned ? 'Post unpinned' : 'Post pinned')),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to pin post: $e')),
+      );
+    }
+  }
+
+  void _showReportDialog() {
+    String selectedReason = 'spam';
+    final TextEditingController descriptionController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Report Post'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('Why are you reporting this post?'),
+            const SizedBox(height: 16),
+            DropdownButtonFormField<String>(
+              decoration: const InputDecoration(
+                labelText: 'Reason',
+                border: OutlineInputBorder(),
+              ),
+              value: selectedReason,
+              items: const [
+                DropdownMenuItem(value: 'spam', child: Text('Spam')),
+                DropdownMenuItem(
+                    value: 'inappropriate',
+                    child: Text('Inappropriate Content')),
+                DropdownMenuItem(
+                    value: 'harassment', child: Text('Harassment')),
+                DropdownMenuItem(
+                    value: 'fake', child: Text('Fake Information')),
+                DropdownMenuItem(value: 'other', child: Text('Other')),
+              ],
+              onChanged: (value) {
+                selectedReason = value ?? 'spam';
+              },
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: descriptionController,
+              decoration: const InputDecoration(
+                labelText: 'Additional details (optional)',
+                border: OutlineInputBorder(),
+              ),
+              maxLines: 3,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _reportPost(selectedReason, descriptionController.text);
+            },
+            child: const Text('Report'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _reportPost(String reason, String description) async {
+    try {
+      await ref
+          .read(communityServiceStateProvider.notifier)
+          .reportPost(widget.post.id, reason, description);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Post reported successfully')),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to report post: $e')),
+      );
+    }
+  }
+
+  String _formatCount(int count) {
+    if (count < 1000) {
+      return count.toString();
+    } else if (count < 1000000) {
+      return '${(count / 1000).toStringAsFixed(1)}K';
+    } else {
+      return '${(count / 1000000).toStringAsFixed(1)}M';
+    }
+  }
+
+  void _onTagTap(String tag) {
+    // Navigate to posts filtered by tag
+    context.push('/main/tag/$tag');
+  }
 
   @override
   Widget build(BuildContext context) {
+    // Debug logging
+    print('Build - Current user ID: ${widget.currentUserId}');
+    print('Build - Post user ID: ${widget.post.userId}');
+    print(
+        'Build - Should show follow: ${widget.currentUserId != null && widget.currentUserId != widget.post.userId}');
+    print(
+        'Build - Should show pin: ${widget.currentUserId != null && widget.currentUserId == widget.post.userId}');
+
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       elevation: 2,
@@ -158,13 +365,27 @@ class _CommunityPostWidgetState extends ConsumerState<CommunityPostWidget> {
         ),
         if (widget.currentUserId != null &&
             widget.currentUserId != widget.post.userId)
-          FollowButton(
-            targetUserId: widget.post.userId,
-            currentUserId: widget.currentUserId!,
-            height: 28,
-            borderRadius: 14,
+          GestureDetector(
+            onTap: _toggleFollow,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: _isFollowing
+                    ? Colors.grey[300]
+                    : Theme.of(context).primaryColor,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: Theme.of(context).primaryColor),
+              ),
+              child: Text(
+                _isFollowing ? 'Following' : 'Follow',
+                style: TextStyle(
+                  color: _isFollowing ? Colors.grey[700] : Colors.white,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
           ),
-        const SizedBox(width: 8),
         PopupMenuButton<String>(
           onSelected: (value) {
             switch (value) {
@@ -173,6 +394,9 @@ class _CommunityPostWidgetState extends ConsumerState<CommunityPostWidget> {
                 break;
               case 'report':
                 _showReportDialog();
+                break;
+              case 'pin':
+                _togglePin();
                 break;
               case 'share':
                 _sharePost();
@@ -191,12 +415,27 @@ class _CommunityPostWidgetState extends ConsumerState<CommunityPostWidget> {
                     size: 16,
                   ),
                   const SizedBox(width: 8),
-                  Text(widget.post.isBookmarked
-                      ? 'Remove Bookmark'
-                      : 'Bookmark'),
+                  Text(widget.post.isBookmarked ? 'Unbookmark' : 'Bookmark'),
                 ],
               ),
             ),
+            if (widget.currentUserId != null &&
+                widget.currentUserId == widget.post.userId)
+              PopupMenuItem(
+                value: 'pin',
+                child: Row(
+                  children: [
+                    Icon(
+                      widget.post.isPinned
+                          ? Icons.push_pin
+                          : Icons.push_pin_outlined,
+                      size: 16,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(widget.post.isPinned ? 'Unpin Post' : 'Pin Post'),
+                  ],
+                ),
+              ),
             const PopupMenuItem(
               value: 'share',
               child: Row(
@@ -274,18 +513,23 @@ class _CommunityPostWidgetState extends ConsumerState<CommunityPostWidget> {
             spacing: 8,
             runSpacing: 4,
             children: widget.post.tags.map((tag) {
-              return Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  '#$tag',
-                  style: TextStyle(
-                    color: Theme.of(context).colorScheme.primary,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
+              return GestureDetector(
+                onTap: () => _onTagTap(tag),
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color:
+                        Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    '#$tag',
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.primary,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
                 ),
               );
@@ -299,25 +543,12 @@ class _CommunityPostWidgetState extends ConsumerState<CommunityPostWidget> {
   Widget _buildActions() {
     return Row(
       children: [
-        if (widget.currentUserId != null)
-          LikeButton(
-            targetId: widget.post.id,
-            type: LikeType.video, // Using video type for posts
-            userId: widget.currentUserId!,
-            initialLikeCount: widget.post.likes,
-            initialIsLiked: widget.post.isLiked,
-            size: 20,
-            showCount: true,
-          )
-        else
-          _buildActionButton(
-            icon: widget.post.isLiked ? Icons.favorite : Icons.favorite_border,
-            label: widget.post.formattedLikes,
-            color: widget.post.isLiked ? Colors.red : null,
-            onTap: () {
-              // Handle like
-            },
-          ),
+        _buildActionButton(
+          icon: _isLiked ? Icons.favorite : Icons.favorite_border,
+          label: _formatCount(widget.post.likes),
+          color: _isLiked ? Colors.red : null,
+          onTap: _toggleLike,
+        ),
         const SizedBox(width: 24),
         GestureDetector(
           onTap: () {
@@ -327,48 +558,47 @@ class _CommunityPostWidgetState extends ConsumerState<CommunityPostWidget> {
               _showCommentsSection();
             }
           },
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.comment_outlined, size: 20),
-              const SizedBox(width: 4),
-              Text(widget.post.formattedComments),
-            ],
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.transparent,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.comment_outlined, size: 22),
+                const SizedBox(width: 6),
+                Text(
+                  _formatCount(widget.post.comments),
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
         const SizedBox(width: 24),
-        if (widget.currentUserId != null)
-          ShareButton(
-            contentId: widget.post.id,
-            contentType: 'post',
-            userId: widget.currentUserId!,
-            shareCount: widget.post.shares,
-            size: 20,
-            showCount: true,
-          )
-        else
-          _buildActionButton(
-            icon: Icons.share_outlined,
-            label: widget.post.formattedShares,
-            onTap: _sharePost,
-          ),
-        const Spacer(),
-        Row(
-          children: [
-            Icon(
-              Icons.visibility,
-              size: 16,
-              color: Colors.grey[600],
-            ),
-            const SizedBox(width: 4),
-            Text(
-              widget.post.formattedViews,
-              style: TextStyle(
-                color: Colors.grey[600],
-                fontSize: 12,
-              ),
-            ),
-          ],
+        _buildActionButton(
+          icon: Icons.share_outlined,
+          label: _formatCount(widget.post.shares),
+          onTap: () {
+            // Handle share
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                  content: Text('Share functionality not implemented yet')),
+            );
+          },
+        ),
+        const SizedBox(width: 24),
+        _buildActionButton(
+          icon: Icons.visibility_outlined,
+          label: _formatCount(widget.post.views),
+          onTap: () {
+            // Views are automatically tracked when post is viewed
+          },
         ),
       ],
     );
@@ -382,88 +612,51 @@ class _CommunityPostWidgetState extends ConsumerState<CommunityPostWidget> {
   }) {
     return GestureDetector(
       onTap: onTap,
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            icon,
-            size: 20,
-            color: color ?? Colors.grey[600],
-          ),
-          const SizedBox(width: 4),
-          Text(
-            label,
-            style: TextStyle(
-              color: color ?? Colors.grey[600],
-              fontSize: 12,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _toggleBookmark() {
-    if (widget.currentUserId == null) return;
-
-    if (widget.post.isBookmarked) {
-      ref.read(communityServiceStateProvider.notifier).removeBookmark(
-            widget.post.id,
-            widget.currentUserId!,
-          );
-    } else {
-      ref.read(communityServiceStateProvider.notifier).bookmarkPost(
-            widget.post.id,
-            widget.currentUserId!,
-          );
-    }
-  }
-
-  void _showReportDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Report Post'),
-        content: Column(
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: Colors.transparent,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text('Why are you reporting this post?'),
-            const SizedBox(height: 16),
-            ...['Spam', 'Inappropriate', 'Harassment', 'Violence', 'Other']
-                .map((reason) {
-              return ListTile(
-                title: Text(reason),
-                onTap: () {
-                  Navigator.pop(context);
-                  _reportPost(reason);
-                },
-              );
-            }),
+            Icon(
+              icon,
+              size: 22,
+              color: color ?? Colors.grey[600],
+            ),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: TextStyle(
+                color: color ?? Colors.grey[600],
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
           ],
         ),
       ),
     );
   }
 
-  void _reportPost(String reason) {
-    if (widget.currentUserId == null) return;
-
-    ref.read(communityServiceStateProvider.notifier).reportPost(
-          postId: widget.post.id,
-          userId: widget.currentUserId!,
-          reason: reason,
-        );
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Post reported successfully')),
-    );
-  }
-
   void _sharePost() {
     if (widget.currentUserId == null) return;
 
-    // Share functionality is handled by ShareButton
-    print('Sharing post: ${widget.post.id}');
+    // Create custom URL scheme for sharing
+    final shareUrl = 'bluevideoapp://post/${widget.post.id}';
+
+    // Use Flutter's share functionality
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Share URL copied: $shareUrl'),
+        duration: const Duration(seconds: 2),
+      ),
+    );
+
+    // You can also implement actual sharing with share_plus package
+    // Share.share(shareText, subject: widget.post.title ?? 'Community Post');
   }
 
   void _showCommentsSection() {

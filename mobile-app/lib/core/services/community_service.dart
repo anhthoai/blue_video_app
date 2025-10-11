@@ -65,6 +65,134 @@ class CommunityService {
   }
 
   // Get community posts with pagination (from API)
+  // Like/Unlike a post
+  Future<bool> likePost(String postId) async {
+    try {
+      final response = await _apiService.likeCommunityPost(postId);
+      return response['liked'] as bool;
+    } catch (e) {
+      print('Error liking post: $e');
+      rethrow;
+    }
+  }
+
+  // Bookmark/Unbookmark a post
+  Future<bool> bookmarkPost(String postId) async {
+    try {
+      final response = await _apiService.bookmarkCommunityPost(postId);
+      return response['bookmarked'] as bool;
+    } catch (e) {
+      print('Error bookmarking post: $e');
+      rethrow;
+    }
+  }
+
+  // Report a post
+  Future<void> reportPost(String postId,
+      {String? reason, String? description}) async {
+    try {
+      await _apiService.reportCommunityPost(postId,
+          reason: reason, description: description);
+    } catch (e) {
+      print('Error reporting post: $e');
+      rethrow;
+    }
+  }
+
+  // Pin/Unpin a post
+  Future<bool> pinPost(String postId) async {
+    try {
+      final response = await _apiService.pinCommunityPost(postId);
+      return response['pinned'] as bool;
+    } catch (e) {
+      print('Error pinning post: $e');
+      rethrow;
+    }
+  }
+
+  // Follow/Unfollow a user
+  Future<bool> followUser(String userId) async {
+    try {
+      final response = await _apiService.followUser(userId);
+      return response['following'] as bool;
+    } catch (e) {
+      print('Error following user: $e');
+      rethrow;
+    }
+  }
+
+  // Increment post views
+  Future<void> incrementViews(String postId) async {
+    try {
+      await _apiService.incrementPostViews(postId);
+    } catch (e) {
+      print('Error incrementing views: $e');
+      // Don't rethrow for views as it's not critical
+    }
+  }
+
+  // Get posts by tag
+  Future<List<CommunityPost>> getPostsByTag(
+    String tag, {
+    int limit = 20,
+    int offset = 0,
+  }) async {
+    try {
+      final response = await _apiService.getPostsByTag(
+        tag,
+        page: (offset ~/ limit) + 1,
+        limit: limit,
+      );
+
+      if (response['success'] == true) {
+        final items = response['data'] as List<dynamic>;
+        return items.map<CommunityPost>((json) {
+          return CommunityPost(
+            id: json['id'],
+            userId: json['userId'],
+            username: json['username'],
+            title: json['title'],
+            content: json['content'],
+            type: _mapPostType(json['type']),
+            images: List<String>.from(json['images'] ?? const []),
+            videos: List<String>.from(json['videos'] ?? const []),
+            imageUrls: List<String>.from(json['imageUrls'] ?? const []),
+            videoUrls: List<String>.from(json['videoUrls'] ?? const []),
+            videoThumbnailUrls:
+                List<String>.from(json['videoThumbnailUrls'] ?? const []),
+            duration: List<String>.from(json['duration'] ?? const []),
+            videoUrl: null,
+            linkUrl: json['linkUrl'],
+            linkTitle: json['linkTitle'],
+            linkDescription: json['linkDescription'],
+            linkThumbnail: json['linkThumbnail'],
+            pollData: json['pollData'],
+            tags: List<String>.from(json['tags'] ?? const []),
+            category: json['category'],
+            likes: json['likes'] ?? 0,
+            comments: json['comments'] ?? 0,
+            shares: json['shares'] ?? 0,
+            views: json['views'] ?? 0,
+            isLiked: json['isLiked'] ?? false,
+            isBookmarked: json['isBookmarked'] ?? false,
+            isPinned: json['isPinned'] ?? false,
+            createdAt: DateTime.parse(json['createdAt']),
+            updatedAt: DateTime.parse(json['updatedAt']),
+            firstName: json['firstName'],
+            lastName: json['lastName'],
+            isVerified: json['isVerified'] ?? false,
+            userAvatar: json['userAvatar'] ?? '',
+          );
+        }).toList();
+      } else {
+        throw Exception(response['message'] ?? 'Failed to fetch posts by tag');
+      }
+    } catch (e) {
+      print('Error getting posts by tag: $e');
+      rethrow;
+    }
+  }
+
   Future<List<CommunityPost>> getPosts({
     int limit = 20,
     int offset = 0,
@@ -114,8 +242,8 @@ class CommunityService {
             comments: json['comments'] ?? 0,
             shares: json['shares'] ?? 0,
             views: json['views'] ?? 0,
-            isLiked: false,
-            isBookmarked: false,
+            isLiked: json['isLiked'] ?? false,
+            isBookmarked: json['isBookmarked'] ?? false,
             isPinned: json['isPinned'] ?? false,
             isFeatured: json['isFeatured'] ?? false,
             createdAt:
@@ -225,153 +353,6 @@ class CommunityService {
     }
   }
 
-  // Like a post
-  Future<bool> likePost({
-    required String postId,
-    required String userId,
-  }) async {
-    try {
-      // In a real app, this would make an API call
-      await Future.delayed(const Duration(milliseconds: 500));
-
-      print('Liked post: $postId by user: $userId');
-      return true;
-    } catch (e) {
-      print('Error liking post: $e');
-      return false;
-    }
-  }
-
-  // Unlike a post
-  Future<bool> unlikePost({
-    required String postId,
-    required String userId,
-  }) async {
-    try {
-      // In a real app, this would make an API call
-      await Future.delayed(const Duration(milliseconds: 500));
-
-      print('Unliked post: $postId by user: $userId');
-      return true;
-    } catch (e) {
-      print('Error unliking post: $e');
-      return false;
-    }
-  }
-
-  // Bookmark a post
-  Future<bool> bookmarkPost({
-    required String postId,
-    required String userId,
-  }) async {
-    try {
-      // In a real app, this would make an API call
-      await Future.delayed(const Duration(milliseconds: 500));
-
-      print('Bookmarked post: $postId by user: $userId');
-      return true;
-    } catch (e) {
-      print('Error bookmarking post: $e');
-      return false;
-    }
-  }
-
-  // Remove bookmark
-  Future<bool> removeBookmark({
-    required String postId,
-    required String userId,
-  }) async {
-    try {
-      // In a real app, this would make an API call
-      await Future.delayed(const Duration(milliseconds: 500));
-
-      print('Removed bookmark for post: $postId by user: $userId');
-      return true;
-    } catch (e) {
-      print('Error removing bookmark: $e');
-      return false;
-    }
-  }
-
-  // Report a post
-  Future<bool> reportPost({
-    required String postId,
-    required String userId,
-    required String reason,
-    String? description,
-  }) async {
-    try {
-      // In a real app, this would make an API call
-      await Future.delayed(const Duration(milliseconds: 800));
-
-      print('Reported post: $postId by user: $userId for reason: $reason');
-      return true;
-    } catch (e) {
-      print('Error reporting post: $e');
-      return false;
-    }
-  }
-
-  // Get reported posts (for moderation)
-  Future<List<CommunityPost>> getReportedPosts({
-    int limit = 20,
-    int offset = 0,
-  }) async {
-    try {
-      // In a real app, this would make an API call
-      await Future.delayed(const Duration(milliseconds: 1000));
-
-      // Mock data - generate reported posts
-      return List.generate(limit, (index) {
-        return CommunityPost(
-          id: 'reported_post_$index',
-          userId: 'user_${index % 10}',
-          username: 'Reported User ${index % 10}',
-          userAvatar: 'https://picsum.photos/50/50?random=$index',
-          title: 'Reported Post $index',
-          content:
-              'This is a reported community post $index that needs moderation.',
-          type: PostType.values[index % PostType.values.length],
-          status: PostStatus.reported,
-          tags: ['reported', 'moderation'],
-          category: 'general',
-          likes: (index * 5) % 100,
-          comments: (index * 2) % 20,
-          shares: (index * 1) % 10,
-          views: (index * 20) % 200,
-          isLiked: false,
-          isBookmarked: false,
-          isPinned: false,
-          isFeatured: false,
-          createdAt: DateTime.now().subtract(Duration(days: index)),
-        );
-      });
-    } catch (e) {
-      print('Error getting reported posts: $e');
-      return [];
-    }
-  }
-
-  // Moderate a post (approve, reject, delete)
-  Future<bool> moderatePost({
-    required String postId,
-    required String moderatorId,
-    required String action, // 'approve', 'reject', 'delete'
-    String? reason,
-  }) async {
-    try {
-      // In a real app, this would make an API call
-      await Future.delayed(const Duration(milliseconds: 800));
-
-      print(
-          'Moderated post: $postId by moderator: $moderatorId with action: $action');
-      return true;
-    } catch (e) {
-      print('Error moderating post: $e');
-      return false;
-    }
-  }
-
   // Get user's bookmarked posts
   Future<List<CommunityPost>> getBookmarkedPosts({
     required String userId,
@@ -453,28 +434,26 @@ class CommunityService {
     }
   }
 
-  // Get categories
-  Future<List<String>> getCategories() async {
+  // Get tags from community posts
+  Future<List<String>> getTags() async {
     try {
-      // In a real app, this would make an API call
-      await Future.delayed(const Duration(milliseconds: 500));
+      final response = await _apiService.getCommunityTags();
 
-      return [
-        'general',
-        'technology',
-        'entertainment',
-        'sports',
-        'news',
-        'lifestyle',
-        'education',
-        'business',
-        'health',
-        'travel',
-      ];
+      if (response['success'] == true && response['tags'] != null) {
+        final List<dynamic> tagsList = response['tags'];
+        return tagsList.map((tag) => tag.toString()).toList();
+      } else {
+        throw Exception(response['message'] ?? 'Failed to fetch tags');
+      }
     } catch (e) {
-      print('Error getting categories: $e');
+      print('Error getting tags: $e');
       return [];
     }
+  }
+
+  // Get categories (legacy method - now returns tags)
+  Future<List<String>> getCategories() async {
+    return await getTags();
   }
 }
 
@@ -498,6 +477,8 @@ class CommunityServiceState {
   final List<CommunityPost> reportedPosts;
   final List<CommunityPost> bookmarkedPosts;
   final List<CommunityPost> searchResults;
+  final List<CommunityPost> tagPosts; // Posts filtered by tag
+  final String? currentTag; // Currently selected tag
   final List<String> categories;
   final bool isLoading;
   final String? error;
@@ -509,6 +490,8 @@ class CommunityServiceState {
     this.reportedPosts = const [],
     this.bookmarkedPosts = const [],
     this.searchResults = const [],
+    this.tagPosts = const [],
+    this.currentTag,
     this.categories = const [],
     this.isLoading = false,
     this.error,
@@ -521,6 +504,8 @@ class CommunityServiceState {
     List<CommunityPost>? reportedPosts,
     List<CommunityPost>? bookmarkedPosts,
     List<CommunityPost>? searchResults,
+    List<CommunityPost>? tagPosts,
+    String? currentTag,
     List<String>? categories,
     bool? isLoading,
     String? error,
@@ -532,6 +517,8 @@ class CommunityServiceState {
       reportedPosts: reportedPosts ?? this.reportedPosts,
       bookmarkedPosts: bookmarkedPosts ?? this.bookmarkedPosts,
       searchResults: searchResults ?? this.searchResults,
+      tagPosts: tagPosts ?? this.tagPosts,
+      currentTag: currentTag ?? this.currentTag,
       categories: categories ?? this.categories,
       isLoading: isLoading ?? this.isLoading,
       error: error ?? this.error,
@@ -649,44 +636,6 @@ class CommunityServiceNotifier extends StateNotifier<CommunityServiceState> {
     }
   }
 
-  Future<void> loadReportedPosts() async {
-    try {
-      state = state.copyWith(isLoading: true, error: null);
-
-      final communityService = CommunityService();
-      final posts = await communityService.getReportedPosts();
-
-      state = state.copyWith(
-        reportedPosts: posts,
-        isLoading: false,
-      );
-    } catch (e) {
-      state = state.copyWith(
-        isLoading: false,
-        error: e.toString(),
-      );
-    }
-  }
-
-  Future<void> loadBookmarkedPosts(String userId) async {
-    try {
-      state = state.copyWith(isLoading: true, error: null);
-
-      final communityService = CommunityService();
-      final posts = await communityService.getBookmarkedPosts(userId: userId);
-
-      state = state.copyWith(
-        bookmarkedPosts: posts,
-        isLoading: false,
-      );
-    } catch (e) {
-      state = state.copyWith(
-        isLoading: false,
-        error: e.toString(),
-      );
-    }
-  }
-
   Future<void> searchPosts({
     required String query,
     String? category,
@@ -731,154 +680,127 @@ class CommunityServiceNotifier extends StateNotifier<CommunityServiceState> {
     }
   }
 
-  Future<void> likePost(String postId, String userId) async {
+  // Load tags from community posts
+  Future<void> loadTags() async {
+    await loadCategories(); // Uses the same method since getCategories() now returns tags
+  }
+
+  // Like/Unlike a post
+  Future<void> likePost(String postId) async {
     try {
-      final communityService = CommunityService();
-      final success = await communityService.likePost(
-        postId: postId,
-        userId: userId,
-      );
+      final service = CommunityService();
+      final liked = await service.likePost(postId);
 
-      if (success) {
-        // Update local state
-        final updatedPosts = state.posts.map((post) {
-          if (post.id == postId) {
-            return post.copyWith(
-              likes: post.likes + 1,
-              isLiked: true,
-            );
-          }
-          return post;
-        }).toList();
+      // Update the post in the state
+      final updatedPosts = state.posts.map((post) {
+        if (post.id == postId) {
+          return post.copyWith(
+            likes: liked ? post.likes + 1 : post.likes - 1,
+          );
+        }
+        return post;
+      }).toList();
 
-        state = state.copyWith(posts: updatedPosts);
-      }
+      state = state.copyWith(posts: updatedPosts);
     } catch (e) {
       state = state.copyWith(error: e.toString());
     }
   }
 
-  Future<void> unlikePost(String postId, String userId) async {
+  // Bookmark/Unbookmark a post
+  Future<void> bookmarkPost(String postId) async {
     try {
-      final communityService = CommunityService();
-      final success = await communityService.unlikePost(
-        postId: postId,
-        userId: userId,
-      );
-
-      if (success) {
-        // Update local state
-        final updatedPosts = state.posts.map((post) {
-          if (post.id == postId) {
-            return post.copyWith(
-              likes: post.likes - 1,
-              isLiked: false,
-            );
-          }
-          return post;
-        }).toList();
-
-        state = state.copyWith(posts: updatedPosts);
-      }
+      final service = CommunityService();
+      await service.bookmarkPost(postId);
+      // You could add bookmark state tracking here if needed
     } catch (e) {
       state = state.copyWith(error: e.toString());
     }
   }
 
-  Future<void> bookmarkPost(String postId, String userId) async {
+  // Follow/Unfollow a user
+  Future<void> followUser(String userId) async {
     try {
-      final communityService = CommunityService();
-      final success = await communityService.bookmarkPost(
-        postId: postId,
-        userId: userId,
-      );
-
-      if (success) {
-        // Update local state
-        final updatedPosts = state.posts.map((post) {
-          if (post.id == postId) {
-            return post.copyWith(isBookmarked: true);
-          }
-          return post;
-        }).toList();
-
-        state = state.copyWith(posts: updatedPosts);
-      }
+      final service = CommunityService();
+      await service.followUser(userId);
+      // You could add follow state tracking here if needed
     } catch (e) {
       state = state.copyWith(error: e.toString());
     }
   }
 
-  Future<void> removeBookmark(String postId, String userId) async {
+  // Increment post views
+  Future<void> incrementViews(String postId) async {
     try {
-      final communityService = CommunityService();
-      final success = await communityService.removeBookmark(
-        postId: postId,
-        userId: userId,
+      final service = CommunityService();
+      await service.incrementViews(postId);
+
+      // Update the post in the state
+      final updatedPosts = state.posts.map((post) {
+        if (post.id == postId) {
+          return post.copyWith(views: post.views + 1);
+        }
+        return post;
+      }).toList();
+
+      state = state.copyWith(posts: updatedPosts);
+    } catch (e) {
+      // Don't update state for view errors as it's not critical
+    }
+  }
+
+  // Load posts by tag
+  Future<void> loadPostsByTag(String tag) async {
+    try {
+      state = state.copyWith(isLoading: true, error: null);
+      final service = CommunityService();
+      final posts = await service.getPostsByTag(tag);
+      state = state.copyWith(
+        tagPosts: posts,
+        currentTag: tag,
+        isLoading: false,
       );
+    } catch (e) {
+      state = state.copyWith(
+        isLoading: false,
+        error: e.toString(),
+      );
+    }
+  }
 
-      if (success) {
-        // Update local state
-        final updatedPosts = state.posts.map((post) {
-          if (post.id == postId) {
-            return post.copyWith(isBookmarked: false);
-          }
-          return post;
-        }).toList();
+  // Clear tag posts (when returning to main community screen)
+  void clearTagPosts() {
+    state = state.copyWith(
+      tagPosts: const [],
+      currentTag: null,
+    );
+  }
 
-        state = state.copyWith(posts: updatedPosts);
-      }
+  Future<void> pinPost(String postId) async {
+    try {
+      final service = CommunityService();
+      await service.pinPost(postId);
+
+      // Update the local state to reflect the pin change
+      final updatedPosts = state.posts.map((post) {
+        if (post.id == postId) {
+          return post.copyWith(isPinned: !post.isPinned);
+        }
+        return post;
+      }).toList();
+
+      state = state.copyWith(posts: updatedPosts);
     } catch (e) {
       state = state.copyWith(error: e.toString());
     }
   }
 
-  Future<void> reportPost({
-    required String postId,
-    required String userId,
-    required String reason,
-    String? description,
-  }) async {
+  Future<void> reportPost(
+      String postId, String reason, String description) async {
     try {
-      final communityService = CommunityService();
-      final success = await communityService.reportPost(
-        postId: postId,
-        userId: userId,
-        reason: reason,
-        description: description,
-      );
-
-      if (success) {
-        // Show success message
-        print('Post reported successfully');
-      }
-    } catch (e) {
-      state = state.copyWith(error: e.toString());
-    }
-  }
-
-  Future<void> moderatePost({
-    required String postId,
-    required String moderatorId,
-    required String action,
-    String? reason,
-  }) async {
-    try {
-      final communityService = CommunityService();
-      final success = await communityService.moderatePost(
-        postId: postId,
-        moderatorId: moderatorId,
-        action: action,
-        reason: reason,
-      );
-
-      if (success) {
-        // Update local state
-        final updatedReportedPosts =
-            state.reportedPosts.where((post) => post.id != postId).toList();
-
-        state = state.copyWith(reportedPosts: updatedReportedPosts);
-      }
+      final service = CommunityService();
+      await service.reportPost(postId,
+          reason: reason, description: description);
     } catch (e) {
       state = state.copyWith(error: e.toString());
     }
