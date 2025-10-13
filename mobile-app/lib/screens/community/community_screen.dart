@@ -139,6 +139,7 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
             currentUserAvatar: authState.currentUser?.avatarUrl ?? '',
             onTap: () {
               // Navigate to post detail
+              context.push('/main/post/${post.id}');
             },
             onUserTap: () {
               // Navigate to user profile
@@ -181,6 +182,7 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
             currentUserAvatar: authState.currentUser?.avatarUrl ?? '',
             onTap: () {
               // Navigate to post detail
+              context.push('/main/post/${post.id}');
             },
             onUserTap: () {
               // Navigate to user profile

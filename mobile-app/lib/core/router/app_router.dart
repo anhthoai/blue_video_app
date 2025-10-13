@@ -21,6 +21,7 @@ import '../../screens/search/search_screen.dart';
 import '../../screens/test/test_instructions_screen.dart';
 import '../../screens/community/create_post_screen.dart';
 import '../../screens/community/tag_posts_screen.dart';
+import '../../screens/community/post_detail_screen.dart';
 import '../../screens/discover/category_detail_screen.dart';
 import '../../models/category_model.dart';
 
@@ -101,6 +102,13 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: 'create-post',
             builder: (context, state) => const CreatePostScreen(),
+          ),
+          GoRoute(
+            path: 'post/:postId',
+            builder: (context, state) {
+              final postId = state.pathParameters['postId']!;
+              return PostDetailScreen(postId: postId);
+            },
           ),
           GoRoute(
             path: 'tag/:tag',

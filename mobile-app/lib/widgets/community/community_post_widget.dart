@@ -589,13 +589,7 @@ class _CommunityPostWidgetState extends ConsumerState<CommunityPostWidget> {
           child: _buildActionButton(
             icon: Icons.share_outlined,
             label: _formatCount(widget.post.shares),
-            onTap: () {
-              // Handle share
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                    content: Text('Share functionality not implemented yet')),
-              );
-            },
+            onTap: _sharePost,
           ),
         ),
         const SizedBox(width: 16),

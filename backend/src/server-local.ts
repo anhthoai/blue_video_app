@@ -1613,6 +1613,11 @@ app.get('/api/v1/users/:userId', async (req, res) => {
     console.log(`📊 Manual count - Followers: ${manualFollowersCount}, Following: ${manualFollowingCount}, Videos: ${manualVideosCount}`);
     console.log(`👥 Current user ${currentUserId} isFollowing: ${isFollowing}`);
 
+    // Build proper avatar URL
+    const avatarUrl = user.avatar && user.fileDirectory
+      ? await buildFileUrl(user.fileDirectory, user.avatar, 'avatars')
+      : user.avatarUrl;
+
     // Use manual counts as they are more reliable
     const serializedUser = {
       id: user.id,
@@ -1621,7 +1626,7 @@ app.get('/api/v1/users/:userId', async (req, res) => {
       firstName: user.firstName,
       lastName: user.lastName,
       bio: user.bio,
-      avatarUrl: buildAvatarUrl(user) || user.avatarUrl || null,
+      avatarUrl: avatarUrl,
       isVerified: user.isVerified,
       role: user.role,
       followersCount: manualFollowersCount,
@@ -2155,26 +2160,38 @@ app.get('/api/v1/social/comments', async (req, res) => {
     const parentComments = comments.filter(c => !c.parentId);
     const childComments = comments.filter(c => c.parentId);
     
-    const serializedComments = parentComments.map(comment => {
-      const replies = childComments
+    const serializedComments = await Promise.all(parentComments.map(async (comment) => {
+      const replies = await Promise.all(childComments
         .filter(c => c.parentId === comment.id)
-        .map(reply => ({
-          id: reply.id,
-          userId: reply.userId,
-          contentId: reply.contentId,
-          contentType: reply.contentType,
-          content: reply.content,
-          likes: reply.likes,
-          isLiked: likedCommentIds.has(reply.id),
-          parentCommentId: reply.parentId,
-          createdAt: reply.createdAt.toISOString(),
-          updatedAt: reply.updatedAt.toISOString(),
-          username: reply.user.firstName && reply.user.lastName 
-            ? `${reply.user.firstName} ${reply.user.lastName}`
-            : reply.user.username,
-          userAvatar: buildAvatarUrl(reply.user) || reply.user.avatarUrl || null,
-          isVerified: reply.user.isVerified,
+        .map(async (reply) => {
+          // Build proper avatar URL for reply
+          const replyAvatarUrl = reply.user.avatar && reply.user.fileDirectory
+            ? await buildFileUrl(reply.user.fileDirectory, reply.user.avatar, 'avatars')
+            : reply.user.avatarUrl;
+
+          return {
+            id: reply.id,
+            userId: reply.userId,
+            contentId: reply.contentId,
+            contentType: reply.contentType,
+            content: reply.content,
+            likes: reply.likes,
+            isLiked: likedCommentIds.has(reply.id),
+            parentCommentId: reply.parentId,
+            createdAt: reply.createdAt.toISOString(),
+            updatedAt: reply.updatedAt.toISOString(),
+            username: reply.user.firstName && reply.user.lastName 
+              ? `${reply.user.firstName} ${reply.user.lastName}`
+              : reply.user.username,
+            userAvatar: replyAvatarUrl,
+            isVerified: reply.user.isVerified,
+          };
         }));
+
+      // Build proper avatar URL for main comment
+      const commentAvatarUrl = comment.user.avatar && comment.user.fileDirectory
+        ? await buildFileUrl(comment.user.fileDirectory, comment.user.avatar, 'avatars')
+        : comment.user.avatarUrl;
 
       return {
         id: comment.id,
@@ -2190,11 +2207,11 @@ app.get('/api/v1/social/comments', async (req, res) => {
         username: comment.user.firstName && comment.user.lastName 
           ? `${comment.user.firstName} ${comment.user.lastName}`
           : comment.user.username,
-        userAvatar: buildAvatarUrl(comment.user) || comment.user.avatarUrl || null,
+        userAvatar: commentAvatarUrl,
         isVerified: comment.user.isVerified,
         replies: replies,
       };
-    });
+    }));
 
     res.json({
       success: true,
@@ -2283,6 +2300,11 @@ app.post('/api/v1/social/comments', async (req, res) => {
       });
     }
 
+    // Build proper avatar URL
+    const commentAvatarUrl = comment.user.avatar && comment.user.fileDirectory
+      ? await buildFileUrl(comment.user.fileDirectory, comment.user.avatar, 'avatars')
+      : comment.user.avatarUrl;
+
     // Convert to camelCase
     const serializedComment = {
       id: comment.id,
@@ -2298,7 +2320,7 @@ app.post('/api/v1/social/comments', async (req, res) => {
       username: comment.user.firstName && comment.user.lastName 
         ? `${comment.user.firstName} ${comment.user.lastName}`
         : comment.user.username,
-      userAvatar: buildAvatarUrl(comment.user) || comment.user.avatarUrl || null,
+      userAvatar: commentAvatarUrl,
       isVerified: comment.user.isVerified,
       replies: [],
     };

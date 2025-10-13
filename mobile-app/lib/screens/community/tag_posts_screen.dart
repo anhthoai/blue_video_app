@@ -210,6 +210,15 @@ class _TagPostsScreenState extends ConsumerState<TagPostsScreen> {
                                         authState.currentUser?.username,
                                     currentUserAvatar:
                                         authState.currentUser?.avatarUrl ?? '',
+                                    onTap: () {
+                                      // Navigate to post detail
+                                      context.push('/main/post/${post.id}');
+                                    },
+                                    onUserTap: () {
+                                      // Navigate to user profile
+                                      context
+                                          .push('/main/profile/${post.userId}');
+                                    },
                                   ),
                                 );
                               },

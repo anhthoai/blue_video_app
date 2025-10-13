@@ -48,6 +48,7 @@ class CommunityPost {
   final bool isLiked;
   final bool isBookmarked;
   final bool isPinned;
+  final bool isFollowing;
   final bool isFeatured;
   final DateTime createdAt;
   final DateTime? updatedAt;
@@ -87,6 +88,7 @@ class CommunityPost {
     this.isLiked = false,
     this.isBookmarked = false,
     this.isPinned = false,
+    this.isFollowing = false,
     this.isFeatured = false,
     required this.createdAt,
     this.updatedAt,
@@ -126,6 +128,7 @@ class CommunityPost {
     bool? isLiked,
     bool? isBookmarked,
     bool? isPinned,
+    bool? isFollowing,
     bool? isFeatured,
     DateTime? createdAt,
     DateTime? updatedAt,
@@ -164,6 +167,7 @@ class CommunityPost {
       isLiked: isLiked ?? this.isLiked,
       isBookmarked: isBookmarked ?? this.isBookmarked,
       isPinned: isPinned ?? this.isPinned,
+      isFollowing: isFollowing ?? this.isFollowing,
       isFeatured: isFeatured ?? this.isFeatured,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
@@ -205,6 +209,7 @@ class CommunityPost {
       'isLiked': isLiked,
       'isBookmarked': isBookmarked,
       'isPinned': isPinned,
+      'isFollowing': isFollowing,
       'isFeatured': isFeatured,
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt?.toIso8601String(),
@@ -255,6 +260,7 @@ class CommunityPost {
       isLiked: json['isLiked'] as bool? ?? false,
       isBookmarked: json['isBookmarked'] as bool? ?? false,
       isPinned: json['isPinned'] as bool? ?? false,
+      isFollowing: json['isFollowing'] as bool? ?? false,
       isFeatured: json['isFeatured'] as bool? ?? false,
       createdAt: DateTime.parse(json['createdAt'] as String),
       updatedAt: json['updatedAt'] != null
