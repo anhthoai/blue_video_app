@@ -8,6 +8,7 @@ import '../../core/services/auth_service.dart';
 import '../../core/services/social_service.dart';
 import '../../models/community_post.dart';
 import '../../models/comment_model.dart';
+import '_fullscreen_media_gallery.dart';
 
 class PostDetailScreen extends ConsumerStatefulWidget {
   final String postId;
@@ -141,6 +142,61 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
         _commentsLoaded = true; // Mark as loaded even on error
       });
     }
+  }
+
+  void _openImageViewer(String imageUrl) {
+    // Combine all media (images and videos)
+    final List<MediaItem> allMedia = [];
+
+    // Add images
+    for (var img in _post!.imageUrls) {
+      allMedia.add(MediaItem(url: img, isVideo: false));
+    }
+
+    // Add videos
+    for (var video in _post!.videoUrls) {
+      allMedia.add(MediaItem(url: video, isVideo: true));
+    }
+
+    // Find the initial index of the clicked image
+    final initialIndex = _post!.imageUrls.indexOf(imageUrl);
+
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => FullscreenMediaGallery(
+          mediaItems: allMedia,
+          initialIndex: initialIndex >= 0 ? initialIndex : 0,
+        ),
+      ),
+    );
+  }
+
+  void _openVideoPlayer(String videoUrl) {
+    // Combine all media (images and videos)
+    final List<MediaItem> allMedia = [];
+
+    // Add images
+    for (var img in _post!.imageUrls) {
+      allMedia.add(MediaItem(url: img, isVideo: false));
+    }
+
+    // Add videos
+    for (var video in _post!.videoUrls) {
+      allMedia.add(MediaItem(url: video, isVideo: true));
+    }
+
+    // Find the initial index of the clicked video
+    final videoIndex = _post!.videoUrls.indexOf(videoUrl);
+    final initialIndex = _post!.imageUrls.length + videoIndex;
+
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => FullscreenMediaGallery(
+          mediaItems: allMedia,
+          initialIndex: initialIndex >= 0 ? initialIndex : 0,
+        ),
+      ),
+    );
   }
 
   @override
@@ -382,35 +438,41 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
   }
 
   Widget _buildImageItem(String imageUrl) {
-    return Container(
-      width: double.infinity,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(12),
-        child: CachedNetworkImage(
-          imageUrl: imageUrl,
-          fit: BoxFit.cover,
-          placeholder: (context, url) => Container(
-            height: 200,
-            color: Colors.grey[200],
-            child: const Center(
-              child: CircularProgressIndicator(),
+    return GestureDetector(
+      onTap: () {
+        // Open image viewer
+        _openImageViewer(imageUrl);
+      },
+      child: Container(
+        width: double.infinity,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
             ),
-          ),
-          errorWidget: (context, url, error) => Container(
-            height: 200,
-            color: Colors.grey[200],
-            child: const Center(
-              child: Icon(Icons.error, size: 48, color: Colors.grey),
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: CachedNetworkImage(
+            imageUrl: imageUrl,
+            fit: BoxFit.cover,
+            placeholder: (context, url) => Container(
+              height: 200,
+              color: Colors.grey[200],
+              child: const Center(
+                child: CircularProgressIndicator(),
+              ),
+            ),
+            errorWidget: (context, url, error) => Container(
+              height: 200,
+              color: Colors.grey[200],
+              child: const Center(
+                child: Icon(Icons.error, size: 48, color: Colors.grey),
+              ),
             ),
           ),
         ),
@@ -424,92 +486,99 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
     final duration =
         index < _post!.duration.length ? _post!.duration[index] : null;
 
-    return Container(
-      width: double.infinity,
-      height: 200,
-      decoration: BoxDecoration(
-        color: Colors.black,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.2),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          // Video thumbnail or placeholder
-          if (thumbnailUrl != null && thumbnailUrl.isNotEmpty)
-            ClipRRect(
-              borderRadius: BorderRadius.circular(12),
-              child: CachedNetworkImage(
-                imageUrl: thumbnailUrl,
-                fit: BoxFit.cover,
-                placeholder: (context, url) => Container(
-                  color: Colors.grey[800],
-                  child: const Center(
-                    child: CircularProgressIndicator(color: Colors.white),
+    return GestureDetector(
+      onTap: () {
+        // Open video player
+        _openVideoPlayer(videoUrl);
+      },
+      child: Container(
+        width: double.infinity,
+        height: 200,
+        decoration: BoxDecoration(
+          color: Colors.black,
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.2),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            // Video thumbnail or placeholder
+            if (thumbnailUrl != null && thumbnailUrl.isNotEmpty)
+              ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: CachedNetworkImage(
+                  imageUrl: thumbnailUrl,
+                  fit: BoxFit.cover,
+                  placeholder: (context, url) => Container(
+                    color: Colors.grey[800],
+                    child: const Center(
+                      child: CircularProgressIndicator(color: Colors.white),
+                    ),
+                  ),
+                  errorWidget: (context, url, error) => Container(
+                    color: Colors.grey[800],
+                    child: const Center(
+                      child: Icon(Icons.play_circle_outline,
+                          size: 48, color: Colors.white),
+                    ),
                   ),
                 ),
-                errorWidget: (context, url, error) => Container(
-                  color: Colors.grey[800],
-                  child: const Center(
-                    child: Icon(Icons.play_circle_outline,
-                        size: 48, color: Colors.white),
-                  ),
+              )
+            else
+              Container(
+                color: Colors.grey[800],
+                child: const Center(
+                  child: Icon(Icons.play_circle_outline,
+                      size: 48, color: Colors.white),
                 ),
               ),
-            )
-          else
-            Container(
-              color: Colors.grey[800],
-              child: const Center(
-                child: Icon(Icons.play_circle_outline,
-                    size: 48, color: Colors.white),
-              ),
-            ),
 
-          // Play button overlay
-          Center(
-            child: Container(
-              decoration: const BoxDecoration(
-                color: Colors.black54,
-                shape: BoxShape.circle,
-              ),
-              padding: const EdgeInsets.all(12),
-              child: const Icon(
-                Icons.play_arrow,
-                size: 32,
-                color: Colors.white,
-              ),
-            ),
-          ),
-
-          // Duration overlay (bottom right)
-          if (duration != null)
-            Positioned(
-              bottom: 12,
-              right: 12,
+            // Play button overlay
+            Center(
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: Colors.black87,
-                  borderRadius: BorderRadius.circular(4),
+                decoration: const BoxDecoration(
+                  color: Colors.black54,
+                  shape: BoxShape.circle,
                 ),
-                child: Text(
-                  duration,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                  ),
+                padding: const EdgeInsets.all(12),
+                child: const Icon(
+                  Icons.play_arrow,
+                  size: 32,
+                  color: Colors.white,
                 ),
               ),
             ),
-        ],
+
+            // Duration overlay (bottom right)
+            if (duration != null)
+              Positioned(
+                bottom: 12,
+                right: 12,
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.black87,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    duration,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
