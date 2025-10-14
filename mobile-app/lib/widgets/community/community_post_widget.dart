@@ -543,7 +543,7 @@ class _CommunityPostWidgetState extends ConsumerState<CommunityPostWidget> {
   Widget _buildActions() {
     return Row(
       children: [
-        Flexible(
+        Expanded(
           child: _buildActionButton(
             icon: _isLiked ? Icons.favorite : Icons.favorite_border,
             label: _formatCount(widget.post.likes),
@@ -551,8 +551,7 @@ class _CommunityPostWidgetState extends ConsumerState<CommunityPostWidget> {
             onTap: _toggleLike,
           ),
         ),
-        const SizedBox(width: 16),
-        Flexible(
+        Expanded(
           child: GestureDetector(
             onTap: () {
               if (widget.currentUserId != null &&
@@ -569,14 +568,18 @@ class _CommunityPostWidgetState extends ConsumerState<CommunityPostWidget> {
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   const Icon(Icons.comment_outlined, size: 20),
                   const SizedBox(width: 4),
-                  Text(
-                    _formatCount(widget.post.comments),
-                    style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
+                  Flexible(
+                    child: Text(
+                      _formatCount(widget.post.comments),
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                      ),
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
                 ],
@@ -584,16 +587,14 @@ class _CommunityPostWidgetState extends ConsumerState<CommunityPostWidget> {
             ),
           ),
         ),
-        const SizedBox(width: 16),
-        Flexible(
+        Expanded(
           child: _buildActionButton(
             icon: Icons.share_outlined,
             label: _formatCount(widget.post.shares),
             onTap: _sharePost,
           ),
         ),
-        const SizedBox(width: 16),
-        Flexible(
+        Expanded(
           child: _buildActionButton(
             icon: Icons.visibility_outlined,
             label: _formatCount(widget.post.views),
@@ -622,6 +623,7 @@ class _CommunityPostWidgetState extends ConsumerState<CommunityPostWidget> {
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
               icon,
@@ -629,12 +631,15 @@ class _CommunityPostWidgetState extends ConsumerState<CommunityPostWidget> {
               color: color ?? Colors.grey[600],
             ),
             const SizedBox(width: 4),
-            Text(
-              label,
-              style: TextStyle(
-                color: color ?? Colors.grey[600],
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
+            Flexible(
+              child: Text(
+                label,
+                style: TextStyle(
+                  color: color ?? Colors.grey[600],
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                ),
+                overflow: TextOverflow.ellipsis,
               ),
             ),
           ],

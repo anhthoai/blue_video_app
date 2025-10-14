@@ -4,7 +4,10 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/services/community_service.dart';
 import '../../core/services/auth_service.dart';
+import '../../models/community_post.dart';
 import '../../widgets/community/community_post_widget.dart';
+import '../../widgets/community/video_card_widget.dart';
+import '../../screens/community/_fullscreen_media_gallery.dart';
 
 class CommunityScreen extends ConsumerStatefulWidget {
   const CommunityScreen({super.key});
@@ -67,6 +70,29 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
       await communityService.loadTrendingPosts();
     } catch (e) {
       print('Error loading trending posts: $e');
+    }
+  }
+
+  void _openVideoPlayer(CommunityPost post) {
+    if (post.videoUrls.isEmpty) return;
+
+    // Create media items list with only videos from the post
+    final List<MediaItem> mediaItems = [];
+
+    // Add only videos (no images)
+    for (var videoUrl in post.videoUrls) {
+      mediaItems.add(MediaItem(url: videoUrl, isVideo: true));
+    }
+
+    if (mediaItems.isNotEmpty) {
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (context) => FullscreenMediaGallery(
+            mediaItems: mediaItems,
+            initialIndex: 0, // Start with first video
+          ),
+        ),
+      );
     }
   }
 
@@ -229,40 +255,9 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
         itemCount: videoPosts.length,
         itemBuilder: (context, index) {
           final post = videoPosts[index];
-          return Card(
-            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: ListTile(
-              leading: ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: post.imageUrls.isNotEmpty
-                    ? Image.network(
-                        post.imageUrls.first,
-                        width: 60,
-                        height: 60,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) {
-                          return Container(
-                            width: 60,
-                            height: 60,
-                            color: const Color(0xFFE0E0E0),
-                            child: const Icon(Icons.video_library),
-                          );
-                        },
-                      )
-                    : Container(
-                        width: 60,
-                        height: 60,
-                        color: const Color(0xFFE0E0E0),
-                        child: const Icon(Icons.video_library),
-                      ),
-              ),
-              title: Text(post.title ?? 'Video Post'),
-              subtitle: Text('${post.views} views'),
-              trailing: const Icon(Icons.play_arrow),
-              onTap: () {
-                // Navigate to video player
-              },
-            ),
+          return VideoCardWidget(
+            post: post,
+            onTap: () => _openVideoPlayer(post),
           );
         },
       ),
