@@ -3206,6 +3206,123 @@ app.get('/api/v1/community/posts', authenticateToken, async (req, res) => {
   }
 });
 
+// Get trending community posts (ordered by views)
+app.get('/api/v1/community/posts/trending', authenticateToken, async (req, res) => {
+  try {
+    const { page = 1, limit = 20 } = req.query;
+    const offset = (Number(page) - 1) * Number(limit);
+    const currentUserId = req.user?.id;
+    
+    // Get community posts ordered by views (descending)
+    const posts = await prisma.communityPost.findMany({
+      where: {
+        isPublic: true,
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            username: true,
+            firstName: true,
+            lastName: true,
+            avatar: true,
+            avatarUrl: true,
+            fileDirectory: true,
+            isVerified: true,
+          },
+        },
+      },
+      orderBy: {
+        views: 'desc', // Order by views descending (most viewed first)
+      },
+      skip: offset,
+      take: Number(limit),
+    });
+
+
+    // Add file URLs and user interaction status to posts
+    const postsWithUrls = await Promise.all(
+      posts.map(async (post) => {
+        // Build image URLs
+        const imageUrls = await Promise.all(
+          post.images.map((fileName) =>
+            buildCommunityPostFileUrl(post.fileDirectory, fileName)
+          )
+        );
+
+        // Build video URLs
+        const videoUrls = await Promise.all(
+          post.videos.map((fileName) =>
+            buildCommunityPostFileUrl(post.fileDirectory, fileName)
+          )
+        );
+
+        // Build video thumbnail URLs from database
+        const videoThumbnailUrls = await Promise.all(
+          post.videoThumbnails.map((fileName) =>
+            buildCommunityPostFileUrl(post.fileDirectory, fileName)
+          )
+        );
+
+        // Build avatar URL (async)
+        const avatarUrl = post.user.avatar && post.user.fileDirectory
+          ? await buildFileUrl(post.user.fileDirectory, post.user.avatar, 'avatars')
+          : null;
+
+        // Check if current user has liked this post
+        const isLiked = currentUserId ? await prisma.communityPostLike.findUnique({
+          where: {
+            userId_postId: {
+              userId: currentUserId,
+              postId: post.id,
+            },
+          },
+        }) : null;
+
+        // Check if current user has bookmarked this post
+        const isBookmarked = currentUserId ? await prisma.communityPostBookmark.findUnique({
+          where: {
+            userId_postId: {
+              userId: currentUserId,
+              postId: post.id,
+            },
+          },
+        }) : null;
+
+        return {
+          ...post,
+          username: post.user.username,
+          firstName: post.user.firstName,
+          lastName: post.user.lastName,
+          isVerified: post.user.isVerified,
+          userAvatar: avatarUrl,
+          imageUrls: imageUrls.filter((url) => url != null),
+          videoUrls: videoUrls.filter((url) => url != null),
+          videoThumbnailUrls: videoThumbnailUrls.filter((url) => url != null),
+          isLiked: isLiked != null,
+          isBookmarked: isBookmarked != null,
+        };
+      })
+    );
+
+    res.json({
+      success: true,
+      data: postsWithUrls,
+      pagination: {
+        page: Number(page),
+        limit: Number(limit),
+        total: posts.length,
+      },
+    });
+  } catch (error) {
+    console.error('Error fetching trending posts:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch trending posts',
+    });
+  }
+});
+
 // Create community post endpoint
 app.post('/api/v1/community/posts', authenticateToken, communityPostUpload.array('files', 10), async (req, res) => {
   try {

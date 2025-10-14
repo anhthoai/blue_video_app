@@ -193,6 +193,67 @@ class CommunityService {
     }
   }
 
+  // Get trending posts (ordered by views)
+  Future<List<CommunityPost>> getTrendingPosts({
+    int limit = 20,
+    int offset = 0,
+  }) async {
+    try {
+      final response = await _apiService.getTrendingPosts(
+        page: (offset ~/ limit) + 1,
+        limit: limit,
+      );
+
+      if (response['success'] == true) {
+        final items = response['data'] as List<dynamic>;
+        return items.map<CommunityPost>((json) {
+          return CommunityPost(
+            id: json['id'],
+            userId: json['userId'],
+            username: json['username'],
+            title: json['title'],
+            content: json['content'],
+            type: _mapPostType(json['type']),
+            images: List<String>.from(json['images'] ?? const []),
+            videos: List<String>.from(json['videos'] ?? const []),
+            imageUrls: List<String>.from(json['imageUrls'] ?? const []),
+            videoUrls: List<String>.from(json['videoUrls'] ?? const []),
+            videoThumbnailUrls:
+                List<String>.from(json['videoThumbnailUrls'] ?? const []),
+            duration: List<String>.from(json['duration'] ?? const []),
+            videoUrl: null,
+            linkUrl: json['linkUrl'],
+            linkTitle: json['linkTitle'],
+            linkDescription: json['linkDescription'],
+            linkThumbnail: json['linkThumbnail'],
+            pollData: json['pollData'],
+            tags: List<String>.from(json['tags'] ?? const []),
+            category: json['category'],
+            likes: json['likes'] ?? 0,
+            comments: json['comments'] ?? 0,
+            shares: json['shares'] ?? 0,
+            views: json['views'] ?? 0,
+            isLiked: json['isLiked'] ?? false,
+            isBookmarked: json['isBookmarked'] ?? false,
+            isPinned: json['isPinned'] ?? false,
+            createdAt: DateTime.parse(json['createdAt']),
+            updatedAt: DateTime.parse(json['updatedAt']),
+            firstName: json['firstName'],
+            lastName: json['lastName'],
+            isVerified: json['isVerified'] ?? false,
+            userAvatar: json['userAvatar'] ?? '',
+          );
+        }).toList();
+      } else {
+        throw Exception(
+            response['message'] ?? 'Failed to fetch trending posts');
+      }
+    } catch (e) {
+      print('Error getting trending posts: $e');
+      rethrow;
+    }
+  }
+
   Future<List<CommunityPost>> getPosts({
     int limit = 20,
     int offset = 0,
@@ -274,45 +335,6 @@ class CommunityService {
       case 'MEDIA':
       default:
         return PostType.media;
-    }
-  }
-
-  // Get trending posts
-  Future<List<CommunityPost>> getTrendingPosts({
-    int limit = 20,
-    String? category,
-  }) async {
-    try {
-      // In a real app, this would make an API call
-      await Future.delayed(const Duration(milliseconds: 1200));
-
-      // Mock data - generate trending posts
-      return List.generate(limit, (index) {
-        return CommunityPost(
-          id: 'trending_post_$index',
-          userId: 'user_${index % 10}',
-          username: 'Trending User ${index % 10}',
-          userAvatar: 'https://picsum.photos/50/50?random=$index',
-          title: 'Trending Post $index',
-          content:
-              'This is a trending community post $index that is popular right now.',
-          type: PostType.values[index % PostType.values.length],
-          tags: ['trending', 'viral', 'popular'],
-          category: category ?? 'general',
-          likes: (index + 1) * 100,
-          comments: (index + 1) * 20,
-          shares: (index + 1) * 10,
-          views: (index + 1) * 500,
-          isLiked: index % 2 == 0,
-          isBookmarked: index % 3 == 0,
-          isPinned: index < 2,
-          isFeatured: true,
-          createdAt: DateTime.now().subtract(Duration(hours: index)),
-        );
-      });
-    } catch (e) {
-      print('Error getting trending posts: $e');
-      return [];
     }
   }
 
@@ -565,44 +587,9 @@ class CommunityServiceNotifier extends StateNotifier<CommunityServiceState> {
     try {
       state = state.copyWith(isLoading: true, error: null);
 
-      // Generate mock trending posts directly
-      final posts = List.generate(10, (index) {
-        final postTypes = PostType.values;
-        final postType = postTypes[index % postTypes.length];
-
-        return CommunityPost(
-          id: 'trending_post_$index',
-          userId: 'user_${index % 10}',
-          username: 'Trending User ${index % 10}',
-          userAvatar: 'https://picsum.photos/50/50?random=$index',
-          title: 'Trending Post $index',
-          content:
-              'This is a trending community post $index with viral content.',
-          type: postType,
-          images: postType == PostType.media
-              ? [
-                  'https://picsum.photos/400/300?random=$index',
-                  'https://picsum.photos/400/300?random=${index + 100}',
-                ]
-              : [],
-          videos: postType == PostType.media
-              ? ['https://example.com/trending_video$index.mp4']
-              : [],
-          videoUrl: null,
-          tags: ['trending', 'viral', 'popular'],
-          category: category ?? 'general',
-          likes: (index * 100) + 500, // Higher likes for trending
-          comments: (index * 10) + 50,
-          shares: (index * 5) + 25,
-          views: (index * 500) + 2000,
-          isLiked: index % 2 == 0,
-          isBookmarked: index % 3 == 0,
-          isPinned: false,
-          isFeatured: true,
-          createdAt: DateTime.now().subtract(Duration(hours: index)),
-          publishedAt: DateTime.now().subtract(Duration(hours: index)),
-        );
-      });
+      // Load trending posts from API
+      final service = CommunityService();
+      final posts = await service.getTrendingPosts();
 
       state = state.copyWith(
         trendingPosts: posts,

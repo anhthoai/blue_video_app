@@ -41,8 +41,9 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
   void _clearTagPostsAndLoadPosts() {
     // Clear any tag posts from previous navigation
     ref.read(communityServiceStateProvider.notifier).clearTagPosts();
-    // Load fresh posts and tags
+    // Load fresh posts, trending posts, and tags
     _loadPosts();
+    _loadTrendingPosts();
     _loadTags();
   }
 
@@ -58,6 +59,15 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
   Future<void> _loadTags() async {
     final communityService = ref.read(communityServiceStateProvider.notifier);
     await communityService.loadTags();
+  }
+
+  Future<void> _loadTrendingPosts() async {
+    try {
+      final communityService = ref.read(communityServiceStateProvider.notifier);
+      await communityService.loadTrendingPosts();
+    } catch (e) {
+      print('Error loading trending posts: $e');
+    }
   }
 
   @override
@@ -156,9 +166,8 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
       return const Center(child: CircularProgressIndicator());
     }
 
-    // Use real posts for trending tab
-    final trendingPosts =
-        state.posts.where((post) => post.isPinned || post.likes > 0).toList();
+    // Use trending posts from state (ordered by views)
+    final trendingPosts = state.trendingPosts;
 
     if (trendingPosts.isEmpty) {
       return _buildEmptyState(
@@ -169,7 +178,7 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
     }
 
     return RefreshIndicator(
-      onRefresh: _loadPosts,
+      onRefresh: _loadTrendingPosts,
       child: ListView.builder(
         padding: const EdgeInsets.symmetric(vertical: 8),
         itemCount: trendingPosts.length,

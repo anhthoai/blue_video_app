@@ -256,6 +256,18 @@ class ApiService {
     return await _handleResponse(response);
   }
 
+  // Get trending community posts (ordered by views)
+  Future<Map<String, dynamic>> getTrendingPosts({
+    int page = 1,
+    int limit = 20,
+  }) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/community/posts/trending?page=$page&limit=$limit'),
+      headers: await _getHeaders(),
+    );
+    return await _handleResponse(response);
+  }
+
   // Get all available tags from community posts
   Future<Map<String, dynamic>> getCommunityTags() async {
     final response = await http.get(
