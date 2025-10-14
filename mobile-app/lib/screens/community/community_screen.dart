@@ -320,20 +320,41 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Search Posts'),
-        content: TextField(
-          controller: _searchController,
-          decoration: const InputDecoration(
-            hintText: 'Search for posts...',
-            border: OutlineInputBorder(),
-          ),
+        title: const Text('Search Community'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            TextField(
+              controller: _searchController,
+              decoration: const InputDecoration(
+                hintText: 'Search posts, authors, usernames, tags...',
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.search),
+              ),
+              autofocus: true,
+              onSubmitted: (value) {
+                Navigator.pop(context);
+                _searchPosts();
+              },
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              'Search across:',
+              style: TextStyle(fontWeight: FontWeight.w500),
+            ),
+            const SizedBox(height: 4),
+            const Text('• Post content and titles'),
+            const Text('• Author names and usernames'),
+            const Text('• Tags and categories'),
+          ],
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: const Text('Cancel'),
           ),
-          TextButton(
+          ElevatedButton(
             onPressed: () {
               Navigator.pop(context);
               _searchPosts();
@@ -348,8 +369,9 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
   void _searchPosts() {
     if (_searchController.text.trim().isEmpty) return;
 
-    final communityService = ref.read(communityServiceStateProvider.notifier);
-    communityService.searchPosts(query: _searchController.text.trim());
+    // Navigate to search results screen
+    context.push(
+        '/main/search/${Uri.encodeComponent(_searchController.text.trim())}');
   }
 
   void _showFilterDialog() {

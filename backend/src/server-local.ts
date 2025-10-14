@@ -3323,6 +3323,155 @@ app.get('/api/v1/community/posts/trending', authenticateToken, async (req, res) 
   }
 });
 
+// Search community posts (comprehensive search across author, username, content, tags)
+app.get('/api/v1/community/posts/search', authenticateToken, async (req, res) => {
+  try {
+    const { q: query, page = 1, limit = 20 } = req.query;
+    const offset = (Number(page) - 1) * Number(limit);
+    const currentUserId = req.user?.id;
+
+    if (!query || query.toString().trim() === '') {
+      return res.status(400).json({
+        success: false,
+        message: 'Search query is required',
+      });
+    }
+
+    const searchTerm = `%${query.toString().trim()}%`;
+
+    // Search across multiple fields using Prisma's OR condition
+    const posts = await prisma.communityPost.findMany({
+      where: {
+        AND: [
+          { isPublic: true },
+          {
+            OR: [
+              // Search in post content
+              { content: { contains: searchTerm, mode: 'insensitive' } },
+              // Search in post title
+              { title: { contains: searchTerm, mode: 'insensitive' } },
+              // Search in tags array
+              { tags: { has: query.toString().trim() } },
+              // Search in tags array (case insensitive - need to check each tag)
+              { tags: { hasSome: [query.toString().trim().toLowerCase()] } },
+              // Search in user's first name
+              { user: { firstName: { contains: searchTerm, mode: 'insensitive' } } },
+              // Search in user's last name
+              { user: { lastName: { contains: searchTerm, mode: 'insensitive' } } },
+              // Search in username
+              { user: { username: { contains: searchTerm, mode: 'insensitive' } } },
+            ],
+          },
+        ],
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            username: true,
+            firstName: true,
+            lastName: true,
+            avatar: true,
+            avatarUrl: true,
+            fileDirectory: true,
+            isVerified: true,
+          },
+        },
+      },
+      orderBy: [
+        // Order by user name first (author), then by post creation date, then by tag relevance
+        { user: { firstName: 'asc' } },
+        { user: { lastName: 'asc' } },
+        { createdAt: 'desc' },
+      ],
+      skip: offset,
+      take: Number(limit),
+    });
+
+    // Add file URLs and user interaction status to posts
+    const postsWithUrls = await Promise.all(
+      posts.map(async (post) => {
+        // Build image URLs
+        const imageUrls = await Promise.all(
+          post.images.map((fileName) =>
+            buildCommunityPostFileUrl(post.fileDirectory, fileName)
+          )
+        );
+
+        // Build video URLs
+        const videoUrls = await Promise.all(
+          post.videos.map((fileName) =>
+            buildCommunityPostFileUrl(post.fileDirectory, fileName)
+          )
+        );
+
+        // Build video thumbnail URLs from database
+        const videoThumbnailUrls = await Promise.all(
+          post.videoThumbnails.map((fileName) =>
+            buildCommunityPostFileUrl(post.fileDirectory, fileName)
+          )
+        );
+
+        // Build avatar URL (async)
+        const avatarUrl = post.user.avatar && post.user.fileDirectory
+          ? await buildFileUrl(post.user.fileDirectory, post.user.avatar, 'avatars')
+          : null;
+
+        // Check if current user has liked this post
+        const isLiked = currentUserId ? await prisma.communityPostLike.findUnique({
+          where: {
+            userId_postId: {
+              userId: currentUserId,
+              postId: post.id,
+            },
+          },
+        }) : null;
+
+        // Check if current user has bookmarked this post
+        const isBookmarked = currentUserId ? await prisma.communityPostBookmark.findUnique({
+          where: {
+            userId_postId: {
+              userId: currentUserId,
+              postId: post.id,
+            },
+          },
+        }) : null;
+
+        return {
+          ...post,
+          username: post.user.username,
+          firstName: post.user.firstName,
+          lastName: post.user.lastName,
+          isVerified: post.user.isVerified,
+          userAvatar: avatarUrl,
+          imageUrls: imageUrls.filter((url) => url != null),
+          videoUrls: videoUrls.filter((url) => url != null),
+          videoThumbnailUrls: videoThumbnailUrls.filter((url) => url != null),
+          isLiked: isLiked != null,
+          isBookmarked: isBookmarked != null,
+        };
+      })
+    );
+
+    return res.json({
+      success: true,
+      data: postsWithUrls,
+      pagination: {
+        page: Number(page),
+        limit: Number(limit),
+        total: posts.length,
+      },
+      query: query.toString().trim(),
+    });
+  } catch (error) {
+    console.error('Error searching community posts:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to search posts',
+    });
+  }
+});
+
 // Create community post endpoint
 app.post('/api/v1/community/posts', authenticateToken, communityPostUpload.array('files', 10), async (req, res) => {
   try {

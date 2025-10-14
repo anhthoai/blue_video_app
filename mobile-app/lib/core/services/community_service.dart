@@ -254,6 +254,68 @@ class CommunityService {
     }
   }
 
+  // Search community posts (comprehensive search across author, username, content, tags)
+  Future<List<CommunityPost>> searchPosts({
+    required String query,
+    int limit = 20,
+    int offset = 0,
+  }) async {
+    try {
+      final response = await _apiService.searchCommunityPosts(
+        query: query,
+        page: (offset ~/ limit) + 1,
+        limit: limit,
+      );
+
+      if (response['success'] == true) {
+        final items = response['data'] as List<dynamic>;
+        return items.map<CommunityPost>((json) {
+          return CommunityPost(
+            id: json['id'],
+            userId: json['userId'],
+            username: json['username'],
+            title: json['title'],
+            content: json['content'],
+            type: _mapPostType(json['type']),
+            images: List<String>.from(json['images'] ?? const []),
+            videos: List<String>.from(json['videos'] ?? const []),
+            imageUrls: List<String>.from(json['imageUrls'] ?? const []),
+            videoUrls: List<String>.from(json['videoUrls'] ?? const []),
+            videoThumbnailUrls:
+                List<String>.from(json['videoThumbnailUrls'] ?? const []),
+            duration: List<String>.from(json['duration'] ?? const []),
+            videoUrl: null,
+            linkUrl: json['linkUrl'],
+            linkTitle: json['linkTitle'],
+            linkDescription: json['linkDescription'],
+            linkThumbnail: json['linkThumbnail'],
+            pollData: json['pollData'],
+            tags: List<String>.from(json['tags'] ?? const []),
+            category: json['category'],
+            likes: json['likes'] ?? 0,
+            comments: json['comments'] ?? 0,
+            shares: json['shares'] ?? 0,
+            views: json['views'] ?? 0,
+            isLiked: json['isLiked'] ?? false,
+            isBookmarked: json['isBookmarked'] ?? false,
+            isPinned: json['isPinned'] ?? false,
+            createdAt: DateTime.parse(json['createdAt']),
+            updatedAt: DateTime.parse(json['updatedAt']),
+            firstName: json['firstName'],
+            lastName: json['lastName'],
+            isVerified: json['isVerified'] ?? false,
+            userAvatar: json['userAvatar'] ?? '',
+          );
+        }).toList();
+      } else {
+        throw Exception(response['message'] ?? 'Failed to search posts');
+      }
+    } catch (e) {
+      print('Error searching posts: $e');
+      rethrow;
+    }
+  }
+
   Future<List<CommunityPost>> getPosts({
     int limit = 20,
     int offset = 0,
@@ -411,47 +473,6 @@ class CommunityService {
       });
     } catch (e) {
       print('Error getting bookmarked posts: $e');
-      return [];
-    }
-  }
-
-  // Search posts
-  Future<List<CommunityPost>> searchPosts({
-    required String query,
-    int limit = 20,
-    int offset = 0,
-    String? category,
-  }) async {
-    try {
-      // In a real app, this would make an API call
-      await Future.delayed(const Duration(milliseconds: 1200));
-
-      // Mock data - generate search results
-      return List.generate(limit, (index) {
-        return CommunityPost(
-          id: 'search_post_$index',
-          userId: 'user_${index % 10}',
-          username: 'Search User ${index % 10}',
-          userAvatar: 'https://picsum.photos/50/50?random=$index',
-          title: 'Search Result $index for "$query"',
-          content:
-              'This is a search result $index that matches the query "$query".',
-          type: PostType.values[index % PostType.values.length],
-          tags: ['search', 'result', query],
-          category: category ?? 'general',
-          likes: (index * 6) % 150,
-          comments: (index * 4) % 40,
-          shares: (index * 2) % 25,
-          views: (index * 25) % 250,
-          isLiked: index % 3 == 0,
-          isBookmarked: index % 4 == 0,
-          isPinned: false,
-          isFeatured: false,
-          createdAt: DateTime.now().subtract(Duration(hours: index)),
-        );
-      });
-    } catch (e) {
-      print('Error searching posts: $e');
       return [];
     }
   }
@@ -633,7 +654,6 @@ class CommunityServiceNotifier extends StateNotifier<CommunityServiceState> {
       final communityService = CommunityService();
       final posts = await communityService.searchPosts(
         query: query,
-        category: category,
       );
 
       state = state.copyWith(

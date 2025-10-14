@@ -268,6 +268,20 @@ class ApiService {
     return await _handleResponse(response);
   }
 
+  // Search community posts (comprehensive search across author, username, content, tags)
+  Future<Map<String, dynamic>> searchCommunityPosts({
+    required String query,
+    int page = 1,
+    int limit = 20,
+  }) async {
+    final response = await http.get(
+      Uri.parse(
+          '$baseUrl/community/posts/search?q=${Uri.encodeComponent(query)}&page=$page&limit=$limit'),
+      headers: await _getHeaders(),
+    );
+    return await _handleResponse(response);
+  }
+
   // Get all available tags from community posts
   Future<Map<String, dynamic>> getCommunityTags() async {
     final response = await http.get(

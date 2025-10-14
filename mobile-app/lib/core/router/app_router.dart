@@ -22,6 +22,7 @@ import '../../screens/test/test_instructions_screen.dart';
 import '../../screens/community/create_post_screen.dart';
 import '../../screens/community/tag_posts_screen.dart';
 import '../../screens/community/post_detail_screen.dart';
+import '../../screens/community/search_results_screen.dart';
 import '../../screens/discover/category_detail_screen.dart';
 import '../../models/category_model.dart';
 
@@ -115,6 +116,13 @@ final routerProvider = Provider<GoRouter>((ref) {
             builder: (context, state) {
               final tag = state.pathParameters['tag']!;
               return TagPostsScreen(tag: tag);
+            },
+          ),
+          GoRoute(
+            path: 'search/:query',
+            builder: (context, state) {
+              final query = Uri.decodeComponent(state.pathParameters['query']!);
+              return SearchResultsScreen(query: query);
             },
           ),
 
