@@ -8,6 +8,7 @@ import '../../core/services/auth_service.dart';
 import '../../core/services/social_service.dart';
 import '../../models/community_post.dart';
 import '../../models/comment_model.dart';
+import '../../widgets/community/nsfw_blur_wrapper.dart';
 import '_fullscreen_media_gallery.dart';
 
 class PostDetailScreen extends ConsumerStatefulWidget {
@@ -457,21 +458,24 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
         ),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(12),
-          child: CachedNetworkImage(
-            imageUrl: imageUrl,
-            fit: BoxFit.cover,
-            placeholder: (context, url) => Container(
-              height: 200,
-              color: Colors.grey[200],
-              child: const Center(
-                child: CircularProgressIndicator(),
+          child: NsfwBlurWrapper(
+            isNsfw: _post!.isNsfw,
+            child: CachedNetworkImage(
+              imageUrl: imageUrl,
+              fit: BoxFit.cover,
+              placeholder: (context, url) => Container(
+                height: 200,
+                color: Colors.grey[200],
+                child: const Center(
+                  child: CircularProgressIndicator(),
+                ),
               ),
-            ),
-            errorWidget: (context, url, error) => Container(
-              height: 200,
-              color: Colors.grey[200],
-              child: const Center(
-                child: Icon(Icons.error, size: 48, color: Colors.grey),
+              errorWidget: (context, url, error) => Container(
+                height: 200,
+                color: Colors.grey[200],
+                child: const Center(
+                  child: Icon(Icons.error, size: 48, color: Colors.grey),
+                ),
               ),
             ),
           ),
@@ -505,79 +509,82 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
             ),
           ],
         ),
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            // Video thumbnail or placeholder
-            if (thumbnailUrl != null && thumbnailUrl.isNotEmpty)
-              ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: CachedNetworkImage(
-                  imageUrl: thumbnailUrl,
-                  fit: BoxFit.cover,
-                  placeholder: (context, url) => Container(
-                    color: Colors.grey[800],
-                    child: const Center(
-                      child: CircularProgressIndicator(color: Colors.white),
+        child: NsfwBlurWrapper(
+          isNsfw: _post!.isNsfw,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              // Video thumbnail or placeholder
+              if (thumbnailUrl != null && thumbnailUrl.isNotEmpty)
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: CachedNetworkImage(
+                    imageUrl: thumbnailUrl,
+                    fit: BoxFit.cover,
+                    placeholder: (context, url) => Container(
+                      color: Colors.grey[800],
+                      child: const Center(
+                        child: CircularProgressIndicator(color: Colors.white),
+                      ),
+                    ),
+                    errorWidget: (context, url, error) => Container(
+                      color: Colors.grey[800],
+                      child: const Center(
+                        child: Icon(Icons.play_circle_outline,
+                            size: 48, color: Colors.white),
+                      ),
                     ),
                   ),
-                  errorWidget: (context, url, error) => Container(
-                    color: Colors.grey[800],
-                    child: const Center(
-                      child: Icon(Icons.play_circle_outline,
-                          size: 48, color: Colors.white),
-                    ),
+                )
+              else
+                Container(
+                  color: Colors.grey[800],
+                  child: const Center(
+                    child: Icon(Icons.play_circle_outline,
+                        size: 48, color: Colors.white),
                   ),
                 ),
-              )
-            else
-              Container(
-                color: Colors.grey[800],
-                child: const Center(
-                  child: Icon(Icons.play_circle_outline,
-                      size: 48, color: Colors.white),
-                ),
-              ),
 
-            // Play button overlay
-            Center(
-              child: Container(
-                decoration: const BoxDecoration(
-                  color: Colors.black54,
-                  shape: BoxShape.circle,
-                ),
-                padding: const EdgeInsets.all(12),
-                child: const Icon(
-                  Icons.play_arrow,
-                  size: 32,
-                  color: Colors.white,
-                ),
-              ),
-            ),
-
-            // Duration overlay (bottom right)
-            if (duration != null)
-              Positioned(
-                bottom: 12,
-                right: 12,
+              // Play button overlay
+              Center(
                 child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: Colors.black87,
-                    borderRadius: BorderRadius.circular(4),
+                  decoration: const BoxDecoration(
+                    color: Colors.black54,
+                    shape: BoxShape.circle,
                   ),
-                  child: Text(
-                    duration,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
-                    ),
+                  padding: const EdgeInsets.all(12),
+                  child: const Icon(
+                    Icons.play_arrow,
+                    size: 32,
+                    color: Colors.white,
                   ),
                 ),
               ),
-          ],
+
+              // Duration overlay (bottom right)
+              if (duration != null)
+                Positioned(
+                  bottom: 12,
+                  right: 12,
+                  child: Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.black87,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      duration,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
         ),
       ),
     );

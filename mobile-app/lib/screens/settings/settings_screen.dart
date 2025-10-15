@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/services/auth_service.dart';
+import '../../core/services/nsfw_settings_service.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -66,6 +67,7 @@ class SettingsScreen extends ConsumerWidget {
                 subtitle: 'Manage your privacy settings',
                 onTap: () {},
               ),
+              _buildNsfwToggle(context, ref),
             ],
           ),
 
@@ -272,6 +274,69 @@ class SettingsScreen extends ConsumerWidget {
       subtitle: Text(subtitle),
       trailing: const Icon(Icons.chevron_right),
       onTap: onTap,
+    );
+  }
+
+  Widget _buildNsfwToggle(BuildContext context, WidgetRef ref) {
+    final nsfwSettings = ref.watch(nsfwSettingsProvider);
+
+    return ListTile(
+      leading: const Icon(Icons.explicit, color: Colors.orange),
+      title: const Text('Show NSFW Content'),
+      subtitle: Text(
+        nsfwSettings.isNsfwViewingEnabled
+            ? 'NSFW content is visible'
+            : 'NSFW content is blurred (18+ required)',
+      ),
+      trailing: Switch(
+        value: nsfwSettings.isNsfwViewingEnabled,
+        onChanged: (value) async {
+          if (value) {
+            // Enabling NSFW - check if age confirmed
+            if (!nsfwSettings.isAgeConfirmed) {
+              // Show age confirmation dialog
+              final confirmed = await showDialog<bool>(
+                context: context,
+                barrierDismissible: false,
+                builder: (context) => AlertDialog(
+                  title: const Text('Age Confirmation Required'),
+                  content: const Text(
+                    'You must be 18 years or older to view NSFW content.\n\nDo you confirm that you are 18 years or older?',
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context, false),
+                      child: const Text('Cancel'),
+                    ),
+                    ElevatedButton(
+                      onPressed: () => Navigator.pop(context, true),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.orange,
+                      ),
+                      child: const Text('I am 18+'),
+                    ),
+                  ],
+                ),
+              );
+
+              if (confirmed == true) {
+                // Confirm age first
+                await ref.read(nsfwSettingsProvider.notifier).confirmAge();
+                // Then enable NSFW
+                await ref
+                    .read(nsfwSettingsProvider.notifier)
+                    .enableNsfwViewing();
+              }
+            } else {
+              // Age already confirmed, just enable
+              await ref.read(nsfwSettingsProvider.notifier).enableNsfwViewing();
+            }
+          } else {
+            // Disabling NSFW
+            await ref.read(nsfwSettingsProvider.notifier).disableNsfwViewing();
+          }
+        },
+      ),
     );
   }
 }

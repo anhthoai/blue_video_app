@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../models/community_post.dart';
+import 'nsfw_blur_wrapper.dart';
 
 class VideoCardWidget extends StatelessWidget {
   final CommunityPost post;
@@ -75,21 +76,35 @@ class VideoCardWidget extends StatelessWidget {
 
     return AspectRatio(
       aspectRatio: 16 / 9,
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          // Thumbnail background
-          if (thumbnailUrl != null)
-            CachedNetworkImage(
-              imageUrl: thumbnailUrl,
-              fit: BoxFit.cover,
-              placeholder: (context, url) => Container(
-                color: Colors.grey[300],
-                child: const Center(
-                  child: CircularProgressIndicator(),
+      child: NsfwBlurWrapper(
+        isNsfw: post.isNsfw,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            // Thumbnail background
+            if (thumbnailUrl != null)
+              CachedNetworkImage(
+                imageUrl: thumbnailUrl,
+                fit: BoxFit.cover,
+                placeholder: (context, url) => Container(
+                  color: Colors.grey[300],
+                  child: const Center(
+                    child: CircularProgressIndicator(),
+                  ),
                 ),
-              ),
-              errorWidget: (context, url, error) => Container(
+                errorWidget: (context, url, error) => Container(
+                  color: Colors.grey[300],
+                  child: const Center(
+                    child: Icon(
+                      Icons.video_library,
+                      size: 48,
+                      color: Colors.grey,
+                    ),
+                  ),
+                ),
+              )
+            else
+              Container(
                 color: Colors.grey[300],
                 child: const Center(
                   child: Icon(
@@ -99,53 +114,43 @@ class VideoCardWidget extends StatelessWidget {
                   ),
                 ),
               ),
-            )
-          else
+
+            // Play button overlay
             Container(
-              color: Colors.grey[300],
+              color: Colors.black26,
               child: const Center(
                 child: Icon(
-                  Icons.video_library,
-                  size: 48,
-                  color: Colors.grey,
+                  Icons.play_circle_filled,
+                  size: 64,
+                  color: Colors.white,
                 ),
               ),
             ),
 
-          // Play button overlay
-          Container(
-            color: Colors.black26,
-            child: const Center(
-              child: Icon(
-                Icons.play_circle_filled,
-                size: 64,
-                color: Colors.white,
-              ),
-            ),
-          ),
-
-          // Duration badge
-          if (post.duration.isNotEmpty)
-            Positioned(
-              bottom: 8,
-              right: 8,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  color: Colors.black87,
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Text(
-                  _formatDuration(post.duration.first),
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
+            // Duration badge
+            if (post.duration.isNotEmpty)
+              Positioned(
+                bottom: 8,
+                right: 8,
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: Colors.black87,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    _formatDuration(post.duration.first),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
                 ),
               ),
-            ),
-        ],
+          ],
+        ),
       ),
     );
   }

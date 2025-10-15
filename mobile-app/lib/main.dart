@@ -8,6 +8,7 @@ import 'core/theme/app_theme.dart';
 import 'core/router/app_router.dart';
 import 'core/services/storage_service.dart';
 import 'core/services/auth_service.dart';
+import 'core/services/nsfw_settings_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -28,6 +29,7 @@ void main() async {
   // Initialize AuthService
   final prefs = await SharedPreferences.getInstance();
   final authService = AuthService(prefs);
+  final nsfwSettingsService = NsfwSettingsService(prefs);
 
   // Reload current user with fresh data from API
   await authService.reloadCurrentUser();
@@ -35,6 +37,7 @@ void main() async {
   runApp(ProviderScope(
     overrides: [
       authServiceProvider.overrideWithValue(authService),
+      nsfwSettingsServiceProvider.overrideWithValue(nsfwSettingsService),
     ],
     child: const BlueVideoApp(),
   ));

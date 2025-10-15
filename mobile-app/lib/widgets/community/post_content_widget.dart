@@ -3,6 +3,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 
 import '../../models/community_post.dart';
 import '../../screens/community/_fullscreen_media_gallery.dart';
+import 'nsfw_blur_wrapper.dart';
 
 class PostContentWidget extends StatelessWidget {
   final CommunityPost post;
@@ -123,16 +124,19 @@ class PostContentWidget extends StatelessWidget {
 
   Widget _buildSingleMedia(BuildContext context, Map<String, dynamic> media) {
     if (media['type'] == 'image') {
-      return CachedNetworkImage(
-        imageUrl: media['url'],
-        fit: BoxFit.cover,
-        placeholder: (context, url) => Container(
-          color: Colors.grey[300],
-          child: const Center(child: CircularProgressIndicator()),
-        ),
-        errorWidget: (context, url, error) => Container(
-          color: Colors.grey[300],
-          child: const Center(child: Icon(Icons.error)),
+      return NsfwBlurWrapper(
+        isNsfw: post.isNsfw,
+        child: CachedNetworkImage(
+          imageUrl: media['url'],
+          fit: BoxFit.cover,
+          placeholder: (context, url) => Container(
+            color: Colors.grey[300],
+            child: const Center(child: CircularProgressIndicator()),
+          ),
+          errorWidget: (context, url, error) => Container(
+            color: Colors.grey[300],
+            child: const Center(child: Icon(Icons.error)),
+          ),
         ),
       );
     } else {
@@ -157,55 +161,59 @@ class PostContentWidget extends StatelessWidget {
       print('   Duration: $durationStr -> $duration');
       print('   Video index: $videoIndex');
 
-      return Stack(
-        fit: StackFit.expand,
-        children: [
-          // Video thumbnail
-          CachedNetworkImage(
-            imageUrl: thumbnailUrl,
-            fit: BoxFit.cover,
-            placeholder: (context, url) => Container(
-              color: Colors.grey[300],
-              child: const Center(child: CircularProgressIndicator()),
+      return NsfwBlurWrapper(
+        isNsfw: post.isNsfw,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            // Video thumbnail
+            CachedNetworkImage(
+              imageUrl: thumbnailUrl,
+              fit: BoxFit.cover,
+              placeholder: (context, url) => Container(
+                color: Colors.grey[300],
+                child: const Center(child: CircularProgressIndicator()),
+              ),
+              errorWidget: (context, url, error) {
+                print('❌ Failed to load thumbnail: $url');
+                print('   Error: $error');
+                return Container(
+                  color: Colors.grey[400],
+                  child: const Center(
+                    child: Icon(
+                      Icons.video_library,
+                      color: Colors.white,
+                      size: 48,
+                    ),
+                  ),
+                );
+              },
             ),
-            errorWidget: (context, url, error) {
-              print('❌ Failed to load thumbnail: $url');
-              print('   Error: $error');
-              return Container(
-                color: Colors.grey[400],
-                child: const Center(
-                  child: Icon(
-                    Icons.video_library,
-                    color: Colors.white,
-                    size: 48,
+            // Play icon overlay
+            const Center(
+              child: Icon(Icons.play_circle_outline,
+                  color: Colors.white, size: 48),
+            ),
+            // Duration overlay
+            if (duration > 0)
+              Positioned(
+                bottom: 8,
+                right: 8,
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.7),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    _formatDuration(duration),
+                    style: const TextStyle(color: Colors.white, fontSize: 12),
                   ),
                 ),
-              );
-            },
-          ),
-          // Play icon overlay
-          const Center(
-            child:
-                Icon(Icons.play_circle_outline, color: Colors.white, size: 48),
-          ),
-          // Duration overlay
-          if (duration > 0)
-            Positioned(
-              bottom: 8,
-              right: 8,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.7),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Text(
-                  _formatDuration(duration),
-                  style: const TextStyle(color: Colors.white, fontSize: 12),
-                ),
               ),
-            ),
-        ],
+          ],
+        ),
       );
     }
   }
@@ -227,16 +235,19 @@ class PostContentWidget extends StatelessWidget {
 
   Widget _buildMediaItem(BuildContext context, Map<String, dynamic> media) {
     if (media['type'] == 'image') {
-      return CachedNetworkImage(
-        imageUrl: media['url'],
-        fit: BoxFit.cover,
-        placeholder: (context, url) => Container(
-          color: Colors.grey[300],
-          child: const Center(child: CircularProgressIndicator()),
-        ),
-        errorWidget: (context, url, error) => Container(
-          color: Colors.grey[300],
-          child: const Center(child: Icon(Icons.error)),
+      return NsfwBlurWrapper(
+        isNsfw: post.isNsfw,
+        child: CachedNetworkImage(
+          imageUrl: media['url'],
+          fit: BoxFit.cover,
+          placeholder: (context, url) => Container(
+            color: Colors.grey[300],
+            child: const Center(child: CircularProgressIndicator()),
+          ),
+          errorWidget: (context, url, error) => Container(
+            color: Colors.grey[300],
+            child: const Center(child: Icon(Icons.error)),
+          ),
         ),
       );
     } else {
@@ -254,55 +265,59 @@ class PostContentWidget extends StatelessWidget {
           videoIndex < post.duration.length ? post.duration[videoIndex] : '0';
       final duration = int.tryParse(durationStr) ?? 0;
 
-      return Stack(
-        fit: StackFit.expand,
-        children: [
-          // Video thumbnail
-          CachedNetworkImage(
-            imageUrl: thumbnailUrl,
-            fit: BoxFit.cover,
-            placeholder: (context, url) => Container(
-              color: Colors.grey[300],
-              child: const Center(child: CircularProgressIndicator()),
+      return NsfwBlurWrapper(
+        isNsfw: post.isNsfw,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            // Video thumbnail
+            CachedNetworkImage(
+              imageUrl: thumbnailUrl,
+              fit: BoxFit.cover,
+              placeholder: (context, url) => Container(
+                color: Colors.grey[300],
+                child: const Center(child: CircularProgressIndicator()),
+              ),
+              errorWidget: (context, url, error) {
+                print('❌ Failed to load thumbnail: $url');
+                print('   Error: $error');
+                return Container(
+                  color: Colors.grey[400],
+                  child: const Center(
+                    child: Icon(
+                      Icons.video_library,
+                      color: Colors.white,
+                      size: 48,
+                    ),
+                  ),
+                );
+              },
             ),
-            errorWidget: (context, url, error) {
-              print('❌ Failed to load thumbnail: $url');
-              print('   Error: $error');
-              return Container(
-                color: Colors.grey[400],
-                child: const Center(
-                  child: Icon(
-                    Icons.video_library,
-                    color: Colors.white,
-                    size: 48,
+            // Play icon overlay
+            const Center(
+              child: Icon(Icons.play_circle_outline,
+                  color: Colors.white, size: 32),
+            ),
+            // Duration overlay
+            if (duration > 0)
+              Positioned(
+                bottom: 6,
+                right: 6,
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.7),
+                    borderRadius: BorderRadius.circular(3),
+                  ),
+                  child: Text(
+                    _formatDuration(duration),
+                    style: const TextStyle(color: Colors.white, fontSize: 10),
                   ),
                 ),
-              );
-            },
-          ),
-          // Play icon overlay
-          const Center(
-            child:
-                Icon(Icons.play_circle_outline, color: Colors.white, size: 32),
-          ),
-          // Duration overlay
-          if (duration > 0)
-            Positioned(
-              bottom: 6,
-              right: 6,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.7),
-                  borderRadius: BorderRadius.circular(3),
-                ),
-                child: Text(
-                  _formatDuration(duration),
-                  style: const TextStyle(color: Colors.white, fontSize: 10),
-                ),
               ),
-            ),
-        ],
+          ],
+        ),
       );
     }
   }
