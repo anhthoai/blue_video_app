@@ -8,6 +8,7 @@ import '../../models/community_post.dart';
 import '../../widgets/community/community_post_widget.dart';
 import '../../widgets/community/video_card_widget.dart';
 import '../../screens/community/_fullscreen_media_gallery.dart';
+import '../../widgets/dialogs/coin_payment_dialog.dart';
 
 class CommunityScreen extends ConsumerStatefulWidget {
   const CommunityScreen({super.key});
@@ -76,6 +77,54 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
   void _openVideoPlayer(CommunityPost post) {
     if (post.videoUrls.isEmpty) return;
 
+    // Check if it's a coin/VIP post
+    if (post.cost > 0 || post.requiresVip) {
+      _showPaymentDialog(post);
+      return;
+    }
+
+    // Create media items list with only videos from the post
+    final List<MediaItem> mediaItems = [];
+
+    // Add only videos (no images)
+    for (var videoUrl in post.videoUrls) {
+      mediaItems.add(MediaItem(url: videoUrl, isVideo: true));
+    }
+
+    if (mediaItems.isNotEmpty) {
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (context) => FullscreenMediaGallery(
+            mediaItems: mediaItems,
+            initialIndex: 0, // Start with first video
+          ),
+        ),
+      );
+    }
+  }
+
+  void _showPaymentDialog(CommunityPost post) {
+    if (post.requiresVip) {
+      VipPaymentDialog.show(
+        context,
+        onPaymentSuccess: () {
+          // After successful VIP payment, open the media
+          _openMediaAfterPayment(post);
+        },
+      );
+    } else {
+      CoinPaymentDialog.show(
+        context,
+        coinCost: post.cost,
+        onPaymentSuccess: () {
+          // After successful coin payment, open the media
+          _openMediaAfterPayment(post);
+        },
+      );
+    }
+  }
+
+  void _openMediaAfterPayment(CommunityPost post) {
     // Create media items list with only videos from the post
     final List<MediaItem> mediaItems = [];
 

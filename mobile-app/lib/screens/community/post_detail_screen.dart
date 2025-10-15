@@ -9,6 +9,9 @@ import '../../core/services/social_service.dart';
 import '../../models/community_post.dart';
 import '../../models/comment_model.dart';
 import '../../widgets/community/nsfw_blur_wrapper.dart';
+import '../../widgets/dialogs/coin_payment_dialog.dart';
+import '../../widgets/community/coin_vip_indicator.dart';
+import '../../widgets/community/post_content_widget.dart';
 import '_fullscreen_media_gallery.dart';
 
 class PostDetailScreen extends ConsumerStatefulWidget {
@@ -53,6 +56,11 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
           _isLoading = false;
         });
 
+        // Debug logging
+        print('🎯 Post Detail: Loaded post from existing posts');
+        print('   Post ID: ${_post!.id}');
+        print('   Cost: ${_post!.cost}, VIP: ${_post!.requiresVip}');
+
         // Load comments for this post after frame is built
         WidgetsBinding.instance.addPostFrameCallback((_) {
           _loadComments();
@@ -68,6 +76,11 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
             _post = existingPost;
             _isLoading = false;
           });
+
+          // Debug logging
+          print('🎯 Post Detail: Loaded post from trending posts');
+          print('   Post ID: ${_post!.id}');
+          print('   Cost: ${_post!.cost}, VIP: ${_post!.requiresVip}');
 
           WidgetsBinding.instance.addPostFrameCallback((_) {
             _loadComments();
@@ -146,6 +159,12 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
   }
 
   void _openImageViewer(String imageUrl) {
+    // Check if it's a coin/VIP post
+    if (_post!.cost > 0 || _post!.requiresVip) {
+      _showPaymentDialog();
+      return;
+    }
+
     // Combine all media (images and videos)
     final List<MediaItem> allMedia = [];
 
@@ -173,6 +192,12 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
   }
 
   void _openVideoPlayer(String videoUrl) {
+    // Check if it's a coin/VIP post
+    if (_post!.cost > 0 || _post!.requiresVip) {
+      _showPaymentDialog();
+      return;
+    }
+
     // Combine all media (images and videos)
     final List<MediaItem> allMedia = [];
 
@@ -198,6 +223,53 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
         ),
       ),
     );
+  }
+
+  void _showPaymentDialog() {
+    if (_post!.requiresVip) {
+      VipPaymentDialog.show(
+        context,
+        onPaymentSuccess: () {
+          // After successful VIP payment, open the media
+          _openMediaAfterPayment();
+        },
+      );
+    } else {
+      CoinPaymentDialog.show(
+        context,
+        coinCost: _post!.cost,
+        onPaymentSuccess: () {
+          // After successful coin payment, open the media
+          _openMediaAfterPayment();
+        },
+      );
+    }
+  }
+
+  void _openMediaAfterPayment() {
+    // Combine all media (images and videos)
+    final List<MediaItem> allMedia = [];
+
+    // Add images
+    for (var img in _post!.imageUrls) {
+      allMedia.add(MediaItem(url: img, isVideo: false));
+    }
+
+    // Add videos
+    for (var video in _post!.videoUrls) {
+      allMedia.add(MediaItem(url: video, isVideo: true));
+    }
+
+    if (allMedia.isNotEmpty) {
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (context) => FullscreenMediaGallery(
+            mediaItems: allMedia,
+            initialIndex: 0,
+          ),
+        ),
+      );
+    }
   }
 
   @override
@@ -393,6 +465,12 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
   }
 
   Widget _buildMainContentSection() {
+    // Debug logging
+    print('🎯 Post Detail: Building main content section');
+    print('   Cost: ${_post!.cost}, VIP: ${_post!.requiresVip}');
+    print(
+        '   Will use ${(_post!.cost > 0 || _post!.requiresVip) ? 'grid' : 'line-by-line'} layout');
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
@@ -413,25 +491,30 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
             const SizedBox(height: 16),
           ],
 
-          // Images - one by one
-          if (_post!.imageUrls.isNotEmpty) ...[
-            ..._post!.imageUrls.map((imageUrl) => Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: _buildImageItem(imageUrl),
-                )),
-            const SizedBox(height: 16),
-          ],
+          // Media content - use PostContentWidget for coin/VIP posts (same as Posts tab), line-by-line for others
+          if (_post!.cost > 0 || _post!.requiresVip) ...[
+            PostContentWidget(post: _post!),
+          ] else ...[
+            // Images - one by one
+            if (_post!.imageUrls.isNotEmpty) ...[
+              ..._post!.imageUrls.map((imageUrl) => Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: _buildImageItem(imageUrl),
+                  )),
+              const SizedBox(height: 16),
+            ],
 
-          // Videos - one by one
-          if (_post!.videoUrls.isNotEmpty) ...[
-            ..._post!.videoUrls.asMap().entries.map((entry) {
-              final index = entry.key;
-              final videoUrl = entry.value;
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: _buildVideoItem(videoUrl, index),
-              );
-            }),
+            // Videos - one by one
+            if (_post!.videoUrls.isNotEmpty) ...[
+              ..._post!.videoUrls.asMap().entries.map((entry) {
+                final index = entry.key;
+                final videoUrl = entry.value;
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: _buildVideoItem(videoUrl, index),
+                );
+              }),
+            ],
           ],
         ],
       ),
@@ -460,21 +543,26 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
           borderRadius: BorderRadius.circular(12),
           child: NsfwBlurWrapper(
             isNsfw: _post!.isNsfw,
-            child: CachedNetworkImage(
-              imageUrl: imageUrl,
-              fit: BoxFit.cover,
-              placeholder: (context, url) => Container(
-                height: 200,
-                color: Colors.grey[200],
-                child: const Center(
-                  child: CircularProgressIndicator(),
+            child: CoinVipThumbnailWrapper(
+              isCoinPost: _post!.cost > 0,
+              isVipPost: _post!.requiresVip,
+              coinCost: _post!.cost,
+              child: CachedNetworkImage(
+                imageUrl: imageUrl,
+                fit: BoxFit.cover,
+                placeholder: (context, url) => Container(
+                  height: 200,
+                  color: Colors.grey[200],
+                  child: const Center(
+                    child: CircularProgressIndicator(),
+                  ),
                 ),
-              ),
-              errorWidget: (context, url, error) => Container(
-                height: 200,
-                color: Colors.grey[200],
-                child: const Center(
-                  child: Icon(Icons.error, size: 48, color: Colors.grey),
+                errorWidget: (context, url, error) => Container(
+                  height: 200,
+                  color: Colors.grey[200],
+                  child: const Center(
+                    child: Icon(Icons.error, size: 48, color: Colors.grey),
+                  ),
                 ),
               ),
             ),
@@ -511,79 +599,84 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
         ),
         child: NsfwBlurWrapper(
           isNsfw: _post!.isNsfw,
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              // Video thumbnail or placeholder
-              if (thumbnailUrl != null && thumbnailUrl.isNotEmpty)
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: CachedNetworkImage(
-                    imageUrl: thumbnailUrl,
-                    fit: BoxFit.cover,
-                    placeholder: (context, url) => Container(
-                      color: Colors.grey[800],
-                      child: const Center(
-                        child: CircularProgressIndicator(color: Colors.white),
+          child: CoinVipThumbnailWrapper(
+            isCoinPost: _post!.cost > 0,
+            isVipPost: _post!.requiresVip,
+            coinCost: _post!.cost,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                // Video thumbnail or placeholder
+                if (thumbnailUrl != null && thumbnailUrl.isNotEmpty)
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: CachedNetworkImage(
+                      imageUrl: thumbnailUrl,
+                      fit: BoxFit.cover,
+                      placeholder: (context, url) => Container(
+                        color: Colors.grey[800],
+                        child: const Center(
+                          child: CircularProgressIndicator(color: Colors.white),
+                        ),
+                      ),
+                      errorWidget: (context, url, error) => Container(
+                        color: Colors.grey[800],
+                        child: const Center(
+                          child: Icon(Icons.play_circle_outline,
+                              size: 48, color: Colors.white),
+                        ),
                       ),
                     ),
-                    errorWidget: (context, url, error) => Container(
-                      color: Colors.grey[800],
-                      child: const Center(
-                        child: Icon(Icons.play_circle_outline,
-                            size: 48, color: Colors.white),
-                      ),
+                  )
+                else
+                  Container(
+                    color: Colors.grey[800],
+                    child: const Center(
+                      child: Icon(Icons.play_circle_outline,
+                          size: 48, color: Colors.white),
                     ),
                   ),
-                )
-              else
-                Container(
-                  color: Colors.grey[800],
-                  child: const Center(
-                    child: Icon(Icons.play_circle_outline,
-                        size: 48, color: Colors.white),
-                  ),
-                ),
 
-              // Play button overlay
-              Center(
-                child: Container(
-                  decoration: const BoxDecoration(
-                    color: Colors.black54,
-                    shape: BoxShape.circle,
-                  ),
-                  padding: const EdgeInsets.all(12),
-                  child: const Icon(
-                    Icons.play_arrow,
-                    size: 32,
-                    color: Colors.white,
-                  ),
-                ),
-              ),
-
-              // Duration overlay (bottom right)
-              if (duration != null)
-                Positioned(
-                  bottom: 12,
-                  right: 12,
+                // Play button overlay
+                Center(
                   child: Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: Colors.black87,
-                      borderRadius: BorderRadius.circular(4),
+                    decoration: const BoxDecoration(
+                      color: Colors.black54,
+                      shape: BoxShape.circle,
                     ),
-                    child: Text(
-                      duration,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                      ),
+                    padding: const EdgeInsets.all(12),
+                    child: const Icon(
+                      Icons.play_arrow,
+                      size: 32,
+                      color: Colors.white,
                     ),
                   ),
                 ),
-            ],
+
+                // Duration overlay (bottom right)
+                if (duration != null)
+                  Positioned(
+                    bottom: 12,
+                    right: 12,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.black87,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        duration,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
           ),
         ),
       ),

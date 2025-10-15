@@ -51,6 +51,8 @@ class CommunityPost {
   final bool isFollowing;
   final bool isFeatured;
   final bool isNsfw;
+  final int cost;
+  final bool requiresVip;
   final DateTime createdAt;
   final DateTime? updatedAt;
   final DateTime? publishedAt;
@@ -92,6 +94,8 @@ class CommunityPost {
     this.isFollowing = false,
     this.isFeatured = false,
     this.isNsfw = false,
+    this.cost = 0,
+    this.requiresVip = false,
     required this.createdAt,
     this.updatedAt,
     this.publishedAt,
@@ -133,6 +137,8 @@ class CommunityPost {
     bool? isFollowing,
     bool? isFeatured,
     bool? isNsfw,
+    int? cost,
+    bool? requiresVip,
     DateTime? createdAt,
     DateTime? updatedAt,
     DateTime? publishedAt,
@@ -173,6 +179,8 @@ class CommunityPost {
       isFollowing: isFollowing ?? this.isFollowing,
       isFeatured: isFeatured ?? this.isFeatured,
       isNsfw: isNsfw ?? this.isNsfw,
+      cost: cost ?? this.cost,
+      requiresVip: requiresVip ?? this.requiresVip,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       publishedAt: publishedAt ?? this.publishedAt,
@@ -216,6 +224,8 @@ class CommunityPost {
       'isFollowing': isFollowing,
       'isFeatured': isFeatured,
       'isNsfw': isNsfw,
+      'cost': cost,
+      'requiresVip': requiresVip,
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt?.toIso8601String(),
       'publishedAt': publishedAt?.toIso8601String(),
@@ -268,6 +278,8 @@ class CommunityPost {
       isFollowing: json['isFollowing'] as bool? ?? false,
       isFeatured: json['isFeatured'] as bool? ?? false,
       isNsfw: json['isNsfw'] as bool? ?? false,
+      cost: json['cost'] as int? ?? 0,
+      requiresVip: json['requiresVip'] as bool? ?? false,
       createdAt: DateTime.parse(json['createdAt'] as String),
       updatedAt: json['updatedAt'] != null
           ? DateTime.parse(json['updatedAt'] as String)

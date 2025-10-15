@@ -177,6 +177,8 @@ class CommunityService {
             isBookmarked: json['isBookmarked'] ?? false,
             isPinned: json['isPinned'] ?? false,
             isNsfw: json['isNsfw'] ?? false,
+            cost: json['cost'] ?? 0,
+            requiresVip: json['requiresVip'] ?? false,
             createdAt: DateTime.parse(json['createdAt']),
             updatedAt: DateTime.parse(json['updatedAt']),
             firstName: json['firstName'],
@@ -207,6 +209,11 @@ class CommunityService {
 
       if (response['success'] == true) {
         final items = response['data'] as List<dynamic>;
+        print('📡 Received ${items.length} posts from getTrendingPosts API');
+        if (items.isNotEmpty) {
+          print(
+              '📋 First trending post cost: ${items.first['cost']}, requiresVip: ${items.first['requiresVip']}');
+        }
         return items.map<CommunityPost>((json) {
           return CommunityPost(
             id: json['id'],
@@ -238,6 +245,8 @@ class CommunityService {
             isBookmarked: json['isBookmarked'] ?? false,
             isPinned: json['isPinned'] ?? false,
             isNsfw: json['isNsfw'] ?? false,
+            cost: json['cost'] ?? 0,
+            requiresVip: json['requiresVip'] ?? false,
             createdAt: DateTime.parse(json['createdAt']),
             updatedAt: DateTime.parse(json['updatedAt']),
             firstName: json['firstName'],
@@ -302,6 +311,8 @@ class CommunityService {
             isBookmarked: json['isBookmarked'] ?? false,
             isPinned: json['isPinned'] ?? false,
             isNsfw: json['isNsfw'] ?? false,
+            cost: json['cost'] ?? 0,
+            requiresVip: json['requiresVip'] ?? false,
             createdAt: DateTime.parse(json['createdAt']),
             updatedAt: DateTime.parse(json['updatedAt']),
             firstName: json['firstName'],
@@ -337,7 +348,27 @@ class CommunityService {
 
       if (response['success'] == true && response['data'] != null) {
         final List<dynamic> items = response['data'];
+        print('📡 Received ${items.length} posts from getPosts API');
+        if (items.isNotEmpty) {
+          print(
+              '📋 First post ID: ${items.first['id']}, cost: ${items.first['cost']}, requiresVip: ${items.first['requiresVip']}');
+          // Check all posts for cost > 0
+          for (int i = 0; i < items.length; i++) {
+            if (items[i]['cost'] > 0 || items[i]['requiresVip'] == true) {
+              print(
+                  '💰 Post $i (ID: ${items[i]['id']}): cost=${items[i]['cost']}, requiresVip=${items[i]['requiresVip']}');
+            }
+          }
+        }
         return items.map((json) {
+          // Debug: Log the raw JSON for coin/VIP posts
+          if (json['cost'] > 0 || json['requiresVip'] == true) {
+            print('🔍 Raw JSON for coin/VIP post: ${json['id']}');
+            print(
+                '   Raw cost: ${json['cost']} (type: ${json['cost'].runtimeType})');
+            print(
+                '   Raw requiresVip: ${json['requiresVip']} (type: ${json['requiresVip'].runtimeType})');
+          }
           return CommunityPost(
             id: json['id'] ?? '',
             userId: json['userId'] ?? '',
@@ -373,6 +404,8 @@ class CommunityService {
             isPinned: json['isPinned'] ?? false,
             isNsfw: json['isNsfw'] ?? false,
             isFeatured: json['isFeatured'] ?? false,
+            cost: json['cost'] ?? 0,
+            requiresVip: json['requiresVip'] ?? false,
             createdAt:
                 DateTime.tryParse(json['createdAt'] ?? '') ?? DateTime.now(),
             publishedAt:
@@ -473,6 +506,8 @@ class CommunityService {
           isPinned: false,
           isNsfw: false,
           isFeatured: false,
+          cost: index % 3 == 0 ? (index % 10 + 1) * 10 : 0,
+          requiresVip: index % 5 == 0,
           createdAt: DateTime.now().subtract(Duration(days: index)),
         );
       });

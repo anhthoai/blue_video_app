@@ -4,6 +4,8 @@ import 'package:cached_network_image/cached_network_image.dart';
 import '../../models/community_post.dart';
 import '../../screens/community/_fullscreen_media_gallery.dart';
 import 'nsfw_blur_wrapper.dart';
+import 'coin_vip_indicator.dart';
+import '../dialogs/coin_payment_dialog.dart';
 
 class PostContentWidget extends StatelessWidget {
   final CommunityPost post;
@@ -20,6 +22,10 @@ class PostContentWidget extends StatelessWidget {
     print('   Image URLs: ${post.imageUrls.length}');
     print('   Video URLs: ${post.videoUrls.length}');
     print('   Duration: ${post.duration}');
+    print('   💰 Cost: ${post.cost}, VIP: ${post.requiresVip}');
+    if (post.cost > 0 || post.requiresVip) {
+      print('   🚨 THIS IS A COIN/VIP POST!');
+    }
 
     try {
       switch (post.type) {
@@ -95,7 +101,12 @@ class PostContentWidget extends StatelessWidget {
 
     return GestureDetector(
       onTap: () {
-        _showFullscreenMediaViewer(context, allMedia);
+        // Check if it's a coin/VIP post
+        if (post.cost > 0 || post.requiresVip) {
+          _showPaymentDialog(context);
+        } else {
+          _showFullscreenMediaViewer(context, allMedia);
+        }
       },
       child: Container(
         height: 200,
@@ -126,16 +137,21 @@ class PostContentWidget extends StatelessWidget {
     if (media['type'] == 'image') {
       return NsfwBlurWrapper(
         isNsfw: post.isNsfw,
-        child: CachedNetworkImage(
-          imageUrl: media['url'],
-          fit: BoxFit.cover,
-          placeholder: (context, url) => Container(
-            color: Colors.grey[300],
-            child: const Center(child: CircularProgressIndicator()),
-          ),
-          errorWidget: (context, url, error) => Container(
-            color: Colors.grey[300],
-            child: const Center(child: Icon(Icons.error)),
+        child: CoinVipThumbnailWrapper(
+          isCoinPost: post.cost > 0,
+          isVipPost: post.requiresVip,
+          coinCost: post.cost,
+          child: CachedNetworkImage(
+            imageUrl: media['url'],
+            fit: BoxFit.cover,
+            placeholder: (context, url) => Container(
+              color: Colors.grey[300],
+              child: const Center(child: CircularProgressIndicator()),
+            ),
+            errorWidget: (context, url, error) => Container(
+              color: Colors.grey[300],
+              child: const Center(child: Icon(Icons.error)),
+            ),
           ),
         ),
       );
@@ -163,56 +179,61 @@ class PostContentWidget extends StatelessWidget {
 
       return NsfwBlurWrapper(
         isNsfw: post.isNsfw,
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            // Video thumbnail
-            CachedNetworkImage(
-              imageUrl: thumbnailUrl,
-              fit: BoxFit.cover,
-              placeholder: (context, url) => Container(
-                color: Colors.grey[300],
-                child: const Center(child: CircularProgressIndicator()),
+        child: CoinVipThumbnailWrapper(
+          isCoinPost: post.cost > 0,
+          isVipPost: post.requiresVip,
+          coinCost: post.cost,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              // Video thumbnail
+              CachedNetworkImage(
+                imageUrl: thumbnailUrl,
+                fit: BoxFit.cover,
+                placeholder: (context, url) => Container(
+                  color: Colors.grey[300],
+                  child: const Center(child: CircularProgressIndicator()),
+                ),
+                errorWidget: (context, url, error) {
+                  print('❌ Failed to load thumbnail: $url');
+                  print('   Error: $error');
+                  return Container(
+                    color: Colors.grey[400],
+                    child: const Center(
+                      child: Icon(
+                        Icons.video_library,
+                        color: Colors.white,
+                        size: 48,
+                      ),
+                    ),
+                  );
+                },
               ),
-              errorWidget: (context, url, error) {
-                print('❌ Failed to load thumbnail: $url');
-                print('   Error: $error');
-                return Container(
-                  color: Colors.grey[400],
-                  child: const Center(
-                    child: Icon(
-                      Icons.video_library,
-                      color: Colors.white,
-                      size: 48,
+              // Play icon overlay
+              const Center(
+                child: Icon(Icons.play_circle_outline,
+                    color: Colors.white, size: 48),
+              ),
+              // Duration overlay
+              if (duration > 0)
+                Positioned(
+                  bottom: 8,
+                  right: 8,
+                  child: Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withOpacity(0.7),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      _formatDuration(duration),
+                      style: const TextStyle(color: Colors.white, fontSize: 12),
                     ),
                   ),
-                );
-              },
-            ),
-            // Play icon overlay
-            const Center(
-              child: Icon(Icons.play_circle_outline,
-                  color: Colors.white, size: 48),
-            ),
-            // Duration overlay
-            if (duration > 0)
-              Positioned(
-                bottom: 8,
-                right: 8,
-                child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.7),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Text(
-                    _formatDuration(duration),
-                    style: const TextStyle(color: Colors.white, fontSize: 12),
-                  ),
                 ),
-              ),
-          ],
+            ],
+          ),
         ),
       );
     }
@@ -237,16 +258,21 @@ class PostContentWidget extends StatelessWidget {
     if (media['type'] == 'image') {
       return NsfwBlurWrapper(
         isNsfw: post.isNsfw,
-        child: CachedNetworkImage(
-          imageUrl: media['url'],
-          fit: BoxFit.cover,
-          placeholder: (context, url) => Container(
-            color: Colors.grey[300],
-            child: const Center(child: CircularProgressIndicator()),
-          ),
-          errorWidget: (context, url, error) => Container(
-            color: Colors.grey[300],
-            child: const Center(child: Icon(Icons.error)),
+        child: CoinVipThumbnailWrapper(
+          isCoinPost: post.cost > 0,
+          isVipPost: post.requiresVip,
+          coinCost: post.cost,
+          child: CachedNetworkImage(
+            imageUrl: media['url'],
+            fit: BoxFit.cover,
+            placeholder: (context, url) => Container(
+              color: Colors.grey[300],
+              child: const Center(child: CircularProgressIndicator()),
+            ),
+            errorWidget: (context, url, error) => Container(
+              color: Colors.grey[300],
+              child: const Center(child: Icon(Icons.error)),
+            ),
           ),
         ),
       );
@@ -267,56 +293,61 @@ class PostContentWidget extends StatelessWidget {
 
       return NsfwBlurWrapper(
         isNsfw: post.isNsfw,
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            // Video thumbnail
-            CachedNetworkImage(
-              imageUrl: thumbnailUrl,
-              fit: BoxFit.cover,
-              placeholder: (context, url) => Container(
-                color: Colors.grey[300],
-                child: const Center(child: CircularProgressIndicator()),
+        child: CoinVipThumbnailWrapper(
+          isCoinPost: post.cost > 0,
+          isVipPost: post.requiresVip,
+          coinCost: post.cost,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              // Video thumbnail
+              CachedNetworkImage(
+                imageUrl: thumbnailUrl,
+                fit: BoxFit.cover,
+                placeholder: (context, url) => Container(
+                  color: Colors.grey[300],
+                  child: const Center(child: CircularProgressIndicator()),
+                ),
+                errorWidget: (context, url, error) {
+                  print('❌ Failed to load thumbnail: $url');
+                  print('   Error: $error');
+                  return Container(
+                    color: Colors.grey[400],
+                    child: const Center(
+                      child: Icon(
+                        Icons.video_library,
+                        color: Colors.white,
+                        size: 48,
+                      ),
+                    ),
+                  );
+                },
               ),
-              errorWidget: (context, url, error) {
-                print('❌ Failed to load thumbnail: $url');
-                print('   Error: $error');
-                return Container(
-                  color: Colors.grey[400],
-                  child: const Center(
-                    child: Icon(
-                      Icons.video_library,
-                      color: Colors.white,
-                      size: 48,
+              // Play icon overlay
+              const Center(
+                child: Icon(Icons.play_circle_outline,
+                    color: Colors.white, size: 32),
+              ),
+              // Duration overlay
+              if (duration > 0)
+                Positioned(
+                  bottom: 6,
+                  right: 6,
+                  child: Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withOpacity(0.7),
+                      borderRadius: BorderRadius.circular(3),
+                    ),
+                    child: Text(
+                      _formatDuration(duration),
+                      style: const TextStyle(color: Colors.white, fontSize: 10),
                     ),
                   ),
-                );
-              },
-            ),
-            // Play icon overlay
-            const Center(
-              child: Icon(Icons.play_circle_outline,
-                  color: Colors.white, size: 32),
-            ),
-            // Duration overlay
-            if (duration > 0)
-              Positioned(
-                bottom: 6,
-                right: 6,
-                child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.7),
-                    borderRadius: BorderRadius.circular(3),
-                  ),
-                  child: Text(
-                    _formatDuration(duration),
-                    style: const TextStyle(color: Colors.white, fontSize: 10),
-                  ),
                 ),
-              ),
-          ],
+            ],
+          ),
         ),
       );
     }
@@ -625,6 +656,52 @@ class PostContentWidget extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  void _showPaymentDialog(BuildContext context) {
+    if (post.requiresVip) {
+      VipPaymentDialog.show(
+        context,
+        onPaymentSuccess: () {
+          // After successful VIP payment, show the media
+          _showFullscreenMediaViewer(context, _getAllMedia());
+        },
+      );
+    } else {
+      CoinPaymentDialog.show(
+        context,
+        coinCost: post.cost,
+        onPaymentSuccess: () {
+          // After successful coin payment, show the media
+          _showFullscreenMediaViewer(context, _getAllMedia());
+        },
+      );
+    }
+  }
+
+  List<Map<String, dynamic>> _getAllMedia() {
+    final allMedia = <Map<String, dynamic>>[];
+
+    // Add images
+    for (int i = 0; i < post.imageUrls.length; i++) {
+      allMedia.add({
+        'type': 'image',
+        'url': post.imageUrls[i],
+        'index': i,
+      });
+    }
+
+    // Add videos
+    for (int i = 0; i < post.videoUrls.length; i++) {
+      allMedia.add({
+        'type': 'video',
+        'url': post.videoUrls[i],
+        'videoIndex': i,
+        'index': i,
+      });
+    }
+
+    return allMedia;
   }
 
   void _showFullscreenMediaViewer(
