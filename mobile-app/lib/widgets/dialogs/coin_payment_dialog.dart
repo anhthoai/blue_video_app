@@ -63,7 +63,7 @@ class _CoinPaymentDialogState extends ConsumerState<CoinPaymentDialog> {
         borderRadius: BorderRadius.circular(20),
       ),
       child: Container(
-        padding: const EdgeInsets.all(24.0),
+        padding: const EdgeInsets.all(20.0),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -80,7 +80,7 @@ class _CoinPaymentDialogState extends ConsumerState<CoinPaymentDialog> {
                 color: Colors.amber,
               ),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 16),
 
             // Payment Message
             Text(
@@ -108,28 +108,32 @@ class _CoinPaymentDialogState extends ConsumerState<CoinPaymentDialog> {
 
             // Current Balance
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
                 color: Colors.grey[100],
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(10),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   const Icon(Icons.monetization_on,
-                      color: Colors.amber, size: 20),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Current Balance: $userCoinBalance coins',
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
+                      color: Colors.amber, size: 16),
+                  const SizedBox(width: 6),
+                  Flexible(
+                    child: Text(
+                      'Balance: $userCoinBalance coins',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 12,
+                      ),
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
                 ],
               ),
             ),
 
-            const SizedBox(height: 24),
+            const SizedBox(height: 20),
 
             // Action Buttons
             Row(

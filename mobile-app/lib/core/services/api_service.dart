@@ -1319,4 +1319,22 @@ class ApiService {
       rethrow;
     }
   }
+
+  // Update user coin balance
+  Future<bool> updateUserCoinBalance(int newBalance) async {
+    try {
+      final headers = await _getHeaders();
+      final response = await http.put(
+        Uri.parse('$baseUrl/users/coin-balance'),
+        headers: headers,
+        body: jsonEncode({'coinBalance': newBalance}),
+      );
+
+      final data = await _handleResponse(response);
+      return data['success'] == true;
+    } catch (e) {
+      print('Error updating user coin balance: $e');
+      return false;
+    }
+  }
 }

@@ -101,7 +101,10 @@ class _CoinRechargeScreenState extends ConsumerState<CoinRechargeScreen> {
         paymentData: paymentData,
         onPaymentComplete: () {
           Navigator.of(context).pop();
+          // Refresh user balance and update UI
           _refreshUserBalance();
+          // Force rebuild to show updated balance
+          setState(() {});
         },
         onCancel: () {
           Navigator.of(context).pop();
@@ -510,7 +513,7 @@ class _CoinRechargeScreenState extends ConsumerState<CoinRechargeScreen> {
   }
 }
 
-class PaymentDialog extends StatefulWidget {
+class PaymentDialog extends ConsumerStatefulWidget {
   final Map<String, dynamic> paymentData;
   final VoidCallback onPaymentComplete;
   final VoidCallback onCancel;
@@ -523,11 +526,67 @@ class PaymentDialog extends StatefulWidget {
   });
 
   @override
-  State<PaymentDialog> createState() => _PaymentDialogState();
+  ConsumerState<PaymentDialog> createState() => _PaymentDialogState();
 }
 
-class _PaymentDialogState extends State<PaymentDialog> {
+class _PaymentDialogState extends ConsumerState<PaymentDialog> {
   bool isPaymentCompleted = false;
+  bool isProcessing = false;
+
+  Future<void> _processPaymentCompletion() async {
+    if (isProcessing) return;
+
+    setState(() => isProcessing = true);
+
+    try {
+      final paymentData = widget.paymentData;
+      final coins = paymentData['coins'] as int;
+
+      print('🎯 Processing payment completion for $coins coins');
+
+      // Get current user
+      final authService = ref.read(authServiceProvider);
+      final currentUser = authService.currentUser;
+
+      if (currentUser == null) {
+        throw Exception('User not found');
+      }
+
+      // Add coins to user's balance
+      final newBalance = currentUser.coinBalance + coins;
+      await authService.updateUserCoinBalance(newBalance);
+
+      print(
+          '✅ Payment completed! Added $coins coins. New balance: $newBalance');
+
+      // Show success message
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Successfully added $coins coins to your account!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+
+      // Close dialog and notify parent
+      widget.onPaymentComplete();
+    } catch (e) {
+      print('❌ Payment completion failed: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Payment failed: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => isProcessing = false);
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -732,20 +791,31 @@ class _PaymentDialogState extends State<PaymentDialog> {
                 const SizedBox(width: 12),
                 Expanded(
                   child: ElevatedButton(
-                    onPressed: () {
-                      // TODO: Implement payment completion check
-                      widget.onPaymentComplete();
-                    },
+                    onPressed: isProcessing
+                        ? null
+                        : () async {
+                            // Process the actual payment and add coins
+                            await _processPaymentCompletion();
+                          },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF8B5CF6),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8),
                       ),
                     ),
-                    child: const Text(
-                      'I Have Paid',
-                      style: TextStyle(color: Colors.white),
-                    ),
+                    child: isProcessing
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                              strokeWidth: 2,
+                            ),
+                          )
+                        : const Text(
+                            'I Have Paid',
+                            style: TextStyle(color: Colors.white),
+                          ),
                   ),
                 ),
               ],

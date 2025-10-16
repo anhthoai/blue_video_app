@@ -4481,6 +4481,72 @@ app.put('/api/v1/users/profile', async (req, res) => {
   }
 });
 
+// Update user coin balance
+app.put('/api/v1/users/coin-balance', authenticateToken, async (req, res): Promise<void> => {
+  try {
+    const currentUserId = req.user?.id;
+    
+    if (!currentUserId) {
+      res.status(401).json({
+        success: false,
+        message: 'Authentication required',
+      });
+      return;
+    }
+    
+    const { coinBalance } = req.body;
+    
+    if (typeof coinBalance !== 'number' || coinBalance < 0) {
+      res.status(400).json({
+        success: false,
+        message: 'Invalid coin balance value',
+      });
+      return;
+    }
+    
+    console.log(`💰 Updating coin balance for user ${currentUserId}: ${coinBalance}`);
+    
+    // Update user's coin balance in database
+    const updatedUser = await prisma.user.update({
+      where: { id: currentUserId },
+      data: { coinBalance },
+      select: {
+        id: true,
+        username: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        bio: true,
+        avatar: true,
+        banner: true,
+        avatarUrl: true,
+        bannerUrl: true,
+        isVerified: true,
+        coinBalance: true,
+        isVip: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+    
+    console.log(`✅ Coin balance updated successfully: ${updatedUser.coinBalance}`);
+    
+    res.json({
+      success: true,
+      message: 'Coin balance updated successfully',
+      data: {
+        coinBalance: updatedUser.coinBalance,
+      },
+    });
+  } catch (error) {
+    console.error('❌ Error updating coin balance:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to update coin balance',
+    });
+  }
+});
+
 // Middleware to attach user info for upload
 const attachUserInfoForUpload = async (req: any, res: any, next: any) => {
   const currentUserId = await getCurrentUserId(req);

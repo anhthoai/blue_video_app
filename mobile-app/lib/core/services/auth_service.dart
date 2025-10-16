@@ -119,10 +119,25 @@ class AuthService {
   // Update current user's coin balance
   Future<void> updateUserCoinBalance(int newBalance) async {
     if (_currentUser != null) {
-      _currentUser = _currentUser!.copyWith(coinBalance: newBalance);
-      await _saveUserToPrefs();
-      _notifyListeners();
-      print('✅ User coin balance updated to: $newBalance');
+      try {
+        // Update coin balance in database via API
+        final success = await _apiService.updateUserCoinBalance(newBalance);
+
+        if (success) {
+          // Update local user object
+          _currentUser = _currentUser!.copyWith(coinBalance: newBalance);
+          await _saveUserToPrefs();
+          _notifyListeners();
+          print(
+              '✅ User coin balance updated to: $newBalance (database updated)');
+        } else {
+          print('❌ Failed to update coin balance in database');
+          throw Exception('Failed to update coin balance in database');
+        }
+      } catch (e) {
+        print('❌ Error updating coin balance: $e');
+        rethrow;
+      }
     }
   }
 
