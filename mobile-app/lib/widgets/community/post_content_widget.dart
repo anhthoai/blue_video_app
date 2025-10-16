@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 
 import '../../models/community_post.dart';
@@ -6,8 +7,9 @@ import '../../screens/community/_fullscreen_media_gallery.dart';
 import 'nsfw_blur_wrapper.dart';
 import 'coin_vip_indicator.dart';
 import '../dialogs/coin_payment_dialog.dart';
+import '../../core/providers/unlocked_posts_provider.dart';
 
-class PostContentWidget extends StatelessWidget {
+class PostContentWidget extends ConsumerWidget {
   final CommunityPost post;
 
   const PostContentWidget({
@@ -16,7 +18,7 @@ class PostContentWidget extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     print('🎯 PostContentWidget building for post: ${post.id}');
     print('   Type: ${post.type}');
     print('   Image URLs: ${post.imageUrls.length}');
@@ -30,7 +32,7 @@ class PostContentWidget extends StatelessWidget {
     try {
       switch (post.type) {
         case PostType.media:
-          return _buildMediaContent(context);
+          return _buildMediaContent(context, ref);
         case PostType.link:
           return _buildLinkContent();
         case PostType.poll:
@@ -48,7 +50,7 @@ class PostContentWidget extends StatelessWidget {
     }
   }
 
-  Widget _buildMediaContent(BuildContext context) {
+  Widget _buildMediaContent(BuildContext context, WidgetRef ref) {
     print('🎬 Building media content...');
     print('   Images: ${post.imageUrls.length}');
     print('   Videos: ${post.videoUrls.length}');
@@ -84,7 +86,7 @@ class PostContentWidget extends StatelessWidget {
 
       if (allMedia.isEmpty) return const SizedBox.shrink();
 
-      return _buildMediaGrid(context, allMedia);
+      return _buildMediaGrid(context, ref, allMedia);
     } catch (e, stackTrace) {
       print('❌ Error in _buildMediaContent: $e');
       print('Stack trace: $stackTrace');
@@ -95,15 +97,15 @@ class PostContentWidget extends StatelessWidget {
     }
   }
 
-  Widget _buildMediaGrid(
-      BuildContext context, List<Map<String, dynamic>> allMedia) {
+  Widget _buildMediaGrid(BuildContext context, WidgetRef ref,
+      List<Map<String, dynamic>> allMedia) {
     if (allMedia.isEmpty) return const SizedBox.shrink();
 
     return GestureDetector(
       onTap: () {
         // Check if it's a coin/VIP post
         if (post.cost > 0 || post.requiresVip) {
-          _showPaymentDialog(context);
+          _showPaymentDialog(context, ref);
         } else {
           _showFullscreenMediaViewer(context, allMedia);
         }
@@ -658,7 +660,16 @@ class PostContentWidget extends StatelessWidget {
     );
   }
 
-  void _showPaymentDialog(BuildContext context) {
+  void _showPaymentDialog(BuildContext context, WidgetRef ref) {
+    // Check if post is already unlocked (from database or memory)
+    final isUnlockedInMemory =
+        ref.read(unlockedPostsProvider.notifier).isPostUnlocked(post.id);
+    if (post.isUnlocked || isUnlockedInMemory) {
+      print('✅ Post ${post.id} is already unlocked, showing media directly');
+      _showFullscreenMediaViewer(context, _getAllMedia());
+      return;
+    }
+
     if (post.requiresVip) {
       VipPaymentDialog.show(
         context,
@@ -671,6 +682,7 @@ class PostContentWidget extends StatelessWidget {
       CoinPaymentDialog.show(
         context,
         coinCost: post.cost,
+        postId: post.id,
         onPaymentSuccess: () {
           // After successful coin payment, show the media
           _showFullscreenMediaViewer(context, _getAllMedia());

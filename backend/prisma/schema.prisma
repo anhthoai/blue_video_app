@@ -36,6 +36,8 @@ model User {
   role          UserRole @default(USER)
   isVerified    Boolean  @default(false) @map("is_verified")
   isActive      Boolean  @default(true) @map("is_active")
+  coinBalance   Int      @default(0) @map("coin_balance")
+  isVip         Boolean  @default(false) @map("is_vip")
   createdAt     DateTime @default(now()) @map("created_at")
   updatedAt     DateTime @updatedAt @map("updated_at")
 
@@ -58,6 +60,10 @@ model User {
   postLikes      CommunityPostLike[] @relation("UserLikes")
   postBookmarks  CommunityPostBookmark[] @relation("UserBookmarks")
   postReports    CommunityPostReport[] @relation("UserReports")
+  
+  // Payments
+  payments       Payment[]
+  unlockedPosts  UnlockedPost[]
 
   @@map("users")
 }
@@ -153,6 +159,7 @@ model CommunityPost {
   likesList     CommunityPostLike[] @relation("PostLikes")
   bookmarksList CommunityPostBookmark[] @relation("PostBookmarks")
   reportsList   CommunityPostReport[] @relation("PostReports")
+  unlockedBy    UnlockedPost[]
 
   @@map("community_posts")
 }
@@ -415,4 +422,57 @@ model Category {
   @@index([parentId])
   @@index([categoryOrder])
   @@map("categories")
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  CANCELLED
+
+  @@map("payment_status")
+}
+
+model Payment {
+  id              String        @id @default(uuid())
+  userId          String        @map("user_id")
+  extOrderId      String        @unique @map("ext_order_id")
+  amount          Decimal       @db.Decimal(10, 2) // USD amount
+  coins           Int           // Coins to be added
+  currency        String        @default("BTC") // Cryptocurrency code
+  status          PaymentStatus @default(PENDING)
+  paymentId       String?       @map("payment_id") // MPS internal transaction ID
+  paymentAddress  String?       @map("payment_address") // Crypto address
+  paymentUri      String?       @map("payment_uri") // Payment URI
+  qrCode          String?       @map("qr_code") // Base64 QR code
+  transactionId   String?       @map("transaction_id") // Blockchain transaction ID
+  createdAt       DateTime      @default(now()) @map("created_at")
+  completedAt     DateTime?     @map("completed_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
+
+  // Relations
+  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([extOrderId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("payments")
+}
+
+model UnlockedPost {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  postId    String   @map("post_id")
+  unlockedAt DateTime @default(now()) @map("unlocked_at")
+
+  // Relations
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  post      CommunityPost  @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, postId]) // Prevent duplicate unlocks
+  @@index([userId])
+  @@index([postId])
+  @@index([unlockedAt])
+  @@map("unlocked_posts")
 }

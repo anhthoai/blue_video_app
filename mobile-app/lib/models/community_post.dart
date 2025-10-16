@@ -53,6 +53,7 @@ class CommunityPost {
   final bool isNsfw;
   final int cost;
   final bool requiresVip;
+  final bool isUnlocked; // Track if user has unlocked this post
   final DateTime createdAt;
   final DateTime? updatedAt;
   final DateTime? publishedAt;
@@ -96,6 +97,7 @@ class CommunityPost {
     this.isNsfw = false,
     this.cost = 0,
     this.requiresVip = false,
+    this.isUnlocked = false,
     required this.createdAt,
     this.updatedAt,
     this.publishedAt,
@@ -139,6 +141,7 @@ class CommunityPost {
     bool? isNsfw,
     int? cost,
     bool? requiresVip,
+    bool? isUnlocked,
     DateTime? createdAt,
     DateTime? updatedAt,
     DateTime? publishedAt,
@@ -181,6 +184,7 @@ class CommunityPost {
       isNsfw: isNsfw ?? this.isNsfw,
       cost: cost ?? this.cost,
       requiresVip: requiresVip ?? this.requiresVip,
+      isUnlocked: isUnlocked ?? this.isUnlocked,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       publishedAt: publishedAt ?? this.publishedAt,
@@ -226,6 +230,7 @@ class CommunityPost {
       'isNsfw': isNsfw,
       'cost': cost,
       'requiresVip': requiresVip,
+      'isUnlocked': isUnlocked,
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt?.toIso8601String(),
       'publishedAt': publishedAt?.toIso8601String(),
@@ -280,6 +285,7 @@ class CommunityPost {
       isNsfw: json['isNsfw'] as bool? ?? false,
       cost: json['cost'] as int? ?? 0,
       requiresVip: json['requiresVip'] as bool? ?? false,
+      isUnlocked: json['isUnlocked'] as bool? ?? false,
       createdAt: DateTime.parse(json['createdAt'] as String),
       updatedAt: json['updatedAt'] != null
           ? DateTime.parse(json['updatedAt'] as String)

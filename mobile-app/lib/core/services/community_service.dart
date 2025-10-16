@@ -131,6 +131,29 @@ class CommunityService {
     }
   }
 
+  // Check unlock status for multiple posts
+  Future<Map<String, bool>> _checkUnlockStatus(List<String> postIds) async {
+    try {
+      final Map<String, bool> unlockStatus = {};
+
+      // Check each post individually (could be optimized with a batch endpoint)
+      for (final postId in postIds) {
+        try {
+          final isUnlocked = await _apiService.isPostUnlocked(postId);
+          unlockStatus[postId] = isUnlocked;
+        } catch (e) {
+          print('Error checking unlock status for post $postId: $e');
+          unlockStatus[postId] = false;
+        }
+      }
+
+      return unlockStatus;
+    } catch (e) {
+      print('Error checking unlock status: $e');
+      return {};
+    }
+  }
+
   // Get posts by tag
   Future<List<CommunityPost>> getPostsByTag(
     String tag, {
@@ -349,6 +372,23 @@ class CommunityService {
       if (response['success'] == true && response['data'] != null) {
         final List<dynamic> items = response['data'];
         print('📡 Received ${items.length} posts from getPosts API');
+
+        // Get post IDs that require payment
+        final List<String> paidPostIds = items
+            .where((json) =>
+                (json['cost'] ?? 0) > 0 ||
+                (json['requiresVip'] ?? false) == true)
+            .map((json) => json['id'] as String)
+            .toList();
+
+        // Check unlock status for paid posts
+        final Map<String, bool> unlockStatus = {};
+        if (paidPostIds.isNotEmpty) {
+          print(
+              '🔓 Checking unlock status for ${paidPostIds.length} paid posts');
+          unlockStatus.addAll(await _checkUnlockStatus(paidPostIds));
+        }
+
         if (items.isNotEmpty) {
           print(
               '📋 First post ID: ${items.first['id']}, cost: ${items.first['cost']}, requiresVip: ${items.first['requiresVip']}');
@@ -356,10 +396,11 @@ class CommunityService {
           for (int i = 0; i < items.length; i++) {
             if (items[i]['cost'] > 0 || items[i]['requiresVip'] == true) {
               print(
-                  '💰 Post $i (ID: ${items[i]['id']}): cost=${items[i]['cost']}, requiresVip=${items[i]['requiresVip']}');
+                  '💰 Post $i (ID: ${items[i]['id']}): cost=${items[i]['cost']}, requiresVip=${items[i]['requiresVip']}, unlocked: ${unlockStatus[items[i]['id']] ?? false}');
             }
           }
         }
+
         return items.map((json) {
           // Debug: Log the raw JSON for coin/VIP posts
           if (json['cost'] > 0 || json['requiresVip'] == true) {
@@ -406,6 +447,7 @@ class CommunityService {
             isFeatured: json['isFeatured'] ?? false,
             cost: json['cost'] ?? 0,
             requiresVip: json['requiresVip'] ?? false,
+            isUnlocked: unlockStatus[json['id']] ?? false,
             createdAt:
                 DateTime.tryParse(json['createdAt'] ?? '') ?? DateTime.now(),
             publishedAt:

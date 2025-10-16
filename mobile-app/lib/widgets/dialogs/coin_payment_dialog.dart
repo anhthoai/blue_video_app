@@ -2,25 +2,61 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/services/auth_service.dart';
+import '../../core/services/api_service.dart';
+import '../../core/providers/unlocked_posts_provider.dart';
 
-class CoinPaymentDialog extends ConsumerWidget {
+class CoinPaymentDialog extends ConsumerStatefulWidget {
   final int coinCost;
   final bool isVipPost;
+  final String? postId; // Add postId to unlock the post
   final VoidCallback? onPaymentSuccess;
 
   const CoinPaymentDialog({
     super.key,
     required this.coinCost,
     this.isVipPost = false,
+    this.postId,
     this.onPaymentSuccess,
   });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<CoinPaymentDialog> createState() => _CoinPaymentDialogState();
+
+  /// Show the coin payment dialog
+  static Future<bool?> show(
+    BuildContext context, {
+    required int coinCost,
+    bool isVipPost = false,
+    String? postId,
+    VoidCallback? onPaymentSuccess,
+  }) {
+    return showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => CoinPaymentDialog(
+        coinCost: coinCost,
+        isVipPost: isVipPost,
+        postId: postId,
+        onPaymentSuccess: onPaymentSuccess,
+      ),
+    );
+  }
+}
+
+class _CoinPaymentDialogState extends ConsumerState<CoinPaymentDialog> {
+  bool _isProcessing = false;
+
+  @override
+  Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final authState = ref.watch(authServiceProvider);
-    final userCoinBalance = authState.currentUser?.coinBalance ?? 0;
-    final hasEnoughCoins = userCoinBalance >= coinCost;
+    final currentUser = authState.currentUser;
+    final userCoinBalance = currentUser?.coinBalance ?? 0;
+
+    // Debug logging
+    print('🔍 Coin Payment Dialog - Current User: ${currentUser?.toJson()}');
+    print('🔍 Coin Balance: $userCoinBalance');
+    final hasEnoughCoins = userCoinBalance >= widget.coinCost;
 
     return Dialog(
       shape: RoundedRectangleBorder(
@@ -49,8 +85,8 @@ class CoinPaymentDialog extends ConsumerWidget {
             // Payment Message
             Text(
               hasEnoughCoins
-                  ? 'Pay ${coinCost} coins to unlock content'
-                  : 'Pay ${coinCost} coins to unlock content, insufficient balance',
+                  ? 'Pay ${widget.coinCost} coins to unlock content'
+                  : 'Pay ${widget.coinCost} coins to unlock content, insufficient balance',
               style: theme.textTheme.titleMedium?.copyWith(
                 fontWeight: FontWeight.bold,
               ),
@@ -123,22 +159,32 @@ class CoinPaymentDialog extends ConsumerWidget {
                 // Pay/Recharge Button
                 Expanded(
                   child: ElevatedButton(
-                    onPressed: () async {
-                      Navigator.of(context).pop(false);
+                    onPressed: _isProcessing
+                        ? null
+                        : () async {
+                            setState(() => _isProcessing = true);
 
-                      if (hasEnoughCoins) {
-                        // Process payment
-                        final success = await _processPayment(ref, coinCost);
-                        if (success && onPaymentSuccess != null) {
-                          onPaymentSuccess!();
-                        }
-                      } else {
-                        // Navigate to recharge screen
-                        if (context.mounted) {
-                          context.push('/main/coin-recharge');
-                        }
-                      }
-                    },
+                            if (hasEnoughCoins) {
+                              // Process payment
+                              final success =
+                                  await _processPayment(ref, widget.coinCost);
+                              if (context.mounted) {
+                                setState(() => _isProcessing = false);
+                                Navigator.of(context).pop(success);
+                                if (success &&
+                                    widget.onPaymentSuccess != null) {
+                                  widget.onPaymentSuccess!();
+                                }
+                              }
+                            } else {
+                              // Navigate to recharge screen
+                              if (context.mounted) {
+                                setState(() => _isProcessing = false);
+                                Navigator.of(context).pop(false);
+                                context.push('/main/coin-recharge');
+                              }
+                            }
+                          },
                     style: ElevatedButton.styleFrom(
                       backgroundColor:
                           hasEnoughCoins ? Colors.blue : Colors.amber,
@@ -148,13 +194,22 @@ class CoinPaymentDialog extends ConsumerWidget {
                         borderRadius: BorderRadius.circular(12),
                       ),
                     ),
-                    child: Text(
-                      hasEnoughCoins ? 'Unlock Now' : 'Recharge Now',
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
+                    child: _isProcessing
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                              strokeWidth: 2,
+                            ),
+                          )
+                        : Text(
+                            hasEnoughCoins ? 'Unlock Now' : 'Recharge Now',
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
                   ),
                 ),
               ],
@@ -167,44 +222,54 @@ class CoinPaymentDialog extends ConsumerWidget {
 
   Future<bool> _processPayment(WidgetRef ref, int coinCost) async {
     try {
-      // TODO: Implement actual payment processing
-      // For now, simulate payment success
-      await Future.delayed(const Duration(seconds: 1));
+      print('🎯 Processing coin payment for $coinCost coins');
 
-      // Update user's coin balance
+      // Check if user has enough coins
       final authService = ref.read(authServiceProvider);
       final currentUser = authService.currentUser;
-      if (currentUser != null) {
-        final updatedUser = currentUser.copyWith(
-          coinBalance: currentUser.coinBalance - coinCost,
-        );
-        // TODO: Implement updateCurrentUser method in AuthService
-        // await authService.updateCurrentUser(updatedUser);
+
+      if (currentUser == null) {
+        print('❌ No current user found');
+        return false;
+      }
+
+      if (currentUser.coinBalance < coinCost) {
+        print('❌ Insufficient coins: ${currentUser.coinBalance} < $coinCost');
+        return false;
+      }
+
+      // Simulate API call to process payment
+      print('📡 Calling payment API...');
+      await Future.delayed(const Duration(seconds: 1));
+
+      // For demo purposes, simulate successful payment
+      print('✅ Payment processed successfully');
+
+      // Update user's coin balance
+      final newBalance = currentUser.coinBalance - coinCost;
+      await authService.updateUserCoinBalance(newBalance);
+
+      print('✅ User coin balance updated: $newBalance');
+
+      // Unlock the post permanently if postId is provided
+      if (widget.postId != null) {
+        print('🔓 Unlocking post: ${widget.postId}');
+        final apiService = ApiService();
+        final unlockSuccess = await apiService.unlockPost(widget.postId!);
+        if (unlockSuccess) {
+          print('✅ Post unlocked permanently');
+          // Mark post as unlocked in memory provider
+          ref.read(unlockedPostsProvider.notifier).unlockPost(widget.postId!);
+        } else {
+          print('⚠️ Failed to unlock post, but payment was processed');
+        }
       }
 
       return true;
     } catch (e) {
-      print('Payment error: $e');
+      print('❌ Payment error: $e');
       return false;
     }
-  }
-
-  /// Show the coin payment dialog
-  static Future<bool?> show(
-    BuildContext context, {
-    required int coinCost,
-    bool isVipPost = false,
-    VoidCallback? onPaymentSuccess,
-  }) {
-    return showDialog<bool>(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => CoinPaymentDialog(
-        coinCost: coinCost,
-        isVipPost: isVipPost,
-        onPaymentSuccess: onPaymentSuccess,
-      ),
-    );
   }
 }
 

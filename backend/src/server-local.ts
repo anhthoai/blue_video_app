@@ -21,6 +21,7 @@ import { promises as fs } from 'fs';
 import { serializeUserWithUrls, buildAvatarUrl, buildFileUrlSync, buildFileUrl, buildCommunityPostFileUrl } from './utils/fileUrl';
 import { PrismaClient } from '@prisma/client';
 import multer from 'multer';
+import { paymentService, IPNNotification } from './services/paymentService';
 
 // Initialize Prisma Client
 const prisma = new PrismaClient();
@@ -222,6 +223,8 @@ app.post('/api/v1/auth/login', async (req, res) => {
           avatarUrl: user.avatarUrl,
           role: user.role,
           isVerified: user.isVerified,
+          coinBalance: user.coinBalance,
+          isVip: user.isVip,
           createdAt: user.createdAt.toISOString(),
         },
         accessToken,
@@ -1542,6 +1545,8 @@ app.get('/api/v1/users/:userId', async (req, res) => {
         fileDirectory: true,
         isVerified: true,
         role: true,
+        coinBalance: true,
+        isVip: true,
         createdAt: true,
         updatedAt: true,
         _count: {
@@ -1629,6 +1634,8 @@ app.get('/api/v1/users/:userId', async (req, res) => {
       avatarUrl: avatarUrl,
       isVerified: user.isVerified,
       role: user.role,
+      coinBalance: user.coinBalance,
+      isVip: user.isVip,
       followersCount: manualFollowersCount,
       followingCount: manualFollowingCount,
       videosCount: manualVideosCount,
@@ -4755,6 +4762,431 @@ app.post('/api/v1/users/banner', attachUserInfoForUpload, upload.single('banner'
   }
 });
 
+// ============================================================================
+// PAYMENT ENDPOINTS
+// ============================================================================
+
+// Get coin packages
+app.get('/api/v1/payment/packages', (_req, res): void => {
+  console.log('🎯 Payment packages endpoint called');
+  try {
+    const packages = paymentService.getCoinPackages();
+    console.log('🎯 Packages retrieved:', packages.length);
+    res.json({
+      success: true,
+      data: packages,
+    });
+    return;
+  } catch (error) {
+    console.error('Error getting coin packages:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get coin packages',
+    });
+    return;
+  }
+});
+
+// Demo payment endpoint (no auth required)
+app.post('/api/v1/payment/create-invoice-demo', async (req, res): Promise<void> => {
+  try {
+    const { coins, targetCurrency = 'BTC' } = req.body;
+    const currentUserId = 'demo-user-id';
+
+    if (!coins) {
+      res.status(400).json({
+        success: false,
+        message: 'Coins amount is required',
+      });
+      return;
+    }
+
+    // Convert coins to USD
+    const usdAmount = paymentService.coinsToUsd(coins);
+
+    // Generate unique order ID
+    const extOrderId = `demo_order_${currentUserId}_${Date.now()}`;
+
+    // Create payment invoice (demo)
+    const paymentResponse = await paymentService.createInvoice({
+      usdAmount,
+      extOrderId,
+      targetCurrency,
+    });
+
+    res.json({
+      success: true,
+      data: {
+        orderId: extOrderId,
+        paymentId: paymentResponse.id,
+        amount: paymentResponse.amount,
+        currency: paymentResponse.currencyCode,
+        address: paymentResponse.addr,
+        qrCode: paymentResponse.qrCode,
+        paymentUri: paymentResponse.paymentUri,
+        coins: coins,
+        usdAmount: usdAmount,
+      },
+    });
+  } catch (error) {
+    console.error('❌ Payment invoice creation error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to create payment invoice',
+    });
+  }
+});
+
+// Create payment invoice
+app.post('/api/v1/payment/create-invoice', authenticateToken, async (req, res): Promise<void> => {
+  try {
+    const { coins, targetCurrency = 'BTC' } = req.body;
+    const currentUserId = req.user?.id || 'demo-user-id'; // Fallback for demo
+
+    if (!coins) {
+      res.status(400).json({
+        success: false,
+        message: 'Coins amount is required',
+      });
+      return;
+    }
+
+    // Convert coins to USD
+    const usdAmount = paymentService.coinsToUsd(coins);
+
+    // Generate unique order ID
+    const extOrderId = `order_${currentUserId}_${Date.now()}`;
+
+    // Create payment invoice
+    const paymentResponse = await paymentService.createInvoice({
+      usdAmount,
+      extOrderId,
+      targetCurrency,
+    });
+
+    // Store payment record in database
+    await prisma.payment.create({
+      data: {
+        userId: currentUserId,
+        extOrderId,
+        amount: usdAmount,
+        coins,
+        currency: targetCurrency,
+        status: 'PENDING',
+        paymentId: paymentResponse.id,
+        paymentAddress: paymentResponse.addr,
+        paymentUri: paymentResponse.paymentUri,
+        qrCode: paymentResponse.qrCode,
+      },
+    });
+
+    res.json({
+      success: true,
+      data: {
+        orderId: extOrderId,
+        paymentId: paymentResponse.id,
+        amount: paymentResponse.amount,
+        currency: paymentResponse.currencyCode,
+        address: paymentResponse.addr,
+        paymentUri: paymentResponse.paymentUri,
+        qrCode: paymentResponse.qrCode,
+        coins,
+        usdAmount,
+      },
+    });
+    return;
+  } catch (error) {
+    console.error('Error creating payment invoice:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to create payment invoice',
+    });
+    return;
+  }
+});
+
+// Handle IPN notifications
+app.post('/api/v1/payment/ipn', express.urlencoded({ extended: true }), async (req, res): Promise<void> => {
+  try {
+    const notification: IPNNotification = req.body;
+
+    console.log('🎯 IPN notification received:', notification);
+
+    // For demo purposes, accept all notifications
+    // In production, verify signature
+    if (!paymentService.verifyIPNSignature(notification)) {
+      console.error('Invalid IPN signature:', notification);
+      res.status(400).send('Invalid signature');
+      return;
+    }
+
+    // Find payment record
+    const payment = await prisma.payment.findUnique({
+      where: { extOrderId: notification.extOrderId },
+      include: { user: true },
+    });
+
+    if (!payment) {
+      console.error('Payment not found:', notification.extOrderId);
+      res.status(404).send('Payment not found');
+      return;
+    }
+
+    if (notification.status === 'OK') {
+      // Update payment status
+      await prisma.payment.update({
+        where: { id: payment.id },
+        data: {
+          status: 'COMPLETED',
+          transactionId: notification.btcTxid || notification.txid,
+          completedAt: new Date(),
+        },
+      });
+
+      // Add coins to user balance
+      await prisma.user.update({
+        where: { id: payment.userId },
+        data: {
+          coinBalance: {
+            increment: payment.coins,
+          },
+        },
+      });
+
+      console.log(`Payment completed: ${payment.coins} coins added to user ${payment.userId}`);
+    } else {
+      // Update payment status to failed
+      await prisma.payment.update({
+        where: { id: payment.id },
+        data: {
+          status: 'FAILED',
+          completedAt: new Date(),
+        },
+      });
+    }
+
+    res.send('OK');
+    return;
+  } catch (error) {
+    console.error('Error processing IPN:', error);
+    res.status(500).send('Internal server error');
+    return;
+  }
+});
+
+// Get user's payment history
+app.get('/api/v1/payment/history', authenticateToken, async (req, res): Promise<void> => {
+  try {
+    const currentUserId = req.user?.id;
+    const { page = 1, limit = 20 } = req.query;
+    const offset = (Number(page) - 1) * Number(limit);
+
+    if (!currentUserId) {
+      res.status(401).json({
+        success: false,
+        message: 'User not authenticated',
+      });
+      return;
+    }
+
+    const payments = await prisma.payment.findMany({
+      where: { userId: currentUserId },
+      orderBy: { createdAt: 'desc' },
+      skip: offset,
+      take: Number(limit),
+      select: {
+        id: true,
+        extOrderId: true,
+        amount: true,
+        coins: true,
+        currency: true,
+        status: true,
+        createdAt: true,
+        completedAt: true,
+      },
+    });
+
+    res.json({
+      success: true,
+      data: payments,
+    });
+    return;
+  } catch (error) {
+    console.error('Error getting payment history:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get payment history',
+    });
+    return;
+  }
+});
+
+// Unlock a post (mark as permanently unlocked for user)
+app.post('/api/v1/posts/:postId/unlock', authenticateToken, async (req, res): Promise<void> => {
+  try {
+    const { postId } = req.params;
+    const currentUserId = req.user?.id;
+
+    if (!currentUserId) {
+      res.status(401).json({
+        success: false,
+        message: 'Authentication required',
+      });
+      return;
+    }
+
+    // Check if post exists and requires payment
+    const post = await prisma.communityPost.findUnique({
+      where: { id: postId },
+      select: { id: true, cost: true, requiresVip: true, userId: true },
+    });
+
+    if (!post) {
+      res.status(404).json({
+        success: false,
+        message: 'Post not found',
+      });
+      return;
+    }
+
+    // Check if post actually requires payment
+    if (post.cost === 0 && !post.requiresVip) {
+      res.status(400).json({
+        success: false,
+        message: 'Post does not require payment',
+      });
+      return;
+    }
+
+    // Check if user already unlocked this post
+    const existingUnlock = await prisma.unlockedPost.findUnique({
+      where: {
+        userId_postId: {
+          userId: currentUserId,
+          postId: postId,
+        },
+      },
+    });
+
+    if (existingUnlock) {
+      res.json({
+        success: true,
+        message: 'Post already unlocked',
+        data: { unlocked: true },
+      });
+      return;
+    }
+
+    // Create unlock record
+    await prisma.unlockedPost.create({
+      data: {
+        userId: currentUserId,
+        postId: postId,
+      },
+    });
+
+    console.log(`✅ Post ${postId} unlocked for user ${currentUserId}`);
+
+    res.json({
+      success: true,
+      message: 'Post unlocked successfully',
+      data: { unlocked: true },
+    });
+  } catch (error) {
+    console.error('❌ Error unlocking post:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to unlock post',
+    });
+  }
+});
+
+// Check if user has unlocked a specific post
+app.get('/api/v1/posts/:postId/unlock-status', authenticateToken, async (req, res): Promise<void> => {
+  try {
+    const { postId } = req.params;
+    const currentUserId = req.user?.id;
+
+    if (!currentUserId) {
+      res.status(401).json({
+        success: false,
+        message: 'Authentication required',
+      });
+      return;
+    }
+
+    // Check if user has unlocked this post
+    const unlockRecord = await prisma.unlockedPost.findUnique({
+      where: {
+        userId_postId: {
+          userId: currentUserId,
+          postId: postId,
+        },
+      },
+    });
+
+    res.json({
+      success: true,
+      data: { 
+        unlocked: !!unlockRecord,
+        unlockedAt: unlockRecord?.unlockedAt || null,
+      },
+    });
+  } catch (error) {
+    console.error('❌ Error checking unlock status:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to check unlock status',
+    });
+  }
+});
+
+// Get all unlocked posts for current user
+app.get('/api/v1/users/unlocked-posts', authenticateToken, async (req, res): Promise<void> => {
+  try {
+    const currentUserId = req.user?.id;
+
+    if (!currentUserId) {
+      res.status(401).json({
+        success: false,
+        message: 'Authentication required',
+      });
+      return;
+    }
+
+    const unlockedPosts = await prisma.unlockedPost.findMany({
+      where: { userId: currentUserId },
+      include: {
+        post: {
+          select: {
+            id: true,
+            title: true,
+            content: true,
+            type: true,
+            images: true,
+            videos: true,
+            cost: true,
+            requiresVip: true,
+            createdAt: true,
+          },
+        },
+      },
+      orderBy: { unlockedAt: 'desc' },
+    });
+
+    res.json({
+      success: true,
+      data: unlockedPosts,
+    });
+  } catch (error) {
+    console.error('❌ Error getting unlocked posts:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get unlocked posts',
+    });
+  }
+});
+
 // 404 handler
 app.use('*', (_req, res) => {
   res.status(404).json({
@@ -4766,7 +5198,7 @@ app.use('*', (_req, res) => {
 // Global error handler
 app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
   console.error('Global error handler:', err);
-  
+
   res.status(err.status || 500).json({
     success: false,
     message: err.message || 'Internal server error',

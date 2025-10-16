@@ -116,6 +116,16 @@ class AuthService {
     await _clearStoredUser();
   }
 
+  // Update current user's coin balance
+  Future<void> updateUserCoinBalance(int newBalance) async {
+    if (_currentUser != null) {
+      _currentUser = _currentUser!.copyWith(coinBalance: newBalance);
+      await _saveUserToPrefs();
+      _notifyListeners();
+      print('✅ User coin balance updated to: $newBalance');
+    }
+  }
+
   Future<UserModel?> signInWithEmailAndPassword({
     required String email,
     required String password,
@@ -136,6 +146,8 @@ class AuthService {
           bio: userData['bio'],
           avatarUrl: userData['avatarUrl'],
           isVerified: userData['isVerified'] ?? false,
+          isVip: userData['isVip'] ?? false,
+          coinBalance: userData['coinBalance'] ?? 0,
           createdAt: DateTime.parse(
               userData['createdAt'] ?? DateTime.now().toIso8601String()),
         );
@@ -144,10 +156,8 @@ class AuthService {
         await _prefs.setString('access_token', tokens['accessToken'] ?? '');
         await _prefs.setString('refresh_token', tokens['refreshToken'] ?? '');
 
-        // Save user if remember me is checked
-        if (rememberMe) {
-          await _saveUserToPrefs();
-        }
+        // Always save user data to ensure coin balance is available
+        await _saveUserToPrefs();
 
         return _currentUser;
       }
@@ -234,6 +244,26 @@ class AuthService {
   }
 
   // Update user profile
+  Future<UserModel?> refreshCurrentUser() async {
+    try {
+      if (!isLoggedIn) return null;
+
+      print('🎯 Refreshing current user data...');
+      final response = await _apiService.getUserProfile(_currentUser!.id);
+      if (response['success'] == true && response['data'] != null) {
+        print('🎯 User data refreshed: ${response['data']}');
+        _currentUser = UserModel.fromJson(response['data']);
+        await _saveUserToPrefs();
+        _notifyListeners();
+        return _currentUser;
+      }
+      return null;
+    } catch (e) {
+      print('Refresh current user error: $e');
+      return null;
+    }
+  }
+
   Future<UserModel?> updateUserProfile({
     required String username,
     String? bio,

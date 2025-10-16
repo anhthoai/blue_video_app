@@ -363,10 +363,8 @@ class ApiService {
     if (videoThumbnails != null && videoDurations != null) {
       for (int i = 0; i < videoThumbnails.length; i++) {
         final thumbnail = videoThumbnails[i];
-        if (thumbnail != null) {
-          request.files
-              .add(await http.MultipartFile.fromPath('files', thumbnail.path));
-        }
+        request.files
+            .add(await http.MultipartFile.fromPath('files', thumbnail.path));
       }
 
       // Send durations as JSON
@@ -1181,4 +1179,144 @@ class ApiService {
   // Socket.IO URL
   String get socketUrl =>
       baseUrl.replaceAll('http://', 'ws://').replaceAll('https://', 'wss://');
+
+  // ============================================================================
+  // PAYMENT API METHODS
+  // ============================================================================
+
+  // Get coin packages
+  Future<List<Map<String, dynamic>>> getCoinPackages() async {
+    try {
+      print('🎯 API: Getting coin packages from $baseUrl/payment/packages');
+      final headers = await _getHeaders();
+      print('🎯 API: Headers: $headers');
+      final response = await http.get(
+        Uri.parse('$baseUrl/payment/packages'),
+        headers: headers,
+      );
+
+      print('🎯 API: Response status: ${response.statusCode}');
+      print('🎯 API: Response body: ${response.body}');
+
+      final data = await _handleResponse(response);
+      if (data['success'] == true) {
+        return List<Map<String, dynamic>>.from(data['data']);
+      } else {
+        throw Exception(data['message'] ?? 'Failed to get coin packages');
+      }
+    } catch (e) {
+      print('Error getting coin packages: $e');
+      rethrow;
+    }
+  }
+
+  // Create payment invoice
+  Future<Map<String, dynamic>> createPaymentInvoice({
+    required int coins,
+    String targetCurrency = 'BTC',
+  }) async {
+    try {
+      final headers = await _getHeaders();
+      final response = await http.post(
+        Uri.parse('$baseUrl/payment/create-invoice-demo'),
+        headers: headers,
+        body: jsonEncode({
+          'coins': coins,
+          'targetCurrency': targetCurrency,
+        }),
+      );
+
+      final data = await _handleResponse(response);
+      if (data['success'] == true) {
+        return data['data'];
+      } else {
+        throw Exception(data['message'] ?? 'Failed to create payment invoice');
+      }
+    } catch (e) {
+      print('Error creating payment invoice: $e');
+      rethrow;
+    }
+  }
+
+  // Get payment history
+  Future<List<Map<String, dynamic>>> getPaymentHistory({
+    int page = 1,
+    int limit = 20,
+  }) async {
+    try {
+      final headers = await _getHeaders();
+      final response = await http.get(
+        Uri.parse('$baseUrl/payment/history?page=$page&limit=$limit'),
+        headers: headers,
+      );
+
+      final data = await _handleResponse(response);
+      if (data['success'] == true) {
+        return List<Map<String, dynamic>>.from(data['data']);
+      } else {
+        throw Exception(data['message'] ?? 'Failed to get payment history');
+      }
+    } catch (e) {
+      print('Error getting payment history: $e');
+      rethrow;
+    }
+  }
+
+  // Unlock a post permanently
+  Future<bool> unlockPost(String postId) async {
+    try {
+      final headers = await _getHeaders();
+      final response = await http.post(
+        Uri.parse('$baseUrl/posts/$postId/unlock'),
+        headers: headers,
+      );
+
+      final data = await _handleResponse(response);
+      return data['success'] == true;
+    } catch (e) {
+      print('Error unlocking post: $e');
+      return false;
+    }
+  }
+
+  // Check if user has unlocked a specific post
+  Future<bool> isPostUnlocked(String postId) async {
+    try {
+      final headers = await _getHeaders();
+      final response = await http.get(
+        Uri.parse('$baseUrl/posts/$postId/unlock-status'),
+        headers: headers,
+      );
+
+      final data = await _handleResponse(response);
+      if (data['success'] == true) {
+        return data['data']['unlocked'] == true;
+      }
+      return false;
+    } catch (e) {
+      print('Error checking unlock status: $e');
+      return false;
+    }
+  }
+
+  // Get all unlocked posts for current user
+  Future<List<Map<String, dynamic>>> getUnlockedPosts() async {
+    try {
+      final headers = await _getHeaders();
+      final response = await http.get(
+        Uri.parse('$baseUrl/users/unlocked-posts'),
+        headers: headers,
+      );
+
+      final data = await _handleResponse(response);
+      if (data['success'] == true) {
+        return List<Map<String, dynamic>>.from(data['data']);
+      } else {
+        throw Exception(data['message'] ?? 'Failed to get unlocked posts');
+      }
+    } catch (e) {
+      print('Error getting unlocked posts: $e');
+      rethrow;
+    }
+  }
 }

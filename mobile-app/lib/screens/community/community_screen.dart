@@ -9,6 +9,7 @@ import '../../widgets/community/community_post_widget.dart';
 import '../../widgets/community/video_card_widget.dart';
 import '../../screens/community/_fullscreen_media_gallery.dart';
 import '../../widgets/dialogs/coin_payment_dialog.dart';
+import '../../core/providers/unlocked_posts_provider.dart';
 
 class CommunityScreen extends ConsumerStatefulWidget {
   const CommunityScreen({super.key});
@@ -104,6 +105,15 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
   }
 
   void _showPaymentDialog(CommunityPost post) {
+    // Check if post is already unlocked (from database or memory)
+    final isUnlockedInMemory =
+        ref.read(unlockedPostsProvider.notifier).isPostUnlocked(post.id);
+    if (post.isUnlocked || isUnlockedInMemory) {
+      print('✅ Post ${post.id} is already unlocked, opening media directly');
+      _openMediaAfterPayment(post);
+      return;
+    }
+
     if (post.requiresVip) {
       VipPaymentDialog.show(
         context,
@@ -116,6 +126,7 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
       CoinPaymentDialog.show(
         context,
         coinCost: post.cost,
+        postId: post.id,
         onPaymentSuccess: () {
           // After successful coin payment, open the media
           _openMediaAfterPayment(post);
