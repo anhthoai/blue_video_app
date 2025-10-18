@@ -11,6 +11,10 @@ A comprehensive backend API for the Blue Video social media application, built w
 - **File Storage**: S3-compatible storage with Cloudflare CDN
 - **Database**: PostgreSQL with Redis for caching
 - **Security**: Rate limiting, CORS, helmet, input validation
+- **💰 Coin System**: Complete coin-based monetization system
+- **💳 Payment Gateway**: USDT (TRC20) and Credit Card payment processing
+- **📊 Transaction Tracking**: Complete coin transaction history with Order IDs
+- **🔔 IPN Processing**: Real-time payment confirmation system
 
 ## 🛠 Tech Stack
 
@@ -21,6 +25,9 @@ A comprehensive backend API for the Blue Video social media application, built w
 - **Video Processing**: FFmpeg
 - **Authentication**: JWT + Refresh Tokens
 - **Security**: Helmet, CORS, Rate Limiting
+- **Payment Processing**: mypremium.store API integration
+- **Cryptocurrency**: USDT (TRC20) support
+- **IPN Handling**: Real-time payment notifications
 
 ## 📋 Prerequisites
 
@@ -82,6 +89,11 @@ S3_REGION=us-east-1
 # Cloudflare CDN Configuration
 CDN_URL=https://your-cdn-domain.com
 CDN_CACHE_TTL=31536000
+
+# Payment Gateway Configuration
+PAYMENT_API_KEY=your_payment_api_key
+PAYMENT_API_URL=https://api.mypremium.store
+PAYMENT_IPN_URL=https://your-domain.com/api/v1/payment/ipn
 ```
 
 ### 3. Database Setup
@@ -199,6 +211,61 @@ GET /api/v1/videos/trending?page=1&limit=20
 GET /api/v1/videos/search?q=search_term&page=1&limit=20
 ```
 
+### Coin System Endpoints
+
+#### Get Coin Packages
+```http
+GET /api/v1/coin-packages
+```
+
+#### Create USDT Payment Invoice
+```http
+POST /api/v1/payment/usdt/invoice
+Authorization: Bearer your_access_token
+Content-Type: application/json
+
+{
+  "coins": 100
+}
+```
+
+#### Create Credit Card Payment Invoice
+```http
+POST /api/v1/payment/credit-card/invoice
+Authorization: Bearer your_access_token
+Content-Type: application/json
+
+{
+  "coins": 100
+}
+```
+
+#### Check Payment Status
+```http
+GET /api/v1/payment/status/:orderId
+Authorization: Bearer your_access_token
+```
+
+#### IPN Notification Endpoint
+```http
+POST /api/v1/payment/ipn
+Content-Type: application/x-www-form-urlencoded
+
+extOrderId=order_123&status=OK&sbpayMethod=cryptocurrency&...
+```
+
+#### Get Coin Transaction History
+```http
+GET /api/v1/users/coin-transactions?type=RECHARGE&page=1&limit=20
+Authorization: Bearer your_access_token
+```
+
+#### Simulate IPN (Development Only)
+```http
+POST /api/v1/payment/simulate-ipn/:orderId
+Authorization: Bearer your_access_token
+```
+
 ## 🔧 Configuration
 
 ### S3-Compatible Storage Setup
@@ -227,6 +294,29 @@ GET /api/v1/videos/search?q=search_term&page=1&limit=20
    ```env
    CDN_URL=https://your-cdn-domain.com
    ```
+
+### Payment Gateway Setup
+
+1. **Register with mypremium.store:**
+   - Create an account at https://mypremium.store
+   - Get your API key from the dashboard
+   - Configure your IPN URL: `https://your-domain.com/api/v1/payment/ipn`
+
+2. **Configure environment variables:**
+   ```env
+   PAYMENT_API_KEY=your_payment_api_key
+   PAYMENT_API_URL=https://api.mypremium.store
+   PAYMENT_IPN_URL=https://your-domain.com/api/v1/payment/ipn
+   ```
+
+3. **Supported Payment Methods:**
+   - **USDT (TRC20)**: Cryptocurrency payments
+   - **Credit Card**: Traditional card payments
+
+4. **IPN (Instant Payment Notification):**
+   - Payment gateway sends notifications to your IPN endpoint
+   - Backend processes payments and updates user coin balance
+   - Frontend polls payment status until completion
 
 ### OVH VPS Setup
 
@@ -321,6 +411,30 @@ server {
 - **Input Validation** with Joi
 - **Password Hashing** with bcrypt
 - **SQL Injection** protection with parameterized queries
+- **Payment Security** with IPN signature verification
+- **Order ID Validation** to prevent duplicate payments
+- **Transaction Logging** for complete audit trail
+
+## 💰 Coin System Architecture
+
+### Database Schema
+- **Users**: `coinBalance` field for current coin balance
+- **Posts**: `cost` and `requiresVip` fields for monetization
+- **Payments**: Complete payment tracking with Order IDs
+- **CoinTransactions**: Full transaction history (RECHARGE, EARNED, USED)
+
+### Payment Flow
+1. **Invoice Creation**: Generate payment invoice with unique Order ID
+2. **Payment Processing**: User pays via USDT or Credit Card
+3. **IPN Notification**: Payment gateway sends confirmation
+4. **Balance Update**: Backend updates user coin balance
+5. **Transaction Logging**: Record transaction in database
+6. **Frontend Sync**: Real-time balance updates via polling
+
+### Transaction Types
+- **RECHARGE**: User purchases coins
+- **EARNED**: Author receives coins from content sales
+- **USED**: User spends coins on content or subscriptions
 
 ## 📊 Monitoring
 
@@ -386,6 +500,9 @@ npm run lint:fix
 | `JWT_SECRET` | JWT secret key | Required |
 | `S3_ENDPOINT` | S3 endpoint | Required |
 | `CDN_URL` | CDN URL | Required |
+| `PAYMENT_API_KEY` | Payment gateway API key | Required |
+| `PAYMENT_API_URL` | Payment gateway API URL | Required |
+| `PAYMENT_IPN_URL` | IPN callback URL | Required |
 
 ## 🤝 Contributing
 

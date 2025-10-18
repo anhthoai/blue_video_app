@@ -25,6 +25,10 @@ The main Flutter mobile application for iOS and Android.
 - Video upload and management
 - Real-time messaging
 - Push notifications
+- **Coin/VIP Posts**: Monetized content with coin payments
+- **Payment Gateway**: USDT (TRC20) and Credit Card payments
+- **Coin System**: Recharge, earn, and spend coins
+- **Transaction History**: Complete coin transaction tracking
 
 **Tech Stack:**
 - Flutter 3.10+
@@ -89,6 +93,10 @@ Project documentation, API specs, and development guides.
 - ✅ **Storage**: Local SQLite database
 - ✅ **Notifications**: Firebase push notifications
 - ✅ **UI/UX**: Responsive design with overflow fixes
+- ✅ **Coin/VIP Posts**: Monetized content requiring coin payments
+- ✅ **Payment Gateway**: Real payment processing with USDT and Credit Cards
+- ✅ **Coin System**: Recharge, earn, and spend coins
+- ✅ **Transaction History**: Complete coin transaction tracking with Order IDs
 
 ### Screens
 - **Splash Screen**: Animated loading with auth check
@@ -100,6 +108,9 @@ Project documentation, API specs, and development guides.
 - **Video Player**: Complete video player with user info, actions, recommendations, and comments
 - **Chat**: Messaging system
 - **Settings**: App configuration
+- **Coin Recharge**: Purchase coins with USDT or Credit Card payments
+- **Coin History**: Track coin transactions (Used, Earned, Recharge) with Order IDs
+- **Payment Dialogs**: USDT (TRC20) and Credit Card payment interfaces
 
 ### Architecture
 - **State Management**: Riverpod
@@ -108,6 +119,32 @@ Project documentation, API specs, and development guides.
 - **Authentication**: Firebase Auth
 - **Storage**: SharedPreferences
 - **UI**: Material Design 3
+
+## 💰 Coin System & Payment Features
+
+### Coin/VIP Posts
+- **Monetized Content**: Posts can require coin payments or VIP subscription
+- **Visual Indicators**: Coin/VIP icons displayed on post thumbnails
+- **Payment Protection**: Grid layout prevents content preview before payment
+- **Author Benefits**: Authors can view their own paid content without payment
+
+### Payment Gateway Integration
+- **USDT (TRC20)**: Cryptocurrency payments with QR codes and wallet addresses
+- **Credit Card**: Traditional card payments with secure processing
+- **Real-time Processing**: IPN (Instant Payment Notification) workflow
+- **Order Tracking**: Unique Order IDs for transaction tracking
+
+### Coin Management
+- **Recharge System**: Purchase coins with multiple payment methods
+- **Transaction History**: Complete tracking of Used, Earned, and Recharge transactions
+- **Balance Updates**: Real-time coin balance synchronization
+- **Earning System**: Authors earn coins when their content is purchased
+
+### Security Features
+- **IPN Verification**: Secure payment confirmation from payment gateway
+- **Order Validation**: Unique Order IDs prevent duplicate payments
+- **Transaction Logging**: Complete audit trail for all coin transactions
+- **Local Development**: Simulate IPN for testing without real payments
 
 ## 🎯 Roadmap
 
@@ -119,6 +156,10 @@ Project documentation, API specs, and development guides.
 - [x] User profiles (current user and other users)
 - [x] Video player screen with full layout
 - [x] UI overflow fixes and responsive design
+- [x] **Coin/VIP Posts system with payment integration**
+- [x] **Real payment gateway (USDT TRC20 + Credit Card)**
+- [x] **Coin recharge and transaction history**
+- [x] **IPN (Instant Payment Notification) workflow**
 - [ ] Real API integration
 - [ ] Video upload functionality
 - [ ] Advanced features
