@@ -447,12 +447,14 @@ model Payment {
   amount          Decimal       @db.Decimal(10, 2) // USD amount
   coins           Int           // Coins to be added
   currency        String        @default("BTC") // Cryptocurrency code
+  paymentMethod   String?       @map("payment_method") // USDT, CREDIT_CARD, etc.
   status          PaymentStatus @default(PENDING)
   paymentId       String?       @map("payment_id") // MPS internal transaction ID
   paymentAddress  String?       @map("payment_address") // Crypto address
   paymentUri      String?       @map("payment_uri") // Payment URI
   qrCode          String?       @map("qr_code") // Base64 QR code
   transactionId   String?       @map("transaction_id") // Blockchain transaction ID
+  metadata        Json?         // Additional payment data
   createdAt       DateTime      @default(now()) @map("created_at")
   completedAt     DateTime?     @map("completed_at")
   updatedAt       DateTime      @updatedAt @map("updated_at")

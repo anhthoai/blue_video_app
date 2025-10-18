@@ -5204,7 +5204,6 @@ app.get('/api/v1/payment/packages', (_req, res): void => {
 app.post('/api/v1/payment/create-invoice-demo', async (req, res): Promise<void> => {
   try {
     const { coins, targetCurrency = 'BTC' } = req.body;
-    const currentUserId = 'demo-user-id';
 
     if (!coins) {
       res.status(400).json({
@@ -5218,7 +5217,7 @@ app.post('/api/v1/payment/create-invoice-demo', async (req, res): Promise<void> 
     const usdAmount = paymentService.coinsToUsd(coins);
 
     // Generate unique order ID
-    const extOrderId = `demo_order_${currentUserId}_${Date.now()}`;
+    const extOrderId = `DEMO${Date.now()}`;
 
     // Create payment invoice (demo)
     const paymentResponse = await paymentService.createInvoice({
@@ -5268,7 +5267,7 @@ app.post('/api/v1/payment/create-invoice', authenticateToken, async (req, res): 
     const usdAmount = paymentService.coinsToUsd(coins);
 
     // Generate unique order ID
-    const extOrderId = `order_${currentUserId}_${Date.now()}`;
+    const extOrderId = `ORD${Date.now()}`;
 
     // Create payment invoice
     const paymentResponse = await paymentService.createInvoice({
@@ -5313,6 +5312,175 @@ app.post('/api/v1/payment/create-invoice', authenticateToken, async (req, res): 
     res.status(500).json({
       success: false,
       message: 'Failed to create payment invoice',
+    });
+    return;
+  }
+});
+
+// Real USDT payment endpoint
+app.post('/api/v1/payment/create-usdt-invoice', authenticateToken, async (req, res): Promise<void> => {
+  try {
+    const currentUserId = req.user?.id;
+    const { coins } = req.body;
+
+    if (!currentUserId) {
+      res.status(401).json({
+        success: false,
+        message: 'Authentication required',
+      });
+      return;
+    }
+
+    if (!coins) {
+      res.status(400).json({
+        success: false,
+        message: 'Coins amount is required',
+      });
+      return;
+    }
+
+    // Convert coins to USD
+    const usdAmount = paymentService.coinsToUsd(coins);
+
+    // Generate unique order ID
+    const extOrderId = `USDT${Date.now()}`;
+
+    // Create USDT payment invoice
+    const paymentResponse = await paymentService.createInvoice({
+      usdAmount,
+      extOrderId,
+      targetCurrency: 'USDT',
+    });
+
+    // Store payment record in database
+    await prisma.payment.create({
+      data: {
+        userId: currentUserId,
+        extOrderId: extOrderId,
+        amount: usdAmount,
+        currency: 'USD',
+        coins: coins,
+        status: 'PENDING',
+        paymentMethod: 'USDT',
+        metadata: {
+          paymentId: paymentResponse.id,
+          address: paymentResponse.addr,
+          qrCode: paymentResponse.qrCode,
+        },
+      },
+    });
+
+    res.json({
+      success: true,
+      data: {
+        orderId: extOrderId,
+        paymentId: paymentResponse.id,
+        amount: paymentResponse.amount,
+        currency: paymentResponse.currencyCode,
+        address: paymentResponse.addr,
+        qrCode: paymentResponse.qrCode,
+        paymentUri: paymentResponse.paymentUri,
+        coins: coins,
+        usdAmount: usdAmount,
+      },
+    });
+  } catch (error) {
+    console.error('❌ USDT payment invoice creation error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to create USDT payment invoice',
+    });
+    return;
+  }
+});
+
+// Real Credit Card payment endpoint
+app.post('/api/v1/payment/create-credit-card-invoice', authenticateToken, async (req, res): Promise<void> => {
+  try {
+    const currentUserId = req.user?.id;
+    const { coins } = req.body;
+
+    if (!currentUserId) {
+      res.status(401).json({
+        success: false,
+        message: 'Authentication required',
+      });
+      return;
+    }
+
+    if (!coins) {
+      res.status(400).json({
+        success: false,
+        message: 'Coins amount is required',
+      });
+      return;
+    }
+
+    // Get user email
+    const user = await prisma.user.findUnique({
+      where: { id: currentUserId },
+      select: { email: true, username: true },
+    });
+
+    if (!user) {
+      res.status(404).json({
+        success: false,
+        message: 'User not found',
+      });
+      return;
+    }
+
+    // Convert coins to USD
+    const usdAmount = paymentService.coinsToUsd(coins);
+
+    // Generate unique order ID
+    const extOrderId = `CC${Date.now()}`;
+
+    // Create Credit Card payment invoice
+    const paymentResponse = await paymentService.createCreditCardInvoice({
+      amount: usdAmount,
+      currency: 'USD',
+      extOrderId: extOrderId,
+      email: user.email,
+      productName: `Coin Recharge - ${coins} coins`,
+    });
+
+    // Store payment record in database
+    await prisma.payment.create({
+      data: {
+        userId: currentUserId,
+        extOrderId: extOrderId,
+        amount: usdAmount,
+        currency: 'USD',
+        coins: coins,
+        status: 'PENDING',
+        paymentMethod: 'CREDIT_CARD',
+        metadata: {
+          transId: paymentResponse.transId,
+          endpointUrl: paymentResponse.endpointUrl,
+          sign: paymentResponse.sign,
+        },
+      },
+    });
+
+    res.json({
+      success: true,
+      data: {
+        orderId: extOrderId,
+        transId: paymentResponse.transId,
+        amount: paymentResponse.amount,
+        currency: 'USD',
+        endpointUrl: paymentResponse.endpointUrl,
+        sign: paymentResponse.sign,
+        coins: coins,
+        usdAmount: usdAmount,
+      },
+    });
+  } catch (error) {
+    console.error('❌ Credit Card payment invoice creation error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to create Credit Card payment invoice',
     });
     return;
   }

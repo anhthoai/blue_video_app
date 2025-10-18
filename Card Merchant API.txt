@@ -1,0 +1,88 @@
+PayFlare/MPS integration manual 
+I. Checkout workflow 
+1. Server-to-server request stage 
+Request parameters: 
+api_key: your API key got from mypremium.store 
+api_ver: should be 1.2 
+amount: payment amount 
+currency: should be USD 
+ext_order_id: passthrough value 
+success_uri: redirect after a successful payment 
+error_uri: redirect if an error occurred (error message will be concatenated) 
+email: customer's email address 
+Response parameters: 
+error: error message (if applicable) 
+trans_id: internal transaction ID in mypremium.store database (to be POSTed on the next step) 
+amount: payment amount in USD (to be POSTed on the next step) 
+amount_try: payment amount in TRY (if applicable) 
+endpoint_url: form submit URL 
+sign: passthrough signature (to be POSTed on the next step) 
+cURL request example: 
+$ curl -X POST 'http://mypremium.store' -F op=cc_checkout \ 
+-F api_key=public_key \ 
+-F api_ver=1.2 \ 
+-F amount=10 \ 
+-F currency=USD \ 
+-F ext_order_id=123 \ 
+-F success_uri=https://yoursite.com/success/ \ 
+-F fail_uri=https://yoursite.com/fail/?msg= \ 
+-F email=root@localhost.org \ 
+-F product_name=YourProductName 
+cURL response example: 
+{"trans_id":"1671209899","amount":"10","amount_try":"210.00","status":"OK","endp 
+oint_url":"https://premiumgator.com/paynow/vallet/ 
+checkout/","sign":"b3929ccd36670aaad9725ad2d862ded8618fe603684fc558a9b0e5ddec1c4 
+f12"}
+
+2. User redirect stage 
+Our-hosted credit card form: present a form to submit trans_id, amount and sign to endpoint_url 
+received on the previous step: 
+<HTML><BODY onLoad="document.F1.submit();"> 
+<form name="F1" action="<?= $ret->endpoint_url ?>" method="post"> 
+<input type="hidden" name="trans_id" value="<?= $ret->trans_id ?>"> 
+<input type="hidden" name="amount" value="<?= $ret->amount ?>"> 
+<input type="hidden" name="sign" value="<?= $ret->sign ?>"> 
+<input type="submit" value="Redirecting..."> 
+</form 
+</BODY></HTML> 
+II. Handling IPN notifications 
+IPN request example (posted to your callback URL specified in mypremium.store web 
+interface): 
+sbpay_method => 'creditcard', 
+currency_code => 'USD', 
+txid => '1292696546', 
+usd_txid => '', 
+signature => 
+'05b93283802e077f4c3fe5729ba68e9ad29deed1f2f88151e6df5aae405eeb82', 
+ext_order_id => '2624662081', 
+status => 'OK', 
+prerequest => '1', 
+usd_amount => '15.96000000', 
+IPN request parameters: 
+sbpay_method: payment method (always "creditcard") 
+currency_code: always USD 
+signature: authentity check 
+usd_amount: amount in USD 
+prerequest: is a prerequest or not 
+IPN response example: 
+Supposed to be “READY” in the case of prerequest or “OK” after normal IPN processinng 
+Prerequest explanation 
+Prerequest is a special kind of IPN request which is getting sent to your IPN handler each time 
+before we redirect the user to a payment page and/or submit the data to bank to check that your 
+infrastructure is ready to accept a payment. It’s assumed that you shouldn’t consider a payment as 
+completed and/or deliver any physical or digital goods if you see that an IPN request is coming with 
+the prerequest parameter set. Nonetheless, the signature check (and any other checks you’d perform 
+perform before deciding if a payment is successful or not) are supposed to be performed by your 
+side. If everything is ok, then ready response is expected.
+
+III. IPN signature calculation example 
+Used secret key (take from MyPremium.Store -> API Keys dashboard): 8j0zoeqvgsz3v6z8 
+Sorted keys (without 'signature'): currency_code, ext_order_id, prerequest, sbpay_method, status, 
+txid, usd_amount, usd_txid 
+Signature payload (concatenated): 
+USD26246620811creditcardOK129269654615.960000008j0zoeqvgsz3v6z8 
+SHA256 checksum: 
+$ php -r 'echo hash("sha256", 
+"USD26246620811creditcardOK129269654615.960000008j0zoeqvgsz3v6z8");' 
+==> 05b93283802e077f4c3fe5729ba68e9ad29deed1f2f88151e6df5aae405eeb82
+

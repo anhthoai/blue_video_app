@@ -1,4 +1,4 @@
-// import crypto from 'crypto'; // Not used in demo mode
+import crypto from 'crypto';
 
 export interface PaymentRequest {
   usdAmount: number;
@@ -16,23 +16,39 @@ export interface PaymentResponse {
   addr: string;
 }
 
+export interface CreditCardPaymentRequest {
+  amount: number;
+  currency: string;
+  extOrderId: string;
+  email: string;
+  productName: string;
+}
+
+export interface CreditCardPaymentResponse {
+  transId: string;
+  amount: string;
+  amountTry?: string;
+  status: string;
+  endpointUrl: string;
+  sign: string;
+}
+
 export interface IPNNotification {
-  btcAmount: string;
+  btcAmount?: string;
   sbpayMethod: string;
   txid: string;
   status: string;
   currencyCode: string;
   signature: string;
   extOrderId: string;
-  btcTxid: string;
+  btcTxid?: string;
+  usdAmount?: string;
+  prerequest?: string;
 }
 
 export class PaymentService {
-  // @ts-ignore - Not used in demo mode
   private readonly apiKey: string;
-  // @ts-ignore - Not used in demo mode
   private readonly secretKey: string;
-  // @ts-ignore - Not used in demo mode
   private readonly baseUrl: string = 'http://mypremium.store';
 
   constructor() {
@@ -41,41 +57,197 @@ export class PaymentService {
   }
 
   /**
-   * Create a payment invoice
+   * Create a USDT (cryptocurrency) payment invoice
    */
   async createInvoice(request: PaymentRequest): Promise<PaymentResponse> {
-    // For demo purposes, return mock payment data
-    // In production, this would call the real payment API
     try {
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      const formData = new URLSearchParams();
+      formData.append('op', 'create_invoice');
+      formData.append('api_key', this.apiKey);
+      formData.append('usd_amount', request.usdAmount.toString());
+      formData.append('ext_order_id', request.extOrderId);
+      formData.append('gen_qr_code', '1');
+      formData.append('target_currency', request.targetCurrency);
 
-      // Generate mock payment data
-      const mockId = `demo_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
-      const mockAddress = `demo_address_${Math.random().toString(36).substring(2, 15)}`;
+      console.log('🔗 Creating USDT invoice:', {
+        usdAmount: request.usdAmount,
+        extOrderId: request.extOrderId,
+        targetCurrency: request.targetCurrency,
+      });
+
+      const response = await fetch(this.baseUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: formData,
+      });
+
+      const data = await response.json() as any;
+      console.log('🔗 USDT invoice response:', data);
+
+      if (data.status !== 'OK') {
+        throw new Error(data.error || 'Failed to create invoice');
+      }
 
       return {
-        id: mockId,
-        paymentUri: `demo:${mockAddress}?amount=${request.usdAmount}`,
-        currencyCode: request.targetCurrency,
-        qrCode: 'demo_qr_code_base64_data',
-        amount: request.usdAmount,
-        status: 'OK',
-        addr: mockAddress,
+        id: data.id.toString(),
+        paymentUri: data.payment_uri || '',
+        currencyCode: data.currency_code,
+        qrCode: data.qr_code,
+        amount: data.amount,
+        status: data.status,
+        addr: data.addr,
       };
     } catch (error) {
-      console.error('Payment service error:', error);
-      throw new Error('Failed to create payment invoice');
+      console.error('❌ USDT invoice creation error:', error);
+      throw new Error('Failed to create USDT payment invoice');
     }
   }
 
   /**
-   * Verify IPN signature
+   * Create a Credit Card payment invoice
    */
-  verifyIPNSignature(_notification: IPNNotification): boolean {
-    // For demo purposes, always return true
-    // In production, this would verify the actual signature
-    return true;
+  async createCreditCardInvoice(request: CreditCardPaymentRequest): Promise<CreditCardPaymentResponse> {
+    try {
+      const formData = new URLSearchParams();
+      formData.append('op', 'cc_checkout');
+      formData.append('api_key', this.apiKey);
+      formData.append('api_ver', '1.2');
+      formData.append('amount', request.amount.toString());
+      formData.append('currency', request.currency);
+      formData.append('ext_order_id', request.extOrderId);
+      formData.append('success_uri', `${process.env['BASE_URL'] || 'http://localhost:3000'}/payment/success`);
+      formData.append('fail_uri', `${process.env['BASE_URL'] || 'http://localhost:3000'}/payment/fail`);
+      formData.append('email', request.email);
+      formData.append('product_name', request.productName);
+
+      console.log('💳 Creating Credit Card invoice:', {
+        amount: request.amount,
+        currency: request.currency,
+        extOrderId: request.extOrderId,
+        email: request.email,
+      });
+
+      const response = await fetch(this.baseUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: formData,
+      });
+
+      const data = await response.json() as any;
+      console.log('💳 Credit Card invoice response:', data);
+
+      if (data.status !== 'OK') {
+        throw new Error(data.error || 'Failed to create credit card invoice');
+      }
+
+      return {
+        transId: data.trans_id,
+        amount: data.amount,
+        amountTry: data.amount_try,
+        status: data.status,
+        endpointUrl: data.endpoint_url,
+        sign: data.sign,
+      };
+    } catch (error) {
+      console.error('❌ Credit Card invoice creation error:', error);
+      throw new Error('Failed to create credit card payment invoice');
+    }
+  }
+
+  /**
+   * Verify IPN signature for cryptocurrency payments
+   */
+  verifyCryptoIPNSignature(notification: IPNNotification): boolean {
+    try {
+      // Sort keys alphabetically (excluding 'signature')
+      const sortedKeys = Object.keys(notification)
+        .filter(key => key !== 'signature')
+        .sort();
+
+      // Create payload by concatenating values in sorted order
+      let payload = '';
+      for (const key of sortedKeys) {
+        payload += notification[key as keyof IPNNotification] || '';
+      }
+
+      // Append secret key
+      payload += this.secretKey;
+
+      // Calculate SHA256 hash
+      const calculatedSignature = crypto
+        .createHash('sha256')
+        .update(payload)
+        .digest('hex');
+
+      console.log('🔐 IPN signature verification:', {
+        payload: payload.substring(0, 100) + '...',
+        calculatedSignature,
+        receivedSignature: notification.signature,
+        match: calculatedSignature === notification.signature,
+      });
+
+      return calculatedSignature === notification.signature;
+    } catch (error) {
+      console.error('❌ IPN signature verification error:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Verify IPN signature for credit card payments
+   */
+  verifyCreditCardIPNSignature(notification: IPNNotification): boolean {
+    try {
+      // Sort keys alphabetically (excluding 'signature')
+      const sortedKeys = Object.keys(notification)
+        .filter(key => key !== 'signature')
+        .sort();
+
+      // Create payload by concatenating values in sorted order
+      let payload = '';
+      for (const key of sortedKeys) {
+        payload += notification[key as keyof IPNNotification] || '';
+      }
+
+      // Append secret key
+      payload += this.secretKey;
+
+      // Calculate SHA256 hash
+      const calculatedSignature = crypto
+        .createHash('sha256')
+        .update(payload)
+        .digest('hex');
+
+      console.log('🔐 Credit Card IPN signature verification:', {
+        payload: payload.substring(0, 100) + '...',
+        calculatedSignature,
+        receivedSignature: notification.signature,
+        match: calculatedSignature === notification.signature,
+      });
+
+      return calculatedSignature === notification.signature;
+    } catch (error) {
+      console.error('❌ Credit Card IPN signature verification error:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Verify IPN signature (generic method)
+   */
+  verifyIPNSignature(notification: IPNNotification): boolean {
+    if (notification.sbpayMethod === 'bitcoin' || notification.sbpayMethod === 'cryptocurrency') {
+      return this.verifyCryptoIPNSignature(notification);
+    } else if (notification.sbpayMethod === 'creditcard') {
+      return this.verifyCreditCardIPNSignature(notification);
+    }
+    
+    console.warn('⚠️ Unknown payment method:', notification.sbpayMethod);
+    return false;
   }
 
   /**

@@ -3,6 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/services/auth_service.dart';
 import '../../core/services/api_service.dart';
+import '../../widgets/dialogs/payment_method_dialog.dart';
+import '../../widgets/dialogs/usdt_payment_dialog.dart';
+import '../../widgets/dialogs/credit_card_payment_dialog.dart';
 
 class CoinRechargeScreen extends ConsumerStatefulWidget {
   const CoinRechargeScreen({super.key});
@@ -61,26 +64,50 @@ class _CoinRechargeScreenState extends ConsumerState<CoinRechargeScreen> {
 
     final selectedPackage = coinPackages[selectedPackageIndex];
     final coins = selectedPackage['coins'] as int;
+    final usdAmount = selectedPackage['usd'] as num;
 
-    print('🎯 Processing recharge for $coins coins');
+    print('🎯 Processing recharge for $coins coins (\$${usdAmount})');
 
+    // Show payment method selection dialog
+    if (mounted) {
+      final selectedMethod = await PaymentMethodDialog.show(
+        context,
+        coins: coins,
+        usdAmount: usdAmount.toDouble(),
+      );
+
+      if (selectedMethod != null) {
+        await _createPaymentInvoice(selectedMethod, coins);
+      }
+    }
+  }
+
+  Future<void> _createPaymentInvoice(PaymentMethod method, int coins) async {
     try {
       setState(() => isLoading = true);
 
-      // Create payment invoice
-      print('📝 Creating payment invoice...');
-      final paymentData = await ApiService().createPaymentInvoice(
-        coins: coins,
-        targetCurrency: selectedCurrency,
-      );
+      Map<String, dynamic> paymentData;
+
+      if (method == PaymentMethod.usdt) {
+        print('📝 Creating USDT payment invoice...');
+        paymentData = await ApiService().createUsdtPaymentInvoice(coins: coins);
+      } else {
+        print('📝 Creating Credit Card payment invoice...');
+        paymentData =
+            await ApiService().createCreditCardPaymentInvoice(coins: coins);
+      }
 
       print('✅ Payment invoice created: $paymentData');
 
       setState(() => isLoading = false);
 
-      // Show payment dialog with QR code
+      // Show appropriate payment dialog
       if (mounted) {
-        _showPaymentDialog(paymentData);
+        if (method == PaymentMethod.usdt) {
+          _showUsdtPaymentDialog(paymentData);
+        } else {
+          _showCreditCardPaymentDialog(paymentData);
+        }
       }
     } catch (e) {
       setState(() => isLoading = false);
@@ -91,6 +118,40 @@ class _CoinRechargeScreenState extends ConsumerState<CoinRechargeScreen> {
         );
       }
     }
+  }
+
+  void _showUsdtPaymentDialog(Map<String, dynamic> paymentData) {
+    UsdtPaymentDialog.show(
+      context,
+      paymentData: paymentData,
+      onPaymentComplete: () {
+        Navigator.of(context).pop();
+        // Refresh user balance and update UI
+        _refreshUserBalance();
+        // Force rebuild to show updated balance
+        setState(() {});
+      },
+      onCancel: () {
+        Navigator.of(context).pop();
+      },
+    );
+  }
+
+  void _showCreditCardPaymentDialog(Map<String, dynamic> paymentData) {
+    CreditCardPaymentDialog.show(
+      context,
+      paymentData: paymentData,
+      onPaymentComplete: () {
+        Navigator.of(context).pop();
+        // Refresh user balance and update UI
+        _refreshUserBalance();
+        // Force rebuild to show updated balance
+        setState(() {});
+      },
+      onCancel: () {
+        Navigator.of(context).pop();
+      },
+    );
   }
 
   void _showPaymentDialog(Map<String, dynamic> paymentData) {

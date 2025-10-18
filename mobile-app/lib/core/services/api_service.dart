@@ -1244,6 +1244,60 @@ class ApiService {
     }
   }
 
+  // Create USDT payment invoice
+  Future<Map<String, dynamic>> createUsdtPaymentInvoice({
+    required int coins,
+  }) async {
+    try {
+      final headers = await _getHeaders();
+      final response = await http.post(
+        Uri.parse('$baseUrl/payment/create-usdt-invoice'),
+        headers: headers,
+        body: jsonEncode({
+          'coins': coins,
+        }),
+      );
+
+      final data = await _handleResponse(response);
+      if (data['success'] == true) {
+        return data['data'];
+      } else {
+        throw Exception(
+            data['message'] ?? 'Failed to create USDT payment invoice');
+      }
+    } catch (e) {
+      print('Error creating USDT payment invoice: $e');
+      rethrow;
+    }
+  }
+
+  // Create Credit Card payment invoice
+  Future<Map<String, dynamic>> createCreditCardPaymentInvoice({
+    required int coins,
+  }) async {
+    try {
+      final headers = await _getHeaders();
+      final response = await http.post(
+        Uri.parse('$baseUrl/payment/create-credit-card-invoice'),
+        headers: headers,
+        body: jsonEncode({
+          'coins': coins,
+        }),
+      );
+
+      final data = await _handleResponse(response);
+      if (data['success'] == true) {
+        return data['data'];
+      } else {
+        throw Exception(
+            data['message'] ?? 'Failed to create Credit Card payment invoice');
+      }
+    } catch (e) {
+      print('Error creating Credit Card payment invoice: $e');
+      rethrow;
+    }
+  }
+
   // Get payment history
   Future<List<Map<String, dynamic>>> getPaymentHistory({
     int page = 1,
