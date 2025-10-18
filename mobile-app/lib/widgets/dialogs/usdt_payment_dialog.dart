@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'dart:convert';
+import 'dart:async';
+import 'package:http/http.dart' as http;
 import '../../core/services/auth_service.dart';
+import '../../core/services/api_service.dart';
 
 class UsdtPaymentDialog extends ConsumerStatefulWidget {
   final Map<String, dynamic> paymentData;
@@ -403,46 +406,73 @@ class _UsdtPaymentDialogState extends ConsumerState<UsdtPaymentDialog> {
     try {
       // Get payment data
       final paymentData = widget.paymentData;
-      final coins = paymentData['coins'] as int? ?? 0;
+      final orderId = paymentData['orderId'] as String? ?? '';
 
-      // Import auth service
-      final authService = ref.read(authServiceProvider);
-      final currentUser = authService.currentUser;
+      print('🔄 User marked payment as paid for order: $orderId');
+      print('⏳ Waiting for IPN confirmation from payment gateway...');
 
-      if (currentUser == null) {
-        throw Exception('User not found');
-      }
-
-      // Add coins to user's balance
-      final newBalance = currentUser.coinBalance + coins;
-      await authService.updateUserCoinBalance(
-        newBalance,
-        transactionType: 'RECHARGE',
-        description: 'USDT coin recharge - $coins coins',
-        paymentId: paymentData['paymentId'] as String?,
-      );
-
-      print(
-          '✅ USDT Payment completed! Added $coins coins. New balance: $newBalance');
-
-      // Show success message
+      // Show waiting message
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Successfully added $coins coins to your account!'),
-          backgroundColor: Colors.green,
+        const SnackBar(
+          content:
+              Text('Payment submitted! Waiting for blockchain confirmation...'),
+          backgroundColor: Colors.orange,
+          duration: Duration(seconds: 3),
         ),
       );
 
-      // Call the completion callback
-      widget.onPaymentComplete();
+      // Start polling for payment status
+      _pollPaymentStatus(orderId);
     } catch (e) {
-      print('❌ USDT Payment completion failed: $e');
+      print('❌ Error marking payment as paid: $e');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Payment processing failed: $e'),
+          content: Text('Error: $e'),
           backgroundColor: Colors.red,
         ),
       );
     }
+  }
+
+  void _pollPaymentStatus(String orderId) async {
+    // Poll every 10 seconds for payment confirmation
+    Timer.periodic(const Duration(seconds: 10), (timer) async {
+      try {
+        print('🔍 Checking payment status for order: $orderId');
+
+        // Call API to check payment status
+        final response = await http.get(
+          Uri.parse('${ApiService.baseUrl}/payment/status/$orderId'),
+          headers: await ApiService().getHeaders(),
+        );
+
+        if (response.statusCode == 200) {
+          final data = jsonDecode(response.body);
+          if (data['success'] == true &&
+              data['data']['status'] == 'COMPLETED') {
+            timer.cancel(); // Stop polling
+
+            print('✅ Payment confirmed via IPN!');
+
+            // Show success message
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text(
+                      'Payment confirmed! Coins have been added to your account.'),
+                  backgroundColor: Colors.green,
+                  duration: Duration(seconds: 3),
+                ),
+              );
+
+              // Call the completion callback
+              widget.onPaymentComplete();
+            }
+          }
+        }
+      } catch (e) {
+        print('❌ Error checking payment status: $e');
+      }
+    });
   }
 }

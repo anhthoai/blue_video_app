@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'dart:convert';
+import 'dart:async';
+import 'package:http/http.dart' as http;
 import '../../core/services/auth_service.dart';
+import '../../core/services/api_service.dart';
 
 class CreditCardPaymentDialog extends ConsumerStatefulWidget {
   final Map<String, dynamic> paymentData;
@@ -447,42 +451,22 @@ class _CreditCardPaymentDialogState
     try {
       // Get payment data
       final paymentData = widget.paymentData;
-      final coins = paymentData['coins'] as int;
+      final orderId = paymentData['orderId'] as String? ?? '';
 
-      // Simulate payment processing
-      await Future.delayed(const Duration(seconds: 2));
+      print('🔄 Credit Card payment submitted for order: $orderId');
+      print('⏳ Waiting for IPN confirmation from payment gateway...');
 
-      // Get auth service
-      final authService = ref.read(authServiceProvider);
-      final currentUser = authService.currentUser;
-
-      if (currentUser == null) {
-        throw Exception('User not found');
-      }
-
-      // Add coins to user's balance
-      final newBalance = currentUser.coinBalance + coins;
-      await authService.updateUserCoinBalance(
-        newBalance,
-        transactionType: 'RECHARGE',
-        description: 'Credit Card coin recharge - $coins coins',
-        paymentId: paymentData['transId']?.toString() ??
-            paymentData['trans_id']?.toString(),
-      );
-
-      print(
-          '✅ Credit Card Payment completed! Added $coins coins. New balance: $newBalance');
-
-      // Show success message
+      // Show waiting message
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Successfully added $coins coins to your account!'),
-          backgroundColor: Colors.green,
+        const SnackBar(
+          content: Text('Payment submitted! Waiting for confirmation...'),
+          backgroundColor: Colors.orange,
+          duration: Duration(seconds: 3),
         ),
       );
 
-      // Call the completion callback
-      widget.onPaymentComplete();
+      // Start polling for payment status
+      _pollPaymentStatus(orderId);
     } catch (e) {
       print('❌ Credit Card Payment failed: $e');
       ScaffoldMessenger.of(context).showSnackBar(
@@ -498,6 +482,48 @@ class _CreditCardPaymentDialogState
         });
       }
     }
+  }
+
+  void _pollPaymentStatus(String orderId) async {
+    // Poll every 10 seconds for payment confirmation
+    Timer.periodic(const Duration(seconds: 10), (timer) async {
+      try {
+        print('🔍 Checking credit card payment status for order: $orderId');
+
+        // Call API to check payment status
+        final response = await http.get(
+          Uri.parse('${ApiService.baseUrl}/payment/status/$orderId'),
+          headers: await ApiService().getHeaders(),
+        );
+
+        if (response.statusCode == 200) {
+          final data = jsonDecode(response.body);
+          if (data['success'] == true &&
+              data['data']['status'] == 'COMPLETED') {
+            timer.cancel(); // Stop polling
+
+            print('✅ Credit Card payment confirmed via IPN!');
+
+            // Show success message
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text(
+                      'Payment confirmed! Coins have been added to your account.'),
+                  backgroundColor: Colors.green,
+                  duration: Duration(seconds: 3),
+                ),
+              );
+
+              // Call the completion callback
+              widget.onPaymentComplete();
+            }
+          }
+        }
+      } catch (e) {
+        print('❌ Error checking credit card payment status: $e');
+      }
+    });
   }
 }
 

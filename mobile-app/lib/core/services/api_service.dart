@@ -15,7 +15,12 @@ class ApiService {
   factory ApiService() => _instance;
   ApiService._internal();
 
-  // Get headers with authentication
+  // Get headers with authentication (public method)
+  Future<Map<String, String>> getHeaders() async {
+    return await _getHeaders();
+  }
+
+  // Get headers with authentication (private method)
   Future<Map<String, String>> _getHeaders() async {
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('access_token');

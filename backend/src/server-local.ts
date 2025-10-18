@@ -1611,8 +1611,13 @@ app.get('/api/v1/users/coin-transactions', authenticateToken, async (req, res): 
           payment: {
             select: {
               id: true,
+              extOrderId: true,
               amount: true,
               currency: true,
+              paymentMethod: true,
+              status: true,
+              createdAt: true,
+              completedAt: true,
             },
           },
         },
@@ -5487,6 +5492,153 @@ app.post('/api/v1/payment/create-credit-card-invoice', authenticateToken, async 
 });
 
 // Handle IPN notifications
+
+// Extract IPN processing logic into a reusable function
+async function processIPNNotification(notification: IPNNotification): Promise<void> {
+  // Find payment record
+  const payment = await prisma.payment.findUnique({
+    where: { extOrderId: notification.extOrderId },
+    include: { user: true },
+  });
+
+  if (!payment) {
+    console.error('Payment not found:', notification.extOrderId);
+    throw new Error('Payment not found');
+  }
+
+  if (notification.status === 'OK') {
+    // Update payment status
+    await prisma.payment.update({
+      where: { id: payment.id },
+      data: {
+        status: 'COMPLETED',
+        transactionId: notification.btcTxid || notification.txid,
+        completedAt: new Date(),
+      },
+    });
+
+    // Add coins to user balance
+    await prisma.user.update({
+      where: { id: payment.userId },
+      data: {
+        coinBalance: {
+          increment: payment.coins,
+        },
+      },
+    });
+
+    // Create coin transaction record
+    await prisma.coinTransaction.create({
+      data: {
+        userId: payment.userId,
+        type: 'RECHARGE',
+        amount: payment.coins,
+        description: `${payment.paymentMethod} coin recharge - ${payment.coins} coins`,
+        paymentId: payment.id,
+        metadata: {
+          paymentMethod: payment.paymentMethod,
+          transactionId: notification.btcTxid || notification.txid,
+          gatewayNotification: notification as any, // Type assertion for JSON storage
+        },
+      },
+    });
+
+    console.log(`✅ Payment completed: ${payment.coins} coins added to user ${payment.userId}`);
+  } else {
+    // Update payment status to failed
+    await prisma.payment.update({
+      where: { id: payment.id },
+      data: {
+        status: 'FAILED',
+        completedAt: new Date(),
+      },
+    });
+
+    console.log(`❌ Payment failed for order: ${notification.extOrderId}`);
+  }
+}
+
+// Demo endpoint to simulate IPN for local development
+app.post('/api/v1/payment/simulate-ipn/:orderId', async (req, res): Promise<void> => {
+  try {
+    const { orderId } = req.params;
+    console.log('🎭 Simulating IPN for local development - Order ID:', orderId);
+    
+    // Find the payment record
+    const payment = await prisma.payment.findUnique({
+      where: { extOrderId: orderId },
+      include: { user: true },
+    });
+
+    if (!payment) {
+      res.status(404).json({ success: false, message: 'Payment not found' });
+      return;
+    }
+
+    if (payment.status === 'COMPLETED') {
+      res.json({ success: true, message: 'Payment already completed' });
+      return;
+    }
+
+    // Simulate successful IPN notification
+    const mockIPN: IPNNotification = {
+      extOrderId: orderId,
+      status: 'OK',
+      sbpayMethod: payment.paymentMethod === 'USDT' ? 'cryptocurrency' : 'creditcard',
+      currencyCode: payment.paymentMethod === 'USDT' ? 'USDT' : 'USD',
+      btcTxid: payment.paymentMethod === 'USDT' ? `mock_tx_${Date.now()}` : '',
+      txid: payment.paymentMethod === 'USDT' ? `mock_tx_${Date.now()}` : '',
+      signature: 'mock_signature_for_local_dev',
+    };
+
+    // Process the mock IPN
+    await processIPNNotification(mockIPN);
+
+    res.json({ success: true, message: 'Mock IPN processed successfully' });
+  } catch (error) {
+    console.error('❌ Error simulating IPN:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
+
+// Payment status endpoint for frontend polling
+app.get('/api/v1/payment/status/:orderId', authenticateToken, async (req, res): Promise<void> => {
+  try {
+    const { orderId } = req.params;
+    
+    const payment = await prisma.payment.findUnique({
+      where: { extOrderId: orderId },
+      select: {
+        id: true,
+        status: true,
+        coins: true,
+        amount: true,
+        completedAt: true,
+        transactionId: true,
+      },
+    });
+
+    if (!payment) {
+      res.status(404).json({ success: false, message: 'Payment not found' });
+      return;
+    }
+
+    res.json({
+      success: true,
+      data: {
+        status: payment.status,
+        coins: payment.coins,
+        amount: payment.amount,
+        completedAt: payment.completedAt,
+        transactionId: payment.transactionId,
+      },
+    });
+  } catch (error) {
+    console.error('❌ Error checking payment status:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
+
 app.post('/api/v1/payment/ipn', express.urlencoded({ extended: true }), async (req, res): Promise<void> => {
   try {
     const notification: IPNNotification = req.body;
@@ -5501,50 +5653,7 @@ app.post('/api/v1/payment/ipn', express.urlencoded({ extended: true }), async (r
       return;
     }
 
-    // Find payment record
-    const payment = await prisma.payment.findUnique({
-      where: { extOrderId: notification.extOrderId },
-      include: { user: true },
-    });
-
-    if (!payment) {
-      console.error('Payment not found:', notification.extOrderId);
-      res.status(404).send('Payment not found');
-      return;
-    }
-
-    if (notification.status === 'OK') {
-      // Update payment status
-      await prisma.payment.update({
-        where: { id: payment.id },
-        data: {
-          status: 'COMPLETED',
-          transactionId: notification.btcTxid || notification.txid,
-          completedAt: new Date(),
-        },
-      });
-
-      // Add coins to user balance
-      await prisma.user.update({
-        where: { id: payment.userId },
-        data: {
-          coinBalance: {
-            increment: payment.coins,
-          },
-        },
-      });
-
-      console.log(`Payment completed: ${payment.coins} coins added to user ${payment.userId}`);
-    } else {
-      // Update payment status to failed
-      await prisma.payment.update({
-        where: { id: payment.id },
-        data: {
-          status: 'FAILED',
-          completedAt: new Date(),
-        },
-      });
-    }
+    await processIPNNotification(notification);
 
     res.send('OK');
     return;

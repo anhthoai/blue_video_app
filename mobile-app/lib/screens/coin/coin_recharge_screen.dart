@@ -27,7 +27,7 @@ class _CoinRechargeScreenState extends ConsumerState<CoinRechargeScreen> {
     _refreshUserBalance();
 
     // Debug: Print current user data
-    final currentUser = ref.read(authServiceProvider).currentUser;
+    final currentUser = ref.read(currentUserProvider);
     print('🔍 Coin Recharge Screen - Current User: ${currentUser?.toJson()}');
     print('🔍 Coin Balance: ${currentUser?.coinBalance}');
   }
@@ -180,7 +180,7 @@ class _CoinRechargeScreenState extends ConsumerState<CoinRechargeScreen> {
       await ref.read(authServiceProvider).refreshCurrentUser();
 
       // Debug: Print updated user data
-      final updatedUser = ref.read(authServiceProvider).currentUser;
+      final updatedUser = ref.read(currentUserProvider);
       print('✅ User balance refreshed: ${updatedUser?.coinBalance}');
     } catch (e) {
       print('❌ Failed to refresh user balance: $e');
@@ -189,8 +189,8 @@ class _CoinRechargeScreenState extends ConsumerState<CoinRechargeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final authState = ref.watch(authServiceProvider);
-    final userCoinBalance = authState.currentUser?.coinBalance ?? 0;
+    final currentUser = ref.watch(currentUserProvider);
+    final userCoinBalance = currentUser?.coinBalance ?? 0;
 
     return Scaffold(
       backgroundColor: Colors.white,

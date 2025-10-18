@@ -663,7 +663,7 @@ class _CoinHistoryScreenState extends ConsumerState<CoinHistoryScreen>
               ),
               const SizedBox(width: 4),
               Text(
-                _formatDate(createdAt),
+                _formatDateTime(createdAt),
                 style: TextStyle(
                   fontSize: 12,
                   color: Colors.grey[500],
@@ -687,6 +687,30 @@ class _CoinHistoryScreenState extends ConsumerState<CoinHistoryScreen>
               ],
             ],
           ),
+          // Show extOrderId for RECHARGE transactions
+          if (type == 'RECHARGE' &&
+              payment != null &&
+              payment['extOrderId'] != null) ...[
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Icon(
+                  Icons.receipt_long,
+                  size: 14,
+                  color: Colors.grey[500],
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  'Order ID: ${payment['extOrderId']}',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey[500],
+                    fontFamily: 'monospace',
+                  ),
+                ),
+              ],
+            ),
+          ],
         ],
       ),
     );
@@ -711,5 +735,17 @@ class _CoinHistoryScreenState extends ConsumerState<CoinHistoryScreen>
     } else {
       return 'Just now';
     }
+  }
+
+  String _formatDateTime(DateTime date) {
+    // Format as: "2024-12-25 14:30:45"
+    final year = date.year.toString();
+    final month = date.month.toString().padLeft(2, '0');
+    final day = date.day.toString().padLeft(2, '0');
+    final hour = date.hour.toString().padLeft(2, '0');
+    final minute = date.minute.toString().padLeft(2, '0');
+    final second = date.second.toString().padLeft(2, '0');
+
+    return '$year-$month-$day $hour:$minute:$second';
   }
 }
