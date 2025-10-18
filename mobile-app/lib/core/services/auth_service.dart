@@ -47,8 +47,15 @@ class AuthService {
     _isNotifying = true;
 
     try {
-      for (final listener in _listeners) {
-        listener();
+      // Create a copy of listeners to avoid issues if listeners are removed during iteration
+      final listenersCopy = List<VoidCallback>.from(_listeners);
+      for (final listener in listenersCopy) {
+        try {
+          listener();
+        } catch (e) {
+          print('Error notifying listener: $e');
+          // Continue with other listeners even if one fails
+        }
       }
     } finally {
       _isNotifying = false;
@@ -117,11 +124,21 @@ class AuthService {
   }
 
   // Update current user's coin balance
-  Future<void> updateUserCoinBalance(int newBalance) async {
+  Future<void> updateUserCoinBalance(int newBalance,
+      {String? transactionType,
+      String? description,
+      String? paymentId,
+      String? relatedPostId}) async {
     if (_currentUser != null) {
       try {
         // Update coin balance in database via API
-        final success = await _apiService.updateUserCoinBalance(newBalance);
+        final success = await _apiService.updateUserCoinBalance(
+          newBalance,
+          transactionType: transactionType,
+          description: description,
+          paymentId: paymentId,
+          relatedPostId: relatedPostId,
+        );
 
         if (success) {
           // Update local user object
@@ -147,12 +164,18 @@ class AuthService {
     bool rememberMe = false,
   }) async {
     try {
+      print('🔐 AuthService: Starting login for $email');
       final response =
           await _apiService.login(email, password, rememberMe: rememberMe);
+
+      print('🔐 AuthService: Login response received: ${response['success']}');
 
       if (response['success'] == true && response['data'] != null) {
         final userData = response['data']['user'];
         final tokens = response['data'];
+
+        print(
+            '🔐 AuthService: Creating user model for ${userData['username']}');
 
         _currentUser = UserModel(
           id: userData['id'] ?? 'unknown',
@@ -174,11 +197,19 @@ class AuthService {
         // Always save user data to ensure coin balance is available
         await _saveUserToPrefs();
 
+        print('🔐 AuthService: User data saved, notifying listeners');
+
+        // Notify listeners that user has changed
+        _notifyListeners();
+
+        print('🔐 AuthService: Login successful for ${_currentUser?.username}');
         return _currentUser;
+      } else {
+        print('🔐 AuthService: Login failed - invalid response: $response');
+        return null;
       }
-      return null;
     } catch (e) {
-      print('Login error: $e');
+      print('🔐 AuthService: Login error: $e');
       return null;
     }
   }
@@ -232,6 +263,7 @@ class AuthService {
       print('Logout API error: $e');
     }
     await _clearStoredUser();
+    _notifyListeners();
   }
 
   Future<bool> forgotPassword(String email) async {
@@ -358,7 +390,28 @@ final authStateProvider = StreamProvider<UserModel?>((ref) async* {
   yield* authService.authStateChanges;
 });
 
-final currentUserProvider = Provider<UserModel?>((ref) {
+// Create a StateNotifier for current user
+class CurrentUserNotifier extends StateNotifier<UserModel?> {
+  final AuthService _authService;
+
+  CurrentUserNotifier(this._authService) : super(_authService.currentUser) {
+    // Listen to auth service changes
+    _authService.addListener(_onAuthServiceChanged);
+  }
+
+  void _onAuthServiceChanged() {
+    state = _authService.currentUser;
+  }
+
+  @override
+  void dispose() {
+    _authService.removeListener(_onAuthServiceChanged);
+    super.dispose();
+  }
+}
+
+final currentUserProvider =
+    StateNotifierProvider<CurrentUserNotifier, UserModel?>((ref) {
   final authService = ref.watch(authServiceProvider);
-  return authService.currentUser;
+  return CurrentUserNotifier(authService);
 });

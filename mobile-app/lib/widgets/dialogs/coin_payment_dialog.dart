@@ -251,7 +251,12 @@ class _CoinPaymentDialogState extends ConsumerState<CoinPaymentDialog> {
 
       // Update user's coin balance
       final newBalance = currentUser.coinBalance - coinCost;
-      await authService.updateUserCoinBalance(newBalance);
+      await authService.updateUserCoinBalance(
+        newBalance,
+        transactionType: 'USED',
+        description: 'Unlocked post content - $coinCost coins',
+        relatedPostId: widget.postId,
+      );
 
       print('✅ User coin balance updated: $newBalance');
 

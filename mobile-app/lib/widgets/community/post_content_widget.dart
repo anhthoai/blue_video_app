@@ -8,6 +8,7 @@ import 'nsfw_blur_wrapper.dart';
 import 'coin_vip_indicator.dart';
 import '../dialogs/coin_payment_dialog.dart';
 import '../../core/providers/unlocked_posts_provider.dart';
+import '../../core/services/auth_service.dart';
 
 class PostContentWidget extends ConsumerWidget {
   final CommunityPost post;
@@ -661,6 +662,15 @@ class PostContentWidget extends ConsumerWidget {
   }
 
   void _showPaymentDialog(BuildContext context, WidgetRef ref) {
+    // Check if current user is the author of this post
+    final currentUser = ref.read(authServiceProvider).currentUser;
+    if (currentUser != null && currentUser.id == post.userId) {
+      print(
+          '✅ User ${currentUser.username} is the author of post ${post.id}, showing media directly');
+      _showFullscreenMediaViewer(context, _getAllMedia());
+      return;
+    }
+
     // Check if post is already unlocked (from database or memory)
     final isUnlockedInMemory =
         ref.read(unlockedPostsProvider.notifier).isPostUnlocked(post.id);

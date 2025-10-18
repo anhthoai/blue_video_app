@@ -118,12 +118,16 @@ class _CurrentUserProfileScreenState
     }
 
     return Scaffold(
+      key: ValueKey(
+          'profile_${currentUser.id}'), // Force rebuild when user changes
       body: Column(
         children: [
           // Header
           _buildCurrentUserHeader(currentUser),
           // Stats
           _buildCurrentUserStats(),
+          // Wallet quick actions (Coin Recharge / History)
+          _buildWalletQuickActions(),
           // Tab Bar
           TabBar(
             controller: _tabController,
@@ -185,8 +189,64 @@ class _CurrentUserProfileScreenState
     );
   }
 
+  Widget _buildWalletQuickActions() {
+    final user = ref.read(authServiceProvider).currentUser;
+    final coinBalance = user?.coinBalance ?? 0;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+      decoration: BoxDecoration(
+        border: Border(
+          bottom: BorderSide(color: Colors.grey[300]!),
+          top: BorderSide(color: Colors.grey[300]!),
+        ),
+      ),
+      child: Row(
+        children: [
+          // Balance pill
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: const Color(0xFF8B5CF6).withOpacity(0.08),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.monetization_on,
+                    color: Color(0xFF8B5CF6), size: 16),
+                const SizedBox(width: 4),
+                Text(
+                  '$coinBalance coins',
+                  style: const TextStyle(
+                    color: Color(0xFF8B5CF6),
+                    fontWeight: FontWeight.w600,
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const Spacer(),
+          _WalletActionButton(
+            icon: Icons.account_balance_wallet_outlined,
+            label: 'Recharge',
+            onTap: () => context.push('/main/coin-recharge'),
+          ),
+          const SizedBox(width: 8),
+          _WalletActionButton(
+            icon: Icons.receipt_long_outlined,
+            label: 'History',
+            onTap: () => context.push('/main/coin-history'),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildCurrentUserHeader(user) {
     return Container(
+      key: ValueKey('header_${user.id}'), // Force rebuild when user changes
       decoration: const BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topCenter,
@@ -293,6 +353,7 @@ class _CurrentUserProfileScreenState
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Text(
+                        key: ValueKey('username_${user.id}'),
                         user.username,
                         style: const TextStyle(
                           fontSize: 18,
@@ -310,6 +371,7 @@ class _CurrentUserProfileScreenState
                   if (user.bio != null && user.bio!.isNotEmpty) ...[
                     const SizedBox(height: 4),
                     Text(
+                      key: ValueKey('bio_${user.id}'),
                       user.bio!,
                       style: const TextStyle(
                         fontSize: 12,
@@ -715,6 +777,39 @@ class _CurrentUserProfileScreenState
           style: const TextStyle(fontWeight: FontWeight.bold),
         ),
       ],
+    );
+  }
+
+  Widget _WalletActionButton({
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        decoration: BoxDecoration(
+          color: Colors.grey[100],
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 16, color: Colors.grey[700]),
+            const SizedBox(width: 4),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 11,
+                color: Colors.grey[800],
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 

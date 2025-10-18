@@ -93,7 +93,12 @@ const authenticateToken = async (req: any, res: any, next: any) => {
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
 
+    console.log('🔍 Auth middleware - URL:', req.url);
+    console.log('🔍 Auth middleware - Auth header:', authHeader);
+    console.log('🔍 Auth middleware - Token:', token ? 'Present' : 'Missing');
+
     if (!token) {
+      console.log('❌ No token provided');
       return res.status(401).json({
         success: false,
         message: 'Authentication required',
@@ -103,14 +108,19 @@ const authenticateToken = async (req: any, res: any, next: any) => {
     const JWT_SECRET = process.env['JWT_SECRET'] || 'your_super_secret_jwt_key_here';
     const decoded = jwt.verify(token, JWT_SECRET) as any;
     
+    console.log('🔍 Auth middleware - Decoded token:', decoded);
+    
     // Attach user info to request
     req.user = {
       id: decoded.userId,
       email: decoded.email,
     };
     
+    console.log('🔍 Auth middleware - Attached user:', req.user);
+    
     next();
   } catch (error) {
+    console.log('❌ Auth middleware error:', error);
     return res.status(401).json({
       success: false,
       message: 'Invalid or expired token',
@@ -153,7 +163,10 @@ app.post('/api/v1/auth/login', async (req, res) => {
   try {
     const { email, password, rememberMe } = req.body;
     
+    console.log(`🔐 Login attempt - Email: ${email}`);
+    
     if (!email || !password) {
+      console.log('❌ Missing email or password');
       res.status(400).json({
         success: false,
         message: 'Email and password are required',
@@ -167,17 +180,23 @@ app.post('/api/v1/auth/login', async (req, res) => {
     });
 
     if (!user) {
+      console.log(`❌ User not found: ${email}`);
       res.status(401).json({
         success: false,
         message: 'Invalid email or password',
       });
       return;
     }
+
+    console.log(`✅ User found: ${user.username} (${user.email})`);
+    console.log(`🔍 User isActive: ${user.isActive}`);
+    console.log(`🔍 User role: ${user.role}`);
 
     // Verify password
     const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
 
     if (!isPasswordValid) {
+      console.log('❌ Invalid password');
       res.status(401).json({
         success: false,
         message: 'Invalid email or password',
@@ -185,8 +204,11 @@ app.post('/api/v1/auth/login', async (req, res) => {
       return;
     }
 
+    console.log('✅ Password valid');
+
     // Check if user is active
     if (!user.isActive) {
+      console.log('❌ Account disabled');
       res.status(403).json({
         success: false,
         message: 'Account is disabled',
@@ -209,6 +231,9 @@ app.post('/api/v1/auth/login', async (req, res) => {
     );
 
     // Return user data and tokens
+    console.log(`✅ Login successful for ${user.email}`);
+    console.log(`🔑 Generated access token (expires in ${accessTokenExpiry})`);
+    
     res.json({
       success: true,
       message: 'Login successful',
@@ -232,7 +257,7 @@ app.post('/api/v1/auth/login', async (req, res) => {
       },
     });
   } catch (error) {
-    console.error('Login error:', error);
+    console.error('❌ Login error:', error);
     res.status(500).json({
       success: false,
       message: 'Login failed',
@@ -1510,6 +1535,167 @@ app.get('/api/v1/categories', async (_req, res) => {
 // Helper function to get user ID from JWT token
 // Note: getCurrentUserId is already defined at line 116 - removed duplicate
 
+
+// Get coin transaction history (must be before /users/:userId route)
+app.get('/api/v1/users/coin-transactions', authenticateToken, async (req, res): Promise<void> => {
+  try {
+    const currentUserId = req.user?.id;
+    
+    console.log('🔍 Coin transactions request - User ID:', currentUserId);
+    console.log('🔍 Request headers:', req.headers);
+    console.log('🔍 Request user:', req.user);
+    
+    if (!currentUserId) {
+      console.log('❌ No user ID found in request');
+      res.status(401).json({
+        success: false,
+        message: 'Authentication required',
+      });
+      return;
+    }
+    
+    const { type, page = 1, limit = 20 } = req.query;
+    const pageNum = parseInt(page as string, 10);
+    const limitNum = parseInt(limit as string, 10);
+    const offset = (pageNum - 1) * limitNum;
+    
+    console.log('🔍 Query params:', { type, page: pageNum, limit: limitNum, offset });
+    
+    // Build where clause for filtering
+    const whereClause: any = {
+      userId: currentUserId,
+    };
+    
+    if (type && ['RECHARGE', 'EARNED', 'USED'].includes(type as string)) {
+      whereClause.type = type;
+    }
+    
+    console.log('🔍 Where clause:', whereClause);
+    
+    // Fetch transactions with pagination
+    const [transactions, totalCount] = await Promise.all([
+      prisma.coinTransaction.findMany({
+        where: whereClause,
+        include: {
+          relatedPost: {
+            select: {
+              id: true,
+              title: true,
+              type: true,
+              content: true,
+              createdAt: true,
+              user: {
+                select: {
+                  id: true,
+                  username: true,
+                  firstName: true,
+                  lastName: true,
+                  avatarUrl: true,
+                  avatar: true,
+                  fileDirectory: true,
+                },
+              },
+            },
+          },
+          relatedUser: {
+            select: {
+              id: true,
+              username: true,
+              firstName: true,
+              lastName: true,
+              avatarUrl: true,
+              avatar: true,
+              fileDirectory: true,
+            },
+          },
+          payment: {
+            select: {
+              id: true,
+              amount: true,
+              currency: true,
+            },
+          },
+        },
+        orderBy: {
+          createdAt: 'desc',
+        },
+        skip: offset,
+        take: limitNum,
+      }),
+      prisma.coinTransaction.count({
+        where: whereClause,
+      }),
+    ]);
+    
+    console.log(`🔍 Found ${transactions.length} transactions out of ${totalCount} total`);
+    
+    // Map transactions to response format with proper avatar URLs
+    const mappedTransactions = await Promise.all(transactions.map(async (transaction) => {
+      let relatedPost = transaction.relatedPost;
+      let relatedUser = transaction.relatedUser;
+      
+      // Build proper avatar URL for post author
+      if (relatedPost && relatedPost.user) {
+        const avatarUrl = relatedPost.user.avatar && relatedPost.user.fileDirectory
+          ? await buildFileUrl(relatedPost.user.fileDirectory, relatedPost.user.avatar, 'avatars')
+          : relatedPost.user.avatarUrl;
+        
+        relatedPost = {
+          ...relatedPost,
+          user: {
+            ...relatedPost.user,
+            avatarUrl: avatarUrl,
+          },
+        };
+      }
+      
+      // Build proper avatar URL for related user (buyer/seller)
+      if (relatedUser) {
+        const avatarUrl = relatedUser.avatar && relatedUser.fileDirectory
+          ? await buildFileUrl(relatedUser.fileDirectory, relatedUser.avatar, 'avatars')
+          : relatedUser.avatarUrl;
+        
+        relatedUser = {
+          ...relatedUser,
+          avatarUrl: avatarUrl,
+        };
+      }
+      
+      return {
+        id: transaction.id,
+        type: transaction.type,
+        amount: transaction.amount,
+        status: transaction.status,
+        description: transaction.description,
+        relatedPost: relatedPost,
+        relatedUser: relatedUser,
+        payment: transaction.payment,
+        metadata: transaction.metadata,
+        createdAt: transaction.createdAt,
+        updatedAt: transaction.updatedAt,
+      };
+    }));
+    
+    res.json({
+      success: true,
+      data: {
+        transactions: mappedTransactions,
+        pagination: {
+          page: pageNum,
+          limit: limitNum,
+          total: totalCount,
+          totalPages: Math.ceil(totalCount / limitNum),
+        },
+      },
+    });
+  } catch (error) {
+    console.error('❌ Error fetching coin transactions:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch coin transactions',
+    });
+  }
+});
 
 // Get user profile by ID
 app.get('/api/v1/users/:userId', async (req, res) => {
@@ -4494,7 +4680,7 @@ app.put('/api/v1/users/coin-balance', authenticateToken, async (req, res): Promi
       return;
     }
     
-    const { coinBalance } = req.body;
+    const { coinBalance, transactionType, description, paymentId, relatedPostId } = req.body;
     
     if (typeof coinBalance !== 'number' || coinBalance < 0) {
       res.status(400).json({
@@ -4505,6 +4691,22 @@ app.put('/api/v1/users/coin-balance', authenticateToken, async (req, res): Promi
     }
     
     console.log(`💰 Updating coin balance for user ${currentUserId}: ${coinBalance}`);
+    
+    // Get current user to calculate the difference
+    const currentUser = await prisma.user.findUnique({
+      where: { id: currentUserId },
+      select: { coinBalance: true },
+    });
+    
+    if (!currentUser) {
+      res.status(404).json({
+        success: false,
+        message: 'User not found',
+      });
+      return;
+    }
+    
+    const coinDifference = coinBalance - currentUser.coinBalance;
     
     // Update user's coin balance in database
     const updatedUser = await prisma.user.update({
@@ -4529,6 +4731,28 @@ app.put('/api/v1/users/coin-balance', authenticateToken, async (req, res): Promi
       },
     });
     
+    // Create coin transaction if there's a difference
+    if (coinDifference !== 0 && transactionType) {
+      await prisma.coinTransaction.create({
+        data: {
+          userId: currentUserId,
+          type: transactionType, // 'RECHARGE', 'EARNED', or 'USED'
+          amount: coinDifference,
+          description: description || `Coin balance ${coinDifference > 0 ? 'increased' : 'decreased'} by ${Math.abs(coinDifference)} coins`,
+          // Don't include paymentId for now to avoid foreign key constraint
+          relatedPostId: relatedPostId || null, // Make it optional
+          metadata: {
+            previousBalance: currentUser.coinBalance,
+            newBalance: coinBalance,
+            difference: coinDifference,
+            paymentId: paymentId, // Store in metadata instead
+          },
+        },
+      });
+      
+      console.log(`✅ Created coin transaction: ${transactionType} ${coinDifference} coins`);
+    }
+    
     console.log(`✅ Coin balance updated successfully: ${updatedUser.coinBalance}`);
     
     res.json({
@@ -4543,6 +4767,129 @@ app.put('/api/v1/users/coin-balance', authenticateToken, async (req, res): Promi
     res.status(500).json({
       success: false,
       message: 'Failed to update coin balance',
+    });
+  }
+});
+
+// Get coin transaction history
+
+// Create coin transaction (internal use)
+app.post('/api/v1/coin-transactions', authenticateToken, async (req, res): Promise<void> => {
+  try {
+    const currentUserId = req.user?.id;
+    
+    if (!currentUserId) {
+      res.status(401).json({
+        success: false,
+        message: 'Authentication required',
+      });
+      return;
+    }
+    
+    const {
+      type,
+      amount,
+      description,
+      relatedPostId,
+      relatedUserId,
+      paymentId,
+      metadata,
+    } = req.body;
+    
+    // Validate required fields
+    if (!type || !['RECHARGE', 'EARNED', 'USED'].includes(type)) {
+      res.status(400).json({
+        success: false,
+        message: 'Invalid transaction type',
+      });
+      return;
+    }
+    
+    if (typeof amount !== 'number' || amount === 0) {
+      res.status(400).json({
+        success: false,
+        message: 'Invalid amount',
+      });
+      return;
+    }
+    
+    console.log(`💰 Creating coin transaction: ${type} ${amount} coins for user ${currentUserId}`);
+    
+    // Create transaction
+    const transaction = await prisma.coinTransaction.create({
+      data: {
+        userId: currentUserId,
+        type,
+        amount,
+        description,
+        relatedPostId,
+        relatedUserId,
+        paymentId,
+        metadata,
+      },
+      include: {
+        relatedPost: {
+          select: {
+            id: true,
+            title: true,
+            type: true,
+          },
+        },
+        relatedUser: {
+          select: {
+            id: true,
+            username: true,
+            firstName: true,
+            lastName: true,
+          },
+        },
+        payment: {
+          select: {
+            id: true,
+            amount: true,
+            currency: true,
+          },
+        },
+      },
+    });
+    
+    console.log(`✅ Coin transaction created: ${transaction.id}`);
+    
+    res.json({
+      success: true,
+      data: {
+        transaction: {
+          id: transaction.id,
+          type: transaction.type,
+          amount: transaction.amount,
+          status: transaction.status,
+          description: transaction.description,
+          relatedPost: transaction.relatedPost ? {
+            id: transaction.relatedPost.id,
+            title: transaction.relatedPost.title,
+            type: transaction.relatedPost.type,
+          } : null,
+          relatedUser: transaction.relatedUser ? {
+            id: transaction.relatedUser.id,
+            username: transaction.relatedUser.username,
+            name: `${transaction.relatedUser.firstName || ''} ${transaction.relatedUser.lastName || ''}`.trim() || transaction.relatedUser.username,
+          } : null,
+          payment: transaction.payment ? {
+            id: transaction.payment.id,
+            amount: transaction.payment.amount,
+            currency: transaction.payment.currency,
+          } : null,
+          metadata: transaction.metadata,
+          createdAt: transaction.createdAt,
+          updatedAt: transaction.updatedAt,
+        },
+      },
+    });
+  } catch (error) {
+    console.error('❌ Error creating coin transaction:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to create coin transaction',
     });
   }
 });
@@ -5104,7 +5451,20 @@ app.post('/api/v1/posts/:postId/unlock', authenticateToken, async (req, res): Pr
     // Check if post exists and requires payment
     const post = await prisma.communityPost.findUnique({
       where: { id: postId },
-      select: { id: true, cost: true, requiresVip: true, userId: true },
+      select: { 
+        id: true, 
+        cost: true, 
+        requiresVip: true, 
+        userId: true,
+        title: true,
+        user: {
+          select: {
+            id: true,
+            username: true,
+            coinBalance: true,
+          },
+        },
+      },
     });
 
     if (!post) {
@@ -5152,6 +5512,44 @@ app.post('/api/v1/posts/:postId/unlock', authenticateToken, async (req, res): Pr
     });
 
     console.log(`✅ Post ${postId} unlocked for user ${currentUserId}`);
+
+    // Create EARNED transaction for post author (only for coin posts, not VIP posts)
+    if (post.cost > 0 && post.userId !== currentUserId) {
+      try {
+        // Add coins to author's balance
+        await prisma.user.update({
+          where: { id: post.userId },
+          data: {
+            coinBalance: {
+              increment: post.cost,
+            },
+          },
+        });
+
+        // Create EARNED transaction for author
+        await prisma.coinTransaction.create({
+          data: {
+            userId: post.userId,
+            type: 'EARNED',
+            amount: post.cost,
+            description: `Earned ${post.cost} coins from post "${post.title || 'Untitled'}"`,
+            relatedPostId: postId,
+            relatedUserId: currentUserId, // The buyer
+            metadata: {
+              postTitle: post.title,
+              buyerId: currentUserId,
+              earnings: post.cost,
+              unlockType: 'post_purchase',
+            },
+          },
+        });
+
+        console.log(`💰 Author ${post.userId} earned ${post.cost} coins from post ${postId} (bought by ${currentUserId})`);
+      } catch (error) {
+        console.error('❌ Error creating earned transaction:', error);
+        // Don't fail the unlock if earning transaction fails
+      }
+    }
 
     res.json({
       success: true,

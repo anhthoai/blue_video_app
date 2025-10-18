@@ -64,6 +64,10 @@ model User {
   // Payments
   payments       Payment[]
   unlockedPosts  UnlockedPost[]
+  
+  // Coin Transactions
+  coinTransactions CoinTransaction[]
+  relatedTransactions CoinTransaction[] @relation("UserRelatedTransactions")
 
   @@map("users")
 }
@@ -160,6 +164,9 @@ model CommunityPost {
   bookmarksList CommunityPostBookmark[] @relation("PostBookmarks")
   reportsList   CommunityPostReport[] @relation("PostReports")
   unlockedBy    UnlockedPost[]
+  
+  // Coin transactions
+  coinTransactions CoinTransaction[]
 
   @@map("community_posts")
 }
@@ -452,6 +459,7 @@ model Payment {
 
   // Relations
   user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  coinTransactions CoinTransaction[]
 
   @@index([userId])
   @@index([extOrderId])
@@ -475,4 +483,50 @@ model UnlockedPost {
   @@index([postId])
   @@index([unlockedAt])
   @@map("unlocked_posts")
+}
+
+enum CoinTransactionType {
+  RECHARGE    // User deposits coins (purchases)
+  EARNED      // User earns coins (from post payments, ads, etc.)
+  USED        // User spends coins (unlocking posts, subscriptions, etc.)
+}
+
+enum CoinTransactionStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+model CoinTransaction {
+  id          String                @id @default(uuid())
+  userId      String                @map("user_id")
+  type        CoinTransactionType
+  amount      Int                   // Positive for RECHARGE/EARNED, negative for USED
+  status      CoinTransactionStatus @default(COMPLETED)
+  description String?               // Human-readable description
+  
+  // Related entities (optional)
+  relatedPostId String?             @map("related_post_id") // For post-related transactions
+  relatedUserId String?             @map("related_user_id") // For user-to-user transactions
+  paymentId     String?             @map("payment_id")      // Link to payment record
+  
+  // Metadata
+  metadata    Json?                 // Additional data (payment method, etc.)
+  createdAt   DateTime              @default(now()) @map("created_at")
+  updatedAt   DateTime              @updatedAt @map("updated_at")
+
+  // Relations
+  user        User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  relatedPost CommunityPost?        @relation(fields: [relatedPostId], references: [id], onDelete: SetNull)
+  relatedUser User?                 @relation("UserRelatedTransactions", fields: [relatedUserId], references: [id], onDelete: SetNull)
+  payment     Payment?              @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([type])
+  @@index([status])
+  @@index([createdAt])
+  @@index([userId, type])
+  @@index([userId, createdAt])
+  @@map("coin_transactions")
 }

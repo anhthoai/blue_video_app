@@ -250,20 +250,35 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         rememberMe: _rememberMe,
       );
 
-      if (user != null && mounted) {
-        context.go('/main');
-      } else if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Login failed: Invalid credentials')),
-        );
+      if (user != null) {
+        // Login successful - navigate to main screen
+        if (mounted) {
+          context.go('/main');
+        }
+      } else {
+        // Login failed - show error message
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Login failed: Invalid credentials'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
       }
     } catch (e) {
+      print('Login error: $e');
+      // Show error message only if widget is still mounted
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Login failed: $e')),
+          SnackBar(
+            content: Text('Login error: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     } finally {
+      // Always reset loading state if widget is still mounted
       if (mounted) {
         setState(() {
           _isLoading = false;

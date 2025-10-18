@@ -105,6 +105,15 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
   }
 
   void _showPaymentDialog(CommunityPost post) {
+    // Check if current user is the author of this post
+    final currentUser = ref.read(authServiceProvider).currentUser;
+    if (currentUser != null && currentUser.id == post.userId) {
+      print(
+          '✅ User ${currentUser.username} is the author of post ${post.id}, opening media directly');
+      _openMediaAfterPayment(post);
+      return;
+    }
+
     // Check if post is already unlocked (from database or memory)
     final isUnlockedInMemory =
         ref.read(unlockedPostsProvider.notifier).isPostUnlocked(post.id);

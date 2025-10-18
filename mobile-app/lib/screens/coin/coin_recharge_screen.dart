@@ -166,7 +166,7 @@ class _CoinRechargeScreenState extends ConsumerState<CoinRechargeScreen> {
                     ),
                     TextButton(
                       onPressed: () {
-                        // TODO: Navigate to recharge record
+                        context.push('/main/coin-history');
                       },
                       child: const Text(
                         'Recharge Record',
@@ -554,7 +554,12 @@ class _PaymentDialogState extends ConsumerState<PaymentDialog> {
 
       // Add coins to user's balance
       final newBalance = currentUser.coinBalance + coins;
-      await authService.updateUserCoinBalance(newBalance);
+      await authService.updateUserCoinBalance(
+        newBalance,
+        transactionType: 'RECHARGE',
+        description: 'Coin recharge - $coins coins',
+        paymentId: paymentData['paymentId'] as String?,
+      );
 
       print(
           '✅ Payment completed! Added $coins coins. New balance: $newBalance');

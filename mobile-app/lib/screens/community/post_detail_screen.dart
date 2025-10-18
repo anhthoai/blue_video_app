@@ -227,6 +227,15 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
   }
 
   void _showPaymentDialog() {
+    // Check if current user is the author of this post
+    final currentUser = ref.read(authServiceProvider).currentUser;
+    if (currentUser != null && currentUser.id == _post!.userId) {
+      print(
+          '✅ User ${currentUser.username} is the author of post ${_post!.id}, opening media directly');
+      _openMediaAfterPayment();
+      return;
+    }
+
     // Check if post is already unlocked (from database or memory)
     final isUnlockedInMemory =
         ref.read(unlockedPostsProvider.notifier).isPostUnlocked(_post!.id);

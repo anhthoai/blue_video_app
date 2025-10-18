@@ -20,6 +20,12 @@ class ApiService {
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('access_token');
 
+    print(
+        '🔍 API Service - Token from SharedPreferences: ${token != null ? 'Present' : 'Missing'}');
+    if (token != null) {
+      print('🔍 API Service - Token preview: ${token.substring(0, 20)}...');
+    }
+
     return {
       'Content-Type': 'application/json',
       if (token != null) 'Authorization': 'Bearer $token',
@@ -1321,13 +1327,25 @@ class ApiService {
   }
 
   // Update user coin balance
-  Future<bool> updateUserCoinBalance(int newBalance) async {
+  Future<bool> updateUserCoinBalance(int newBalance,
+      {String? transactionType,
+      String? description,
+      String? paymentId,
+      String? relatedPostId}) async {
     try {
       final headers = await _getHeaders();
+      final body = {
+        'coinBalance': newBalance,
+        if (transactionType != null) 'transactionType': transactionType,
+        if (description != null) 'description': description,
+        if (paymentId != null) 'paymentId': paymentId,
+        if (relatedPostId != null) 'relatedPostId': relatedPostId,
+      };
+
       final response = await http.put(
         Uri.parse('$baseUrl/users/coin-balance'),
         headers: headers,
-        body: jsonEncode({'coinBalance': newBalance}),
+        body: jsonEncode(body),
       );
 
       final data = await _handleResponse(response);
@@ -1335,6 +1353,89 @@ class ApiService {
     } catch (e) {
       print('Error updating user coin balance: $e');
       return false;
+    }
+  }
+
+  // Get coin transaction history
+  Future<List<Map<String, dynamic>>> getCoinTransactions({
+    String? type,
+    int page = 1,
+    int limit = 20,
+  }) async {
+    try {
+      final headers = await _getHeaders();
+      final queryParams = <String, String>{
+        'page': page.toString(),
+        'limit': limit.toString(),
+      };
+
+      if (type != null) {
+        queryParams['type'] = type;
+      }
+
+      // Use the real endpoint with authentication
+      final uri = Uri.parse('$baseUrl/users/coin-transactions').replace(
+        queryParameters: queryParams,
+      );
+
+      print('🔍 Fetching coin transactions from: $uri');
+      print('🔍 Headers: $headers');
+
+      final response = await http.get(uri, headers: headers);
+      print('🔍 Response status: ${response.statusCode}');
+      print('🔍 Response body: ${response.body}');
+
+      final data = await _handleResponse(response);
+
+      if (data['success'] == true) {
+        return List<Map<String, dynamic>>.from(data['data']['transactions']);
+      } else {
+        throw Exception(data['message'] ?? 'Failed to fetch coin transactions');
+      }
+    } catch (e) {
+      print('Error getting coin transactions: $e');
+      rethrow;
+    }
+  }
+
+  // Create coin transaction (internal use)
+  Future<Map<String, dynamic>?> createCoinTransaction({
+    required String type,
+    required int amount,
+    String? description,
+    String? relatedPostId,
+    String? relatedUserId,
+    String? paymentId,
+    Map<String, dynamic>? metadata,
+  }) async {
+    try {
+      final headers = await _getHeaders();
+      final body = {
+        'type': type,
+        'amount': amount,
+        if (description != null) 'description': description,
+        if (relatedPostId != null) 'relatedPostId': relatedPostId,
+        if (relatedUserId != null) 'relatedUserId': relatedUserId,
+        if (paymentId != null) 'paymentId': paymentId,
+        if (metadata != null) 'metadata': metadata,
+      };
+
+      final response = await http.post(
+        Uri.parse('$baseUrl/coin-transactions'),
+        headers: headers,
+        body: jsonEncode(body),
+      );
+
+      final data = await _handleResponse(response);
+
+      if (data['success'] == true) {
+        return data['data']['transaction'];
+      } else {
+        throw Exception(data['message'] ?? 'Failed to create coin transaction');
+      }
+    } catch (e) {
+      print('Error creating coin transaction: $e');
+      rethrow;
     }
   }
 }

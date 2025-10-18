@@ -24,6 +24,7 @@ import '../../screens/community/tag_posts_screen.dart';
 import '../../screens/community/post_detail_screen.dart';
 import '../../screens/community/search_results_screen.dart';
 import '../../screens/coin/coin_recharge_screen.dart';
+import '../../screens/coin/coin_history_screen.dart';
 import '../../screens/discover/category_detail_screen.dart';
 import '../../models/category_model.dart';
 
@@ -129,6 +130,10 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: 'coin-recharge',
             builder: (context, state) => const CoinRechargeScreen(),
+          ),
+          GoRoute(
+            path: 'coin-history',
+            builder: (context, state) => const CoinHistoryScreen(),
           ),
 
           // Profile Routes
