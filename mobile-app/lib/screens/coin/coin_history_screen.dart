@@ -158,8 +158,8 @@ class _CoinHistoryScreenState extends ConsumerState<CoinHistoryScreen>
 
   @override
   Widget build(BuildContext context) {
-    final authState = ref.watch(authServiceProvider);
-    final userCoinBalance = authState.currentUser?.coinBalance ?? 0;
+    final currentUser = ref.watch(currentUserProvider);
+    final userCoinBalance = currentUser?.coinBalance ?? 0;
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -198,7 +198,15 @@ class _CoinHistoryScreenState extends ConsumerState<CoinHistoryScreen>
                           ),
                         ),
                         IconButton(
-                          onPressed: () => _loadTransactions(refresh: true),
+                          onPressed: () async {
+                            await _loadTransactions(refresh: true);
+                            // Also refresh user balance from server
+                            try {
+                              await ref
+                                  .read(authServiceProvider)
+                                  .refreshCurrentUser();
+                            } catch (_) {}
+                          },
                           icon: const Icon(Icons.refresh, color: Colors.white),
                         ),
                       ],
@@ -352,9 +360,11 @@ class _CoinHistoryScreenState extends ConsumerState<CoinHistoryScreen>
     final relatedUser = transaction['relatedUser'] as Map<String, dynamic>?;
     final payment = transaction['payment'] as Map<String, dynamic>?;
 
-    final isPositive = amount > 0;
-    final amountColor = isPositive ? Colors.green : Colors.red;
-    final amountPrefix = isPositive ? '+' : '';
+    // For USED transactions, always show in red without prefix
+    // For RECHARGE and EARNED, show in green with + prefix
+    final isUsed = type == 'USED';
+    final amountColor = isUsed ? Colors.red : Colors.green;
+    final amountPrefix = isUsed ? '' : '+';
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),

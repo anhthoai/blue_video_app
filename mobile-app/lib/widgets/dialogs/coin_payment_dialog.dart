@@ -285,10 +285,16 @@ class _CoinPaymentDialogState extends ConsumerState<CoinPaymentDialog> {
 /// VIP Payment Dialog (similar to coin but for VIP posts)
 class VipPaymentDialog extends ConsumerWidget {
   final VoidCallback? onPaymentSuccess;
+  final String? authorId;
+  final String? authorName;
+  final String? authorAvatar;
 
   const VipPaymentDialog({
     super.key,
     this.onPaymentSuccess,
+    this.authorId,
+    this.authorName,
+    this.authorAvatar,
   });
 
   @override
@@ -381,8 +387,15 @@ class VipPaymentDialog extends ConsumerWidget {
                         onPaymentSuccess?.call();
                       } else {
                         // Navigate to VIP subscription screen
-                        if (context.mounted) {
-                          context.push('/main/vip-subscription');
+                        if (context.mounted && authorId != null) {
+                          final uri = Uri(
+                            path: '/main/vip-subscription/$authorId',
+                            queryParameters: {
+                              'name': authorName ?? 'Author',
+                              if (authorAvatar != null) 'avatar': authorAvatar!,
+                            },
+                          );
+                          context.push(uri.toString());
                         }
                       }
                     },
@@ -415,12 +428,18 @@ class VipPaymentDialog extends ConsumerWidget {
   static Future<bool?> show(
     BuildContext context, {
     VoidCallback? onPaymentSuccess,
+    String? authorId,
+    String? authorName,
+    String? authorAvatar,
   }) {
     return showDialog<bool>(
       context: context,
       barrierDismissible: false,
       builder: (context) => VipPaymentDialog(
         onPaymentSuccess: onPaymentSuccess,
+        authorId: authorId,
+        authorName: authorName,
+        authorAvatar: authorAvatar,
       ),
     );
   }

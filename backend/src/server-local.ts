@@ -1702,6 +1702,547 @@ app.get('/api/v1/users/coin-transactions', authenticateToken, async (req, res): 
   }
 });
 
+// ==================== VIP SUBSCRIPTION ENDPOINTS ====================
+
+// Check VIP subscription status for a specific author
+app.get('/api/v1/authors/:authorId/vip-status', authenticateToken, async (req, res): Promise<void> => {
+  try {
+    const currentUserId = req.user?.id;
+    const { authorId } = req.params;
+    
+    if (!currentUserId) {
+      res.status(401).json({
+        success: false,
+        message: 'Authentication required',
+      });
+      return;
+    }
+    
+    console.log(`🔍 Checking VIP status: User ${currentUserId} -> Author ${authorId}`);
+    
+    const subscription = await prisma.vipSubscription.findFirst({
+      where: {
+        subscriberId: currentUserId,
+        authorId: authorId,
+        status: 'ACTIVE',
+        endDate: {
+          gt: new Date(),
+        },
+      },
+      include: {
+        package: true,
+      },
+    });
+    
+    const isVip = !!subscription;
+    
+    console.log(`✅ VIP status for user ${currentUserId} -> author ${authorId}: ${isVip ? 'ACTIVE' : 'INACTIVE'}`);
+    
+    res.json({
+      success: true,
+      data: {
+        isVip: isVip,
+        subscription: subscription ? {
+          id: subscription.id,
+          endDate: subscription.endDate,
+          package: {
+            duration: subscription.package.duration,
+            price: subscription.package.price,
+          },
+        } : null,
+      },
+    });
+  } catch (error) {
+    console.error('❌ Error checking VIP status:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to check VIP status',
+    });
+  }
+});
+
+// Get VIP packages for an author
+app.get('/api/v1/authors/:authorId/vip-packages', authenticateToken, async (req, res): Promise<void> => {
+  try {
+    const { authorId } = req.params;
+    
+    console.log(`🔍 Fetching VIP packages for author: ${authorId}`);
+    
+    let packages = await prisma.vipPackage.findMany({
+      where: {
+        authorId: authorId,
+        isActive: true,
+      },
+      orderBy: {
+        duration: 'asc',
+      },
+    });
+    
+    // If no packages exist, create default ones
+    if (packages.length === 0) {
+      console.log(`📦 No VIP packages found for author ${authorId}, creating default packages...`);
+      
+      const defaultPackages = [
+        {
+          authorId: authorId,
+          duration: 'ONE_MONTH' as const,
+          price: 0, // Will be calculated based on coins
+          coins: 699, // 699 coins for 1 month
+        },
+        {
+          authorId: authorId,
+          duration: 'THREE_MONTHS' as const,
+          price: 0, // Will be calculated based on coins
+          coins: 1999, // 1999 coins for 3 months
+        },
+        {
+          authorId: authorId,
+          duration: 'SIX_MONTHS' as const,
+          price: 0, // Will be calculated based on coins
+          coins: 3599, // 3599 coins for 6 months
+        },
+        {
+          authorId: authorId,
+          duration: 'TWELVE_MONTHS' as const,
+          price: 0, // Will be calculated based on coins
+          coins: 5999, // 5999 coins for 12 months
+        },
+      ];
+      
+      await prisma.vipPackage.createMany({
+        data: defaultPackages,
+      });
+      
+      // Fetch the newly created packages
+      packages = await prisma.vipPackage.findMany({
+        where: {
+          authorId: authorId,
+          isActive: true,
+        },
+        orderBy: {
+          duration: 'asc',
+        },
+      });
+      
+      console.log(`✅ Created and fetched ${packages.length} VIP packages for author ${authorId}`);
+    } else {
+      console.log(`✅ Found ${packages.length} VIP packages for author ${authorId}`);
+    }
+    
+    res.json({
+      success: true,
+      data: packages.map(pkg => ({
+        id: pkg.id,
+        duration: pkg.duration,
+        price: pkg.price,
+        coins: pkg.coins,
+        isActive: pkg.isActive,
+        createdAt: pkg.createdAt,
+      })),
+    });
+  } catch (error) {
+    console.error('❌ Error fetching VIP packages:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch VIP packages',
+    });
+  }
+});
+
+// Create VIP subscription
+app.post('/api/v1/vip-subscriptions', authenticateToken, async (req, res): Promise<void> => {
+  try {
+    const currentUserId = req.user?.id;
+    const { authorId, packageId, paymentMethod: requestedMethod } = req.body;
+    
+    if (!currentUserId) {
+      res.status(401).json({
+        success: false,
+        message: 'Authentication required',
+      });
+      return;
+    }
+    
+    if (!authorId || !packageId) {
+      res.status(400).json({
+        success: false,
+        message: 'Author ID and Package ID are required',
+      });
+      return;
+    }
+    
+    // Check if user is trying to subscribe to themselves
+    if (currentUserId === authorId) {
+      res.status(400).json({
+        success: false,
+        message: 'You cannot subscribe to yourself',
+      });
+      return;
+    }
+    
+    // Get the VIP package
+    const vipPackage = await prisma.vipPackage.findUnique({
+      where: { id: packageId },
+      include: { author: true },
+    });
+    
+    if (!vipPackage) {
+      res.status(404).json({
+        success: false,
+        message: 'VIP package not found',
+      });
+      return;
+    }
+    
+    // Check if package belongs to the author
+    if (vipPackage.authorId !== authorId) {
+      res.status(400).json({
+        success: false,
+        message: 'Package does not belong to the specified author',
+      });
+      return;
+    }
+    
+   // Check if user already has an ACTIVE subscription (PENDING should not block a new attempt)
+   const existingSubscription = await prisma.vipSubscription.findFirst({
+     where: {
+       subscriberId: currentUserId,
+       authorId: authorId,
+       status: 'ACTIVE',
+       endDate: {
+         gt: new Date(),
+       },
+     },
+   });
+    
+    if (existingSubscription) {
+      res.status(400).json({
+        success: false,
+        message: 'You already have an active VIP subscription for this author',
+      });
+      return;
+    }
+    
+    // Get user's current coin balance and username
+    const user = await prisma.user.findUnique({
+      where: { id: currentUserId },
+      select: { coinBalance: true, username: true },
+    });
+    
+    if (!user) {
+      res.status(404).json({
+        success: false,
+        message: 'User not found',
+      });
+      return;
+    }
+    
+    const userCoins = user.coinBalance;
+    const requiredCoins = vipPackage.coins;
+    
+    // Calculate subscription end date
+    const startDate = new Date();
+    const endDate = new Date();
+    
+    switch (vipPackage.duration) {
+      case 'ONE_MONTH':
+        endDate.setMonth(endDate.getMonth() + 1);
+        break;
+      case 'THREE_MONTHS':
+        endDate.setMonth(endDate.getMonth() + 3);
+        break;
+      case 'SIX_MONTHS':
+        endDate.setMonth(endDate.getMonth() + 6);
+        break;
+      case 'TWELVE_MONTHS':
+        endDate.setFullYear(endDate.getFullYear() + 1);
+        break;
+    }
+    
+    // Check if user has enough coins
+    if (userCoins >= requiredCoins) {
+      // User has enough coins - process payment immediately
+      const extOrderId = `VIP${Date.now()}`;
+      
+      // Deduct coins from user
+      await prisma.user.update({
+        where: { id: currentUserId },
+        data: { coinBalance: userCoins - requiredCoins },
+      });
+      
+      // Add coins to author
+      const author = await prisma.user.findUnique({
+        where: { id: authorId },
+        select: { coinBalance: true },
+      });
+      
+      if (author) {
+        await prisma.user.update({
+          where: { id: authorId },
+          data: { coinBalance: author.coinBalance + requiredCoins },
+        });
+      }
+      
+      // Create payment record (completed)
+      const payment = await prisma.payment.create({
+        data: {
+          userId: currentUserId,
+          extOrderId: extOrderId,
+          amount: requiredCoins / 100, // Convert coins to USD for display
+          coins: requiredCoins,
+          currency: 'USD',
+          paymentMethod: 'COINS',
+          status: 'COMPLETED',
+          completedAt: new Date(),
+          metadata: {
+            type: 'VIP_SUBSCRIPTION',
+            authorId: authorId,
+            packageId: packageId,
+            duration: vipPackage.duration,
+          },
+        },
+      });
+      
+      // Create VIP subscription record (active)
+      const subscription = await prisma.vipSubscription.create({
+        data: {
+          subscriberId: currentUserId,
+          authorId: authorId,
+          packageId: packageId,
+          startDate: startDate,
+          endDate: endDate,
+          status: 'ACTIVE',
+          paymentId: payment.id,
+        },
+      });
+      
+      // Create coin transactions
+      await prisma.coinTransaction.createMany({
+        data: [
+          {
+            userId: currentUserId,
+            type: 'USED',
+            amount: requiredCoins,
+            description: `VIP subscription to ${vipPackage.author.username}`,
+            relatedUserId: authorId,
+            relatedPostId: null,
+            paymentId: payment.id,
+          },
+          {
+            userId: authorId,
+            type: 'EARNED',
+            amount: requiredCoins,
+            description: `VIP subscription from ${user.username || 'User'}`,
+            relatedUserId: currentUserId,
+            relatedPostId: null,
+            paymentId: payment.id,
+          },
+        ],
+      });
+      
+      res.json({
+        success: true,
+        data: {
+          subscription: {
+            id: subscription.id,
+            author: {
+              id: vipPackage.author.id,
+              username: vipPackage.author.username,
+              firstName: vipPackage.author.firstName,
+              avatarUrl: vipPackage.author.avatarUrl,
+            },
+            package: {
+              id: vipPackage.id,
+              duration: vipPackage.duration,
+              price: requiredCoins / 100, // USD equivalent
+              coins: vipPackage.coins,
+            },
+            startDate: subscription.startDate,
+            endDate: subscription.endDate,
+            status: subscription.status,
+          },
+          payment: {
+            orderId: extOrderId,
+            amount: requiredCoins / 100,
+            coins: requiredCoins,
+            method: 'COINS',
+            status: 'COMPLETED',
+          },
+        },
+      });
+    } else {
+      // User doesn't have enough coins - create payment invoice using selected method
+      const usdAmount = requiredCoins / 100; // Convert coins to USD
+      const method = requestedMethod === 'CREDIT_CARD' ? 'CREDIT_CARD' : 'USDT';
+      const extOrderId = `VIP${Date.now()}`;
+
+      if (method === 'CREDIT_CARD') {
+        // Need user email for credit card invoice
+        const ccUser = await prisma.user.findUnique({
+          where: { id: currentUserId },
+          select: { email: true, username: true },
+        });
+        if (!ccUser || !ccUser.email) {
+          res.status(400).json({ success: false, message: 'User email required for credit card payment' });
+          return;
+        }
+
+        const cc = await paymentService.createCreditCardInvoice({
+          amount: usdAmount,
+          currency: 'USD',
+          extOrderId: extOrderId,
+          email: ccUser.email,
+          productName: `VIP Subscription - ${vipPackage.duration}`,
+        });
+
+        const payment = await prisma.payment.create({
+          data: {
+            userId: currentUserId,
+            extOrderId: extOrderId,
+            amount: usdAmount,
+            coins: requiredCoins,
+            currency: 'USD',
+            paymentMethod: 'CREDIT_CARD',
+            status: 'PENDING',
+            metadata: {
+              type: 'VIP_SUBSCRIPTION',
+              authorId: authorId,
+              packageId: packageId,
+              duration: vipPackage.duration,
+              transId: cc.transId,
+              endpointUrl: cc.endpointUrl,
+              sign: cc.sign,
+            },
+          },
+        });
+
+        const subscription = await prisma.vipSubscription.create({
+          data: {
+            subscriberId: currentUserId,
+            authorId: authorId,
+            packageId: packageId,
+            startDate: startDate,
+            endDate: endDate,
+            status: 'PENDING',
+            paymentId: payment.id,
+          },
+        });
+
+        res.json({
+          success: true,
+          data: {
+            subscription: {
+              id: subscription.id,
+              author: {
+                id: vipPackage.author.id,
+                username: vipPackage.author.username,
+                firstName: vipPackage.author.firstName,
+                avatarUrl: vipPackage.author.avatarUrl,
+              },
+              package: {
+                id: vipPackage.id,
+                duration: vipPackage.duration,
+                price: usdAmount,
+                coins: vipPackage.coins,
+              },
+              startDate: subscription.startDate,
+              endDate: subscription.endDate,
+              status: subscription.status,
+            },
+            payment: {
+              orderId: extOrderId,
+              transId: cc.transId,
+              endpointUrl: cc.endpointUrl,
+              sign: cc.sign,
+              amount: usdAmount,
+              coins: requiredCoins,
+              method: 'CREDIT_CARD',
+              status: 'PENDING',
+            },
+          },
+        });
+      } else {
+        const usdt = await paymentService.createInvoice({
+          usdAmount: usdAmount,
+          extOrderId: extOrderId,
+          targetCurrency: 'USDT',
+        });
+
+        const payment = await prisma.payment.create({
+          data: {
+            userId: currentUserId,
+            extOrderId: usdt.id,
+            amount: usdAmount,
+            coins: requiredCoins,
+            currency: 'USD',
+            paymentMethod: 'USDT',
+            status: 'PENDING',
+            paymentAddress: usdt.addr,
+            qrCode: usdt.qrCode,
+            metadata: {
+              type: 'VIP_SUBSCRIPTION',
+              authorId: authorId,
+              packageId: packageId,
+              duration: vipPackage.duration,
+            },
+          },
+        });
+
+        const subscription = await prisma.vipSubscription.create({
+          data: {
+            subscriberId: currentUserId,
+            authorId: authorId,
+            packageId: packageId,
+            startDate: startDate,
+            endDate: endDate,
+            status: 'PENDING',
+            paymentId: payment.id,
+          },
+        });
+
+        res.json({
+          success: true,
+          data: {
+            subscription: {
+              id: subscription.id,
+              author: {
+                id: vipPackage.author.id,
+                username: vipPackage.author.username,
+                firstName: vipPackage.author.firstName,
+                avatarUrl: vipPackage.author.avatarUrl,
+              },
+              package: {
+                id: vipPackage.id,
+                duration: vipPackage.duration,
+                price: usdAmount,
+                coins: vipPackage.coins,
+              },
+              startDate: subscription.startDate,
+              endDate: subscription.endDate,
+              status: subscription.status,
+            },
+            payment: {
+              orderId: usdt.id,
+              address: usdt.addr,
+              qrCode: usdt.qrCode,
+              amount: usdAmount,
+              coins: requiredCoins,
+              method: 'USDT',
+              status: 'PENDING',
+            },
+          },
+        });
+      }
+    }
+  } catch (error) {
+    console.error('❌ Error creating VIP subscription:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to create VIP subscription',
+    });
+  }
+});
+
 // Get user profile by ID
 app.get('/api/v1/users/:userId', async (req, res) => {
   try {
@@ -5498,7 +6039,15 @@ async function processIPNNotification(notification: IPNNotification): Promise<vo
   // Find payment record
   const payment = await prisma.payment.findUnique({
     where: { extOrderId: notification.extOrderId },
-    include: { user: true },
+    include: { 
+      user: true,
+      vipSubscriptions: {
+        include: {
+          author: true,
+          package: true,
+        },
+      },
+    },
   });
 
   if (!payment) {
@@ -5517,33 +6066,143 @@ async function processIPNNotification(notification: IPNNotification): Promise<vo
       },
     });
 
-    // Add coins to user balance
-    await prisma.user.update({
-      where: { id: payment.userId },
-      data: {
-        coinBalance: {
-          increment: payment.coins,
-        },
-      },
-    });
+    // Check if this is a VIP subscription payment
+    const isVipSubscription = payment.metadata && 
+      (payment.metadata as any).type === 'VIP_SUBSCRIPTION';
 
-    // Create coin transaction record
-    await prisma.coinTransaction.create({
-      data: {
-        userId: payment.userId,
-        type: 'RECHARGE',
-        amount: payment.coins,
-        description: `${payment.paymentMethod} coin recharge - ${payment.coins} coins`,
-        paymentId: payment.id,
-        metadata: {
-          paymentMethod: payment.paymentMethod,
-          transactionId: notification.btcTxid || notification.txid,
-          gatewayNotification: notification as any, // Type assertion for JSON storage
-        },
-      },
-    });
+    if (isVipSubscription && payment.vipSubscriptions.length > 0) {
+      // Handle VIP subscription payment
+      const vipSubscription = payment.vipSubscriptions[0];
+      if (!vipSubscription) {
+        throw new Error('VIP subscription not found');
+      }
+      const author = vipSubscription.author;
+      const packageInfo = vipSubscription.package;
 
-    console.log(`✅ Payment completed: ${payment.coins} coins added to user ${payment.userId}`);
+      // Add coins to user's balance (they paid with credit card/USDT)
+      await prisma.user.update({
+        where: { id: payment.userId },
+        data: {
+          coinBalance: {
+            increment: payment.coins,
+          },
+        },
+      });
+
+      // Deduct coins from user (for VIP subscription)
+      await prisma.user.update({
+        where: { id: payment.userId },
+        data: {
+          coinBalance: {
+            decrement: payment.coins,
+          },
+        },
+      });
+
+      // Add coins to author's balance (earnings)
+      await prisma.user.update({
+        where: { id: author.id },
+        data: {
+          coinBalance: {
+            increment: payment.coins,
+          },
+        },
+      });
+
+      // Activate VIP subscription
+      await prisma.vipSubscription.update({
+        where: { id: vipSubscription.id },
+        data: {
+          status: 'ACTIVE',
+        },
+      });
+
+      // Create coin transaction record for user (RECHARGE - coins added from payment)
+      await prisma.coinTransaction.create({
+        data: {
+          userId: payment.userId,
+          type: 'RECHARGE',
+          amount: payment.coins,
+          description: `${payment.paymentMethod} coin recharge - ${payment.coins} coins`,
+          paymentId: payment.id,
+          metadata: {
+            paymentMethod: payment.paymentMethod,
+            transactionId: notification.btcTxid || notification.txid,
+            gatewayNotification: notification as any,
+          },
+        },
+      });
+
+      // Create coin transaction record for user (USED - coins spent on VIP subscription)
+      await prisma.coinTransaction.create({
+        data: {
+          userId: payment.userId,
+          type: 'USED',
+          amount: payment.coins,
+          description: `VIP subscription to ${author.username}`,
+          relatedUserId: author.id,
+          paymentId: payment.id,
+          metadata: {
+            type: 'VIP_SUBSCRIPTION',
+            authorId: author.id,
+            packageId: packageInfo.id,
+            duration: packageInfo.duration,
+            transactionId: notification.btcTxid || notification.txid,
+            gatewayNotification: notification as any,
+          },
+        },
+      });
+
+      // Create coin transaction record for author (EARNED)
+      await prisma.coinTransaction.create({
+        data: {
+          userId: author.id,
+          type: 'EARNED',
+          amount: payment.coins,
+          description: `VIP subscription from ${payment.user.username || 'User'}`,
+          relatedUserId: payment.userId,
+          paymentId: payment.id,
+          metadata: {
+            type: 'VIP_SUBSCRIPTION',
+            subscriberId: payment.userId,
+            packageId: packageInfo.id,
+            duration: packageInfo.duration,
+            transactionId: notification.btcTxid || notification.txid,
+            gatewayNotification: notification as any,
+          },
+        },
+      });
+
+      console.log(`✅ VIP subscription payment completed: ${payment.coins} coins earned by author ${author.id}, subscription active for user ${payment.userId}`);
+    } else {
+      // Handle regular coin recharge payment
+      await prisma.user.update({
+        where: { id: payment.userId },
+        data: {
+          coinBalance: {
+            increment: payment.coins,
+          },
+        },
+      });
+
+      // Create coin transaction record
+      await prisma.coinTransaction.create({
+        data: {
+          userId: payment.userId,
+          type: 'RECHARGE',
+          amount: payment.coins,
+          description: `${payment.paymentMethod} coin recharge - ${payment.coins} coins`,
+          paymentId: payment.id,
+          metadata: {
+            paymentMethod: payment.paymentMethod,
+            transactionId: notification.btcTxid || notification.txid,
+            gatewayNotification: notification as any, // Type assertion for JSON storage
+          },
+        },
+      });
+
+      console.log(`✅ Payment completed: ${payment.coins} coins added to user ${payment.userId}`);
+    }
   } else {
     // Update payment status to failed
     await prisma.payment.update({
@@ -5553,6 +6212,14 @@ async function processIPNNotification(notification: IPNNotification): Promise<vo
         completedAt: new Date(),
       },
     });
+
+    // If it's a VIP subscription, also update the subscription status
+    if (payment.vipSubscriptions.length > 0) {
+      await prisma.vipSubscription.updateMany({
+        where: { paymentId: payment.id },
+        data: { status: 'CANCELLED' },
+      });
+    }
 
     console.log(`❌ Payment failed for order: ${notification.extOrderId}`);
   }
@@ -5975,7 +6642,441 @@ const startServer = async () => {
   }
 };
 
+// Create VIP packages for an author (setup default packages)
+app.post('/api/v1/authors/:authorId/vip-packages/setup', authenticateToken, async (req, res): Promise<void> => {
+  try {
+    const currentUserId = req.user?.id;
+    const { authorId } = req.params;
+    
+    if (!currentUserId) {
+      res.status(401).json({
+        success: false,
+        message: 'Authentication required',
+      });
+      return;
+    }
+    
+    // Only the author can set up their own VIP packages
+    if (currentUserId !== authorId) {
+      res.status(403).json({
+        success: false,
+        message: 'You can only set up VIP packages for yourself',
+      });
+      return;
+    }
+    
+    console.log(`🔍 Setting up VIP packages for author: ${authorId}`);
+    
+    // Check if packages already exist
+    const existingPackages = await prisma.vipPackage.findMany({
+      where: { authorId: authorId },
+    });
+    
+    if (existingPackages.length > 0) {
+      res.status(400).json({
+        success: false,
+        message: 'VIP packages already exist for this author',
+      });
+      return;
+    }
+    
+    // Create default VIP packages
+    const defaultPackages = [
+      {
+        authorId: authorId,
+        duration: 'ONE_MONTH' as const,
+        price: 6.99,
+        coins: 699, // $6.99 * 100
+      },
+      {
+        authorId: authorId,
+        duration: 'THREE_MONTHS' as const,
+        price: 19.99,
+        coins: 1999, // $19.99 * 100
+      },
+      {
+        authorId: authorId,
+        duration: 'SIX_MONTHS' as const,
+        price: 35.99,
+        coins: 3599, // $35.99 * 100
+      },
+      {
+        authorId: authorId,
+        duration: 'TWELVE_MONTHS' as const,
+        price: 59.99,
+        coins: 5999, // $59.99 * 100
+      },
+    ];
+    
+    const createdPackages = await prisma.vipPackage.createMany({
+      data: defaultPackages,
+    });
+    
+    console.log(`✅ Created ${createdPackages.count} VIP packages for author ${authorId}`);
+    
+    // Fetch the created packages
+    const packages = await prisma.vipPackage.findMany({
+      where: { authorId: authorId },
+      orderBy: { duration: 'asc' },
+    });
+    
+    res.json({
+      success: true,
+      data: packages.map(pkg => ({
+        id: pkg.id,
+        duration: pkg.duration,
+        price: pkg.price,
+        coins: pkg.coins,
+        isActive: pkg.isActive,
+        createdAt: pkg.createdAt,
+      })),
+    });
+  } catch (error) {
+    console.error('❌ Error setting up VIP packages:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to set up VIP packages',
+    });
+  }
+});
+
+// Get VIP packages for an author
+app.get('/api/v1/authors/:authorId/vip-packages', authenticateToken, async (req, res): Promise<void> => {
+  try {
+    const { authorId } = req.params;
+    
+    console.log(`🔍 Fetching VIP packages for author: ${authorId}`);
+    
+    let packages = await prisma.vipPackage.findMany({
+      where: {
+        authorId: authorId,
+        isActive: true,
+      },
+      orderBy: {
+        duration: 'asc',
+      },
+    });
+    
+    // If no packages exist, create default ones
+    if (packages.length === 0) {
+      console.log(`📦 No VIP packages found for author ${authorId}, creating default packages...`);
+      
+      const defaultPackages = [
+        {
+          authorId: authorId,
+          duration: 'ONE_MONTH' as const,
+          price: 0, // Will be calculated based on coins
+          coins: 699, // 699 coins for 1 month
+        },
+        {
+          authorId: authorId,
+          duration: 'THREE_MONTHS' as const,
+          price: 0, // Will be calculated based on coins
+          coins: 1999, // 1999 coins for 3 months
+        },
+        {
+          authorId: authorId,
+          duration: 'SIX_MONTHS' as const,
+          price: 0, // Will be calculated based on coins
+          coins: 3599, // 3599 coins for 6 months
+        },
+        {
+          authorId: authorId,
+          duration: 'TWELVE_MONTHS' as const,
+          price: 0, // Will be calculated based on coins
+          coins: 5999, // 5999 coins for 12 months
+        },
+      ];
+      
+      await prisma.vipPackage.createMany({
+        data: defaultPackages,
+      });
+      
+      // Fetch the newly created packages
+      packages = await prisma.vipPackage.findMany({
+        where: {
+          authorId: authorId,
+          isActive: true,
+        },
+        orderBy: {
+          duration: 'asc',
+        },
+      });
+      
+      console.log(`✅ Created and fetched ${packages.length} VIP packages for author ${authorId}`);
+    } else {
+      console.log(`✅ Found ${packages.length} VIP packages for author ${authorId}`);
+    }
+    
+    res.json({
+      success: true,
+      data: packages.map(pkg => ({
+        id: pkg.id,
+        duration: pkg.duration,
+        price: pkg.price,
+        coins: pkg.coins,
+        isActive: pkg.isActive,
+        createdAt: pkg.createdAt,
+      })),
+    });
+  } catch (error) {
+    console.error('❌ Error fetching VIP packages:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch VIP packages',
+    });
+  }
+});
+
+// Create VIP subscription
+app.post('/api/v1/vip-subscriptions', authenticateToken, async (req, res): Promise<void> => {
+  try {
+    const currentUserId = req.user?.id;
+    const { authorId, packageId } = req.body;
+    
+    if (!currentUserId) {
+      res.status(401).json({
+        success: false,
+        message: 'Authentication required',
+      });
+      return;
+    }
+    
+    if (!authorId || !packageId) {
+      res.status(400).json({
+        success: false,
+        message: 'Author ID and Package ID are required',
+      });
+      return;
+    }
+    
+    console.log(`🔍 Creating VIP subscription: User ${currentUserId} -> Author ${authorId}, Package ${packageId}`);
+    
+    // Get the VIP package
+    const vipPackage = await prisma.vipPackage.findUnique({
+      where: { id: packageId },
+      include: { author: true },
+    });
+    
+    if (!vipPackage) {
+      res.status(404).json({
+        success: false,
+        message: 'VIP package not found',
+      });
+      return;
+    }
+    
+    if (vipPackage.authorId !== authorId) {
+      res.status(400).json({
+        success: false,
+        message: 'Package does not belong to the specified author',
+      });
+      return;
+    }
+    
+    if (!vipPackage.isActive) {
+      res.status(400).json({
+        success: false,
+        message: 'VIP package is not active',
+      });
+      return;
+    }
+    
+    // Check if user already has an active subscription to this author
+    const existingSubscription = await prisma.vipSubscription.findFirst({
+      where: {
+        subscriberId: currentUserId,
+        authorId: authorId,
+        status: 'ACTIVE',
+        endDate: {
+          gt: new Date(),
+        },
+      },
+    });
+    
+    if (existingSubscription) {
+      res.status(400).json({
+        success: false,
+        message: 'You already have an active VIP subscription to this author',
+      });
+      return;
+    }
+    
+    // Calculate end date based on duration
+    const startDate = new Date();
+    let endDate = new Date();
+    
+    switch (vipPackage.duration) {
+      case 'ONE_MONTH':
+        endDate.setMonth(endDate.getMonth() + 1);
+        break;
+      case 'THREE_MONTHS':
+        endDate.setMonth(endDate.getMonth() + 3);
+        break;
+      case 'SIX_MONTHS':
+        endDate.setMonth(endDate.getMonth() + 6);
+        break;
+      case 'TWELVE_MONTHS':
+        endDate.setFullYear(endDate.getFullYear() + 1);
+        break;
+    }
+    
+    // Create payment invoice
+    const paymentData = await paymentService.createInvoice({
+      usdAmount: vipPackage.price.toNumber(),
+      extOrderId: `VIP${Date.now()}`,
+      targetCurrency: 'USDT',
+    });
+    
+    // Create payment record
+    const payment = await prisma.payment.create({
+      data: {
+        userId: currentUserId,
+        extOrderId: paymentData.id,
+        amount: vipPackage.price.toNumber(),
+        coins: vipPackage.coins,
+        currency: 'USD',
+        paymentMethod: 'USDT',
+        status: 'PENDING',
+        paymentAddress: paymentData.addr,
+        qrCode: paymentData.qrCode,
+        metadata: {
+          type: 'VIP_SUBSCRIPTION',
+          authorId: authorId,
+          packageId: packageId,
+          duration: vipPackage.duration,
+        },
+      },
+    });
+    
+    // Create VIP subscription record
+    const subscription = await prisma.vipSubscription.create({
+      data: {
+        subscriberId: currentUserId,
+        authorId: authorId,
+        packageId: packageId,
+        startDate: startDate,
+        endDate: endDate,
+        paymentId: payment.id,
+        status: 'ACTIVE',
+      },
+      include: {
+        package: true,
+        author: {
+          select: {
+            id: true,
+            username: true,
+            firstName: true,
+            lastName: true,
+            avatarUrl: true,
+          },
+        },
+      },
+    });
+    
+    console.log(`✅ VIP subscription created: ${subscription.id}`);
+    
+    res.json({
+      success: true,
+      data: {
+        subscription: {
+          id: subscription.id,
+          author: subscription.author,
+          package: {
+            id: subscription.package.id,
+            duration: subscription.package.duration,
+            price: subscription.package.price,
+            coins: subscription.package.coins,
+          },
+          startDate: subscription.startDate,
+          endDate: subscription.endDate,
+          status: subscription.status,
+        },
+        payment: {
+          orderId: paymentData.id,
+          address: paymentData.addr,
+          qrCode: paymentData.qrCode,
+          amount: vipPackage.price.toNumber(),
+          coins: vipPackage.coins,
+        },
+      },
+    });
+  } catch (error) {
+    console.error('❌ Error creating VIP subscription:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to create VIP subscription',
+    });
+  }
+});
+
+// Get user's VIP subscriptions
+app.get('/api/v1/users/vip-subscriptions', authenticateToken, async (req, res): Promise<void> => {
+  try {
+    const currentUserId = req.user?.id;
+    
+    if (!currentUserId) {
+      res.status(401).json({
+        success: false,
+        message: 'Authentication required',
+      });
+      return;
+    }
+    
+    console.log(`🔍 Fetching VIP subscriptions for user: ${currentUserId}`);
+    
+    const subscriptions = await prisma.vipSubscription.findMany({
+      where: {
+        subscriberId: currentUserId,
+      },
+      include: {
+        author: {
+          select: {
+            id: true,
+            username: true,
+            firstName: true,
+            lastName: true,
+            avatarUrl: true,
+          },
+        },
+        package: true,
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+    
+    console.log(`✅ Found ${subscriptions.length} VIP subscriptions for user ${currentUserId}`);
+    
+    res.json({
+      success: true,
+      data: subscriptions.map(sub => ({
+        id: sub.id,
+        author: sub.author,
+        package: {
+          id: sub.package.id,
+          duration: sub.package.duration,
+          price: sub.package.price,
+          coins: sub.package.coins,
+        },
+        startDate: sub.startDate,
+        endDate: sub.endDate,
+        status: sub.status,
+        createdAt: sub.createdAt,
+      })),
+    });
+  } catch (error) {
+    console.error('❌ Error fetching VIP subscriptions:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch VIP subscriptions',
+    });
+  }
+});
+
+
 // Start the server
 startServer();
 
 export { app, server, io };
+

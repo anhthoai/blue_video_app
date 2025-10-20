@@ -130,6 +130,9 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
           // After successful VIP payment, open the media
           _openMediaAfterPayment(post);
         },
+        authorId: post.userId,
+        authorName: post.firstName ?? post.username,
+        authorAvatar: post.userAvatar,
       );
     } else {
       CoinPaymentDialog.show(

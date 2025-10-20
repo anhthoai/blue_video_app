@@ -252,6 +252,9 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
           // After successful VIP payment, open the media
           _openMediaAfterPayment();
         },
+        authorId: _post!.userId,
+        authorName: _post!.firstName ?? _post!.username,
+        authorAvatar: _post!.userAvatar,
       );
     } else {
       CoinPaymentDialog.show(

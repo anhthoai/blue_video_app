@@ -68,6 +68,11 @@ model User {
   // Coin Transactions
   coinTransactions CoinTransaction[]
   relatedTransactions CoinTransaction[] @relation("UserRelatedTransactions")
+  
+  // VIP System
+  vipPackages       VipPackage[]       @relation("AuthorVipPackages")
+  vipSubscriptions  VipSubscription[]  @relation("UserVipSubscriptions")
+  authorSubscriptions VipSubscription[] @relation("AuthorVipSubscriptions")
 
   @@map("users")
 }
@@ -462,6 +467,7 @@ model Payment {
   // Relations
   user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   coinTransactions CoinTransaction[]
+  vipSubscriptions VipSubscription[]
 
   @@index([userId])
   @@index([extOrderId])
@@ -531,4 +537,64 @@ model CoinTransaction {
   @@index([userId, type])
   @@index([userId, createdAt])
   @@map("coin_transactions")
+}
+
+enum VipPackageDuration {
+  ONE_MONTH
+  THREE_MONTHS
+  SIX_MONTHS
+  TWELVE_MONTHS
+}
+
+enum VipSubscriptionStatus {
+  PENDING
+  ACTIVE
+  EXPIRED
+  CANCELLED
+}
+
+model VipPackage {
+  id          String            @id @default(uuid())
+  authorId    String            @map("author_id")
+  duration    VipPackageDuration
+  price       Decimal           @db.Decimal(10, 2) // USD price
+  coins       Int               // Coins author earns (price * 100)
+  isActive    Boolean           @default(true) @map("is_active")
+  createdAt   DateTime          @default(now()) @map("created_at")
+  updatedAt   DateTime          @updatedAt @map("updated_at")
+
+  // Relations
+  author      User              @relation("AuthorVipPackages", fields: [authorId], references: [id], onDelete: Cascade)
+  subscriptions VipSubscription[]
+
+  @@index([authorId])
+  @@index([duration])
+  @@index([isActive])
+  @@map("vip_packages")
+}
+
+model VipSubscription {
+  id          String                @id @default(uuid())
+  subscriberId String               @map("subscriber_id")
+  authorId    String                @map("author_id")
+  packageId   String                @map("package_id")
+  status      VipSubscriptionStatus @default(PENDING)
+  startDate   DateTime              @default(now()) @map("start_date")
+  endDate     DateTime              @map("end_date")
+  paymentId   String?               @map("payment_id")
+  createdAt   DateTime              @default(now()) @map("created_at")
+  updatedAt   DateTime              @updatedAt @map("updated_at")
+
+  // Relations
+  subscriber  User                  @relation("UserVipSubscriptions", fields: [subscriberId], references: [id], onDelete: Cascade)
+  author      User                  @relation("AuthorVipSubscriptions", fields: [authorId], references: [id], onDelete: Cascade)
+  package     VipPackage            @relation(fields: [packageId], references: [id], onDelete: Cascade)
+  payment     Payment?              @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+
+  @@index([subscriberId])
+  @@index([authorId])
+  @@index([status])
+  @@index([endDate])
+  @@index([subscriberId, authorId])
+  @@map("vip_subscriptions")
 }

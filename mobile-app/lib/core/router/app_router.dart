@@ -25,6 +25,7 @@ import '../../screens/community/post_detail_screen.dart';
 import '../../screens/community/search_results_screen.dart';
 import '../../screens/coin/coin_recharge_screen.dart';
 import '../../screens/coin/coin_history_screen.dart';
+import '../../screens/vip/vip_subscription_screen.dart';
 import '../../screens/discover/category_detail_screen.dart';
 import '../../models/category_model.dart';
 
@@ -134,6 +135,21 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: 'coin-history',
             builder: (context, state) => const CoinHistoryScreen(),
+          ),
+
+          // VIP Subscription Routes
+          GoRoute(
+            path: 'vip-subscription/:authorId',
+            builder: (context, state) {
+              final authorId = state.pathParameters['authorId']!;
+              final authorName = state.uri.queryParameters['name'] ?? 'Author';
+              final authorAvatar = state.uri.queryParameters['avatar'];
+              return VipSubscriptionScreen(
+                authorId: authorId,
+                authorName: authorName,
+                authorAvatar: authorAvatar,
+              );
+            },
           ),
 
           // Profile Routes

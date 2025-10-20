@@ -7,8 +7,10 @@ import '../../screens/community/_fullscreen_media_gallery.dart';
 import 'nsfw_blur_wrapper.dart';
 import 'coin_vip_indicator.dart';
 import '../dialogs/coin_payment_dialog.dart';
+import 'package:go_router/go_router.dart';
 import '../../core/providers/unlocked_posts_provider.dart';
 import '../../core/services/auth_service.dart';
+import '../../core/services/api_service.dart';
 
 class PostContentWidget extends ConsumerWidget {
   final CommunityPost post;
@@ -661,6 +663,50 @@ class PostContentWidget extends ConsumerWidget {
     );
   }
 
+  Future<void> _checkVipStatusAndShowDialog(
+      BuildContext context, WidgetRef ref) async {
+    try {
+      // If current user is the author, bypass VIP check
+      final currentUser = ref.read(authServiceProvider).currentUser;
+      if (currentUser != null && currentUser.id == post.userId) {
+        _showFullscreenMediaViewer(context, _getAllMedia());
+        return;
+      }
+
+      print('🔍 Checking VIP status for author: ${post.userId}');
+      final vipStatus = await ApiService().checkVipStatus(post.userId);
+      final bool isVip =
+          vipStatus['isVip'] == true; // API returns data map directly
+
+      if (isVip) {
+        print('✅ User has VIP subscription, showing media directly');
+        _showFullscreenMediaViewer(context, _getAllMedia());
+      } else {
+        print(
+            '❌ User does not have VIP subscription, navigating to VIP subscription screen');
+        final uri = Uri(
+          path: '/main/vip-subscription/${post.userId}',
+          queryParameters: {
+            'name': post.firstName ?? post.username,
+            'avatar': post.userAvatar,
+          },
+        );
+        context.push(uri.toString());
+      }
+    } catch (e) {
+      print('❌ Error checking VIP status: $e');
+      // Fallback to navigating to VIP subscription screen
+      final uri = Uri(
+        path: '/main/vip-subscription/${post.userId}',
+        queryParameters: {
+          'name': post.firstName ?? post.username,
+          'avatar': post.userAvatar,
+        },
+      );
+      context.push(uri.toString());
+    }
+  }
+
   void _showPaymentDialog(BuildContext context, WidgetRef ref) {
     // Check if current user is the author of this post
     final currentUser = ref.read(authServiceProvider).currentUser;
@@ -681,13 +727,8 @@ class PostContentWidget extends ConsumerWidget {
     }
 
     if (post.requiresVip) {
-      VipPaymentDialog.show(
-        context,
-        onPaymentSuccess: () {
-          // After successful VIP payment, show the media
-          _showFullscreenMediaViewer(context, _getAllMedia());
-        },
-      );
+      // Check VIP subscription status first
+      _checkVipStatusAndShowDialog(context, ref);
     } else {
       CoinPaymentDialog.show(
         context,

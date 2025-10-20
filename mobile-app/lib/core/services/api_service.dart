@@ -1497,4 +1497,125 @@ class ApiService {
       rethrow;
     }
   }
+
+  // ==================== VIP SUBSCRIPTION METHODS ====================
+
+  // Get VIP packages for an author
+  Future<List<Map<String, dynamic>>> getVipPackages(String authorId) async {
+    try {
+      final headers = await _getHeaders();
+      final response = await http.get(
+        Uri.parse('$baseUrl/authors/$authorId/vip-packages'),
+        headers: headers,
+      );
+
+      final data = await _handleResponse(response);
+
+      if (data['success'] == true) {
+        return List<Map<String, dynamic>>.from(data['data']);
+      } else {
+        throw Exception(data['message'] ?? 'Failed to fetch VIP packages');
+      }
+    } catch (e) {
+      print('Error getting VIP packages: $e');
+      rethrow;
+    }
+  }
+
+  // Create VIP subscription
+  Future<Map<String, dynamic>> createVipSubscription(
+      String authorId, String packageId,
+      {String? paymentMethod}) async {
+    try {
+      final headers = await _getHeaders();
+      final body = {
+        'authorId': authorId,
+        'packageId': packageId,
+        if (paymentMethod != null) 'paymentMethod': paymentMethod,
+      };
+
+      final response = await http.post(
+        Uri.parse('$baseUrl/vip-subscriptions'),
+        headers: headers,
+        body: jsonEncode(body),
+      );
+
+      final data = await _handleResponse(response);
+
+      if (data['success'] == true) {
+        return data['data'];
+      } else {
+        throw Exception(data['message'] ?? 'Failed to create VIP subscription');
+      }
+    } catch (e) {
+      print('Error creating VIP subscription: $e');
+      rethrow;
+    }
+  }
+
+  // Get user's VIP subscriptions
+  Future<List<Map<String, dynamic>>> getVipSubscriptions() async {
+    try {
+      final headers = await _getHeaders();
+      final response = await http.get(
+        Uri.parse('$baseUrl/users/vip-subscriptions'),
+        headers: headers,
+      );
+
+      final data = await _handleResponse(response);
+
+      if (data['success'] == true) {
+        return List<Map<String, dynamic>>.from(data['data']);
+      } else {
+        throw Exception(data['message'] ?? 'Failed to fetch VIP subscriptions');
+      }
+    } catch (e) {
+      print('Error getting VIP subscriptions: $e');
+      rethrow;
+    }
+  }
+
+  // Check VIP subscription status for a specific author
+  Future<Map<String, dynamic>> checkVipStatus(String authorId) async {
+    try {
+      final headers = await _getHeaders();
+      final response = await http.get(
+        Uri.parse('$baseUrl/authors/$authorId/vip-status'),
+        headers: headers,
+      );
+
+      final data = await _handleResponse(response);
+
+      if (data['success'] == true) {
+        return data['data'];
+      } else {
+        throw Exception(data['message'] ?? 'Failed to check VIP status');
+      }
+    } catch (e) {
+      print('Error checking VIP status: $e');
+      rethrow;
+    }
+  }
+
+  // Setup VIP packages for an author (create default packages)
+  Future<List<Map<String, dynamic>>> setupVipPackages(String authorId) async {
+    try {
+      final headers = await _getHeaders();
+      final response = await http.post(
+        Uri.parse('$baseUrl/authors/$authorId/vip-packages/setup'),
+        headers: headers,
+      );
+
+      final data = await _handleResponse(response);
+
+      if (data['success'] == true) {
+        return List<Map<String, dynamic>>.from(data['data']);
+      } else {
+        throw Exception(data['message'] ?? 'Failed to setup VIP packages');
+      }
+    } catch (e) {
+      print('Error setting up VIP packages: $e');
+      rethrow;
+    }
+  }
 }

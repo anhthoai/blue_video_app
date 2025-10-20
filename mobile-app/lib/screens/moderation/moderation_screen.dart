@@ -19,8 +19,9 @@ class _ModerationScreenState extends ConsumerState<ModerationScreen> {
   }
 
   Future<void> _loadReportedPosts() async {
-    final communityService = ref.read(communityServiceStateProvider.notifier);
-    await communityService.loadReportedPosts();
+    // TODO: Implement loadReportedPosts method in CommunityService
+    // final communityService = ref.read(communityServiceStateProvider.notifier);
+    // await communityService.loadReportedPosts();
   }
 
   @override
@@ -173,9 +174,9 @@ class _ModerationScreenState extends ConsumerState<ModerationScreen> {
                 const SizedBox(height: 12),
 
                 // Post title and content
-                if (post.title.isNotEmpty) ...[
+                if (post.title != null && post.title!.isNotEmpty) ...[
                   Text(
-                    post.title,
+                    post.title!,
                     style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
@@ -316,12 +317,13 @@ class _ModerationScreenState extends ConsumerState<ModerationScreen> {
   }
 
   void _confirmModeration(CommunityPost post, String action) {
-    final communityService = ref.read(communityServiceStateProvider.notifier);
-    communityService.moderatePost(
-      postId: post.id,
-      moderatorId: 'current_moderator', // In a real app, get from auth
-      action: action,
-    );
+    // TODO: Implement moderatePost method in CommunityService
+    // final communityService = ref.read(communityServiceStateProvider.notifier);
+    // communityService.moderatePost(
+    //   postId: post.id,
+    //   moderatorId: 'current_moderator', // In a real app, get from auth
+    //   action: action,
+    // );
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
