@@ -267,6 +267,20 @@ class ApiService {
     return await _handleResponse(response);
   }
 
+  // Get user's community posts
+  Future<Map<String, dynamic>> getUserCommunityPosts({
+    required String userId,
+    int page = 1,
+    int limit = 20,
+  }) async {
+    final response = await http.get(
+      Uri.parse(
+          '$baseUrl/community/posts/user/$userId?page=$page&limit=$limit'),
+      headers: await _getHeaders(),
+    );
+    return await _handleResponse(response);
+  }
+
   // Get trending community posts (ordered by views)
   Future<Map<String, dynamic>> getTrendingPosts({
     int page = 1,
@@ -274,6 +288,18 @@ class ApiService {
   }) async {
     final response = await http.get(
       Uri.parse('$baseUrl/community/posts/trending?page=$page&limit=$limit'),
+      headers: await _getHeaders(),
+    );
+    return await _handleResponse(response);
+  }
+
+  // Get user's liked videos
+  Future<Map<String, dynamic>> getUserLikedVideos({
+    int page = 1,
+    int limit = 20,
+  }) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/social/liked/video?page=$page&limit=$limit'),
       headers: await _getHeaders(),
     );
     return await _handleResponse(response);

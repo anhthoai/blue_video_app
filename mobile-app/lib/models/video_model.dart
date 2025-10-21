@@ -217,16 +217,21 @@ class VideoModel {
 
     return VideoModel(
       id: json['id'] as String,
-      userId: json['userId'] as String,
+      userId: json['userId'] as String? ?? json['user_id'] as String? ?? '',
       title: json['title'] as String,
       description: json['description'] as String?,
-      videoUrl:
-          json['videoUrl'] as String? ?? json['remotePlayUrl'] as String? ?? '',
-      fileName: json['fileName'] as String?,
-      fileDirectory: json['fileDirectory'] as String?,
-      remotePlayUrl: json['remotePlayUrl'] as String?,
-      embedCode: json['embedCode'] as String?,
-      thumbnailUrl: json['thumbnailUrl'] as String?,
+      videoUrl: json['videoUrl'] as String? ??
+          json['remotePlayUrl'] as String? ??
+          json['remote_play_url'] as String? ??
+          '',
+      fileName: json['fileName'] as String? ?? json['file_name'] as String?,
+      fileDirectory:
+          json['fileDirectory'] as String? ?? json['file_directory'] as String?,
+      remotePlayUrl: json['remotePlayUrl'] as String? ??
+          json['remote_play_url'] as String?,
+      embedCode: json['embedCode'] as String? ?? json['embed_code'] as String?,
+      thumbnailUrl:
+          json['thumbnailUrl'] as String? ?? json['thumbnail_url'] as String?,
       thumbnails: json['thumbnails'] != null
           ? List<String>.from(json['thumbnails'] as List)
           : null,
@@ -239,13 +244,17 @@ class VideoModel {
       downloadCount:
           json['downloadCount'] as int? ?? json['downloads'] as int? ?? 0,
       isLiked: json['isLiked'] as bool? ?? false,
-      isPublic: json['isPublic'] as bool? ?? true,
+      isPublic: json['isPublic'] as bool? ?? json['is_public'] as bool? ?? true,
       status: json['status'] as String? ?? 'PUBLIC',
       isFeatured: json['isFeatured'] as bool? ?? false,
-      createdAt: DateTime.parse(json['createdAt'] as String),
+      createdAt: DateTime.parse(json['createdAt'] as String? ??
+          json['created_at'] as String? ??
+          DateTime.now().toIso8601String()),
       updatedAt: json['updatedAt'] != null
           ? DateTime.parse(json['updatedAt'] as String)
-          : null,
+          : json['updated_at'] != null
+              ? DateTime.parse(json['updated_at'] as String)
+              : null,
       tags:
           json['tags'] != null ? List<String>.from(json['tags'] as List) : null,
       quality: json['quality'] != null
@@ -264,8 +273,9 @@ class VideoModel {
       firstName:
           userData?['firstName'] as String? ?? json['firstName'] as String?,
       lastName: userData?['lastName'] as String? ?? json['lastName'] as String?,
-      userAvatarUrl:
-          userData?['avatarUrl'] as String? ?? json['userAvatarUrl'] as String?,
+      userAvatarUrl: userData?['avatarUrl'] as String? ??
+          json['userAvatarUrl'] as String? ??
+          json['userAvatar'] as String?,
       isUserVerified:
           userData?['isVerified'] as bool? ?? json['isUserVerified'] as bool?,
     );

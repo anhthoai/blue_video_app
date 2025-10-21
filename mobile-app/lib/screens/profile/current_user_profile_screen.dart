@@ -6,8 +6,11 @@ import 'package:qr_flutter/qr_flutter.dart';
 
 import '../../core/services/auth_service.dart';
 import '../../core/services/video_service.dart';
+import '../../core/services/api_service.dart';
 import '../../models/video_model.dart';
+import '../../models/community_post.dart';
 import '../../widgets/common/presigned_image.dart';
+import '../../widgets/community/community_post_widget.dart';
 
 class CurrentUserProfileScreen extends ConsumerStatefulWidget {
   const CurrentUserProfileScreen({super.key});
@@ -22,8 +25,15 @@ class _CurrentUserProfileScreenState
     with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   late TabController _tabController;
   final VideoService _videoService = VideoService();
+  final ApiService _apiService = ApiService();
   List<VideoModel> _userVideos = [];
   bool _isLoadingVideos = false;
+  // Posts
+  List<CommunityPost> _userPosts = [];
+  bool _isLoadingPosts = false;
+  // Liked videos
+  List<VideoModel> _likedVideos = [];
+  bool _isLoadingLiked = false;
   DateTime? _lastReloadTime;
   bool _isReloading = false;
 
@@ -32,11 +42,24 @@ class _CurrentUserProfileScreenState
     super.initState();
     _tabController = TabController(length: 5, vsync: this);
     _loadUserVideos();
+    _loadUserPosts();
+    _loadLikedVideos();
     WidgetsBinding.instance.addObserver(this);
 
     // Listen for user data changes
     final authService = ref.read(authServiceProvider);
     authService.addListener(_onUserDataChanged);
+
+    // Add tab change listener to load data when switching tabs
+    _tabController.addListener(() {
+      if (_tabController.index == 1 && _userPosts.isEmpty && !_isLoadingPosts) {
+        _loadUserPosts();
+      } else if (_tabController.index == 2 &&
+          _likedVideos.isEmpty &&
+          !_isLoadingLiked) {
+        _loadLikedVideos();
+      }
+    });
   }
 
   void _onUserDataChanged() {
@@ -92,6 +115,127 @@ class _CurrentUserProfileScreenState
     } finally {
       setState(() {
         _isLoadingVideos = false;
+      });
+    }
+  }
+
+  Future<void> _loadUserPosts() async {
+    setState(() {
+      _isLoadingPosts = true;
+    });
+
+    try {
+      final currentUser = ref.read(authServiceProvider).currentUser;
+      if (currentUser != null) {
+        print('Loading posts for user: ${currentUser.id}');
+        final response = await _apiService.getUserCommunityPosts(
+          userId: currentUser.id,
+          page: 1,
+          limit: 20,
+        );
+        print('Posts API response: $response');
+        if (response['success'] == true && response['data'] != null) {
+          final items = response['data'] as List<dynamic>;
+          print('Found ${items.length} posts');
+          final posts = items.map<CommunityPost>((json) {
+            return CommunityPost(
+              id: json['id'] ?? '',
+              userId: json['userId'] ?? '',
+              username: json['username'] ?? 'User',
+              firstName: json['firstName'],
+              lastName: json['lastName'],
+              isVerified: json['isVerified'] ?? false,
+              userAvatar: json['userAvatar'] ?? '',
+              title: json['title'],
+              content: json['content'] ?? '',
+              type: _mapPostType(json['type']),
+              images: List<String>.from(json['images'] ?? const []),
+              videos: List<String>.from(json['videos'] ?? const []),
+              imageUrls: (json['imageUrls'] as List<dynamic>?)
+                      ?.map((url) => url is String ? url : '')
+                      .where((url) => url.isNotEmpty)
+                      .toList() ??
+                  const [],
+              videoUrls: (json['videoUrls'] as List<dynamic>?)
+                      ?.map((url) => url is String ? url : '')
+                      .where((url) => url.isNotEmpty)
+                      .toList() ??
+                  const [],
+              videoThumbnailUrls: (json['videoThumbnailUrls'] as List<dynamic>?)
+                      ?.map((url) => url is String ? url : '')
+                      .where((url) => url.isNotEmpty)
+                      .toList() ??
+                  const [],
+              duration: List<String>.from(json['duration'] ?? const []),
+              videoUrl: null,
+              linkUrl: json['linkUrl'],
+              linkTitle: json['linkTitle'],
+              linkDescription: json['linkDescription'],
+              linkThumbnail: json['linkThumbnail'],
+              pollData: json['pollOptions'],
+              tags: List<String>.from(json['tags'] ?? const []),
+              category: json['category'],
+              likes: json['likes'] ?? 0,
+              comments: json['comments'] ?? 0,
+              shares: json['shares'] ?? 0,
+              views: json['views'] ?? 0,
+              isLiked: json['isLiked'] ?? false,
+              isBookmarked: json['isBookmarked'] ?? false,
+              isPinned: json['isPinned'] ?? false,
+              isNsfw: json['isNsfw'] ?? false,
+              isFeatured: json['isFeatured'] ?? false,
+              cost: json['cost'] ?? 0,
+              requiresVip: json['requiresVip'] ?? false,
+              isUnlocked: true,
+              createdAt:
+                  DateTime.tryParse(json['createdAt'] ?? '') ?? DateTime.now(),
+              publishedAt:
+                  DateTime.tryParse(json['createdAt'] ?? '') ?? DateTime.now(),
+            );
+          }).toList();
+          setState(() {
+            _userPosts = posts;
+          });
+        } else {
+          print('Posts API failed: ${response['message']}');
+        }
+      }
+    } catch (e) {
+      print('Error loading user posts: $e');
+    } finally {
+      setState(() {
+        _isLoadingPosts = false;
+      });
+    }
+  }
+
+  Future<void> _loadLikedVideos() async {
+    setState(() {
+      _isLoadingLiked = true;
+    });
+
+    try {
+      print('Loading liked videos...');
+      final response = await _apiService.getUserLikedVideos(page: 1, limit: 50);
+      print('Liked videos API response: $response');
+      if (response['success'] == true && response['data'] != null) {
+        final items = response['data'] as List<dynamic>;
+        print('Found ${items.length} liked videos');
+        final videos = items
+            .map<VideoModel>(
+                (v) => VideoModel.fromJson(v as Map<String, dynamic>))
+            .toList();
+        setState(() {
+          _likedVideos = videos;
+        });
+      } else {
+        print('Liked videos API failed: ${response['message']}');
+      }
+    } catch (e) {
+      print('Error loading liked videos: $e');
+    } finally {
+      setState(() {
+        _isLoadingLiked = false;
       });
     }
   }
@@ -577,55 +721,198 @@ class _CurrentUserProfileScreenState
   }
 
   Widget _buildPostsTab() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.post_add_outlined, size: 64, color: Colors.grey[400]),
-          const SizedBox(height: 16),
-          Text(
-            'No posts yet',
-            style: TextStyle(color: Colors.grey[600]),
+    if (_isLoadingPosts) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_userPosts.isEmpty) {
+      return SingleChildScrollView(
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(32.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.post_add_outlined,
+                    size: 64, color: Colors.grey[400]),
+                const SizedBox(height: 16),
+                Text(
+                  'No posts yet',
+                  style: TextStyle(color: Colors.grey[600]),
+                ),
+                const SizedBox(height: 24),
+                ElevatedButton.icon(
+                  onPressed: () {
+                    context.push('/main/community/create-post');
+                  },
+                  icon: const Icon(Icons.add),
+                  label: const Text('Create Post'),
+                ),
+                const SizedBox(height: 16),
+                ElevatedButton.icon(
+                  onPressed: () {
+                    _loadUserPosts();
+                  },
+                  icon: const Icon(Icons.refresh),
+                  label: const Text('Refresh Posts'),
+                ),
+              ],
+            ),
           ),
-          const SizedBox(height: 24),
-          ElevatedButton.icon(
-            onPressed: () {
-              context.push('/main/community/create-post');
-            },
-            icon: const Icon(Icons.add),
-            label: const Text('Create Post'),
-          ),
-        ],
+        ),
+      );
+    }
+
+    final currentUser = ref.read(authServiceProvider).currentUser;
+    return RefreshIndicator(
+      onRefresh: () async {
+        await _loadUserPosts();
+      },
+      child: ListView.builder(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        itemCount: _userPosts.length,
+        itemBuilder: (context, index) {
+          final post = _userPosts[index];
+          return CommunityPostWidget(
+            post: post,
+            currentUserId: currentUser?.id,
+            currentUsername: currentUser?.username,
+            currentUserAvatar: currentUser?.avatarUrl ?? '',
+            onTap: () => context.push('/main/post/${post.id}'),
+            onUserTap: () {},
+          );
+        },
       ),
     );
   }
 
   Widget _buildLikedTab() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.favorite_outline, size: 64, color: Colors.grey[400]),
-          const SizedBox(height: 16),
-          Text(
-            'No liked videos yet',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-              color: Colors.grey[600],
+    if (_isLoadingLiked) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_likedVideos.isEmpty) {
+      return SingleChildScrollView(
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(32.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.favorite_outline, size: 64, color: Colors.grey[400]),
+                const SizedBox(height: 16),
+                Text(
+                  'No liked videos yet',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.grey[600],
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Videos you like will appear here',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.grey[600],
+                  ),
+                ),
+                const SizedBox(height: 24),
+                ElevatedButton.icon(
+                  onPressed: () {
+                    _loadLikedVideos();
+                  },
+                  icon: const Icon(Icons.refresh),
+                  label: const Text('Refresh Liked Videos'),
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: 8),
-          Text(
-            'Videos you like will appear here',
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.grey[600],
+        ),
+      );
+    }
+
+    return RefreshIndicator(
+      onRefresh: () async {
+        await _loadLikedVideos();
+      },
+      child: GridView.builder(
+        padding: const EdgeInsets.all(16),
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 2,
+          crossAxisSpacing: 12,
+          mainAxisSpacing: 12,
+          childAspectRatio: 0.75,
+        ),
+        itemCount: _likedVideos.length,
+        itemBuilder: (context, index) {
+          final video = _likedVideos[index];
+          return Card(
+            clipBehavior: Clip.antiAlias,
+            child: InkWell(
+              onTap: () {
+                context.push('/main/video/${video.id}/player');
+              },
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        video.calculatedThumbnailUrl != null
+                            ? PresignedImage(
+                                imageUrl: video.calculatedThumbnailUrl!,
+                                fit: BoxFit.cover,
+                                errorWidget: Container(
+                                  color: Colors.grey[300],
+                                  child:
+                                      const Icon(Icons.video_library, size: 48),
+                                ),
+                              )
+                            : Container(
+                                color: Colors.grey[300],
+                                child:
+                                    const Icon(Icons.video_library, size: 48),
+                              ),
+                      ],
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.all(8),
+                    child: Text(
+                      video.title,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 12,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
-        ],
+          );
+        },
       ),
     );
+  }
+
+  PostType _mapPostType(dynamic type) {
+    final t =
+        (type is String) ? type.toUpperCase() : type?.toString().toUpperCase();
+    switch (t) {
+      case 'TEXT':
+        return PostType.text;
+      case 'LINK':
+        return PostType.link;
+      case 'POLL':
+        return PostType.poll;
+      case 'MEDIA':
+      default:
+        return PostType.media;
+    }
   }
 
   Widget _buildPlaylistsTab() {

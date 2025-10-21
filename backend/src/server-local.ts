@@ -6595,6 +6595,200 @@ app.get('/api/v1/users/unlocked-posts', authenticateToken, async (req, res): Pro
   }
 });
 
+// Get user's community posts
+app.get('/api/v1/community/posts/user/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { page = 1, limit = 20 } = req.query;
+    
+    const offset = (Number(page) - 1) * Number(limit);
+    
+    // Get user's posts from database
+    const posts = await prisma.communityPost.findMany({
+      where: {
+        userId: userId,
+        isPublic: true,
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            username: true,
+            firstName: true,
+            lastName: true,
+            avatarUrl: true,
+            isVerified: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+      take: Number(limit),
+      skip: offset,
+    });
+    
+    // Format posts for response
+    const formattedPosts = await Promise.all(posts.map(async post => ({
+      id: post.id,
+      userId: post.userId,
+      username: post.user.username,
+      firstName: post.user.firstName,
+      lastName: post.user.lastName,
+      isVerified: post.user.isVerified,
+      userAvatar: post.user.avatarUrl,
+      title: post.title,
+      content: post.content,
+      type: post.type,
+      images: post.images,
+      videos: post.videos,
+      imageUrls: await Promise.all(post.images.map(img => buildCommunityPostFileUrl(post.fileDirectory, img))),
+      videoUrls: await Promise.all(post.videos.map(vid => buildCommunityPostFileUrl(post.fileDirectory, vid))),
+      videoThumbnailUrls: await Promise.all(post.videoThumbnails.map(thumb => buildCommunityPostFileUrl(post.fileDirectory, thumb))),
+      duration: post.duration,
+      linkUrl: post.linkUrl,
+      linkTitle: post.linkTitle,
+      linkDescription: post.linkDescription,
+      linkThumbnail: null,
+      pollOptions: post.pollOptions,
+      tags: post.tags,
+      category: post.category,
+      likes: post.likes,
+      comments: post.comments,
+      shares: post.shares,
+      views: post.views,
+      isLiked: false, // TODO: Check if current user liked this post
+      isBookmarked: false, // TODO: Check if current user bookmarked this post
+      isPinned: post.isPinned,
+      isNsfw: post.isNsfw,
+      isFeatured: false,
+      cost: post.cost,
+      requiresVip: post.requiresVip,
+      createdAt: post.createdAt.toISOString(),
+      updatedAt: post.updatedAt.toISOString(),
+    })));
+    
+    res.json({
+      success: true,
+      data: formattedPosts,
+      pagination: {
+        page: Number(page),
+        limit: Number(limit),
+        total: formattedPosts.length,
+      },
+    });
+  } catch (error) {
+    console.error('Get user posts error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get user posts',
+    });
+  }
+});
+
+// Get user's liked content
+app.get('/api/v1/social/liked/:contentType', authenticateToken, async (req, res) => {
+  try {
+    const { contentType } = req.params;
+    const { page = 1, limit = 20 } = req.query;
+    const currentUserId = req.user?.id;
+
+    if (!currentUserId) {
+      res.status(401).json({
+        success: false,
+        message: 'Authentication required',
+      });
+      return;
+    }
+
+    // Validate content type
+    const validTypes = ['video', 'post', 'comment'];
+    if (!validTypes.includes(contentType)) {
+      res.status(400).json({
+        success: false,
+        message: 'Invalid content type',
+      });
+      return;
+    }
+
+    const offset = (Number(page) - 1) * Number(limit);
+    let result: any[] = [];
+
+    if (contentType === 'video') {
+      // Get liked videos using raw SQL query
+      const likedVideos = await prisma.$queryRaw`
+        SELECT 
+          v.*,
+          u.username,
+          u.first_name as "firstName",
+          u.last_name as "lastName",
+          u.avatar_url as "userAvatar",
+          l.created_at as "liked_at"
+        FROM likes l
+        INNER JOIN videos v ON l.content_id = v.id
+        INNER JOIN users u ON v.user_id = u.id
+        WHERE l.user_id = ${currentUserId} 
+          AND l.content_type = 'VIDEO' 
+          AND l.type = 'LIKE'
+        ORDER BY l.created_at DESC
+        LIMIT ${Number(limit)} OFFSET ${offset}
+      `;
+      
+      result = likedVideos as any[];
+    } else if (contentType === 'post') {
+      // Get liked posts using raw SQL query
+      const likedPosts = await prisma.$queryRaw`
+        SELECT 
+          p.*,
+          u.username,
+          u.first_name as "firstName",
+          u.last_name as "lastName",
+          u.avatar_url as "userAvatar",
+          l.created_at as "liked_at"
+        FROM likes l
+        INNER JOIN community_posts p ON l.content_id = p.id
+        INNER JOIN users u ON p.user_id = u.id
+        WHERE l.user_id = ${currentUserId} 
+          AND l.content_type = 'POST' 
+          AND l.type = 'LIKE'
+        ORDER BY l.created_at DESC
+        LIMIT ${Number(limit)} OFFSET ${offset}
+      `;
+      
+      result = likedPosts as any[];
+    }
+    
+    // Convert BigInt values to strings to avoid serialization errors
+    const serializedResult = result.map(item => {
+      const serialized: any = {};
+      for (const [key, value] of Object.entries(item)) {
+        if (typeof value === 'bigint') {
+          serialized[key] = value.toString();
+        } else {
+          serialized[key] = value;
+        }
+      }
+      return serialized;
+    });
+
+    res.json({
+      success: true,
+      data: serializedResult,
+      pagination: {
+        page: Number(page),
+        limit: Number(limit),
+        total: Array.isArray(serializedResult) ? serializedResult.length : 0,
+      },
+    });
+  } catch (error) {
+    console.error('Get user liked content error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get liked content',
+    });
+  }
+});
+
 // 404 handler
 app.use('*', (_req, res) => {
   res.status(404).json({
