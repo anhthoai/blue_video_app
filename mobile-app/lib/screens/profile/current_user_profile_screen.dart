@@ -34,6 +34,9 @@ class _CurrentUserProfileScreenState
   // Liked videos
   List<VideoModel> _likedVideos = [];
   bool _isLoadingLiked = false;
+  // Playlists
+  List<Map<String, dynamic>> _userPlaylists = [];
+  bool _isLoadingPlaylists = false;
   DateTime? _lastReloadTime;
   bool _isReloading = false;
 
@@ -58,6 +61,10 @@ class _CurrentUserProfileScreenState
           _likedVideos.isEmpty &&
           !_isLoadingLiked) {
         _loadLikedVideos();
+      } else if (_tabController.index == 3 &&
+          _userPlaylists.isEmpty &&
+          !_isLoadingPlaylists) {
+        _loadUserPlaylists();
       }
     });
   }
@@ -236,6 +243,36 @@ class _CurrentUserProfileScreenState
     } finally {
       setState(() {
         _isLoadingLiked = false;
+      });
+    }
+  }
+
+  Future<void> _loadUserPlaylists() async {
+    setState(() {
+      _isLoadingPlaylists = true;
+    });
+
+    try {
+      print('Loading user playlists...');
+      final response = await _apiService.getUserPlaylists(page: 1, limit: 50);
+      print('Playlists API response: $response');
+      if (response['success'] == true && response['data'] != null) {
+        final items = response['data'] as List<dynamic>;
+        print('Found ${items.length} playlists');
+        final playlists = items
+            .map<Map<String, dynamic>>((p) => p as Map<String, dynamic>)
+            .toList();
+        setState(() {
+          _userPlaylists = playlists;
+        });
+      } else {
+        print('Playlists API failed: ${response['message']}');
+      }
+    } catch (e) {
+      print('Error loading user playlists: $e');
+    } finally {
+      setState(() {
+        _isLoadingPlaylists = false;
       });
     }
   }
@@ -684,6 +721,41 @@ class _CurrentUserProfileScreenState
                           ),
                         ),
                       ),
+                      Positioned(
+                        top: 4,
+                        right: 4,
+                        child: PopupMenuButton<String>(
+                          icon: Container(
+                            padding: const EdgeInsets.all(4),
+                            decoration: BoxDecoration(
+                              color: Colors.black54,
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: const Icon(
+                              Icons.more_vert,
+                              color: Colors.white,
+                              size: 16,
+                            ),
+                          ),
+                          onSelected: (value) {
+                            if (value == 'add_to_playlist') {
+                              _showAddToPlaylistDialog(video.id, video.title);
+                            }
+                          },
+                          itemBuilder: (context) => [
+                            const PopupMenuItem(
+                              value: 'add_to_playlist',
+                              child: Row(
+                                children: [
+                                  Icon(Icons.playlist_add, size: 20),
+                                  SizedBox(width: 8),
+                                  Text('Add to Playlist'),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -875,6 +947,41 @@ class _CurrentUserProfileScreenState
                                 child:
                                     const Icon(Icons.video_library, size: 48),
                               ),
+                        Positioned(
+                          top: 4,
+                          right: 4,
+                          child: PopupMenuButton<String>(
+                            icon: Container(
+                              padding: const EdgeInsets.all(4),
+                              decoration: BoxDecoration(
+                                color: Colors.black54,
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: const Icon(
+                                Icons.more_vert,
+                                color: Colors.white,
+                                size: 16,
+                              ),
+                            ),
+                            onSelected: (value) {
+                              if (value == 'add_to_playlist') {
+                                _showAddToPlaylistDialog(video.id, video.title);
+                              }
+                            },
+                            itemBuilder: (context) => [
+                              const PopupMenuItem(
+                                value: 'add_to_playlist',
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.playlist_add, size: 20),
+                                    SizedBox(width: 8),
+                                    Text('Add to Playlist'),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -916,39 +1023,434 @@ class _CurrentUserProfileScreenState
   }
 
   Widget _buildPlaylistsTab() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.playlist_play_outlined, size: 64, color: Colors.grey[400]),
-          const SizedBox(height: 16),
-          Text(
-            'No playlists yet',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-              color: Colors.grey[600],
+    if (_isLoadingPlaylists) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_userPlaylists.isEmpty) {
+      return SingleChildScrollView(
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(32.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.playlist_play_outlined,
+                    size: 64, color: Colors.grey[400]),
+                const SizedBox(height: 16),
+                Text(
+                  'No playlists yet',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.grey[600],
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Create your first playlist',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.grey[600],
+                  ),
+                ),
+                const SizedBox(height: 24),
+                ElevatedButton.icon(
+                  onPressed: () {
+                    _showCreatePlaylistDialog();
+                  },
+                  icon: const Icon(Icons.add),
+                  label: const Text('Create Playlist'),
+                ),
+                const SizedBox(height: 16),
+                ElevatedButton.icon(
+                  onPressed: () {
+                    _loadUserPlaylists();
+                  },
+                  icon: const Icon(Icons.refresh),
+                  label: const Text('Refresh Playlists'),
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: 8),
-          Text(
-            'Create your first playlist',
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.grey[600],
+        ),
+      );
+    }
+
+    return Stack(
+      children: [
+        RefreshIndicator(
+          onRefresh: () async {
+            await _loadUserPlaylists();
+          },
+          child: GridView.builder(
+            padding: const EdgeInsets.all(16),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              crossAxisSpacing: 12,
+              mainAxisSpacing: 12,
+              childAspectRatio: 0.75,
             ),
-          ),
-          const SizedBox(height: 24),
-          ElevatedButton.icon(
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Playlist creation coming soon')),
-              );
+            itemCount: _userPlaylists.length,
+            itemBuilder: (context, index) {
+              final playlist = _userPlaylists[index];
+              return _buildPlaylistCard(playlist);
             },
-            icon: const Icon(Icons.add),
-            label: const Text('Create Playlist'),
           ),
-        ],
+        ),
+        Positioned(
+          bottom: 16,
+          right: 16,
+          child: FloatingActionButton(
+            onPressed: _showCreatePlaylistDialog,
+            child: const Icon(Icons.add),
+            tooltip: 'Create Playlist',
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _showAddToPlaylistDialog(String videoId, String videoTitle) async {
+    final currentVideoId = videoId; // Store in local variable
+    try {
+      // Fetch user's playlists
+      final response = await _apiService.getUserPlaylists(page: 1, limit: 100);
+
+      if (response['success'] != true) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+                content:
+                    Text(response['message'] ?? 'Failed to load playlists')),
+          );
+        }
+        return;
+      }
+
+      final playlists = response['data'] as List<dynamic>;
+
+      if (!mounted) return;
+
+      if (playlists.isEmpty) {
+        // Show dialog to create a new playlist
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('No Playlists Found'),
+            content: const Text(
+                'You don\'t have any playlists yet. Would you like to create one?'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                  _showCreatePlaylistDialog();
+                },
+                child: const Text('Create Playlist'),
+              ),
+            ],
+          ),
+        );
+        return;
+      }
+
+      // Show playlist selection dialog
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Add to Playlist'),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: ListView.builder(
+              shrinkWrap: true,
+              itemCount: playlists.length + 1,
+              itemBuilder: (context, index) {
+                if (index == playlists.length) {
+                  return ListTile(
+                    leading: const Icon(Icons.add),
+                    title: const Text('Create New Playlist'),
+                    onTap: () {
+                      Navigator.pop(context);
+                      _showCreatePlaylistDialog();
+                    },
+                  );
+                }
+
+                final playlist = playlists[index] as Map<String, dynamic>;
+                return ListTile(
+                  leading: const Icon(Icons.playlist_play),
+                  title: Text(playlist['name'] ?? 'Untitled'),
+                  subtitle: Text('${playlist['videoCount'] ?? 0} videos'),
+                  trailing: playlist['isPublic'] == false
+                      ? const Icon(Icons.lock, size: 16)
+                      : null,
+                  onTap: () async {
+                    Navigator.pop(context);
+                    await _addVideoToPlaylist(playlist['id'], playlist['name'],
+                        videoId: currentVideoId);
+                  },
+                );
+              },
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+          ],
+        ),
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error loading playlists: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _addVideoToPlaylist(String playlistId, String playlistName,
+      {String? videoId}) async {
+    try {
+      final response = await _apiService.addVideoToPlaylist(
+        playlistId: playlistId,
+        videoId: videoId ?? '',
+      );
+
+      if (mounted) {
+        if (response['success'] == true) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Added to "$playlistName"')),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+                content: Text(response['message'] ?? 'Failed to add video')),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
+      }
+    }
+  }
+
+  Widget _buildPlaylistThumbnail(Map<String, dynamic> playlist) {
+    // Use custom thumbnail if available
+    if (playlist['thumbnailUrl'] != null) {
+      return ClipRRect(
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+        child: PresignedImage(
+          imageUrl: playlist['thumbnailUrl'],
+          fit: BoxFit.cover,
+          errorWidget: _buildDefaultPlaylistThumbnail(),
+        ),
+      );
+    }
+
+    // Default thumbnail
+    return _buildDefaultPlaylistThumbnail();
+  }
+
+  Widget _buildDefaultPlaylistThumbnail() {
+    return const Center(
+      child: Icon(Icons.playlist_play, size: 48, color: Colors.grey),
+    );
+  }
+
+  void _showCreatePlaylistDialog() {
+    final nameController = TextEditingController();
+    final descriptionController = TextEditingController();
+    bool isPublic = true;
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: const Text('Create New Playlist'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameController,
+                decoration: const InputDecoration(
+                  labelText: 'Playlist Name',
+                  hintText: 'Enter playlist name',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: descriptionController,
+                decoration: const InputDecoration(
+                  labelText: 'Description (Optional)',
+                  hintText: 'Enter playlist description',
+                  border: OutlineInputBorder(),
+                ),
+                maxLines: 2,
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Checkbox(
+                    value: isPublic,
+                    onChanged: (value) {
+                      setState(() {
+                        isPublic = value ?? true;
+                      });
+                    },
+                  ),
+                  const Text('Public playlist'),
+                ],
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                if (nameController.text.trim().isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                        content: Text('Please enter a playlist name')),
+                  );
+                  return;
+                }
+
+                try {
+                  final response = await _apiService.createPlaylist(
+                    name: nameController.text.trim(),
+                    description: descriptionController.text.trim().isEmpty
+                        ? null
+                        : descriptionController.text.trim(),
+                    isPublic: isPublic,
+                  );
+
+                  if (response['success'] == true) {
+                    Navigator.pop(context);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                          content: Text('Playlist created successfully!')),
+                    );
+                    _loadUserPlaylists(); // Refresh the list
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                          content: Text(response['message'] ??
+                              'Failed to create playlist')),
+                    );
+                  }
+                } catch (e) {
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Error creating playlist: $e')),
+                  );
+                }
+              },
+              child: const Text('Create'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPlaylistCard(Map<String, dynamic> playlist) {
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: InkWell(
+        onTap: () {
+          context.push('/main/playlist/${playlist['id']}', extra: {
+            'playlistName': playlist['name'],
+            'playlistDescription': playlist['description'],
+            'playlistThumbnail': playlist['thumbnailUrl'],
+            'isPublic': playlist['isPublic'],
+            'videoCount': playlist['videoCount'],
+          });
+        },
+        borderRadius: BorderRadius.circular(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Playlist thumbnail
+            Expanded(
+              flex: 3,
+              child: Container(
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  borderRadius:
+                      const BorderRadius.vertical(top: Radius.circular(12)),
+                  color: Colors.grey[200],
+                ),
+                child: _buildPlaylistThumbnail(playlist),
+              ),
+            ),
+            // Playlist info
+            Expanded(
+              flex: 2,
+              child: Padding(
+                padding: const EdgeInsets.all(8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          playlist['name'] ?? 'Untitled Playlist',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 13,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          '${playlist['videoCount'] ?? 0} videos',
+                          style: TextStyle(
+                            color: Colors.grey[600],
+                            fontSize: 11,
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (playlist['isPublic'] == false)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 3, vertical: 1),
+                        decoration: BoxDecoration(
+                          color: Colors.orange[100],
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                        child: const Text(
+                          'Private',
+                          style: TextStyle(
+                            color: Colors.orange,
+                            fontSize: 8,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

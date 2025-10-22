@@ -1999,6 +1999,14 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
+              leading: const Icon(Icons.playlist_add),
+              title: const Text('Add to Playlist'),
+              onTap: () {
+                Navigator.pop(context);
+                _showAddToPlaylistDialog();
+              },
+            ),
+            ListTile(
               leading: const Icon(Icons.share),
               title: const Text('Share Video'),
               onTap: () {
@@ -2217,5 +2225,263 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
         ),
       );
     }
+  }
+
+  void _showAddToPlaylistDialog() async {
+    try {
+      // Fetch user's playlists
+      final response = await _apiService.getUserPlaylists(page: 1, limit: 100);
+
+      if (response['success'] != true) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+                content:
+                    Text(response['message'] ?? 'Failed to load playlists')),
+          );
+        }
+        return;
+      }
+
+      final playlists = response['data'] as List<dynamic>;
+
+      if (!mounted) return;
+
+      if (playlists.isEmpty) {
+        // Show dialog to create a new playlist
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('No Playlists Found'),
+            content: const Text(
+                'You don\'t have any playlists yet. Would you like to create one?'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                  _showCreatePlaylistDialog();
+                },
+                child: const Text('Create Playlist'),
+              ),
+            ],
+          ),
+        );
+        return;
+      }
+
+      // Show playlist selection dialog
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Add to Playlist'),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: ListView.builder(
+              shrinkWrap: true,
+              itemCount: playlists.length + 1,
+              itemBuilder: (context, index) {
+                if (index == playlists.length) {
+                  return ListTile(
+                    leading: const Icon(Icons.add),
+                    title: const Text('Create New Playlist'),
+                    onTap: () {
+                      Navigator.pop(context);
+                      _showCreatePlaylistDialog();
+                    },
+                  );
+                }
+
+                final playlist = playlists[index] as Map<String, dynamic>;
+                return ListTile(
+                  leading: const Icon(Icons.playlist_play),
+                  title: Text(playlist['name'] ?? 'Untitled'),
+                  subtitle: Text('${playlist['videoCount'] ?? 0} videos'),
+                  trailing: playlist['isPublic'] == false
+                      ? const Icon(Icons.lock, size: 16)
+                      : null,
+                  onTap: () async {
+                    Navigator.pop(context);
+                    await _addVideoToPlaylist(playlist['id'], playlist['name']);
+                  },
+                );
+              },
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+          ],
+        ),
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error loading playlists: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _addVideoToPlaylist(
+      String playlistId, String playlistName) async {
+    try {
+      final response = await _apiService.addVideoToPlaylist(
+        playlistId: playlistId,
+        videoId: widget.videoId,
+      );
+
+      if (mounted) {
+        if (response['success'] == true) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Added to "$playlistName"')),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+                content: Text(response['message'] ?? 'Failed to add video')),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
+      }
+    }
+  }
+
+  void _showCreatePlaylistDialog() {
+    final nameController = TextEditingController();
+    final descriptionController = TextEditingController();
+    bool isPublic = true;
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: const Text('Create New Playlist'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameController,
+                decoration: const InputDecoration(
+                  labelText: 'Playlist Name',
+                  hintText: 'Enter playlist name',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: descriptionController,
+                decoration: const InputDecoration(
+                  labelText: 'Description (Optional)',
+                  hintText: 'Enter playlist description',
+                  border: OutlineInputBorder(),
+                ),
+                maxLines: 2,
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Checkbox(
+                    value: isPublic,
+                    onChanged: (value) {
+                      setState(() {
+                        isPublic = value ?? true;
+                      });
+                    },
+                  ),
+                  const Text('Public playlist'),
+                ],
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                if (nameController.text.trim().isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                        content: Text('Please enter a playlist name')),
+                  );
+                  return;
+                }
+
+                try {
+                  final response = await _apiService.createPlaylist(
+                    name: nameController.text.trim(),
+                    description: descriptionController.text.trim().isEmpty
+                        ? null
+                        : descriptionController.text.trim(),
+                    isPublic: isPublic,
+                  );
+
+                  if (response['success'] == true) {
+                    Navigator.pop(context);
+
+                    // Ask if user wants to add the video to this new playlist
+                    if (mounted) {
+                      final shouldAdd = await showDialog<bool>(
+                        context: context,
+                        builder: (context) => AlertDialog(
+                          title: const Text('Playlist Created'),
+                          content: Text(
+                              'Add this video to "${nameController.text.trim()}"?'),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.pop(context, false),
+                              child: const Text('No'),
+                            ),
+                            ElevatedButton(
+                              onPressed: () => Navigator.pop(context, true),
+                              child: const Text('Yes'),
+                            ),
+                          ],
+                        ),
+                      );
+
+                      if (shouldAdd == true && mounted) {
+                        await _addVideoToPlaylist(
+                          response['data']['id'],
+                          nameController.text.trim(),
+                        );
+                      }
+                    }
+                  } else {
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                            content: Text(response['message'] ??
+                                'Failed to create playlist')),
+                      );
+                    }
+                  }
+                } catch (e) {
+                  Navigator.pop(context);
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Error creating playlist: $e')),
+                    );
+                  }
+                }
+              },
+              child: const Text('Create'),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }

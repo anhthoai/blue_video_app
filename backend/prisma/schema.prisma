@@ -46,6 +46,7 @@ model User {
   posts          CommunityPost[]
   comments       Comment[]
   likes          Like[]
+  playlists      Playlist[]
   followers      Follow[] @relation("UserFollowers")
   following      Follow[] @relation("UserFollowing")
   reports        UserReport[] @relation("UserReports")
@@ -118,6 +119,7 @@ model Video {
   // Relations
   user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   category Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  playlists PlaylistVideo[]
   
   @@index([categoryId])
   @@index([status])
@@ -597,4 +599,40 @@ model VipSubscription {
   @@index([endDate])
   @@index([subscriberId, authorId])
   @@map("vip_subscriptions")
+}
+
+model Playlist {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  thumbnailUrl String? @map("thumbnail_url")
+  isPublic    Boolean  @default(true) @map("is_public")
+  userId      String   @map("user_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  user   User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  videos PlaylistVideo[]
+
+  @@index([userId])
+  @@index([isPublic])
+  @@map("playlists")
+}
+
+model PlaylistVideo {
+  id         String   @id @default(uuid())
+  playlistId String   @map("playlist_id")
+  videoId    String   @map("video_id")
+  order      Int      @default(0)
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  // Relations
+  playlist Playlist @relation(fields: [playlistId], references: [id], onDelete: Cascade)
+  video    Video    @relation(fields: [videoId], references: [id], onDelete: Cascade)
+
+  @@unique([playlistId, videoId])
+  @@index([playlistId])
+  @@index([videoId])
+  @@map("playlist_videos")
 }

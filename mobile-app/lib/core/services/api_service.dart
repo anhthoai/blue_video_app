@@ -305,6 +305,79 @@ class ApiService {
     return await _handleResponse(response);
   }
 
+  // Get user's playlists
+  Future<Map<String, dynamic>> getUserPlaylists({
+    int page = 1,
+    int limit = 20,
+  }) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/playlists?page=$page&limit=$limit'),
+      headers: await _getHeaders(),
+    );
+    return await _handleResponse(response);
+  }
+
+  // Create a new playlist
+  Future<Map<String, dynamic>> createPlaylist({
+    required String name,
+    String? description,
+    String? thumbnailUrl,
+    bool isPublic = true,
+  }) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/playlists'),
+      headers: await _getHeaders(),
+      body: jsonEncode({
+        'name': name,
+        'description': description,
+        'thumbnailUrl': thumbnailUrl,
+        'isPublic': isPublic,
+      }),
+    );
+    return await _handleResponse(response);
+  }
+
+  // Add video to playlist
+  Future<Map<String, dynamic>> addVideoToPlaylist({
+    required String playlistId,
+    required String videoId,
+  }) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/playlists/$playlistId/videos'),
+      headers: await _getHeaders(),
+      body: jsonEncode({
+        'videoId': videoId,
+      }),
+    );
+    return await _handleResponse(response);
+  }
+
+  // Remove video from playlist
+  Future<Map<String, dynamic>> removeVideoFromPlaylist({
+    required String playlistId,
+    required String videoId,
+  }) async {
+    final response = await http.delete(
+      Uri.parse('$baseUrl/playlists/$playlistId/videos/$videoId'),
+      headers: await _getHeaders(),
+    );
+    return await _handleResponse(response);
+  }
+
+  // Get playlist videos
+  Future<Map<String, dynamic>> getPlaylistVideos({
+    required String playlistId,
+    int page = 1,
+    int limit = 20,
+  }) async {
+    final response = await http.get(
+      Uri.parse(
+          '$baseUrl/playlists/$playlistId/videos?page=$page&limit=$limit'),
+      headers: await _getHeaders(),
+    );
+    return await _handleResponse(response);
+  }
+
   // Search community posts (comprehensive search across author, username, content, tags)
   Future<Map<String, dynamic>> searchCommunityPosts({
     required String query,

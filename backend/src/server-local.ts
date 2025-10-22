@@ -6686,6 +6686,427 @@ app.get('/api/v1/community/posts/user/:userId', async (req, res) => {
   }
 });
 
+// Get user's playlists
+app.get('/api/v1/playlists', authenticateToken, async (req, res) => {
+  try {
+    const { page = 1, limit = 20 } = req.query;
+    const currentUserId = req.user?.id;
+    const offset = (Number(page) - 1) * Number(limit);
+
+    if (!currentUserId) {
+      res.status(401).json({
+        success: false,
+        message: 'Authentication required',
+      });
+      return;
+    }
+
+    // Get user's playlists from database
+    const playlists = await prisma.playlist.findMany({
+      where: {
+        userId: currentUserId,
+      },
+      include: {
+        _count: {
+          select: {
+            videos: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+      take: Number(limit),
+      skip: offset,
+    });
+
+    // Format playlists for response with auto-generated thumbnails
+    const formattedPlaylists = await Promise.all(playlists.map(async playlist => {
+      let thumbnailUrl = playlist.thumbnailUrl;
+      
+      console.log(`Processing playlist ${playlist.name}: custom thumbnail = ${thumbnailUrl}, video count = ${playlist._count.videos}`);
+      
+      // If no custom thumbnail, use first video's thumbnail
+      if (!thumbnailUrl && playlist._count.videos > 0) {
+        console.log(`Looking for first video in playlist ${playlist.id}`);
+        const firstVideo = await prisma.playlistVideo.findFirst({
+          where: { playlistId: playlist.id },
+          include: { video: true },
+          orderBy: { order: 'asc' },
+        });
+        
+        console.log(`First video found:`, firstVideo?.video ? 'Yes' : 'No');
+        if (firstVideo?.video) {
+          const video = firstVideo.video;
+          console.log(`Video thumbnail: ${video.thumbnailUrl}, fileDirectory: ${video.fileDirectory}`);
+          
+          // Build proper thumbnail URL using storage service
+          if (video.thumbnailUrl && video.thumbnailUrl.trim() !== '') {
+            // If it's already a full URL, use it
+            if (video.thumbnailUrl.startsWith('http')) {
+              thumbnailUrl = video.thumbnailUrl;
+              console.log(`Using full URL: ${thumbnailUrl}`);
+            } else if (video.fileDirectory) {
+              // Build proper storage URL
+              thumbnailUrl = await buildFileUrl(video.fileDirectory, video.thumbnailUrl, 'thumbnails');
+              console.log(`Built storage URL: ${thumbnailUrl}`);
+            }
+          } else if (video.fileName && video.fileDirectory) {
+            // Calculate thumbnail from fileName (same logic as frontend calculatedThumbnailUrl)
+            const thumbnailFileName = video.fileName.replace(/\.[^.]+$/, '.jpg');
+            thumbnailUrl = await buildFileUrl(video.fileDirectory, thumbnailFileName, 'thumbnails');
+            console.log(`Calculated thumbnail from fileName: ${thumbnailUrl}`);
+          }
+        }
+      }
+      
+      return {
+        id: playlist.id,
+        name: playlist.name,
+        description: playlist.description,
+        thumbnailUrl: thumbnailUrl,
+        isPublic: playlist.isPublic,
+        videoCount: playlist._count.videos,
+        createdAt: playlist.createdAt.toISOString(),
+        updatedAt: playlist.updatedAt.toISOString(),
+      };
+    }));
+
+    res.json({
+      success: true,
+      data: formattedPlaylists,
+      pagination: {
+        page: Number(page),
+        limit: Number(limit),
+        total: formattedPlaylists.length,
+      },
+    });
+  } catch (error) {
+    console.error('Get user playlists error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get user playlists',
+    });
+  }
+});
+
+// Create a new playlist
+app.post('/api/v1/playlists', authenticateToken, async (req, res) => {
+  try {
+    const { name, description, thumbnailUrl, isPublic = true } = req.body;
+    const currentUserId = req.user?.id;
+
+    if (!currentUserId) {
+      res.status(401).json({
+        success: false,
+        message: 'Authentication required',
+      });
+      return;
+    }
+
+    if (!name || name.trim() === '') {
+      res.status(400).json({
+        success: false,
+        message: 'Playlist name is required',
+      });
+      return;
+    }
+
+    const playlist = await prisma.playlist.create({
+      data: {
+        name: name.trim(),
+        description: description?.trim(),
+        thumbnailUrl,
+        isPublic,
+        userId: currentUserId,
+      },
+    });
+
+    res.json({
+      success: true,
+      data: {
+        id: playlist.id,
+        name: playlist.name,
+        description: playlist.description,
+        thumbnailUrl: playlist.thumbnailUrl,
+        isPublic: playlist.isPublic,
+        videoCount: 0,
+        createdAt: playlist.createdAt.toISOString(),
+        updatedAt: playlist.updatedAt.toISOString(),
+      },
+    });
+  } catch (error) {
+    console.error('Create playlist error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to create playlist',
+    });
+  }
+});
+
+// Add video to playlist
+app.post('/api/v1/playlists/:playlistId/videos', authenticateToken, async (req, res) => {
+  try {
+    const { playlistId } = req.params;
+    const { videoId } = req.body;
+    const currentUserId = req.user?.id;
+
+    if (!currentUserId) {
+      res.status(401).json({
+        success: false,
+        message: 'Authentication required',
+      });
+      return;
+    }
+
+    if (!videoId) {
+      res.status(400).json({
+        success: false,
+        message: 'Video ID is required',
+      });
+      return;
+    }
+
+    // Check if playlist exists and belongs to user
+    const playlist = await prisma.playlist.findFirst({
+      where: {
+        id: playlistId,
+        userId: currentUserId,
+      },
+    });
+
+    if (!playlist) {
+      res.status(404).json({
+        success: false,
+        message: 'Playlist not found',
+      });
+      return;
+    }
+
+    // Check if video exists
+    const video = await prisma.video.findUnique({
+      where: { id: videoId },
+    });
+
+    if (!video) {
+      res.status(404).json({
+        success: false,
+        message: 'Video not found',
+      });
+      return;
+    }
+
+    // Add video to playlist (or update if already exists)
+    await prisma.playlistVideo.upsert({
+      where: {
+        playlistId_videoId: {
+          playlistId,
+          videoId,
+        },
+      },
+      update: {
+        order: 0, // Reset order
+      },
+      create: {
+        playlistId,
+        videoId,
+        order: 0,
+      },
+    });
+
+    res.json({
+      success: true,
+      message: 'Video added to playlist successfully',
+    });
+  } catch (error) {
+    console.error('Add video to playlist error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to add video to playlist',
+    });
+  }
+});
+
+// Remove video from playlist
+app.delete('/api/v1/playlists/:playlistId/videos/:videoId', authenticateToken, async (req, res) => {
+  try {
+    const { playlistId, videoId } = req.params;
+    const currentUserId = req.user?.id;
+
+    if (!currentUserId) {
+      res.status(401).json({
+        success: false,
+        message: 'Authentication required',
+      });
+      return;
+    }
+
+    // Check if playlist exists and belongs to user
+    const playlist = await prisma.playlist.findFirst({
+      where: {
+        id: playlistId,
+        userId: currentUserId,
+      },
+    });
+
+    if (!playlist) {
+      res.status(404).json({
+        success: false,
+        message: 'Playlist not found',
+      });
+      return;
+    }
+
+    // Remove video from playlist
+    await prisma.playlistVideo.deleteMany({
+      where: {
+        playlistId,
+        videoId,
+      },
+    });
+
+    res.json({
+      success: true,
+      message: 'Video removed from playlist successfully',
+    });
+  } catch (error) {
+    console.error('Remove video from playlist error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to remove video from playlist',
+    });
+  }
+});
+
+// Get playlist videos
+app.get('/api/v1/playlists/:playlistId/videos', authenticateToken, async (req, res) => {
+  try {
+    const { playlistId } = req.params;
+    const { page = 1, limit = 20 } = req.query;
+    const currentUserId = req.user?.id;
+    const offset = (Number(page) - 1) * Number(limit);
+
+    if (!currentUserId) {
+      res.status(401).json({
+        success: false,
+        message: 'Authentication required',
+      });
+      return;
+    }
+
+    // Check if playlist exists and belongs to user
+    const playlist = await prisma.playlist.findFirst({
+      where: {
+        id: playlistId,
+        userId: currentUserId,
+      },
+    });
+
+    if (!playlist) {
+      res.status(404).json({
+        success: false,
+        message: 'Playlist not found',
+      });
+      return;
+    }
+
+    // Get playlist videos
+    const playlistVideos = await prisma.playlistVideo.findMany({
+      where: {
+        playlistId,
+      },
+      include: {
+        video: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                username: true,
+                firstName: true,
+                lastName: true,
+                avatarUrl: true,
+              },
+            },
+          },
+        },
+      },
+      orderBy: {
+        order: 'asc',
+      },
+      take: Number(limit),
+      skip: offset,
+    });
+
+    // Get playlist info for thumbnail
+    const playlistInfo = await prisma.playlist.findUnique({
+      where: { id: playlistId },
+    });
+
+    // Convert BigInt values to strings to avoid serialization errors
+    const videos = playlistVideos.map(pv => {
+      const video = pv.video as any;
+      const serializedVideo: any = {};
+      
+      for (const [key, value] of Object.entries(video)) {
+        if (typeof value === 'bigint') {
+          serializedVideo[key] = value.toString();
+        } else {
+          serializedVideo[key] = value;
+        }
+      }
+      
+      return {
+        ...serializedVideo,
+        addedAt: pv.createdAt,
+      };
+    });
+
+    // Determine playlist thumbnail
+    let playlistThumbnail = playlistInfo?.thumbnailUrl;
+    if (!playlistThumbnail && videos.length > 0) {
+      // Use first video's thumbnail as playlist thumbnail
+      const firstVideo = videos[0];
+      if (firstVideo.thumbnailUrl && firstVideo.thumbnailUrl.trim() !== '') {
+        // If it's already a full URL, use it
+        if (firstVideo.thumbnailUrl.startsWith('http')) {
+          playlistThumbnail = firstVideo.thumbnailUrl;
+        } else if (firstVideo.fileDirectory) {
+          // Build proper storage URL
+          playlistThumbnail = await buildFileUrl(firstVideo.fileDirectory, firstVideo.thumbnailUrl, 'thumbnails');
+        }
+      } else if (firstVideo.fileName && firstVideo.fileDirectory) {
+        // Calculate thumbnail from fileName (same logic as frontend calculatedThumbnailUrl)
+        const thumbnailFileName = firstVideo.fileName.replace(/\.[^.]+$/, '.jpg');
+        playlistThumbnail = await buildFileUrl(firstVideo.fileDirectory, thumbnailFileName, 'thumbnails');
+      }
+    }
+
+    res.json({
+      success: true,
+      data: videos,
+      playlistInfo: {
+        id: playlistInfo?.id,
+        name: playlistInfo?.name,
+        description: playlistInfo?.description,
+        thumbnailUrl: playlistThumbnail,
+        isPublic: playlistInfo?.isPublic,
+        videoCount: videos.length,
+      },
+      pagination: {
+        page: Number(page),
+        limit: Number(limit),
+        total: videos.length,
+      },
+    });
+  } catch (error) {
+    console.error('Get playlist videos error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get playlist videos',
+    });
+  }
+});
+
 // Get user's liked content
 app.get('/api/v1/social/liked/:contentType', authenticateToken, async (req, res) => {
   try {

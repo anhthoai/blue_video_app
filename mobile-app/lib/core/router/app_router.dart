@@ -27,6 +27,7 @@ import '../../screens/coin/coin_recharge_screen.dart';
 import '../../screens/coin/coin_history_screen.dart';
 import '../../screens/vip/vip_subscription_screen.dart';
 import '../../screens/discover/category_detail_screen.dart';
+import '../../screens/playlist/playlist_detail_screen.dart';
 import '../../models/category_model.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
@@ -184,6 +185,23 @@ final routerProvider = Provider<GoRouter>((ref) {
             builder: (context, state) {
               final categoryData = state.extra as CategoryModel;
               return CategoryDetailScreen(category: categoryData);
+            },
+          ),
+
+          // Playlist Routes
+          GoRoute(
+            path: 'playlist/:playlistId',
+            builder: (context, state) {
+              final playlistId = state.pathParameters['playlistId']!;
+              final extra = state.extra as Map<String, dynamic>?;
+              return PlaylistDetailScreen(
+                playlistId: playlistId,
+                playlistName: extra?['playlistName'] ?? 'Playlist',
+                playlistDescription: extra?['playlistDescription'],
+                playlistThumbnail: extra?['playlistThumbnail'],
+                isPublic: extra?['isPublic'] ?? true,
+                videoCount: extra?['videoCount'] ?? 0,
+              );
             },
           ),
 
