@@ -123,15 +123,35 @@ export function buildAvatarUrl(user: {
   avatarUrl?: string | null;
   fileDirectory?: string | null;
 }): string | null {
+  console.log(`🔍 buildAvatarUrl - user:`, {
+    avatar: user.avatar,
+    avatarUrl: user.avatarUrl,
+    fileDirectory: user.fileDirectory,
+    hasAvatar: !!user.avatar,
+    hasFileDirectory: !!user.fileDirectory,
+    hasAvatarUrl: !!user.avatarUrl
+  });
+  
   // If storage-based avatar exists
   if (user.avatar && user.fileDirectory) {
-    const result = buildFileUrlSync(user.fileDirectory, user.avatar, 'avatars');
-    // If buildFileUrlSync returns object key (no CDN), return it for presigned URL generation
-    return result;
+    const objectKey = getObjectKey(user.fileDirectory, user.avatar, 'avatars');
+    if (objectKey) {
+      console.log(`🖼️ Built avatar object key: ${objectKey}`);
+      // Return object key - frontend will use this to request presigned URL
+      return objectKey;
+    }
+  }
+  
+  // Check if avatarUrl is a storage URL that needs presigned URL generation
+  if (user.avatarUrl && !user.avatarUrl.startsWith('http')) {
+    console.log(`🖼️ Avatar URL appears to be object key: ${user.avatarUrl}`);
+    return user.avatarUrl;
   }
   
   // Fallback to external URL
-  return user.avatarUrl || null;
+  const fallbackUrl = user.avatarUrl || null;
+  console.log(`🖼️ Using fallback avatar URL: ${fallbackUrl}`);
+  return fallbackUrl;
 }
 
 /**

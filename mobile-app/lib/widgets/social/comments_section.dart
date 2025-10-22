@@ -52,8 +52,7 @@ class _CommentsSectionState extends ConsumerState<CommentsSection> {
 
     try {
       final socialService = ref.read(socialServiceStateProvider.notifier);
-      await socialService.loadComments(widget.videoId,
-          contentType: 'COMMUNITY_POST');
+      await socialService.loadComments(widget.videoId, contentType: 'VIDEO');
     } finally {
       setState(() {
         _isLoading = false;
@@ -76,7 +75,7 @@ class _CommentsSectionState extends ConsumerState<CommentsSection> {
         userAvatar: widget.currentUserAvatar,
         content: content,
         parentCommentId: parentCommentId,
-        contentType: 'COMMUNITY_POST', // This is for community posts
+        contentType: 'VIDEO', // This is for videos
       );
 
       // Scroll to top to show new comment
@@ -370,8 +369,7 @@ class _CommentsSectionState extends ConsumerState<CommentsSection> {
                     userAvatar: widget.currentUserAvatar,
                     content: replyController.text.trim(),
                     parentCommentId: parentComment.id,
-                    contentType:
-                        'COMMUNITY_POST', // This is for community posts
+                    contentType: 'VIDEO', // This is for videos
                   );
                 } catch (e) {
                   ScaffoldMessenger.of(context).showSnackBar(

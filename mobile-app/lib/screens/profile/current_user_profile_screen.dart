@@ -802,24 +802,24 @@ class _CurrentUserProfileScreenState
         child: Center(
           child: Padding(
             padding: const EdgeInsets.all(32.0),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
                 Icon(Icons.post_add_outlined,
                     size: 64, color: Colors.grey[400]),
-                const SizedBox(height: 16),
-                Text(
-                  'No posts yet',
-                  style: TextStyle(color: Colors.grey[600]),
-                ),
-                const SizedBox(height: 24),
-                ElevatedButton.icon(
-                  onPressed: () {
-                    context.push('/main/community/create-post');
-                  },
-                  icon: const Icon(Icons.add),
-                  label: const Text('Create Post'),
-                ),
+          const SizedBox(height: 16),
+          Text(
+            'No posts yet',
+            style: TextStyle(color: Colors.grey[600]),
+          ),
+          const SizedBox(height: 24),
+          ElevatedButton.icon(
+            onPressed: () {
+              context.push('/main/community/create-post');
+            },
+            icon: const Icon(Icons.add),
+            label: const Text('Create Post'),
+          ),
                 const SizedBox(height: 16),
                 ElevatedButton.icon(
                   onPressed: () {
@@ -868,27 +868,27 @@ class _CurrentUserProfileScreenState
         child: Center(
           child: Padding(
             padding: const EdgeInsets.all(32.0),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.favorite_outline, size: 64, color: Colors.grey[400]),
-                const SizedBox(height: 16),
-                Text(
-                  'No liked videos yet',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.grey[600],
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Videos you like will appear here',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.grey[600],
-                  ),
-                ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.favorite_outline, size: 64, color: Colors.grey[400]),
+          const SizedBox(height: 16),
+          Text(
+            'No liked videos yet',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+              color: Colors.grey[600],
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Videos you like will appear here',
+            style: TextStyle(
+              fontSize: 14,
+              color: Colors.grey[600],
+            ),
+          ),
                 const SizedBox(height: 24),
                 ElevatedButton.icon(
                   onPressed: () {
@@ -1032,36 +1032,36 @@ class _CurrentUserProfileScreenState
         child: Center(
           child: Padding(
             padding: const EdgeInsets.all(32.0),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
                 Icon(Icons.playlist_play_outlined,
                     size: 64, color: Colors.grey[400]),
-                const SizedBox(height: 16),
-                Text(
-                  'No playlists yet',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.grey[600],
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Create your first playlist',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.grey[600],
-                  ),
-                ),
-                const SizedBox(height: 24),
-                ElevatedButton.icon(
-                  onPressed: () {
+          const SizedBox(height: 16),
+          Text(
+            'No playlists yet',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+              color: Colors.grey[600],
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Create your first playlist',
+            style: TextStyle(
+              fontSize: 14,
+              color: Colors.grey[600],
+            ),
+          ),
+          const SizedBox(height: 24),
+          ElevatedButton.icon(
+            onPressed: () {
                     _showCreatePlaylistDialog();
-                  },
-                  icon: const Icon(Icons.add),
-                  label: const Text('Create Playlist'),
-                ),
+            },
+            icon: const Icon(Icons.add),
+            label: const Text('Create Playlist'),
+          ),
                 const SizedBox(height: 16),
                 ElevatedButton.icon(
                   onPressed: () {

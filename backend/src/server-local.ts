@@ -586,7 +586,11 @@ app.get('/api/v1/users/:userId/videos', async (req, res) => {
       username: video.user?.username,
       firstName: video.user?.firstName,
       lastName: video.user?.lastName,
-      userAvatarUrl: video.user ? buildAvatarUrl(video.user) : null,
+      userAvatarUrl: video.user ? (() => {
+        const avatarUrl = buildAvatarUrl(video.user);
+        console.log(`🖼️ Video ${video.id} - Avatar URL: ${avatarUrl}`);
+        return avatarUrl;
+      })() : null,
     }));
 
     res.json({
@@ -886,7 +890,11 @@ app.get('/api/v1/videos/trending', async (req, res) => {
       username: video.user?.username,
       firstName: video.user?.firstName,
       lastName: video.user?.lastName,
-      userAvatarUrl: video.user ? buildAvatarUrl(video.user) : null,
+      userAvatarUrl: video.user ? (() => {
+        const avatarUrl = buildAvatarUrl(video.user);
+        console.log(`🖼️ Video ${video.id} - Avatar URL: ${avatarUrl}`);
+        return avatarUrl;
+      })() : null,
     }));
 
     res.json({
@@ -1305,7 +1313,9 @@ app.get('/api/v1/videos', async (req, res) => {
             username: true,
             firstName: true,
             lastName: true,
+            avatar: true,
             avatarUrl: true,
+            fileDirectory: true,
             isVerified: true,
           },
         },
@@ -1351,7 +1361,11 @@ app.get('/api/v1/videos', async (req, res) => {
       username: video.user?.username,
       firstName: video.user?.firstName,
       lastName: video.user?.lastName,
-      userAvatarUrl: video.user ? buildAvatarUrl(video.user) : null,
+      userAvatarUrl: video.user ? (() => {
+        const avatarUrl = buildAvatarUrl(video.user);
+        console.log(`🖼️ Video ${video.id} - Avatar URL: ${avatarUrl}`);
+        return avatarUrl;
+      })() : null,
     }));
 
     console.log(`✅ Found ${videos.length} videos in database`);
@@ -1448,7 +1462,11 @@ app.get('/api/v1/categories/:categoryId/videos', async (req, res) => {
       username: video.user?.username,
       firstName: video.user?.firstName,
       lastName: video.user?.lastName,
-      userAvatarUrl: video.user ? buildAvatarUrl(video.user) : null,
+      userAvatarUrl: video.user ? (() => {
+        const avatarUrl = buildAvatarUrl(video.user);
+        console.log(`🖼️ Video ${video.id} - Avatar URL: ${avatarUrl}`);
+        return avatarUrl;
+      })() : null,
     }));
 
     res.json({
@@ -1528,6 +1546,72 @@ app.get('/api/v1/categories', async (_req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to fetch categories',
+    });
+  }
+});
+
+// Get users
+app.get('/api/v1/users', authenticateToken, async (req, res) => {
+  try {
+    const { page = 1, limit = 20 } = req.query;
+    const offset = (Number(page) - 1) * Number(limit);
+
+    const users = await prisma.user.findMany({
+      select: {
+        id: true,
+        username: true,
+        firstName: true,
+        lastName: true,
+        avatar: true,
+        avatarUrl: true,
+        fileDirectory: true,
+        isVerified: true,
+        createdAt: true,
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+      take: Number(limit),
+      skip: offset,
+    });
+
+    // Format users with proper avatar URLs
+    const formattedUsers = await Promise.all(users.map(async user => {
+      let avatarUrl = user.avatarUrl;
+      
+      // Prioritize storage avatar over external URL
+      if (user.avatar && user.fileDirectory) {
+        avatarUrl = await buildFileUrl(user.fileDirectory, user.avatar, 'avatars');
+        console.log(`🖼️ User ${user.username} - Storage avatar: ${avatarUrl}`);
+      } else {
+        console.log(`🖼️ User ${user.username} - External avatar: ${avatarUrl}`);
+      }
+      
+      return {
+        id: user.id,
+        username: user.username,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        avatarUrl: avatarUrl,
+        isVerified: user.isVerified,
+        createdAt: user.createdAt.toISOString(),
+      };
+    }));
+
+    res.json({
+      success: true,
+      data: formattedUsers,
+      pagination: {
+        page: Number(page),
+        limit: Number(limit),
+        total: formattedUsers.length,
+      },
+    });
+  } catch (error) {
+    console.error('Get users error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get users',
     });
   }
 });
@@ -2849,11 +2933,15 @@ app.get('/api/v1/social/comments', async (req, res) => {
       return;
     }
     
-    // Map COMMUNITY_POST to POST for the database enum
+    // Map content types for the database enum
     let mappedContentType = String(contentType).toUpperCase();
     if (mappedContentType === 'COMMUNITY_POST') {
       mappedContentType = 'POST';
+    } else if (mappedContentType === 'VIDEO') {
+      mappedContentType = 'VIDEO';
     }
+    
+    console.log(`🔍 Comments request - contentId: ${contentId}, contentType: ${contentType}, mappedContentType: ${mappedContentType}`);
 
     // Get comments from database using Prisma
     const comments = await prisma.comment.findMany({
@@ -2879,6 +2967,32 @@ app.get('/api/v1/social/comments', async (req, res) => {
         createdAt: 'desc',
       },
     });
+    
+    console.log(`📝 Found ${comments.length} comments for ${contentId}`);
+    
+    // If no comments found, let's check if there are any comments in the database at all
+    if (comments.length === 0) {
+      const totalComments = await prisma.comment.count();
+      console.log(`📊 Total comments in database: ${totalComments}`);
+      
+      // Check if there are any comments for this content type
+      const commentsForType = await prisma.comment.count({
+        where: {
+          contentType: mappedContentType as any,
+        },
+      });
+      console.log(`📊 Comments for type ${mappedContentType}: ${commentsForType}`);
+      
+      // Check what content types exist in the database
+      const allComments = await prisma.comment.findMany({
+        select: {
+          contentType: true,
+          contentId: true,
+        },
+        take: 10,
+      });
+      console.log(`📊 Sample comments:`, allComments.map(c => ({ contentType: c.contentType, contentId: c.contentId })));
+    }
 
     // Check which comments current user has liked
     const commentIds = comments.map(c => c.id);
@@ -6616,7 +6730,9 @@ app.get('/api/v1/community/posts/user/:userId', async (req, res) => {
             username: true,
             firstName: true,
             lastName: true,
+            avatar: true,
             avatarUrl: true,
+            fileDirectory: true,
             isVerified: true,
           },
         },

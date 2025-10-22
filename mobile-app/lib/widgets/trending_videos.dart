@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:go_router/go_router.dart';
 
 import '../core/services/video_service.dart';
@@ -43,7 +42,10 @@ class TrendingVideos extends ConsumerWidget {
           // Trending Videos List
           videosAsync.when(
             data: (videos) {
-              final trendingVideos = videos.take(10).toList();
+              // Sort videos by view count (highest first)
+              final sortedVideos = List<VideoModel>.from(videos)
+                ..sort((a, b) => b.viewCount.compareTo(a.viewCount));
+              final trendingVideos = sortedVideos.take(10).toList();
               return SizedBox(
                 height: 200,
                 child: ListView.builder(

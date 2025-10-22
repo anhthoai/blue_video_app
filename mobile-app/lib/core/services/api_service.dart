@@ -1119,6 +1119,18 @@ class ApiService {
     }
   }
 
+  // Get users
+  Future<Map<String, dynamic>> getUsers({
+    int page = 1,
+    int limit = 20,
+  }) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/users?page=$page&limit=$limit'),
+      headers: await _getHeaders(),
+    );
+    return await _handleResponse(response);
+  }
+
   // Get videos by category
   Future<List<Map<String, dynamic>>> getVideosByCategory(
     String categoryId, {

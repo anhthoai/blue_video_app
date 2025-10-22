@@ -6,6 +6,7 @@ import '../../widgets/video_card.dart';
 import '../../widgets/story_list.dart';
 import '../../widgets/trending_videos.dart';
 import '../../core/services/video_service.dart';
+import '../../core/services/auth_service.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -107,9 +108,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         shareCount: video.shareCount,
                         authorName: video.displayName,
                         authorAvatar: video.userAvatarUrl,
-                        currentUserId: 'mock_user_1',
-                        currentUsername: 'Test User',
-                        currentUserAvatar: 'https://i.pravatar.cc/150?img=1',
+                        currentUserId:
+                            ref.watch(authServiceProvider).currentUser?.id ??
+                                'mock_user_1',
+                        currentUsername: ref
+                                .watch(authServiceProvider)
+                                .currentUser
+                                ?.username ??
+                            'Test User',
+                        currentUserAvatar: ref
+                                .watch(authServiceProvider)
+                                .currentUser
+                                ?.avatarUrl ??
+                            'https://i.pravatar.cc/150?img=1',
                         onTap: () {
                           context.go('/main/video/${video.id}/player');
                         },
