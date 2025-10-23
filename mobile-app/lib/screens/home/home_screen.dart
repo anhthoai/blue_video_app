@@ -66,7 +66,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           IconButton(
             icon: const Icon(Icons.search),
             onPressed: () {
-              // Navigate to search screen
+              context.push('/main/search');
             },
           ),
           IconButton(

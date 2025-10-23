@@ -190,6 +190,67 @@ export function serializeUserWithUrls(user: any): any {
 }
 
 /**
+ * Async version of buildAvatarUrl that generates presigned URLs
+ */
+export async function buildAvatarUrlAsync(user: {
+  avatar?: string | null;
+  avatarUrl?: string | null;
+  fileDirectory?: string | null;
+}): Promise<string | null> {
+  console.log(`🔍 buildAvatarUrlAsync - user:`, {
+    avatar: user.avatar,
+    avatarUrl: user.avatarUrl,
+    fileDirectory: user.fileDirectory,
+    hasAvatar: !!user.avatar,
+    hasFileDirectory: !!user.fileDirectory,
+    hasAvatarUrl: !!user.avatarUrl
+  });
+  
+  // If storage-based avatar exists, generate presigned URL
+  if (user.avatar && user.fileDirectory) {
+    const objectKey = getObjectKey(user.fileDirectory, user.avatar, 'avatars');
+    if (objectKey) {
+      console.log(`🖼️ Built avatar object key: ${objectKey}`);
+      // Generate presigned URL
+      const presignedUrl = await buildFileUrl(user.fileDirectory, user.avatar, 'avatars');
+      console.log(`🖼️ Generated presigned avatar URL: ${presignedUrl}`);
+      return presignedUrl;
+    }
+  }
+  
+  // Check if avatarUrl is a storage URL that needs presigned URL generation
+  if (user.avatarUrl && !user.avatarUrl.startsWith('http')) {
+    console.log(`🖼️ Avatar URL appears to be object key: ${user.avatarUrl}`);
+    // This is an object key, generate presigned URL
+    if (user.fileDirectory) {
+      const presignedUrl = await buildFileUrl(user.fileDirectory, user.avatarUrl, 'avatars');
+      console.log(`🖼️ Generated presigned URL from object key: ${presignedUrl}`);
+      return presignedUrl;
+    }
+  }
+  
+  // Fallback to external URL
+  const fallbackUrl = user.avatarUrl || null;
+  console.log(`🖼️ Using fallback avatar URL: ${fallbackUrl}`);
+  return fallbackUrl;
+}
+
+/**
+ * Async version of serializeUserWithUrls that generates presigned URLs
+ */
+export async function serializeUserWithUrlsAsync(user: any): Promise<any> {
+  return {
+    ...user,
+    avatarUrl: await buildAvatarUrlAsync(user),
+    bannerUrl: buildBannerUrl(user), // Keep banner sync for now
+    // Remove storage fields from API response for security
+    avatar: undefined,
+    banner: undefined,
+    fileDirectory: undefined,
+  };
+}
+
+/**
  * Build community post file URL
  * @param fileDirectory - File directory path (e.g., "2025/10/02/post-id")
  * @param fileName - File name (e.g., "uuid.jpg")

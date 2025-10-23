@@ -1015,27 +1015,6 @@ class ApiService {
     return await _handleResponse(response);
   }
 
-  Future<Map<String, dynamic>> searchUsers({
-    String query = '',
-    int limit = 20,
-  }) async {
-    final queryParams = <String, String>{
-      'q': query,
-      'limit': limit.toString(),
-    };
-
-    final uri = Uri.parse('$baseUrl/users/search/users').replace(
-      queryParameters: queryParams,
-    );
-
-    final response = await http.get(
-      uri,
-      headers: await _getHeaders(),
-    );
-
-    return await _handleResponse(response);
-  }
-
   // Get presigned URL for file access (when CDN is not configured)
   Future<String?> getPresignedUrl(String objectKey) async {
     try {
@@ -1097,6 +1076,69 @@ class ApiService {
     } catch (e) {
       print('❌ Error getting trending videos: $e');
       return [];
+    }
+  }
+
+  // Search videos
+  Future<Map<String, dynamic>> searchVideos(
+    String query, {
+    int page = 1,
+    int limit = 20,
+  }) async {
+    try {
+      final url =
+          '$baseUrl/search/videos?q=${Uri.encodeComponent(query)}&page=$page&limit=$limit';
+      print('📡 API Call: GET $url');
+      final response = await http.get(
+        Uri.parse(url),
+        headers: await _getHeaders(),
+      );
+      return await _handleResponse(response);
+    } catch (e) {
+      print('❌ Error searching videos: $e');
+      return {'success': false, 'data': []};
+    }
+  }
+
+  // Search posts
+  Future<Map<String, dynamic>> searchPosts(
+    String query, {
+    int page = 1,
+    int limit = 20,
+  }) async {
+    try {
+      final url =
+          '$baseUrl/search/posts?q=${Uri.encodeComponent(query)}&page=$page&limit=$limit';
+      print('📡 API Call: GET $url');
+      final response = await http.get(
+        Uri.parse(url),
+        headers: await _getHeaders(),
+      );
+      return await _handleResponse(response);
+    } catch (e) {
+      print('❌ Error searching posts: $e');
+      return {'success': false, 'data': []};
+    }
+  }
+
+  // Search users
+  Future<Map<String, dynamic>> searchUsers(
+    String query, {
+    int page = 1,
+    int limit = 20,
+  }) async {
+    try {
+      final url =
+          '$baseUrl/search/users?q=${Uri.encodeComponent(query)}&page=$page&limit=$limit';
+      print('📡 API Call: GET $url');
+      final response = await http.get(
+        Uri.parse(url),
+        headers: await _getHeaders(),
+      );
+      return await _handleResponse(response);
+    } catch (e) {
+      print('❌ Error searching users: $e');
+      return {'success': false, 'data': []};
     }
   }
 

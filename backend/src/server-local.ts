@@ -18,7 +18,7 @@ import { emailService } from './services/emailService';
 import { upload, deleteFromS3, chatFileStorage, chatFileFilter, videoUpload, communityPostUpload, uploadCommunityPostFiles } from './services/s3Service';
 import { processVideo } from './services/videoProcessingService';
 import { promises as fs } from 'fs';
-import { serializeUserWithUrls, buildAvatarUrl, buildFileUrlSync, buildFileUrl, buildCommunityPostFileUrl } from './utils/fileUrl';
+import { serializeUserWithUrls, buildAvatarUrl, buildFileUrlSync, buildFileUrl, buildCommunityPostFileUrl, serializeUserWithUrlsAsync, buildAvatarUrlAsync } from './utils/fileUrl';
 import { PrismaClient } from '@prisma/client';
 import multer from 'multer';
 import { paymentService, IPNNotification } from './services/paymentService';
@@ -1446,38 +1446,38 @@ app.get('/api/v1/categories/:categoryId/videos', async (req, res) => {
       }
 
       return {
-        id: video.id,
-        userId: video.userId,
-        categoryId: video.categoryId,
-        title: video.title,
-        description: video.description,
-        videoUrl: video.videoUrl,
+      id: video.id,
+      userId: video.userId,
+      categoryId: video.categoryId,
+      title: video.title,
+      description: video.description,
+      videoUrl: video.videoUrl,
         thumbnailUrl: thumbnailUrl,
-        duration: video.duration,
-        fileSize: video.fileSize ? video.fileSize.toString() : null,
-        quality: video.quality,
-        views: video.views,
-        likes: video.likes,
-        comments: video.comments,
-        shares: video.shares,
-        downloads: video.downloads,
-        isPublic: video.isPublic,
-        createdAt: video.createdAt.toISOString(),
-        updatedAt: video.updatedAt.toISOString(),
-        // New fields for video playback
-        fileName: video.fileName,
-        fileDirectory: video.fileDirectory,
-        remotePlayUrl: video.remotePlayUrl,
-        embedCode: video.embedCode,
-        cost: video.cost,
-        status: video.status,
-        tags: video.tags,
-        subtitles: video.subtitles,
-        thumbnails: video.thumbnails || [],
-        user: video.user ? serializeUserWithUrls(video.user) : null,
-        username: video.user?.username,
-        firstName: video.user?.firstName,
-        lastName: video.user?.lastName,
+      duration: video.duration,
+      fileSize: video.fileSize ? video.fileSize.toString() : null,
+      quality: video.quality,
+      views: video.views,
+      likes: video.likes,
+      comments: video.comments,
+      shares: video.shares,
+      downloads: video.downloads,
+      isPublic: video.isPublic,
+      createdAt: video.createdAt.toISOString(),
+      updatedAt: video.updatedAt.toISOString(),
+      // New fields for video playback
+      fileName: video.fileName,
+      fileDirectory: video.fileDirectory,
+      remotePlayUrl: video.remotePlayUrl,
+      embedCode: video.embedCode,
+      cost: video.cost,
+      status: video.status,
+      tags: video.tags,
+      subtitles: video.subtitles,
+      thumbnails: video.thumbnails || [],
+      user: video.user ? serializeUserWithUrls(video.user) : null,
+      username: video.user?.username,
+      firstName: video.user?.firstName,
+      lastName: video.user?.lastName,
         userAvatarUrl: video.user ? (() => {
           const avatarUrl = buildAvatarUrl(video.user);
           console.log(`🖼️ Video ${video.id} - Avatar URL: ${avatarUrl}`);
@@ -1500,6 +1500,307 @@ app.get('/api/v1/categories/:categoryId/videos', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to fetch videos',
+    });
+  }
+});
+
+// Search endpoints
+app.get('/api/v1/search/videos', async (req, res) => {
+  try {
+    const { q, page = 1, limit = 20 } = req.query;
+    const offset = (Number(page) - 1) * Number(limit);
+    
+    if (!q || typeof q !== 'string') {
+      return res.status(400).json({
+        success: false,
+        message: 'Search query is required',
+      });
+    }
+
+    const videos = await prisma.video.findMany({
+      where: {
+        AND: [
+          { isPublic: true },
+          {
+            OR: [
+              { title: { contains: q, mode: 'insensitive' } },
+              { description: { contains: q, mode: 'insensitive' } },
+              { tags: { has: q } },
+            ],
+          },
+        ],
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            username: true,
+            firstName: true,
+            lastName: true,
+            avatar: true,
+            avatarUrl: true,
+            fileDirectory: true,
+            isVerified: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+      skip: offset,
+      take: Number(limit),
+    });
+
+    const serializedVideos = await Promise.all(videos.map(async video => {
+      // Process thumbnail URL for storage
+      let thumbnailUrl = video.thumbnailUrl;
+      if (!thumbnailUrl && video.fileName && video.fileDirectory) {
+        const thumbnailFileName = video.fileName.replace(/\.[^.]+$/, '.jpg');
+        thumbnailUrl = await buildFileUrl(video.fileDirectory, thumbnailFileName, 'thumbnails');
+      } else if (thumbnailUrl && !thumbnailUrl.startsWith('http') && video.fileDirectory) {
+        thumbnailUrl = await buildFileUrl(video.fileDirectory, thumbnailUrl, 'thumbnails');
+      }
+
+      return {
+        id: video.id,
+        userId: video.userId,
+        title: video.title,
+        description: video.description,
+        videoUrl: video.videoUrl,
+        thumbnailUrl: thumbnailUrl,
+        duration: video.duration,
+        fileSize: video.fileSize ? video.fileSize.toString() : null,
+        quality: video.quality,
+        views: video.views,
+        likes: video.likes,
+        comments: video.comments,
+        shares: video.shares,
+        downloads: video.downloads,
+        isPublic: video.isPublic,
+        createdAt: video.createdAt.toISOString(),
+        updatedAt: video.updatedAt.toISOString(),
+        fileName: video.fileName,
+        fileDirectory: video.fileDirectory,
+        remotePlayUrl: video.remotePlayUrl,
+        embedCode: video.embedCode,
+        cost: video.cost,
+        status: video.status,
+        tags: video.tags,
+        subtitles: video.subtitles,
+        thumbnails: video.thumbnails || [],
+        user: video.user ? serializeUserWithUrls(video.user) : null,
+        username: video.user?.username,
+        firstName: video.user?.firstName,
+        lastName: video.user?.lastName,
+        userAvatarUrl: video.user ? buildAvatarUrl(video.user) : null,
+      };
+    }));
+
+    return res.json({
+      success: true,
+      data: serializedVideos,
+      pagination: {
+        page: Number(page),
+        limit: Number(limit),
+        total: serializedVideos.length,
+      },
+    });
+  } catch (error) {
+    console.error('Search videos error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to search videos',
+    });
+  }
+});
+
+app.get('/api/v1/search/posts', async (req, res) => {
+  try {
+    const { q, page = 1, limit = 20 } = req.query;
+    const offset = (Number(page) - 1) * Number(limit);
+    
+    if (!q || typeof q !== 'string') {
+      return res.status(400).json({
+        success: false,
+        message: 'Search query is required',
+      });
+    }
+
+    const posts = await prisma.communityPost.findMany({
+      where: {
+        AND: [
+          { isPublic: true },
+          {
+            OR: [
+              { title: { contains: q, mode: 'insensitive' } },
+              { content: { contains: q, mode: 'insensitive' } },
+              { tags: { has: q } },
+            ],
+          },
+        ],
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            username: true,
+            firstName: true,
+            lastName: true,
+            avatar: true,
+            avatarUrl: true,
+            fileDirectory: true,
+            isVerified: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+      skip: offset,
+      take: Number(limit),
+    });
+
+    const serializedPosts = await Promise.all(posts.map(async post => {
+      // Format image URLs using the same method as community search
+      const imageUrls = post.images || [];
+      const formattedImageUrls = await Promise.all(
+        imageUrls.map(async (imageUrl: string) => {
+          if (imageUrl.startsWith('http')) {
+            return imageUrl;
+          }
+          return await buildCommunityPostFileUrl(post.fileDirectory, imageUrl);
+        })
+      );
+
+      return {
+        id: post.id,
+        userId: post.userId,
+        title: post.title,
+        content: post.content,
+        imageUrls: formattedImageUrls,
+        videoUrls: await Promise.all(
+          (post.videos || []).map(async (videoUrl: string) => {
+            if (videoUrl.startsWith('http')) {
+              return videoUrl;
+            }
+            return await buildCommunityPostFileUrl(post.fileDirectory, videoUrl);
+          })
+        ),
+        videoThumbnailUrls: await Promise.all(
+          (post.videoThumbnails || []).map(async (thumbnailUrl: string) => {
+            if (thumbnailUrl.startsWith('http')) {
+              return thumbnailUrl;
+            }
+            return await buildCommunityPostFileUrl(post.fileDirectory, thumbnailUrl);
+          })
+        ),
+        tags: post.tags || [],
+        likes: post.likes,
+        comments: post.comments,
+        shares: post.shares,
+        views: post.views,
+        isPublic: post.isPublic,
+        createdAt: post.createdAt.toISOString(),
+        updatedAt: post.updatedAt.toISOString(),
+        user: post.user ? await serializeUserWithUrlsAsync(post.user) : null,
+        username: post.user?.username,
+        firstName: post.user?.firstName,
+        lastName: post.user?.lastName,
+        userAvatarUrl: post.user ? await buildAvatarUrlAsync(post.user) : null,
+      };
+    }));
+
+    return res.json({
+      success: true,
+      data: serializedPosts,
+      pagination: {
+        page: Number(page),
+        limit: Number(limit),
+        total: serializedPosts.length,
+      },
+    });
+  } catch (error) {
+    console.error('Search posts error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to search posts',
+    });
+  }
+});
+
+app.get('/api/v1/search/users', async (req, res) => {
+  try {
+    const { q, page = 1, limit = 20 } = req.query;
+    const offset = (Number(page) - 1) * Number(limit);
+    
+    if (!q || typeof q !== 'string') {
+      return res.status(400).json({
+        success: false,
+        message: 'Search query is required',
+      });
+    }
+
+    const users = await prisma.user.findMany({
+      where: {
+        OR: [
+          { username: { contains: q, mode: 'insensitive' } },
+          { firstName: { contains: q, mode: 'insensitive' } },
+          { lastName: { contains: q, mode: 'insensitive' } },
+          { bio: { contains: q, mode: 'insensitive' } },
+        ],
+      },
+      select: {
+        id: true,
+        username: true,
+        firstName: true,
+        lastName: true,
+        avatar: true,
+        avatarUrl: true,
+        fileDirectory: true,
+        bio: true,
+        isVerified: true,
+        createdAt: true,
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+      skip: offset,
+      take: Number(limit),
+    });
+
+    const formattedUsers = await Promise.all(users.map(async user => {
+      let avatarUrl = user.avatarUrl;
+      
+      if (user.avatar && user.fileDirectory) {
+        avatarUrl = await buildFileUrl(user.fileDirectory, user.avatar, 'avatars');
+      }
+      
+      return {
+        id: user.id,
+        username: user.username,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        avatarUrl: avatarUrl,
+        bio: user.bio,
+        isVerified: user.isVerified,
+        createdAt: user.createdAt.toISOString(),
+      };
+    }));
+
+    return res.json({
+      success: true,
+      data: formattedUsers,
+      pagination: {
+        page: Number(page),
+        limit: Number(limit),
+        total: formattedUsers.length,
+      },
+    });
+  } catch (error) {
+    console.error('Search users error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to search users',
     });
   }
 });

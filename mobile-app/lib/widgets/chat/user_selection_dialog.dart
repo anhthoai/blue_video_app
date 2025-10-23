@@ -41,7 +41,7 @@ class _UserSelectionDialogState extends State<UserSelectionDialog> {
     });
 
     try {
-      final response = await _apiService.searchUsers(query: query);
+      final response = await _apiService.searchUsers(query, page: 1, limit: 20);
       if (response['success'] == true) {
         setState(() {
           _users = (response['data'] as List)
