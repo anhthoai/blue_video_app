@@ -1429,44 +1429,61 @@ app.get('/api/v1/categories/:categoryId/videos', async (req, res) => {
       take: Number(limit),
     });
 
-    const serializedVideos = videos.map(video => ({
-      id: video.id,
-      userId: video.userId,
-      categoryId: video.categoryId,
-      title: video.title,
-      description: video.description,
-      videoUrl: video.videoUrl,
-      thumbnailUrl: video.thumbnailUrl,
-      duration: video.duration,
-      fileSize: video.fileSize ? video.fileSize.toString() : null,
-      quality: video.quality,
-      views: video.views,
-      likes: video.likes,
-      comments: video.comments,
-      shares: video.shares,
-      downloads: video.downloads,
-      isPublic: video.isPublic,
-      createdAt: video.createdAt.toISOString(),
-      updatedAt: video.updatedAt.toISOString(),
-      // New fields for video playback
-      fileName: video.fileName,
-      fileDirectory: video.fileDirectory,
-      remotePlayUrl: video.remotePlayUrl,
-      embedCode: video.embedCode,
-      cost: video.cost,
-      status: video.status,
-      tags: video.tags,
-      subtitles: video.subtitles,
-      thumbnails: video.thumbnails || [],
-      user: video.user ? serializeUserWithUrls(video.user) : null,
-      username: video.user?.username,
-      firstName: video.user?.firstName,
-      lastName: video.user?.lastName,
-      userAvatarUrl: video.user ? (() => {
-        const avatarUrl = buildAvatarUrl(video.user);
-        console.log(`🖼️ Video ${video.id} - Avatar URL: ${avatarUrl}`);
-        return avatarUrl;
-      })() : null,
+    const serializedVideos = await Promise.all(videos.map(async video => {
+      // Process thumbnail URL for storage
+      let thumbnailUrl = video.thumbnailUrl;
+      if (!thumbnailUrl && video.fileName && video.fileDirectory) {
+        // Calculate thumbnail from fileName (same logic as frontend calculatedThumbnailUrl)
+        const thumbnailFileName = video.fileName.replace(/\.[^.]+$/, '.jpg');
+        thumbnailUrl = await buildFileUrl(video.fileDirectory, thumbnailFileName, 'thumbnails');
+        console.log(`🖼️ Video ${video.id} - Calculated thumbnail: ${thumbnailUrl}`);
+      } else if (thumbnailUrl && !thumbnailUrl.startsWith('http') && video.fileDirectory) {
+        // Build proper storage URL for existing thumbnail
+        thumbnailUrl = await buildFileUrl(video.fileDirectory, thumbnailUrl, 'thumbnails');
+        console.log(`🖼️ Video ${video.id} - Storage thumbnail: ${thumbnailUrl}`);
+      } else {
+        console.log(`🖼️ Video ${video.id} - External thumbnail: ${thumbnailUrl}`);
+      }
+
+      return {
+        id: video.id,
+        userId: video.userId,
+        categoryId: video.categoryId,
+        title: video.title,
+        description: video.description,
+        videoUrl: video.videoUrl,
+        thumbnailUrl: thumbnailUrl,
+        duration: video.duration,
+        fileSize: video.fileSize ? video.fileSize.toString() : null,
+        quality: video.quality,
+        views: video.views,
+        likes: video.likes,
+        comments: video.comments,
+        shares: video.shares,
+        downloads: video.downloads,
+        isPublic: video.isPublic,
+        createdAt: video.createdAt.toISOString(),
+        updatedAt: video.updatedAt.toISOString(),
+        // New fields for video playback
+        fileName: video.fileName,
+        fileDirectory: video.fileDirectory,
+        remotePlayUrl: video.remotePlayUrl,
+        embedCode: video.embedCode,
+        cost: video.cost,
+        status: video.status,
+        tags: video.tags,
+        subtitles: video.subtitles,
+        thumbnails: video.thumbnails || [],
+        user: video.user ? serializeUserWithUrls(video.user) : null,
+        username: video.user?.username,
+        firstName: video.user?.firstName,
+        lastName: video.user?.lastName,
+        userAvatarUrl: video.user ? (() => {
+          const avatarUrl = buildAvatarUrl(video.user);
+          console.log(`🖼️ Video ${video.id} - Avatar URL: ${avatarUrl}`);
+          return avatarUrl;
+        })() : null,
+      };
     }));
 
     res.json({
