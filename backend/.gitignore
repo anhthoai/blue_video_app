@@ -1,0 +1,87 @@
+# Dependencies
+node_modules/
+package-lock.json
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Build output
+dist/
+build/
+*.tsbuildinfo
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+pnpm-debug.log*
+
+# PM2
+.pm2/
+pm2.log
+
+# Deployment artifacts
+deploy/
+backend-deploy.tar.gz
+*.tar.gz
+
+# Temporary files
+temp/
+tmp/
+*.tmp
+.temp/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Test coverage
+coverage/
+.nyc_output/
+
+# Prisma
+# Keep schema.prisma and migrations
+# Ignore generated client
+prisma/.env
+
+# Operating System Files
+Thumbs.db
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Editor backup files
+*~
+\#*\#
+.#*
+
+# Certificates
+*.pem
+*.key
+*.cert
+*.crt
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Backup files
+*.bak
+*.backup
+backups/
+
+# Cache
+.cache/
+.eslintcache
+.stylelintcache
+

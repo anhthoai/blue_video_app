@@ -1,0 +1,232 @@
+name: Deploy Backend to CloudPanel VPS
+
+on:
+  push:
+    branches:
+      - main
+      - production
+    paths:
+      - 'backend/**'
+      - '.github/workflows/deploy-backend.yml'
+  workflow_dispatch:
+
+env:
+  NODE_VERSION: '18.x'
+  DEPLOY_PATH: '/home/onlybl-api/htdocs/api.onlybl.com'
+  PM2_APP_NAME: 'blue-video-backend'
+
+jobs:
+  deploy:
+    name: Deploy to CloudPanel VPS
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install dependencies
+        run: |
+          cd backend
+          npm ci --production=false
+
+      - name: Generate Prisma Client
+        run: |
+          cd backend
+          npx prisma generate
+
+      - name: Build TypeScript
+        run: |
+          cd backend
+          npm run build
+
+      - name: Create deployment package
+        run: |
+          cd backend
+          mkdir -p deploy
+          
+          # Copy essential files
+          cp -r dist deploy/
+          cp -r node_modules deploy/
+          cp -r prisma deploy/
+          cp package*.json deploy/
+          cp tsconfig.json deploy/
+          
+          # Copy environment file template (will be replaced on server)
+          if [ -f .env.example ]; then
+            cp .env.example deploy/.env.example
+          fi
+          
+          # Create tarball
+          cd deploy
+          tar -czf ../backend-deploy.tar.gz .
+          cd ..
+          
+          echo "Deployment package created: backend-deploy.tar.gz"
+          ls -lh backend-deploy.tar.gz
+
+      - name: Deploy to VPS via SSH
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USERNAME }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_SSH_PORT || 22 }}
+          source: "backend/backend-deploy.tar.gz"
+          target: "/tmp/"
+          strip_components: 1
+
+      - name: Extract and restart application
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USERNAME }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_SSH_PORT || 22 }}
+          script: |
+            set -e
+            
+            echo "🚀 Starting deployment..."
+            
+            # Navigate to deployment directory
+            cd ${{ env.DEPLOY_PATH }}
+            
+            # Backup current deployment
+            if [ -d "current" ]; then
+              echo "📦 Creating backup..."
+              BACKUP_DIR="backup-$(date +%Y%m%d-%H%M%S)"
+              mkdir -p backups
+              mv current backups/$BACKUP_DIR
+              echo "✅ Backup created: backups/$BACKUP_DIR"
+            fi
+            
+            # Extract new deployment
+            echo "📂 Extracting new deployment..."
+            mkdir -p current
+            tar -xzf /tmp/backend-deploy.tar.gz -C current/
+            rm /tmp/backend-deploy.tar.gz
+            
+            # Navigate to current deployment
+            cd current
+            
+            # Preserve .env file from previous deployment or create from example
+            if [ -f "../backups/$(ls -t ../backups | head -1)/.env" ]; then
+              echo "🔧 Copying .env from backup..."
+              cp "../backups/$(ls -t ../backups | head -1)/.env" .env
+            elif [ ! -f ".env" ]; then
+              echo "⚠️  .env file not found. Please create one manually!"
+              if [ -f ".env.example" ]; then
+                cp .env.example .env
+                echo "📝 Created .env from .env.example - UPDATE WITH REAL VALUES!"
+              fi
+            fi
+            
+            # Install production dependencies (in case any are missing)
+            echo "📦 Installing production dependencies..."
+            npm ci --production
+            
+            # Run database migrations
+            echo "🗄️  Running database migrations..."
+            npx prisma migrate deploy || echo "⚠️  Migration failed or no migrations to run"
+            
+            # Generate Prisma client (in case of schema changes)
+            echo "🔨 Generating Prisma client..."
+            npx prisma generate
+            
+            # Restart application with PM2
+            echo "🔄 Restarting application..."
+            
+            # Check if PM2 is installed
+            if ! command -v pm2 &> /dev/null; then
+              echo "❌ PM2 is not installed. Installing globally..."
+              npm install -g pm2
+            fi
+            
+            # Check if app is already running
+            if pm2 describe ${{ env.PM2_APP_NAME }} > /dev/null 2>&1; then
+              echo "🔄 Reloading existing PM2 process..."
+              pm2 reload ${{ env.PM2_APP_NAME }} --update-env
+            else
+              echo "🚀 Starting new PM2 process..."
+              pm2 start dist/server-local.js --name ${{ env.PM2_APP_NAME }} \
+                --time \
+                --instances 2 \
+                --exec-mode cluster \
+                --max-memory-restart 500M \
+                --env production
+            fi
+            
+            # Save PM2 configuration
+            pm2 save
+            
+            # Display application status
+            echo "✅ Deployment completed!"
+            pm2 status
+            pm2 logs ${{ env.PM2_APP_NAME }} --lines 50 --nostream
+            
+            # Keep only last 5 backups
+            echo "🧹 Cleaning old backups..."
+            cd ../backups
+            ls -t | tail -n +6 | xargs -r rm -rf
+            
+            echo "🎉 Deployment successful!"
+
+      - name: Health check
+        run: |
+          echo "🏥 Performing health check..."
+          sleep 10
+          
+          # Replace with your actual API URL
+          HEALTH_URL="${{ secrets.API_URL }}/health"
+          
+          MAX_RETRIES=5
+          RETRY_COUNT=0
+          
+          while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+            if curl -f -s "$HEALTH_URL" > /dev/null; then
+              echo "✅ Health check passed!"
+              curl -s "$HEALTH_URL" | jq .
+              exit 0
+            else
+              RETRY_COUNT=$((RETRY_COUNT + 1))
+              echo "⏳ Health check attempt $RETRY_COUNT/$MAX_RETRIES failed. Retrying in 5s..."
+              sleep 5
+            fi
+          done
+          
+          echo "❌ Health check failed after $MAX_RETRIES attempts"
+          exit 1
+
+      - name: Notify on success
+        if: success()
+        run: |
+          echo "✅ Deployment completed successfully!"
+          echo "📍 Deployed to: ${{ secrets.VPS_HOST }}"
+          echo "🕐 Time: $(date)"
+          echo "📝 Commit: ${{ github.sha }}"
+          echo "👤 Author: ${{ github.actor }}"
+
+      - name: Notify on failure
+        if: failure()
+        run: |
+          echo "❌ Deployment failed!"
+          echo "📍 Host: ${{ secrets.VPS_HOST }}"
+          echo "🕐 Time: $(date)"
+          echo "📝 Commit: ${{ github.sha }}"
+          echo "👤 Author: ${{ github.actor }}"
+          echo "⚠️  Check the logs above for details"
+
+      - name: Cleanup
+        if: always()
+        run: |
+          cd backend
+          rm -f backend-deploy.tar.gz
+
