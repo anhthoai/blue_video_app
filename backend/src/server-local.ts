@@ -5071,30 +5071,27 @@ app.post('/api/v1/chat/rooms', async (req, res) => {
     const currentUserId = await getCurrentUserId(req);
     
     if (!currentUserId) {
-      res.status(401).json({
+      return res.status(401).json({
         success: false,
         message: 'Authentication required - please sign in again',
-      });
-      return;
+      }) as any;
     }
 
     const { name, type = 'PRIVATE', participantIds = [] } = req.body;
 
     if (!name && type === 'GROUP') {
-      res.status(400).json({
+      return res.status(400).json({
         success: false,
         message: 'Room name is required for group chats',
-      });
-      return;
+      }) as any;
     }
 
     // For private messages, ensure only 2 participants
     if (type === 'PRIVATE' && participantIds.length !== 1) {
-      res.status(400).json({
+      return res.status(400).json({
         success: false,
         message: 'Private messages require exactly one other participant',
-      });
-      return;
+      }) as any;
     }
 
     // Validate that all participant IDs exist in the database
@@ -5114,11 +5111,10 @@ app.post('/api/v1/chat/rooms', async (req, res) => {
       const invalidIds = participantIds.filter((id: string) => !validUserIds.includes(id));
 
       if (invalidIds.length > 0) {
-        res.status(400).json({
+        return res.status(400).json({
           success: false,
           message: `Invalid participant IDs: ${invalidIds.join(', ')}`,
-        });
-        return;
+        }) as any;
       }
     }
 

@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import { StorageService } from '../config/storage';
 import { AuthRequest } from '../middleware/auth';
-import { prisma } from '../lib/prisma';
+import prisma from '../lib/prisma';
 import ffmpeg from 'fluent-ffmpeg';
 import path from 'path';
 import fs from 'fs';

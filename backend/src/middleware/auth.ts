@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
-import { pool } from '../config/database';
+import prisma from '../lib/prisma';
 
 export interface AuthRequest extends Request {
   user?: {
@@ -41,10 +41,12 @@ export const authenticateToken = async (
     const decoded = jwt.verify(token, process.env.JWT_SECRET!) as JWTPayload;
     
     // Verify user still exists and is active
-    const userQuery = 'SELECT id, username, email, is_active FROM users WHERE id = $1';
-    const userResult = await pool.query(userQuery, [decoded.id]);
+    const user = await prisma.user.findUnique({
+      where: { id: decoded.id },
+      select: { id: true, username: true, email: true, isActive: true },
+    });
     
-    if (userResult.rows.length === 0 || !userResult.rows[0].is_active) {
+    if (!user || !user.isActive) {
       res.status(401).json({
         success: false,
         message: 'User not found or inactive',
@@ -104,10 +106,12 @@ export const optionalAuth = async (
     const decoded = jwt.verify(token, process.env.JWT_SECRET!) as JWTPayload;
     
     // Verify user still exists and is active
-    const userQuery = 'SELECT id, username, email, is_active FROM users WHERE id = $1';
-    const userResult = await pool.query(userQuery, [decoded.id]);
+    const user = await prisma.user.findUnique({
+      where: { id: decoded.id },
+      select: { id: true, username: true, email: true, isActive: true },
+    });
     
-    if (userResult.rows.length > 0 && userResult.rows[0].is_active) {
+    if (user && user.isActive) {
       req.user = {
         id: decoded.id,
         username: decoded.username,
@@ -166,10 +170,12 @@ export const requireAdmin = async (
       return;
     }
 
-    const userQuery = 'SELECT is_admin FROM users WHERE id = $1';
-    const userResult = await pool.query(userQuery, [req.user.id]);
+    const user = await prisma.user.findUnique({
+      where: { id: req.user.id },
+      select: { role: true },
+    });
     
-    if (userResult.rows.length === 0 || !userResult.rows[0].is_admin) {
+    if (!user || user.role !== 'ADMIN') {
       res.status(403).json({
         success: false,
         message: 'Admin access required',

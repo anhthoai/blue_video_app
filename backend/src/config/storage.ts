@@ -8,12 +8,12 @@ dotenv.config();
 
 // S3 Configuration for S3-compatible storage
 export const s3Config = {
-  endpoint: process.env.S3_ENDPOINT || 'https://s3.amazonaws.com',
-  accessKeyId: process.env.S3_ACCESS_KEY_ID || '',
-  secretAccessKey: process.env.S3_SECRET_ACCESS_KEY || '',
-  region: process.env.S3_REGION || 'us-east-1',
-  bucketName: process.env.S3_BUCKET_NAME || 'blue-video-storage',
-  cdnUrl: process.env.CDN_URL || '',
+  endpoint: process.env['S3_ENDPOINT'] || 'https://s3.amazonaws.com',
+  accessKeyId: process.env['S3_ACCESS_KEY_ID'] || '',
+  secretAccessKey: process.env['S3_SECRET_ACCESS_KEY'] || '',
+  region: process.env['S3_REGION'] || 'us-east-1',
+  bucketName: process.env['S3_BUCKET_NAME'] || 'blue-video-storage',
+  cdnUrl: process.env['CDN_URL'] || '',
 };
 
 // Initialize S3 client
@@ -27,10 +27,10 @@ export const s3 = new AWS.S3({
 
 // File upload configuration
 export const uploadConfig = {
-  maxFileSize: parseInt(process.env.MAX_FILE_SIZE || '104857600'), // 100MB
-  allowedImageTypes: (process.env.ALLOWED_IMAGE_TYPES || 'image/jpeg,image/png,image/webp,image/gif').split(','),
-  allowedVideoTypes: (process.env.ALLOWED_VIDEO_TYPES || 'video/mp4,video/webm,video/quicktime').split(','),
-  maxVideoDuration: parseInt(process.env.MAX_VIDEO_DURATION || '300'), // 5 minutes
+  maxFileSize: parseInt(process.env['MAX_FILE_SIZE'] || '104857600'), // 100MB
+  allowedImageTypes: (process.env['ALLOWED_IMAGE_TYPES'] || 'image/jpeg,image/png,image/webp,image/gif').split(','),
+  allowedVideoTypes: (process.env['ALLOWED_VIDEO_TYPES'] || 'video/mp4,video/webm,video/quicktime').split(','),
+  maxVideoDuration: parseInt(process.env['MAX_VIDEO_DURATION'] || '300'), // 5 minutes
 };
 
 // Multer configuration for S3 uploads
@@ -38,7 +38,7 @@ export const upload = multer({
   storage: multerS3({
     s3: s3,
     bucket: s3Config.bucketName,
-    key: (req, file, cb) => {
+    key: (_req, file, cb) => {
       const fileExtension = file.originalname.split('.').pop();
       const fileName = `${uuidv4()}.${fileExtension}`;
       
@@ -60,7 +60,7 @@ export const upload = multer({
       cb(null, `${folder}/${fileName}`);
     },
     contentType: multerS3.AUTO_CONTENT_TYPE,
-    metadata: (req, file, cb) => {
+    metadata: (_req, file, cb) => {
       cb(null, {
         fieldName: file.fieldname,
         originalName: file.originalname,
@@ -71,7 +71,7 @@ export const upload = multer({
   limits: {
     fileSize: uploadConfig.maxFileSize,
   },
-  fileFilter: (req, file, cb) => {
+  fileFilter: (_req, file, cb) => {
     const isImage = uploadConfig.allowedImageTypes.includes(file.mimetype);
     const isVideo = uploadConfig.allowedVideoTypes.includes(file.mimetype);
     
@@ -230,7 +230,7 @@ export const validateFile = (req: any, res: any, next: any) => {
 };
 
 // Error handling for multer
-export const handleUploadError = (error: any, req: any, res: any, next: any) => {
+export const handleUploadError = (error: any, _req: any, res: any, next: any) => {
   if (error instanceof multer.MulterError) {
     if (error.code === 'LIMIT_FILE_SIZE') {
       return res.status(400).json({

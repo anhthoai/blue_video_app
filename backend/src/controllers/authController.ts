@@ -2,7 +2,6 @@ import { Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { UserModel } from '../models/User';
-import { pool } from '../config/database';
 import { redisClient } from '../config/database';
 
 export class AuthController {

@@ -1,6 +1,5 @@
 import { Request, Response } from 'express';
 import { UserModel } from '../models/User';
-import { pool } from '../config/database';
 import { StorageService } from '../config/storage';
 import { AuthRequest } from '../middleware/auth';
 

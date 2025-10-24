@@ -1,5 +1,4 @@
 import { Request, Response } from 'express';
-import { pool } from '../config/database';
 import { AuthRequest } from '../middleware/auth';
 
 export interface ChatRoom {
