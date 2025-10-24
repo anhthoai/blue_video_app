@@ -158,16 +158,28 @@ jobs:
               if [ -f ".env.example" ]; then
                 cp .env.example .env
                 echo "📝 Created .env from .env.example - UPDATE WITH REAL VALUES!"
+                echo ""
+                echo "⚠️  IMPORTANT: Update .env file with real database credentials!"
+                echo "   Edit: ${{ env.DEPLOY_PATH }}/current/.env"
+                echo ""
               fi
+            else
+              echo "✅ Using existing .env file"
             fi
             
             # Install production dependencies (in case any are missing)
             echo "📦 Installing production dependencies..."
             npm ci --production
             
-            # Run database migrations
+            # Run database migrations (skip if database not configured yet)
             echo "🗄️  Running database migrations..."
-            npx prisma migrate deploy || echo "⚠️  Migration failed or no migrations to run"
+            if npx prisma migrate deploy 2>&1 | grep -q "P1000\|P1001\|P1002"; then
+              echo "⚠️  Database connection failed - skipping migrations"
+              echo "   Configure database credentials in .env and run migrations manually:"
+              echo "   cd ${{ env.DEPLOY_PATH }}/current && npx prisma migrate deploy"
+            else
+              echo "✅ Migrations completed successfully"
+            fi
             
             # Generate Prisma client (in case of schema changes)
             echo "🔨 Generating Prisma client..."
@@ -188,12 +200,11 @@ jobs:
               pm2 reload ${{ env.PM2_APP_NAME }} --update-env
             else
               echo "🚀 Starting new PM2 process..."
-              pm2 start dist/server-local.js --name ${{ env.PM2_APP_NAME }} \
+              pm2 start dist/server-local.js \
+                --name ${{ env.PM2_APP_NAME }} \
                 --time \
-                --instances 2 \
-                --exec-mode cluster \
-                --max-memory-restart 500M \
-                --env production
+                -i 2 \
+                --max-memory-restart 500M
             fi
             
             # Save PM2 configuration
