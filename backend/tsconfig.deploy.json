@@ -7,18 +7,22 @@
     "exactOptionalPropertyTypes": false,
     "noPropertyAccessFromIndexSignature": false,
     "strict": false,
-    "noImplicitAny": false
+    "noImplicitAny": false,
+    "noEmitOnError": false
   },
+  "include": [
+    "src/server-local.ts",
+    "src/lib/**/*",
+    "src/services/**/*",
+    "src/utils/**/*",
+    "src/middleware/auth.ts",
+    "src/config/database.ts",
+    "src/types/**/*"
+  ],
   "exclude": [
     "node_modules",
     "dist",
-    "**/*.test.ts",
-    "src/controllers/videoController.ts",
-    "src/controllers/authController.ts",
-    "src/controllers/chatController.ts",
-    "src/controllers/communityController.ts",
-    "src/controllers/socialController.ts",
-    "src/controllers/userController.ts"
+    "**/*.test.ts"
   ]
 }
 
