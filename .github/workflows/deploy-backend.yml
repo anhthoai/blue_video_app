@@ -46,7 +46,7 @@ jobs:
       - name: Build TypeScript
         run: |
           cd backend
-          npm run build
+          npm run build:deploy
 
       - name: Create deployment package
         run: |
@@ -193,7 +193,7 @@ jobs:
           while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
             if curl -f -s "$HEALTH_URL" > /dev/null; then
               echo "✅ Health check passed!"
-              curl -s "$HEALTH_URL" | jq .
+              curl -s "$HEALTH_URL" | jq . || curl -s "$HEALTH_URL"
               exit 0
             else
               RETRY_COUNT=$((RETRY_COUNT + 1))
@@ -229,4 +229,3 @@ jobs:
         run: |
           cd backend
           rm -f backend-deploy.tar.gz
-
