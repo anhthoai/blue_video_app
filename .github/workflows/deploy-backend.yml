@@ -96,6 +96,32 @@ jobs:
             
             echo "🚀 Starting deployment..."
             
+            # Load NVM and Node.js (CloudPanel uses NVM)
+            export NVM_DIR="$HOME/.nvm"
+            if [ -s "$NVM_DIR/nvm.sh" ]; then
+              . "$NVM_DIR/nvm.sh"
+              echo "✅ NVM loaded"
+            fi
+            
+            # Use Node.js 18.x
+            if command -v nvm &> /dev/null; then
+              nvm use 18 || nvm install 18
+              echo "✅ Node.js $(node -v) activated"
+            fi
+            
+            # Verify npm is available
+            if ! command -v npm &> /dev/null; then
+              echo "❌ npm not found even after loading NVM!"
+              echo "PATH: $PATH"
+              echo "Node: $(which node || echo 'not found')"
+              exit 1
+            fi
+            
+            echo "📍 Using npm: $(which npm)"
+            echo "📍 Using node: $(which node)"
+            echo "📍 Node version: $(node -v)"
+            echo "📍 npm version: $(npm -v)"
+            
             # Navigate to deployment directory
             cd ${{ env.DEPLOY_PATH }}
             
@@ -118,10 +144,16 @@ jobs:
             cd current
             
             # Preserve .env file from previous deployment or create from example
-            if [ -f "../backups/$(ls -t ../backups | head -1)/.env" ]; then
-              echo "🔧 Copying .env from backup..."
-              cp "../backups/$(ls -t ../backups | head -1)/.env" .env
-            elif [ ! -f ".env" ]; then
+            if [ -d "../backups" ] && [ "$(ls -A ../backups 2>/dev/null)" ]; then
+              LATEST_BACKUP=$(ls -t ../backups | head -1)
+              if [ -f "../backups/$LATEST_BACKUP/.env" ]; then
+                echo "🔧 Copying .env from backup..."
+                cp "../backups/$LATEST_BACKUP/.env" .env
+              fi
+            fi
+            
+            # If no .env exists, create from example
+            if [ ! -f ".env" ]; then
               echo "⚠️  .env file not found. Please create one manually!"
               if [ -f ".env.example" ]; then
                 cp .env.example .env
@@ -174,8 +206,10 @@ jobs:
             
             # Keep only last 5 backups
             echo "🧹 Cleaning old backups..."
-            cd ../backups
-            ls -t | tail -n +6 | xargs -r rm -rf
+            if [ -d "../backups" ]; then
+              cd ../backups
+              ls -t | tail -n +6 | xargs -r rm -rf
+            fi
             
             echo "🎉 Deployment successful!"
 
