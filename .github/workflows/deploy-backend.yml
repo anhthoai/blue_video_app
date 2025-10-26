@@ -195,7 +195,7 @@ jobs:
             
             # Push database schema (create/update tables)
             echo "🗄️  Pushing database schema..."
-            if npx prisma db push --accept-data-loss 2>&1 | tee /tmp/prisma-push.log | grep -q "P1000\|P1001\|P1002"; then
+            if npx prisma db push --skip-generate 2>&1 | tee /tmp/prisma-push.log | grep -q "P1000\|P1001\|P1002"; then
               echo "⚠️  Database connection failed - skipping schema push"
               echo "   Configure database credentials in .env and run manually:"
               echo "   cd ${{ env.DEPLOY_PATH }}/current && npx prisma db push"
