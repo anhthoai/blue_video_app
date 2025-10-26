@@ -22,6 +22,8 @@ import { serializeUserWithUrls, buildAvatarUrl, buildFileUrlSync, buildFileUrl, 
 import { PrismaClient } from '@prisma/client';
 import multer from 'multer';
 import { paymentService, IPNNotification } from './services/paymentService';
+import swaggerUi from 'swagger-ui-express';
+import { swaggerSpec } from './config/swagger';
 
 // Initialize Prisma Client
 const prisma = new PrismaClient();
@@ -77,7 +79,55 @@ app.use(compression());
 // Logging middleware
 app.use(morgan('combined'));
 
-// Health check endpoint
+// Swagger API Documentation
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
+  customCss: '.swagger-ui .topbar { display: none }',
+  customSiteTitle: 'Blue Video API Documentation',
+}));
+
+// Swagger JSON endpoint
+app.get('/api-docs.json', (_req, res) => {
+  res.setHeader('Content-Type', 'application/json');
+  res.send(swaggerSpec);
+});
+
+/**
+ * @swagger
+ * /health:
+ *   get:
+ *     tags: [Health]
+ *     summary: Health check endpoint
+ *     description: Returns the health status of the API server
+ *     responses:
+ *       200:
+ *         description: API is running successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: Blue Video API is running
+ *                 timestamp:
+ *                   type: string
+ *                   format: date-time
+ *                 version:
+ *                   type: string
+ *                   example: v1
+ *                 mode:
+ *                   type: string
+ *                   example: development
+ *                 database:
+ *                   type: string
+ *                   example: Connected
+ *                 redis:
+ *                   type: string
+ *                   example: Enabled
+ */
 app.get('/health', (_req, res) => {
   res.json({
     success: true,
@@ -147,21 +197,7 @@ const getCurrentUserId = async (req: any): Promise<string | null> => {
   }
 };
 
-// Mock API endpoints for testing
-app.get('/api/v1/test', (_req, res) => {
-  res.json({
-    success: true,
-    message: 'API is working!',
-    data: {
-      timestamp: new Date().toISOString(),
-      environment: process.env['NODE_ENV'] || 'development',
-      database: 'Mock mode - Prisma ready',
-      redis: process.env['USE_REDIS'] === 'true' ? 'Enabled' : 'Disabled',
-    },
-  });
-});
-
-// Real authentication endpoint
+// Authentication endpoints
 app.post('/api/v1/auth/login', async (req, res) => {
   try {
     const { email, password, rememberMe } = req.body;
@@ -7672,17 +7708,20 @@ const startServer = async () => {
     server.listen(PORT, () => {
       console.log(`🚀 Blue Video API server running on port ${PORT}`);
       console.log(`📊 Health check: http://localhost:${PORT}/health`);
+      console.log(`📚 API Documentation: http://localhost:${PORT}/api-docs`);
       console.log(`🔗 API Base URL: http://localhost:${PORT}/api/${process.env['API_VERSION'] || 'v1'}`);
       console.log(`🌍 Environment: ${process.env['NODE_ENV'] || 'development'}`);
-      console.log(`\n📝 Available endpoints:`);
+      console.log(`\n📝 Key endpoints:`);
       console.log(`   GET  /health - Health check`);
-      console.log(`   GET  /api/v1/test - Test endpoint`);
-      console.log(`   POST /api/v1/auth/login - Mock login`);
-      console.log(`   POST /api/v1/auth/register - Mock registration`);
-      console.log(`   GET  /api/v1/videos - Real videos from database`);
-      console.log(`   POST /api/v1/videos/upload - Mock video upload`);
-      console.log(`   GET  /api/v1/community/posts - Real community posts from database`);
+      console.log(`   GET  /api-docs - Swagger API documentation`);
+      console.log(`   POST /api/v1/auth/login - User authentication`);
+      console.log(`   POST /api/v1/auth/register - User registration`);
+      console.log(`   GET  /api/v1/videos - List videos`);
+      console.log(`   POST /api/v1/videos/upload - Upload video`);
+      console.log(`   GET  /api/v1/community/posts - Community posts`);
+      console.log(`   GET  /api/v1/search/* - Search endpoints`);
       console.log(`\n🔌 WebSocket ready for real-time features`);
+      console.log(`📖 Visit /api-docs for complete API documentation`);
     });
   } catch (error) {
     console.error('Failed to start server:', error);
