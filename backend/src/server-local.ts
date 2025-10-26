@@ -40,7 +40,8 @@ const io = new SocketIOServer(server, {
 const PORT = process.env['PORT'] || 3000;
 
 // Trust proxy - required when behind Nginx/CloudPanel reverse proxy
-app.set('trust proxy', true);
+// Trust only the first proxy (Nginx/CloudPanel)
+app.set('trust proxy', 1);
 
 // Security middleware
 app.use(helmet({
@@ -66,6 +67,8 @@ const limiter = rateLimit({
     const ip = req.ip || req.connection.remoteAddress || '';
     return ip === '::1' || ip === '127.0.0.1' || ip.includes('192.168');
   },
+  // Tell rate limiter we trust the proxy configuration
+  validate: { trustProxy: false },
 });
 app.use(limiter);
 
