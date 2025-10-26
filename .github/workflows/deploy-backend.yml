@@ -54,9 +54,16 @@ jobs:
           mkdir -p deploy
           
           # Copy essential files
+          echo "📦 Copying dist directory..."
           cp -r dist deploy/
+          
+          echo "📦 Copying node_modules..."
           cp -r node_modules deploy/
+          
+          echo "📦 Copying prisma directory..."
           cp -r prisma deploy/
+          
+          echo "📦 Copying package files..."
           cp package*.json deploy/
           cp tsconfig.json deploy/
           
@@ -65,13 +72,23 @@ jobs:
             cp .env.example deploy/.env.example
           fi
           
+          # Verify prisma directory was copied
+          echo "✅ Verifying deploy contents..."
+          ls -la deploy/
+          echo "✅ Prisma directory contents:"
+          ls -la deploy/prisma/
+          
           # Create tarball
           cd deploy
           tar -czf ../backend-deploy.tar.gz .
           cd ..
           
-          echo "Deployment package created: backend-deploy.tar.gz"
+          echo "✅ Deployment package created: backend-deploy.tar.gz"
           ls -lh backend-deploy.tar.gz
+          
+          # Verify tarball contents
+          echo "✅ Tarball contents:"
+          tar -tzf backend-deploy.tar.gz | grep -E "^prisma/" | head -10
 
       - name: Deploy to VPS via SSH
         uses: appleboy/scp-action@master
