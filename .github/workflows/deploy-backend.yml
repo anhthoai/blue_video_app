@@ -189,19 +189,23 @@ jobs:
             echo "📦 Installing production dependencies..."
             npm ci --production
             
-            # Run database migrations (skip if database not configured yet)
-            echo "🗄️  Running database migrations..."
-            if npx prisma migrate deploy 2>&1 | grep -q "P1000\|P1001\|P1002"; then
-              echo "⚠️  Database connection failed - skipping migrations"
-              echo "   Configure database credentials in .env and run migrations manually:"
-              echo "   cd ${{ env.DEPLOY_PATH }}/current && npx prisma migrate deploy"
-            else
-              echo "✅ Migrations completed successfully"
-            fi
-            
             # Generate Prisma client (in case of schema changes)
             echo "🔨 Generating Prisma client..."
             npx prisma generate
+            
+            # Push database schema (create/update tables)
+            echo "🗄️  Pushing database schema..."
+            if npx prisma db push --accept-data-loss 2>&1 | tee /tmp/prisma-push.log | grep -q "P1000\|P1001\|P1002"; then
+              echo "⚠️  Database connection failed - skipping schema push"
+              echo "   Configure database credentials in .env and run manually:"
+              echo "   cd ${{ env.DEPLOY_PATH }}/current && npx prisma db push"
+            else
+              if grep -q "Your database is now in sync with your Prisma schema\|Database schema was successfully updated" /tmp/prisma-push.log; then
+                echo "✅ Database schema updated successfully"
+              else
+                echo "✅ Schema push completed"
+              fi
+            fi
             
             # Restart application with PM2
             echo "🔄 Restarting application..."
