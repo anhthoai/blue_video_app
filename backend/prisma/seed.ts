@@ -164,7 +164,7 @@ async function main() {
     },
   });
 
-  const sports = await prisma.category.upsert({
+  await prisma.category.upsert({
     where: { id: 'cat-sports' },
     update: {},
     create: {
@@ -188,7 +188,7 @@ async function main() {
     },
   });
 
-  const comedy = await prisma.category.upsert({
+  await prisma.category.upsert({
     where: { id: 'cat-comedy' },
     update: {},
     create: {
@@ -200,7 +200,7 @@ async function main() {
     },
   });
 
-  const technology = await prisma.category.upsert({
+  await prisma.category.upsert({
     where: { id: 'cat-technology' },
     update: {},
     create: {
@@ -480,7 +480,7 @@ async function main() {
           thumbnailUrl: videoData.thumbnailUrl,
           duration: videoData.duration,
           fileSize: BigInt(Math.floor(Math.random() * 100000000) + 10000000), // Random file size
-          quality: '1080p',
+          quality: ['1080p'],
           views: videoData.views,
           likes: videoData.likes,
           comments: videoData.comments,
