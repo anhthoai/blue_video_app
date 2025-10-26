@@ -17,6 +17,7 @@ import '../../screens/profile/edit_profile_screen.dart';
 import '../../screens/chat/chat_screen.dart';
 import '../../screens/chat/chat_list_screen.dart';
 import '../../screens/settings/settings_screen.dart';
+import '../../screens/settings/language_selection_screen.dart';
 import '../../screens/search/search_screen.dart';
 import '../../screens/test/test_instructions_screen.dart';
 import '../../screens/community/create_post_screen.dart';
@@ -213,6 +214,12 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: 'settings',
             builder: (context, state) => const SettingsScreen(),
+            routes: [
+              GoRoute(
+                path: 'language',
+                builder: (context, state) => const LanguageSelectionScreen(),
+              ),
+            ],
           ),
 
           // Test Routes

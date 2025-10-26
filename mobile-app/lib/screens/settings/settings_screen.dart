@@ -3,15 +3,32 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/services/auth_service.dart';
 import '../../core/services/nsfw_settings_service.dart';
+import '../../core/services/locale_service.dart';
+import '../../l10n/app_localizations.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context);
+    final currentLocale = ref.watch(localeProvider);
+    
+    String getLanguageName(String languageCode) {
+      switch (languageCode) {
+        case 'zh':
+          return '中文';
+        case 'ja':
+          return '日本語';
+        case 'en':
+        default:
+          return 'English';
+      }
+    }
+    
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Settings'),
+        title: Text(l10n.settings),
         backgroundColor: Colors.blue[50],
       ),
       body: ListView(
@@ -88,9 +105,9 @@ class SettingsScreen extends ConsumerWidget {
               _buildListTile(
                 context,
                 icon: Icons.language_outlined,
-                title: 'Language',
-                subtitle: 'English',
-                onTap: () {},
+                title: l10n.language,
+                subtitle: getLanguageName(currentLocale.languageCode),
+                onTap: () => context.push('/main/settings/language'),
               ),
               _buildListTile(
                 context,

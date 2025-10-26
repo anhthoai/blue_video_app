@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -9,6 +10,8 @@ import 'core/router/app_router.dart';
 import 'core/services/storage_service.dart';
 import 'core/services/auth_service.dart';
 import 'core/services/nsfw_settings_service.dart';
+import 'core/services/locale_service.dart';
+import 'l10n/app_localizations.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -49,6 +52,7 @@ class BlueVideoApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final router = ref.watch(routerProvider);
+    final locale = ref.watch(localeProvider);
 
     // App is ready to use real API
 
@@ -59,10 +63,18 @@ class BlueVideoApp extends ConsumerWidget {
       darkTheme: AppTheme.darkTheme,
       themeMode: ThemeMode.system,
       routerConfig: router,
+      locale: locale,
       localizationsDelegates: const [
-        // Add localization delegates here
+        AppLocalizationsDelegate(),
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
       ],
-      supportedLocales: const [Locale('en', 'US'), Locale('zh', 'CN')],
+      supportedLocales: const [
+        Locale('en'),
+        Locale('zh'),
+        Locale('ja'),
+      ],
     );
   }
 }
