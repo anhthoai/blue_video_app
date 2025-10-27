@@ -922,6 +922,13 @@ class AppLocalizationsZh extends AppLocalizations {
   @override
   String get onlyVipUsersCanWatchThisVideo => '仅VIP用户可以观看此视频';
 
+  // Theme settings
+  @override
+  String get lightMode => '浅色模式';
+
+  @override
+  String get darkMode => '深色模式';
+
   // Auth additional
   @override
   String get welcomeBack => '欢迎回来';

@@ -923,6 +923,13 @@ class AppLocalizationsJa extends AppLocalizations {
   @override
   String get onlyVipUsersCanWatchThisVideo => 'VIPユーザーのみがこのビデオを視聴できます';
 
+  // Theme settings
+  @override
+  String get lightMode => 'ライトモード';
+
+  @override
+  String get darkMode => 'ダークモード';
+
   // Auth additional
   @override
   String get welcomeBack => 'おかえりなさい';

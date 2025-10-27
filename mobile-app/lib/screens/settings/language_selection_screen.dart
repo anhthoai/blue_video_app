@@ -15,7 +15,6 @@ class LanguageSelectionScreen extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(
         title: Text(l10n.selectLanguage),
-        backgroundColor: Colors.blue[50],
       ),
       body: ListView(
         children: [

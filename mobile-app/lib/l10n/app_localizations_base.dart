@@ -361,6 +361,10 @@ abstract class AppLocalizations {
   String get anyoneCanWatchThisVideo;
   String get onlyVipUsersCanWatchThisVideo;
 
+  // Theme settings
+  String get lightMode;
+  String get darkMode;
+
   // Auth additional
   String get welcomeBack;
   String get signInToAccount;

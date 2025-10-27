@@ -11,6 +11,7 @@ import 'core/services/storage_service.dart';
 import 'core/services/auth_service.dart';
 import 'core/services/nsfw_settings_service.dart';
 import 'core/services/locale_service.dart';
+import 'core/services/theme_service.dart';
 import 'l10n/app_localizations.dart';
 
 void main() async {
@@ -33,6 +34,7 @@ void main() async {
   final prefs = await SharedPreferences.getInstance();
   final authService = AuthService(prefs);
   final nsfwSettingsService = NsfwSettingsService(prefs);
+  final themeService = ThemeNotifier(prefs);
 
   // Reload current user with fresh data from API
   await authService.reloadCurrentUser();
@@ -41,6 +43,7 @@ void main() async {
     overrides: [
       authServiceProvider.overrideWithValue(authService),
       nsfwSettingsServiceProvider.overrideWithValue(nsfwSettingsService),
+      themeProvider.overrideWith((ref) => themeService),
     ],
     child: const BlueVideoApp(),
   ));
@@ -53,6 +56,8 @@ class BlueVideoApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final router = ref.watch(routerProvider);
     final locale = ref.watch(localeProvider);
+    final themeMode = ref.watch(themeProvider
+        .select((theme) => ref.read(themeProvider.notifier).getThemeMode()));
 
     // App is ready to use real API
 
@@ -61,7 +66,7 @@ class BlueVideoApp extends ConsumerWidget {
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
-      themeMode: ThemeMode.system,
+      themeMode: themeMode,
       routerConfig: router,
       locale: locale,
       localizationsDelegates: const [

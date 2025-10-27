@@ -928,6 +928,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get onlyVipUsersCanWatchThisVideo =>
       'Only VIP users can watch this video';
 
+  // Theme settings
+  @override
+  String get lightMode => 'Light Mode';
+
+  @override
+  String get darkMode => 'Dark Mode';
+
   // Auth additional
   @override
   String get welcomeBack => 'Welcome Back';

@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/services/auth_service.dart';
 import '../../core/services/nsfw_settings_service.dart';
 import '../../core/services/locale_service.dart';
+import '../../core/services/theme_service.dart';
 import '../../l10n/app_localizations.dart';
 
 class SettingsScreen extends ConsumerWidget {
@@ -13,6 +14,7 @@ class SettingsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context);
     final currentLocale = ref.watch(localeProvider);
+    final currentTheme = ref.watch(themeProvider);
 
     String getLanguageName(String languageCode) {
       switch (languageCode) {
@@ -26,10 +28,20 @@ class SettingsScreen extends ConsumerWidget {
       }
     }
 
+    String getThemeName(AppThemeMode theme) {
+      switch (theme) {
+        case AppThemeMode.light:
+          return l10n.lightMode;
+        case AppThemeMode.dark:
+          return l10n.darkMode;
+        case AppThemeMode.system:
+          return l10n.systemDefault;
+      }
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: Text(l10n.settings),
-        backgroundColor: Colors.blue[50],
       ),
       body: ListView(
         padding: const EdgeInsets.all(16),
@@ -99,8 +111,8 @@ class SettingsScreen extends ConsumerWidget {
                 context,
                 icon: Icons.dark_mode_outlined,
                 title: l10n.theme,
-                subtitle: l10n.themeSubtitle,
-                onTap: () {},
+                subtitle: getThemeName(currentTheme),
+                onTap: () => context.push('/main/settings/theme'),
               ),
               _buildListTile(
                 context,
@@ -146,44 +158,6 @@ class SettingsScreen extends ConsumerWidget {
                 title: l10n.rateApp,
                 subtitle: l10n.rateAppSubtitle,
                 onTap: () {},
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 24),
-
-          // Debug Section (for testing)
-          _buildSection(
-            context,
-            l10n.debugTestingOnly,
-            [
-              _buildListTile(
-                context,
-                icon: Icons.science_outlined,
-                title: l10n.mockDataStatus,
-                subtitle: l10n.mockDataStatusSubtitle,
-                onTap: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(l10n.mockDataStatusSubtitle),
-                      duration: const Duration(seconds: 2),
-                    ),
-                  );
-                },
-              ),
-              _buildListTile(
-                context,
-                icon: Icons.api_outlined,
-                title: l10n.apiStatus,
-                subtitle: l10n.apiStatusSubtitle,
-                onTap: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(l10n.apiStatusSubtitle),
-                      duration: const Duration(seconds: 2),
-                    ),
-                  );
-                },
               ),
             ],
           ),
