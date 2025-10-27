@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/services/api_service.dart';
 import '../../core/services/auth_service.dart';
+import '../../l10n/app_localizations.dart';
 
 class CoinHistoryScreen extends ConsumerStatefulWidget {
   const CoinHistoryScreen({super.key});
@@ -118,13 +119,14 @@ class _CoinHistoryScreenState extends ConsumerState<CoinHistoryScreen>
   }
 
   String _getTabTitle(int index) {
+    final l10n = AppLocalizations.of(context);
     switch (index) {
       case 0:
-        return 'Used';
+        return l10n.used;
       case 1:
-        return 'Earned';
+        return l10n.earned;
       case 2:
-        return 'Recharge';
+        return l10n.recharge;
       default:
         return '';
     }
@@ -186,9 +188,9 @@ class _CoinHistoryScreenState extends ConsumerState<CoinHistoryScreen>
                           icon:
                               const Icon(Icons.arrow_back, color: Colors.white),
                         ),
-                        const Expanded(
+                        Expanded(
                           child: Text(
-                            'Coin History',
+                            AppLocalizations.of(context).coinHistory,
                             textAlign: TextAlign.center,
                             style: TextStyle(
                               color: Colors.white,
@@ -227,7 +229,7 @@ class _CoinHistoryScreenState extends ConsumerState<CoinHistoryScreen>
                               color: Colors.white, size: 20),
                           const SizedBox(width: 8),
                           Text(
-                            'Current Balance: $userCoinBalance coins',
+                            '${AppLocalizations.of(context).currentBalance}: $userCoinBalance ${AppLocalizations.of(context).coins}',
                             style: const TextStyle(
                               color: Colors.white,
                               fontSize: 16,
@@ -250,10 +252,10 @@ class _CoinHistoryScreenState extends ConsumerState<CoinHistoryScreen>
                 indicatorColor: const Color(0xFF8B5CF6),
                 labelColor: const Color(0xFF8B5CF6),
                 unselectedLabelColor: Colors.grey,
-                tabs: const [
-                  Tab(text: 'Used'),
-                  Tab(text: 'Earned'),
-                  Tab(text: 'Recharge'),
+                tabs: [
+                  Tab(text: AppLocalizations.of(context).used),
+                  Tab(text: AppLocalizations.of(context).earned),
+                  Tab(text: AppLocalizations.of(context).recharge),
                 ],
               ),
             ),
@@ -297,7 +299,7 @@ class _CoinHistoryScreenState extends ConsumerState<CoinHistoryScreen>
             ),
             const SizedBox(height: 16),
             Text(
-              'No ${_getTabTitle(_tabController.index).toLowerCase()} transactions yet',
+              AppLocalizations.of(context).noTransactionsYet,
               style: TextStyle(
                 fontSize: 16,
                 color: Colors.grey[600],
@@ -306,7 +308,7 @@ class _CoinHistoryScreenState extends ConsumerState<CoinHistoryScreen>
             ),
             const SizedBox(height: 8),
             Text(
-              'Your ${_getTabTitle(_tabController.index).toLowerCase()} coin history will appear here',
+              AppLocalizations.of(context).yourCoinHistoryWillAppearHere,
               style: TextStyle(
                 fontSize: 14,
                 color: Colors.grey[500],

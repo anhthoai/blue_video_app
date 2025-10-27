@@ -13,6 +13,7 @@ import '../../core/utils/subtitle_utils.dart';
 import '../../core/utils/language_utils.dart';
 import '../../widgets/social/comments_section.dart';
 import '../../widgets/common/presigned_image.dart';
+import '../../l10n/app_localizations.dart';
 
 // Provider to fetch video by ID
 final videoByIdProvider =
@@ -258,10 +259,11 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
         });
 
         if (mounted) {
+          final l10n = AppLocalizations.of(context);
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content:
-                  Text(_isFollowing ? 'Following user' : 'Unfollowed user'),
+                  Text(_isFollowing ? l10n.followingUser : l10n.unfollowedUser),
               duration: const Duration(seconds: 2),
             ),
           );
@@ -1502,38 +1504,45 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
                   ],
                 ),
                 const SizedBox(height: 2),
-                Text(
-                  '173 followers', // TODO: Get real follower count from API
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey[600],
-                  ),
-                ),
+                Builder(builder: (context) {
+                  final l10n = AppLocalizations.of(context);
+                  return Text(
+                    '173 ${l10n.followers}', // TODO: Get real follower count from API
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey[600],
+                    ),
+                  );
+                }),
               ],
             ),
           ),
-          ElevatedButton(
-            onPressed:
-                _isLoadingFollow ? null : () => _toggleFollow(video.userId),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: _isFollowing ? Colors.grey : Colors.blue,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(20),
+          Builder(builder: (context) {
+            final l10n = AppLocalizations.of(context);
+            return ElevatedButton(
+              onPressed:
+                  _isLoadingFollow ? null : () => _toggleFollow(video.userId),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: _isFollowing ? Colors.grey : Colors.blue,
+                foregroundColor: Colors.white,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                ),
               ),
-            ),
-            child: _isLoadingFollow
-                ? const SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                    ),
-                  )
-                : Text(_isFollowing ? 'Following' : 'Follow'),
-          ),
+              child: _isLoadingFollow
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                      ),
+                    )
+                  : Text(_isFollowing ? l10n.following : l10n.follow),
+            );
+          }),
         ],
       ),
     );
@@ -1762,20 +1771,26 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
           padding: const EdgeInsets.all(16),
           child: Row(
             children: [
-              const Text(
-                'Recommended for you',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
+              Builder(builder: (context) {
+                final l10n = AppLocalizations.of(context);
+                return Text(
+                  l10n.recommendedForYou,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                );
+              }),
               const Spacer(),
-              TextButton(
-                onPressed: () {
-                  context.go('/main');
-                },
-                child: const Text('See all'),
-              ),
+              Builder(builder: (context) {
+                final l10n = AppLocalizations.of(context);
+                return TextButton(
+                  onPressed: () {
+                    context.go('/main');
+                  },
+                  child: Text(l10n.seeAll),
+                );
+              }),
             ],
           ),
         ),
@@ -1991,47 +2006,52 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
   }
 
   void _showVideoOptions() {
+    final l10n = AppLocalizations.of(context);
+
     showModalBottomSheet(
       context: context,
-      builder: (context) => Container(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.playlist_add),
-              title: const Text('Add to Playlist'),
-              onTap: () {
-                Navigator.pop(context);
-                _showAddToPlaylistDialog();
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.share),
-              title: const Text('Share Video'),
-              onTap: () {
-                Navigator.pop(context);
-                _showShareOptions(widget.videoId);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.download),
-              title: const Text('Download Video'),
-              onTap: () {
-                Navigator.pop(context);
-                _showDownloadOptions();
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.report),
-              title: const Text('Report Video'),
-              onTap: () {
-                Navigator.pop(context);
-              },
-            ),
-          ],
-        ),
-      ),
+      builder: (context) {
+        final dialogL10n = AppLocalizations.of(context);
+        return Container(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.playlist_add),
+                title: Text(dialogL10n.addToPlaylist),
+                onTap: () {
+                  Navigator.pop(context);
+                  _showAddToPlaylistDialog();
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.share),
+                title: Text(dialogL10n.shareVideo),
+                onTap: () {
+                  Navigator.pop(context);
+                  _showShareOptions(widget.videoId);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.download),
+                title: Text(dialogL10n.downloadVideo),
+                onTap: () {
+                  Navigator.pop(context);
+                  _showDownloadOptions();
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.report),
+                title: Text(dialogL10n.reportVideo),
+                onTap: () {
+                  Navigator.pop(context);
+                },
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 

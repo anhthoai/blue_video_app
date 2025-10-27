@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/services/auth_service.dart';
+import '../../l10n/app_localizations.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -28,6 +29,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+
     return Scaffold(
       body: SafeArea(
         child: SingleChildScrollView(
@@ -56,7 +59,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
                 // Title
                 Text(
-                  'Welcome Back',
+                  l10n.welcomeBack,
                   style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                         fontWeight: FontWeight.bold,
                       ),
@@ -65,7 +68,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 const SizedBox(height: 8),
 
                 Text(
-                  'Sign in to your account',
+                  l10n.signInToAccount,
                   style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                         color: Theme.of(
                           context,
@@ -79,16 +82,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 TextFormField(
                   controller: _emailController,
                   keyboardType: TextInputType.emailAddress,
-                  decoration: const InputDecoration(
-                    labelText: 'Email',
-                    prefixIcon: Icon(Icons.email_outlined),
+                  decoration: InputDecoration(
+                    labelText: l10n.email,
+                    prefixIcon: const Icon(Icons.email_outlined),
                   ),
                   validator: (value) {
                     if (value == null || value.isEmpty) {
-                      return 'Please enter your email';
+                      return l10n.pleaseEnterEmail;
                     }
                     if (!value.contains('@')) {
-                      return 'Please enter a valid email';
+                      return l10n.pleaseEnterValidEmail;
                     }
                     return null;
                   },
@@ -101,7 +104,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   controller: _passwordController,
                   obscureText: _obscurePassword,
                   decoration: InputDecoration(
-                    labelText: 'Password',
+                    labelText: l10n.password,
                     prefixIcon: const Icon(Icons.lock_outlined),
                     suffixIcon: IconButton(
                       icon: Icon(
@@ -118,10 +121,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   ),
                   validator: (value) {
                     if (value == null || value.isEmpty) {
-                      return 'Please enter your password';
+                      return l10n.pleaseEnterPassword;
                     }
                     if (value.length < 6) {
-                      return 'Password must be at least 6 characters';
+                      return l10n.passwordMinLength;
                     }
                     return null;
                   },
@@ -140,13 +143,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         });
                       },
                     ),
-                    const Text('Remember me'),
+                    Text(l10n.rememberMe),
                     const Spacer(),
                     TextButton(
                       onPressed: () {
                         context.go('/auth/forgot-password');
                       },
-                      child: const Text('Forgot Password?'),
+                      child: Text(l10n.forgotPassword),
                     ),
                   ],
                 ),
@@ -163,7 +166,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         ? const CircularProgressIndicator(
                             color: Colors.white,
                           )
-                        : const Text('Sign In'),
+                        : Text(l10n.signIn),
                   ),
                 ),
 
@@ -217,12 +220,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Text("Don't have an account? "),
+                    Text(l10n.dontHaveAccount + ' '),
                     TextButton(
                       onPressed: () {
                         context.go('/auth/register');
                       },
-                      child: const Text('Sign Up'),
+                      child: Text(l10n.signUp),
                     ),
                   ],
                 ),

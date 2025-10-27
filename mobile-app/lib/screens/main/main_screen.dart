@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/theme/app_theme.dart';
+import '../../l10n/app_localizations.dart';
 import '../home/home_screen.dart';
 import '../discover/discover_screen.dart';
 import '../community/community_screen.dart';
@@ -26,36 +27,38 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     const CurrentUserProfileScreen(),
   ];
 
-  final List<BottomNavigationBarItem> _navItems = [
-    const BottomNavigationBarItem(
-      icon: Icon(Icons.home_outlined),
-      activeIcon: Icon(Icons.home),
-      label: 'Home',
-    ),
-    const BottomNavigationBarItem(
-      icon: Icon(Icons.explore_outlined),
-      activeIcon: Icon(Icons.explore),
-      label: 'Discover',
-    ),
-    const BottomNavigationBarItem(
-      icon: Icon(Icons.people_outlined),
-      activeIcon: Icon(Icons.people),
-      label: 'Community',
-    ),
-    const BottomNavigationBarItem(
-      icon: Icon(Icons.chat_outlined),
-      activeIcon: Icon(Icons.chat),
-      label: 'Chat',
-    ),
-    const BottomNavigationBarItem(
-      icon: Icon(Icons.person_outlined),
-      activeIcon: Icon(Icons.person),
-      label: 'Profile',
-    ),
-  ];
-
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+
+    final List<BottomNavigationBarItem> navItems = [
+      BottomNavigationBarItem(
+        icon: const Icon(Icons.home_outlined),
+        activeIcon: const Icon(Icons.home),
+        label: l10n.home,
+      ),
+      BottomNavigationBarItem(
+        icon: const Icon(Icons.explore_outlined),
+        activeIcon: const Icon(Icons.explore),
+        label: l10n.discover,
+      ),
+      BottomNavigationBarItem(
+        icon: const Icon(Icons.people_outlined),
+        activeIcon: const Icon(Icons.people),
+        label: l10n.community,
+      ),
+      BottomNavigationBarItem(
+        icon: const Icon(Icons.chat_outlined),
+        activeIcon: const Icon(Icons.chat),
+        label: l10n.chat,
+      ),
+      BottomNavigationBarItem(
+        icon: const Icon(Icons.person_outlined),
+        activeIcon: const Icon(Icons.person),
+        label: l10n.profile,
+      ),
+    ];
+
     return Scaffold(
       body: IndexedStack(index: _currentIndex, children: _screens),
       bottomNavigationBar: BottomNavigationBar(
@@ -77,7 +80,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
           fontWeight: FontWeight.normal,
           fontSize: 12,
         ),
-        items: _navItems,
+        items: navItems,
       ),
     );
   }

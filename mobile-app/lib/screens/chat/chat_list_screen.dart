@@ -5,6 +5,7 @@ import '../../core/services/chat_service.dart';
 import '../../core/services/auth_service.dart';
 import '../../widgets/chat/chat_room_tile.dart';
 import '../../widgets/chat/user_selection_dialog.dart';
+import '../../l10n/app_localizations.dart';
 import 'chat_screen.dart';
 
 class ChatListScreen extends ConsumerStatefulWidget {
@@ -63,10 +64,11 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
   Widget build(BuildContext context) {
     final chatState = ref.watch(chatServiceStateProvider);
     final currentUser = ref.watch(currentUserProvider);
+    final l10n = AppLocalizations.of(context);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Messages'),
+        title: Text(l10n.chats),
         actions: [
           IconButton(
             icon: const Icon(Icons.search),
@@ -118,28 +120,30 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
   }
 
   Widget _buildEmptyState() {
-    return const Center(
+    final l10n = AppLocalizations.of(context);
+
+    return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
+          const Icon(
             Icons.chat_bubble_outline,
             size: 64,
             color: Colors.grey,
           ),
-          SizedBox(height: 16),
+          const SizedBox(height: 16),
           Text(
-            'No conversations yet',
-            style: TextStyle(
+            l10n.noConversations,
+            style: const TextStyle(
               fontSize: 18,
               color: Colors.grey,
               fontWeight: FontWeight.w500,
             ),
           ),
-          SizedBox(height: 8),
+          const SizedBox(height: 8),
           Text(
-            'Start a new conversation!',
-            style: TextStyle(
+            l10n.startNewConversation,
+            style: const TextStyle(
               fontSize: 14,
               color: Colors.grey,
             ),
@@ -150,115 +154,124 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
   }
 
   void _showOptions() {
+    final l10n = AppLocalizations.of(context);
+
     showModalBottomSheet(
       context: context,
-      builder: (context) => Container(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.archive),
-              title: const Text('Archived Chats'),
-              onTap: () {
-                Navigator.pop(context);
-                _showArchivedChats();
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.block),
-              title: const Text('Blocked Users'),
-              onTap: () {
-                Navigator.pop(context);
-                _showBlockedUsers();
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.settings),
-              title: const Text('Chat Settings'),
-              onTap: () {
-                Navigator.pop(context);
-                _showChatSettings();
-              },
-            ),
-          ],
-        ),
-      ),
+      builder: (context) {
+        final dialogL10n = AppLocalizations.of(context);
+        return Container(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.archive),
+                title: Text(dialogL10n.archivedChats),
+                onTap: () {
+                  Navigator.pop(context);
+                  _showArchivedChats();
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.block),
+                title: Text(dialogL10n.blockedUsers),
+                onTap: () {
+                  Navigator.pop(context);
+                  _showBlockedUsers();
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.settings),
+                title: Text(dialogL10n.chatSettings),
+                onTap: () {
+                  Navigator.pop(context);
+                  _showChatSettings();
+                },
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 
   void _showNewChatOptions() {
+    final l10n = AppLocalizations.of(context);
+
     showModalBottomSheet(
       context: context,
-      builder: (context) => Container(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.person_add),
-              title: const Text('New Chat'),
-              onTap: () {
-                Navigator.pop(context);
-                _startNewChat();
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.group_add),
-              title: const Text('New Group'),
-              onTap: () {
-                Navigator.pop(context);
-                _createNewGroup();
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.contacts),
-              title: const Text('Contacts'),
-              onTap: () {
-                Navigator.pop(context);
-                _showContacts();
-              },
-            ),
-          ],
-        ),
-      ),
+      builder: (context) {
+        final dialogL10n = AppLocalizations.of(context);
+        return Container(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.person_add),
+                title: Text(dialogL10n.newChat),
+                onTap: () {
+                  Navigator.pop(context);
+                  _startNewChat();
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.group_add),
+                title: Text(dialogL10n.newGroupChat),
+                onTap: () {
+                  Navigator.pop(context);
+                  _createNewGroup();
+                },
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 
   void _showArchivedChats() {
+    final l10n = AppLocalizations.of(context);
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Archived chats feature coming soon!')),
+      SnackBar(content: Text('${l10n.archivedChats} ${l10n.comingSoon}')),
     );
   }
 
   void _showBlockedUsers() {
+    final l10n = AppLocalizations.of(context);
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Blocked users feature coming soon!')),
+      SnackBar(content: Text('${l10n.blockedUsers} ${l10n.comingSoon}')),
     );
   }
 
   void _showChatSettings() {
+    final l10n = AppLocalizations.of(context);
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Chat Settings'),
-        content:
-            const Text('Chat settings and preferences will be available here.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Close'),
-          ),
-        ],
-      ),
+      builder: (context) {
+        final dialogL10n = AppLocalizations.of(context);
+        return AlertDialog(
+          title: Text(dialogL10n.chatSettings),
+          content: Text('${dialogL10n.chatSettings} ${dialogL10n.comingSoon}'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text(dialogL10n.close),
+            ),
+          ],
+        );
+      },
     );
   }
 
-  void _startNewChat() {
+  Future<void> _startNewChat() async {
+    final l10n = AppLocalizations.of(context);
+
     showDialog(
       context: context,
       builder: (context) => UserSelectionDialog(
-        title: 'Start New Chat',
+        title: l10n.newChat,
         onUserSelected: (userId) async {
           await _createDirectChat(userId);
         },
@@ -267,18 +280,15 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
   }
 
   void _createNewGroup() {
-    showDialog(
-      context: context,
-      builder: (context) => UserSelectionDialog(
-        title: 'Create New Group',
-        onUserSelected: (userId) async {
-          await _createGroupChat(userId);
-        },
-      ),
+    final l10n = AppLocalizations.of(context);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('${l10n.newGroupChat} ${l10n.comingSoon}')),
     );
   }
 
   Future<void> _createDirectChat(String userId) async {
+    final l10n = AppLocalizations.of(context);
+
     try {
       final chatService = ref.read(chatServiceStateProvider.notifier);
       final result = await chatService.createChatRoom(
@@ -286,82 +296,31 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
         participantIds: [userId],
       );
 
-      if (result != null) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Chat created successfully!')),
-          );
-          // Navigate to the new chat
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => ChatScreen(chatId: result.id),
-            ),
-          );
-        }
-      }
-    } catch (e) {
-      if (mounted) {
+      if (result != null && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error creating chat: $e')),
+          SnackBar(content: Text('${l10n.chat} ${l10n.savedSuccessfully}')),
+        );
+        // Navigate to the new chat
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => ChatScreen(chatId: result.id),
+          ),
         );
       }
-    }
-  }
-
-  Future<void> _createGroupChat(String userId) async {
-    try {
-      final chatService = ref.read(chatServiceStateProvider.notifier);
-      final result = await chatService.createChatRoom(
-        name: 'New Group',
-        type: 'GROUP',
-        participantIds: [userId],
-      );
-
-      if (result != null) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Group created successfully!')),
-          );
-          // Navigate to the new chat
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => ChatScreen(chatId: result.id),
-            ),
-          );
-        }
-      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error creating group: $e')),
+          SnackBar(content: Text('${l10n.error}: $e')),
         );
       }
     }
   }
 
   void _showContacts() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Contacts'),
-        content: const Text(
-            'Your contacts list will be available here. You can start new chats from here.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Close'),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              _startNewChat(); // Redirect to new chat
-            },
-            child: const Text('Start Chat'),
-          ),
-        ],
-      ),
+    final l10n = AppLocalizations.of(context);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Contacts ${l10n.comingSoon}')),
     );
   }
 }

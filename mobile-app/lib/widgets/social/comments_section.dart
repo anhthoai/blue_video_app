@@ -5,6 +5,7 @@ import '../../core/services/social_service.dart';
 import '../../models/comment_model.dart';
 import 'comment_widget.dart';
 import '../common/presigned_image.dart';
+import '../../l10n/app_localizations.dart';
 
 class CommentsSection extends ConsumerStatefulWidget {
   final String videoId;
@@ -129,9 +130,9 @@ class _CommentsSectionState extends ConsumerState<CommentsSection> {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: Row(
               children: [
-                const Text(
-                  'Comments',
-                  style: TextStyle(
+                Text(
+                  AppLocalizations.of(context).viewComments,
+                  style: const TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w600,
                   ),
@@ -234,28 +235,30 @@ class _CommentsSectionState extends ConsumerState<CommentsSection> {
   }
 
   Widget _buildEmptyState() {
-    return const Center(
+    final l10n = AppLocalizations.of(context);
+
+    return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
+          const Icon(
             Icons.chat_bubble_outline,
             size: 48,
             color: Colors.grey,
           ),
-          SizedBox(height: 16),
+          const SizedBox(height: 16),
           Text(
-            'No comments yet',
-            style: TextStyle(
+            l10n.noCommentsYet,
+            style: const TextStyle(
               fontSize: 16,
               color: Colors.grey,
               fontWeight: FontWeight.w500,
             ),
           ),
-          SizedBox(height: 8),
+          const SizedBox(height: 8),
           Text(
-            'Be the first to comment!',
-            style: TextStyle(
+            l10n.beTheFirstToComment,
+            style: const TextStyle(
               fontSize: 14,
               color: Colors.grey,
             ),
@@ -304,7 +307,7 @@ class _CommentsSectionState extends ConsumerState<CommentsSection> {
             child: TextField(
               controller: _commentController,
               decoration: InputDecoration(
-                hintText: 'Add a comment...',
+                hintText: AppLocalizations.of(context).addComment,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(20),
                   borderSide: BorderSide.none,

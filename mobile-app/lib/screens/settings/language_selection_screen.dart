@@ -96,4 +96,3 @@ class LanguageSelectionScreen extends ConsumerWidget {
     );
   }
 }
-

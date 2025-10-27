@@ -10,6 +10,7 @@ import '../../widgets/community/video_card_widget.dart';
 import '../../screens/community/_fullscreen_media_gallery.dart';
 import '../../widgets/dialogs/coin_payment_dialog.dart';
 import '../../core/providers/unlocked_posts_provider.dart';
+import '../../l10n/app_localizations.dart';
 
 class CommunityScreen extends ConsumerStatefulWidget {
   const CommunityScreen({super.key});
@@ -176,9 +177,11 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
     // Removed auto-loading logic to prevent infinite loop
     // Posts are loaded in initState and when user manually refreshes
 
+    final l10n = AppLocalizations.of(context);
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Community'),
+        title: Text(l10n.community),
         actions: [
           IconButton(
             icon: const Icon(Icons.search),
@@ -195,10 +198,10 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
           labelColor: Colors.white,
           unselectedLabelColor: Colors.white.withOpacity(0.7),
           indicatorWeight: 3,
-          tabs: const [
-            Tab(text: 'Posts', icon: Icon(Icons.article)),
-            Tab(text: 'Trending', icon: Icon(Icons.trending_up)),
-            Tab(text: 'Videos', icon: Icon(Icons.video_library)),
+          tabs: [
+            Tab(text: l10n.posts, icon: const Icon(Icons.article)),
+            Tab(text: l10n.trending, icon: const Icon(Icons.trending_up)),
+            Tab(text: l10n.videos, icon: const Icon(Icons.video_library)),
           ],
         ),
       ),
@@ -389,52 +392,57 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
   }
 
   void _showSearchDialog() {
+    final l10n = AppLocalizations.of(context);
+
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Search Community'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            TextField(
-              controller: _searchController,
-              decoration: const InputDecoration(
-                hintText: 'Search posts, authors, usernames, tags...',
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.search),
+      builder: (context) {
+        final dialogL10n = AppLocalizations.of(context);
+        return AlertDialog(
+          title: Text(dialogL10n.searchCommunity),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              TextField(
+                controller: _searchController,
+                decoration: InputDecoration(
+                  hintText: l10n.searchHint,
+                  border: const OutlineInputBorder(),
+                  prefixIcon: const Icon(Icons.search),
+                ),
+                autofocus: true,
+                onSubmitted: (value) {
+                  Navigator.pop(context);
+                  _searchPosts();
+                },
               ),
-              autofocus: true,
-              onSubmitted: (value) {
+              const SizedBox(height: 12),
+              Text(
+                'Search across:',
+                style: const TextStyle(fontWeight: FontWeight.w500),
+              ),
+              const SizedBox(height: 4),
+              const Text('• Post content and titles'),
+              const Text('• Author names and usernames'),
+              const Text('• Tags and categories'),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text(l10n.cancel),
+            ),
+            ElevatedButton(
+              onPressed: () {
                 Navigator.pop(context);
                 _searchPosts();
               },
+              child: Text(l10n.search),
             ),
-            const SizedBox(height: 12),
-            const Text(
-              'Search across:',
-              style: TextStyle(fontWeight: FontWeight.w500),
-            ),
-            const SizedBox(height: 4),
-            const Text('• Post content and titles'),
-            const Text('• Author names and usernames'),
-            const Text('• Tags and categories'),
           ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              _searchPosts();
-            },
-            child: const Text('Search'),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -447,82 +455,98 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
   }
 
   void _showFilterDialog() {
+    final l10n = AppLocalizations.of(context);
+
     showModalBottomSheet(
       context: context,
-      builder: (context) => Container(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text(
-              'Filter Posts',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(height: 16),
-            // Category filter
-            const Text(
-              'Categories',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            const SizedBox(height: 8),
-            ...['all', 'technology', 'entertainment', 'sports', 'news']
-                .map((category) {
-              return ListTile(
-                title: Text(category.toUpperCase()),
-                trailing: _selectedCategory == category
-                    ? const Icon(Icons.check, color: Colors.blue)
-                    : null,
-                onTap: () {
-                  setState(() {
-                    _selectedCategory = category;
-                  });
-                  Navigator.pop(context);
-                  _loadPosts();
-                },
-              );
-            }),
-            const SizedBox(height: 16),
-            // Tag filter
-            const Text(
-              'Filter by Tag',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            const SizedBox(height: 8),
-            TextField(
-              decoration: InputDecoration(
-                hintText: 'Enter tag (e.g., #video, #coin)',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
+      builder: (context) {
+        final dialogL10n = AppLocalizations.of(context);
+        return Container(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                dialogL10n.filterPosts,
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
                 ),
-                prefixIcon: const Icon(Icons.tag),
               ),
-              onSubmitted: (tag) {
-                if (tag.trim().isNotEmpty) {
+              const SizedBox(height: 16),
+              // Category filter
+              Text(
+                dialogL10n.category,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Flexible(
+                child: SingleChildScrollView(
+                  child: Column(
+                    children: [
+                      'all',
+                      'technology',
+                      'entertainment',
+                      'sports',
+                      'news'
+                    ].map((category) {
+                      return ListTile(
+                        title: Text(category.toUpperCase()),
+                        trailing: _selectedCategory == category
+                            ? const Icon(Icons.check, color: Colors.blue)
+                            : null,
+                        onTap: () {
+                          setState(() {
+                            _selectedCategory = category;
+                          });
+                          Navigator.pop(context);
+                          _loadPosts();
+                        },
+                      );
+                    }).toList(),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              // Tag filter
+              Text(
+                'Filter by Tag',
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                decoration: InputDecoration(
+                  hintText: 'Enter tag (e.g., #video, #coin)',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  prefixIcon: const Icon(Icons.tag),
+                ),
+                onSubmitted: (tag) {
+                  if (tag.trim().isNotEmpty) {
+                    Navigator.pop(context);
+                    _filterByTag(tag.trim());
+                  }
+                },
+              ),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: () {
                   Navigator.pop(context);
-                  _filterByTag(tag.trim());
-                }
-              },
-            ),
-            const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.pop(context);
-                _clearFilters();
-              },
-              child: const Text('Clear All Filters'),
-            ),
-          ],
-        ),
-      ),
+                  _clearFilters();
+                },
+                child: Text(dialogL10n.clearFilter),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 

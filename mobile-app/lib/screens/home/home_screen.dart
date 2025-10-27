@@ -7,6 +7,7 @@ import '../../widgets/story_list.dart';
 import '../../widgets/trending_videos.dart';
 import '../../core/services/video_service.dart';
 import '../../core/services/auth_service.dart';
+import '../../l10n/app_localizations.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -56,11 +57,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final videosAsync = ref.watch(videoListProvider);
+    final l10n = AppLocalizations.of(context);
 
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.background,
       appBar: AppBar(
-        title: const Text('Blue Video'),
+        title: Text(l10n.appName),
         centerTitle: true,
         actions: [
           IconButton(
@@ -154,13 +156,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               children: [
                 const Icon(Icons.error, size: 64, color: Colors.red),
                 const SizedBox(height: 16),
-                Text('Error loading videos: $error'),
+                Text('${l10n.errorLoadingData}: $error'),
                 const SizedBox(height: 16),
                 ElevatedButton(
                   onPressed: () {
                     ref.invalidate(videoListProvider);
                   },
-                  child: const Text('Retry'),
+                  child: Text(l10n.retry),
                 ),
               ],
             ),

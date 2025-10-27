@@ -6,6 +6,7 @@ import '../../core/services/api_service.dart';
 import '../../widgets/dialogs/payment_method_dialog.dart';
 import '../../widgets/dialogs/usdt_payment_dialog.dart';
 import '../../widgets/dialogs/credit_card_payment_dialog.dart';
+import '../../l10n/app_localizations.dart';
 
 class CoinRechargeScreen extends ConsumerStatefulWidget {
   const CoinRechargeScreen({super.key});
@@ -46,8 +47,9 @@ class _CoinRechargeScreenState extends ConsumerState<CoinRechargeScreen> {
       setState(() => isLoading = false);
       print('🎯 Error loading coin packages: $e');
       if (mounted) {
+        final l10n = AppLocalizations.of(context);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to load coin packages: $e')),
+          SnackBar(content: Text('${l10n.failedToLoadCoinPackages}: $e')),
         );
       }
     }
@@ -56,8 +58,9 @@ class _CoinRechargeScreenState extends ConsumerState<CoinRechargeScreen> {
   Future<void> _processRecharge() async {
     if (coinPackages.isEmpty || selectedPackageIndex >= coinPackages.length) {
       print('⚠️ No package selected or packages not loaded');
+      final l10n = AppLocalizations.of(context);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select a coin package')),
+        SnackBar(content: Text(l10n.pleaseSelectCoinPackage)),
       );
       return;
     }
@@ -113,8 +116,9 @@ class _CoinRechargeScreenState extends ConsumerState<CoinRechargeScreen> {
       setState(() => isLoading = false);
       print('❌ Payment failed: $e');
       if (mounted) {
+        final l10n = AppLocalizations.of(context);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Payment failed: $e')),
+          SnackBar(content: Text('${l10n.paymentFailed}: $e')),
         );
       }
     }
@@ -214,9 +218,9 @@ class _CoinRechargeScreenState extends ConsumerState<CoinRechargeScreen> {
                       onPressed: () => context.pop(),
                       icon: const Icon(Icons.arrow_back, color: Colors.white),
                     ),
-                    const Expanded(
+                    Expanded(
                       child: Text(
-                        'Coin Recharge',
+                        AppLocalizations.of(context).coinRecharge,
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           color: Colors.white,
@@ -229,8 +233,8 @@ class _CoinRechargeScreenState extends ConsumerState<CoinRechargeScreen> {
                       onPressed: () {
                         context.push('/main/coin-history');
                       },
-                      child: const Text(
-                        'Recharge Record',
+                      child: Text(
+                        AppLocalizations.of(context).rechargeRecord,
                         style: TextStyle(
                           color: Colors.white,
                           fontSize: 14,
@@ -266,8 +270,8 @@ class _CoinRechargeScreenState extends ConsumerState<CoinRechargeScreen> {
                       ),
                       child: Row(
                         children: [
-                          const Text(
-                            'Coin Balance',
+                          Text(
+                            AppLocalizations.of(context).coinBalance,
                             style: TextStyle(
                               color: Color(0xFF8B5CF6),
                               fontSize: 16,
@@ -288,8 +292,8 @@ class _CoinRechargeScreenState extends ConsumerState<CoinRechargeScreen> {
                             onPressed: () {
                               // TODO: Show coin details
                             },
-                            child: const Text(
-                              'Coin Details',
+                            child: Text(
+                              AppLocalizations.of(context).coinDetails,
                               style: TextStyle(
                                 color: Colors.grey,
                                 fontSize: 14,
@@ -332,8 +336,8 @@ class _CoinRechargeScreenState extends ConsumerState<CoinRechargeScreen> {
                                   color: const Color(0xFF8B5CF6),
                                   borderRadius: BorderRadius.circular(20),
                                 ),
-                                child: const Text(
-                                  'Online Recharge',
+                                child: Text(
+                                  AppLocalizations.of(context).onlineRecharge,
                                   style: TextStyle(
                                     color: Colors.white,
                                     fontSize: 14,
@@ -448,7 +452,7 @@ class _CoinRechargeScreenState extends ConsumerState<CoinRechargeScreen> {
                                         const SizedBox(height: 6),
                                         // Coins Text
                                         Text(
-                                          '${coins} Coins',
+                                          '$coins ${AppLocalizations.of(context).coins}',
                                           style: TextStyle(
                                             color: isSelected
                                                 ? const Color(0xFF8B5CF6)
@@ -479,8 +483,9 @@ class _CoinRechargeScreenState extends ConsumerState<CoinRechargeScreen> {
                               },
                             )
                           else
-                            const Center(
-                              child: Text('No coin packages available'),
+                            Center(
+                              child: Text(AppLocalizations.of(context)
+                                  .noCoinPackagesAvailable),
                             ),
 
                           const SizedBox(height: 24),
@@ -508,9 +513,9 @@ class _CoinRechargeScreenState extends ConsumerState<CoinRechargeScreen> {
                                         strokeWidth: 2,
                                       ),
                                     )
-                                  : const Text(
-                                      'Recharge Now',
-                                      style: TextStyle(
+                                  : Text(
+                                      AppLocalizations.of(context).rechargeNow,
+                                      style: const TextStyle(
                                         fontSize: 16,
                                         fontWeight: FontWeight.bold,
                                       ),

@@ -8,6 +8,7 @@ import '../widgets/social/comments_section.dart';
 import '../models/like_model.dart';
 import 'common/presigned_image.dart';
 import '../core/services/api_service.dart';
+import '../l10n/app_localizations.dart';
 
 class VideoCard extends ConsumerWidget {
   final String videoId;
@@ -135,7 +136,7 @@ class VideoCard extends ConsumerWidget {
                       ),
                       const SizedBox(width: 8),
                       Text(
-                        _formatViewCount(viewCount),
+                        _formatViewCount(viewCount, context),
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
                               color: Colors.grey[600],
                             ),
@@ -336,10 +337,11 @@ class VideoCard extends ConsumerWidget {
     }
   }
 
-  String _formatViewCount(int? count) {
-    if (count == null || count == 0) return '0 views';
+  String _formatViewCount(int? count, BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    if (count == null || count == 0) return '0 ${l10n.views}';
     final formatted = _formatCount(count);
-    return '$formatted views';
+    return '$formatted ${l10n.views}';
   }
 
   void _showCommentsSection(BuildContext context) {
@@ -360,52 +362,55 @@ class VideoCard extends ConsumerWidget {
       context: context,
       builder: (context) => Container(
         padding: const EdgeInsets.all(16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (currentUserId != null)
+        child: Builder(builder: (context) {
+          final l10n = AppLocalizations.of(context);
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (currentUserId != null)
+                ListTile(
+                  leading: const Icon(Icons.playlist_add),
+                  title: Text(l10n.addToPlaylist),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _showAddToPlaylistDialog(context);
+                  },
+                ),
               ListTile(
-                leading: const Icon(Icons.playlist_add),
-                title: const Text('Add to Playlist'),
+                leading: const Icon(Icons.bookmark_outline),
+                title: Text(l10n.saveVideo),
                 onTap: () {
                   Navigator.pop(context);
-                  _showAddToPlaylistDialog(context);
+                  // Handle save
                 },
               ),
-            ListTile(
-              leading: const Icon(Icons.bookmark_outline),
-              title: const Text('Save'),
-              onTap: () {
-                Navigator.pop(context);
-                // Handle save
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.download_outlined),
-              title: const Text('Download'),
-              onTap: () {
-                Navigator.pop(context);
-                // Handle download
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.report_outlined),
-              title: const Text('Report'),
-              onTap: () {
-                Navigator.pop(context);
-                // Handle report
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.share_outlined),
-              title: const Text('Share'),
-              onTap: () {
-                Navigator.pop(context);
-                // Handle share
-              },
-            ),
-          ],
-        ),
+              ListTile(
+                leading: const Icon(Icons.download_outlined),
+                title: Text(l10n.download),
+                onTap: () {
+                  Navigator.pop(context);
+                  // Handle download
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.report_outlined),
+                title: Text(l10n.report),
+                onTap: () {
+                  Navigator.pop(context);
+                  // Handle report
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.share_outlined),
+                title: Text(l10n.share),
+                onTap: () {
+                  Navigator.pop(context);
+                  // Handle share
+                },
+              ),
+            ],
+          );
+        }),
       ),
     );
   }

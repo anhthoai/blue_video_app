@@ -6,6 +6,7 @@ import '../../core/services/api_service.dart';
 import '../../models/category_model.dart';
 import '../../models/video_model.dart';
 import '../../widgets/common/presigned_image.dart';
+import '../../l10n/app_localizations.dart';
 
 class DiscoverScreen extends ConsumerStatefulWidget {
   const DiscoverScreen({super.key});
@@ -131,15 +132,17 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Discover'),
+        title: Text(l10n.discover),
         centerTitle: true,
         actions: [
           IconButton(
             icon: const Icon(Icons.search),
             onPressed: () {
-              // Navigate to search screen
+              context.push('/main/search');
             },
           ),
         ],
@@ -149,10 +152,10 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
           labelColor: Colors.white,
           unselectedLabelColor: Colors.white.withOpacity(0.7),
           indicatorWeight: 3,
-          tabs: const [
-            Tab(text: 'Trending'),
-            Tab(text: 'Categories'),
-            Tab(text: 'Live'),
+          tabs: [
+            Tab(text: l10n.trending),
+            Tab(text: l10n.category),
+            Tab(text: l10n.live),
           ],
         ),
       ),
@@ -164,6 +167,8 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
   }
 
   Widget _buildTrendingTab() {
+    final l10n = AppLocalizations.of(context);
+
     if (_isLoadingTrending) {
       return const Center(child: CircularProgressIndicator());
     }
@@ -176,7 +181,7 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
             Icon(Icons.trending_up, size: 64, color: Colors.grey[400]),
             const SizedBox(height: 16),
             Text(
-              'No trending videos yet',
+              l10n.noTrendingVideos,
               style: TextStyle(color: Colors.grey[600]),
             ),
           ],
@@ -281,18 +286,21 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
                             _showAddToPlaylistDialog(video.id, video.title);
                           }
                         },
-                        itemBuilder: (context) => [
-                          const PopupMenuItem(
-                            value: 'add_to_playlist',
-                            child: Row(
-                              children: [
-                                Icon(Icons.playlist_add, size: 20),
-                                SizedBox(width: 8),
-                                Text('Add to Playlist'),
-                              ],
+                        itemBuilder: (context) {
+                          final l10n = AppLocalizations.of(context);
+                          return [
+                            PopupMenuItem(
+                              value: 'add_to_playlist',
+                              child: Row(
+                                children: [
+                                  const Icon(Icons.playlist_add, size: 20),
+                                  const SizedBox(width: 8),
+                                  Text(l10n.addToPlaylist),
+                                ],
+                              ),
                             ),
-                          ),
-                        ],
+                          ];
+                        },
                       ),
                       const Icon(Icons.trending_up, color: Colors.orange),
                     ],
@@ -315,6 +323,8 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
   }
 
   Widget _buildCategoriesTab() {
+    final l10n = AppLocalizations.of(context);
+
     if (_isLoadingCategories) {
       return const Center(child: CircularProgressIndicator());
     }
@@ -327,7 +337,7 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
             Icon(Icons.category, size: 64, color: Colors.grey[400]),
             const SizedBox(height: 16),
             Text(
-              'No categories yet',
+              l10n.noCategories,
               style: TextStyle(color: Colors.grey[600]),
             ),
           ],
@@ -407,23 +417,29 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
                 ),
                 if (category.videoCount > 0) ...[
                   const SizedBox(height: 4),
-                  Text(
-                    '${category.videoCount} videos',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Colors.grey[600],
-                        ),
-                  ),
+                  Builder(builder: (context) {
+                    final l10n = AppLocalizations.of(context);
+                    return Text(
+                      '${category.videoCount} ${l10n.videos}',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: Colors.grey[600],
+                          ),
+                    );
+                  }),
                 ],
                 // Show subcategories count if any
                 if (category.children.isNotEmpty) ...[
                   const SizedBox(height: 4),
-                  Text(
-                    '${category.children.length} subcategories',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Colors.grey[500],
-                          fontSize: 11,
-                        ),
-                  ),
+                  Builder(builder: (context) {
+                    final l10n = AppLocalizations.of(context);
+                    return Text(
+                      '${category.children.length} ${l10n.subcategories}',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: Colors.grey[500],
+                            fontSize: 11,
+                          ),
+                    );
+                  }),
                 ],
               ],
             ),
@@ -434,6 +450,8 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
   }
 
   Widget _buildLiveTab() {
+    final l10n = AppLocalizations.of(context);
+
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -441,7 +459,7 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
           Icon(Icons.live_tv, size: 80, color: Colors.grey[400]),
           const SizedBox(height: 24),
           Text(
-            'Live Streaming',
+            l10n.liveStreaming,
             style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                   fontWeight: FontWeight.bold,
                   color: Colors.grey[700],
@@ -449,7 +467,7 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
           ),
           const SizedBox(height: 12),
           Text(
-            'Coming Soon',
+            l10n.comingSoon,
             style: Theme.of(context).textTheme.titleLarge?.copyWith(
                   color: Colors.grey[600],
                 ),
@@ -458,7 +476,7 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 48),
             child: Text(
-              'Watch and broadcast live streams with your audience in real-time',
+              l10n.liveStreamingDescription,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     color: Colors.grey[500],
                   ),
@@ -471,6 +489,8 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
   }
 
   void _showAddToPlaylistDialog(String videoId, String videoTitle) async {
+    final l10n = AppLocalizations.of(context);
+
     try {
       // Fetch user's playlists
       final response = await _apiService.getUserPlaylists(page: 1, limit: 100);
@@ -480,7 +500,7 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
                 content:
-                    Text(response['message'] ?? 'Failed to load playlists')),
+                    Text(response['message'] ?? l10n.errorLoadingPlaylists)),
           );
         }
         return;
@@ -495,20 +515,19 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
         showDialog(
           context: context,
           builder: (context) => AlertDialog(
-            title: const Text('No Playlists Found'),
-            content: const Text(
-                'You don\'t have any playlists yet. Would you like to create one?'),
+            title: Text(l10n.noPlaylistsFound),
+            content: Text(l10n.createPlaylistPrompt),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context),
-                child: const Text('Cancel'),
+                child: Text(l10n.cancel),
               ),
               ElevatedButton(
                 onPressed: () {
                   Navigator.pop(context);
                   _showCreatePlaylistDialog(context);
                 },
-                child: const Text('Create Playlist'),
+                child: Text(l10n.createPlaylist),
               ),
             ],
           ),
@@ -520,17 +539,19 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
       showDialog(
         context: context,
         builder: (context) => AlertDialog(
-          title: const Text('Add to Playlist'),
+          title: Text(l10n.addToPlaylist),
           content: SizedBox(
             width: double.maxFinite,
             child: ListView.builder(
               shrinkWrap: true,
               itemCount: playlists.length + 1,
               itemBuilder: (context, index) {
+                final l10n = AppLocalizations.of(context);
+
                 if (index == playlists.length) {
                   return ListTile(
                     leading: const Icon(Icons.add),
-                    title: const Text('Create New Playlist'),
+                    title: Text(l10n.createNewPlaylist),
                     onTap: () {
                       Navigator.pop(context);
                       _showCreatePlaylistDialog(context);
@@ -541,8 +562,9 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
                 final playlist = playlists[index] as Map<String, dynamic>;
                 return ListTile(
                   leading: const Icon(Icons.playlist_play),
-                  title: Text(playlist['name'] ?? 'Untitled'),
-                  subtitle: Text('${playlist['videoCount'] ?? 0} videos'),
+                  title: Text(playlist['name'] ?? l10n.untitled),
+                  subtitle:
+                      Text('${playlist['videoCount'] ?? 0} ${l10n.videos}'),
                   trailing: playlist['isPublic'] == false
                       ? const Icon(Icons.lock, size: 16)
                       : null,
@@ -558,15 +580,16 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
+              child: Text(l10n.cancel),
             ),
           ],
         ),
       );
     } catch (e) {
       if (mounted) {
+        final l10n = AppLocalizations.of(context);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error loading playlists: $e')),
+          SnackBar(content: Text('${l10n.errorLoadingPlaylists}: $e')),
         );
       }
     }
@@ -574,6 +597,8 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
 
   Future<void> _addVideoToPlaylist(
       String videoId, String playlistId, String playlistName) async {
+    final l10n = AppLocalizations.of(context);
+
     try {
       final response = await _apiService.addVideoToPlaylist(
         playlistId: playlistId,
@@ -583,19 +608,19 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
       if (mounted) {
         if (response['success'] == true) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Added to "$playlistName"')),
+            SnackBar(content: Text('${l10n.addedToPlaylist} "$playlistName"')),
           );
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-                content: Text(response['message'] ?? 'Failed to add video')),
+                content: Text(response['message'] ?? l10n.failedToAddVideo)),
           );
         }
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
+          SnackBar(content: Text('${l10n.error}: $e')),
         );
       }
     }
@@ -609,99 +634,103 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
     showDialog(
       context: context,
       builder: (context) => StatefulBuilder(
-        builder: (context, setState) => AlertDialog(
-          title: const Text('Create New Playlist'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: nameController,
-                decoration: const InputDecoration(
-                  labelText: 'Playlist Name',
-                  hintText: 'Enter playlist name',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: descriptionController,
-                decoration: const InputDecoration(
-                  labelText: 'Description (Optional)',
-                  hintText: 'Enter playlist description',
-                  border: OutlineInputBorder(),
-                ),
-                maxLines: 2,
-              ),
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                  Checkbox(
-                    value: isPublic,
-                    onChanged: (value) {
-                      setState(() {
-                        isPublic = value ?? true;
-                      });
-                    },
+        builder: (context, setState) {
+          final dialogL10n = AppLocalizations.of(context);
+          return AlertDialog(
+            title: Text(dialogL10n.createNewPlaylist),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: nameController,
+                  decoration: InputDecoration(
+                    labelText: dialogL10n.playlistName,
+                    hintText: dialogL10n.enterPlaylistName,
+                    border: const OutlineInputBorder(),
                   ),
-                  const Text('Public playlist'),
-                ],
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: descriptionController,
+                  decoration: InputDecoration(
+                    labelText: dialogL10n.descriptionOptional,
+                    hintText: dialogL10n.enterPlaylistDescription,
+                    border: const OutlineInputBorder(),
+                  ),
+                  maxLines: 2,
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Checkbox(
+                      value: isPublic,
+                      onChanged: (value) {
+                        setState(() {
+                          isPublic = value ?? true;
+                        });
+                      },
+                    ),
+                    Text(dialogL10n.publicPlaylist),
+                  ],
+                ),
+              ],
             ),
-            ElevatedButton(
-              onPressed: () async {
-                if (nameController.text.trim().isEmpty) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                        content: Text('Please enter a playlist name')),
-                  );
-                  return;
-                }
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: Text(dialogL10n.cancel),
+              ),
+              ElevatedButton(
+                onPressed: () async {
+                  if (nameController.text.trim().isEmpty) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                          content: Text(dialogL10n.pleaseEnterPlaylistName)),
+                    );
+                    return;
+                  }
 
-                try {
-                  final response = await _apiService.createPlaylist(
-                    name: nameController.text.trim(),
-                    description: descriptionController.text.trim().isEmpty
-                        ? null
-                        : descriptionController.text.trim(),
-                    isPublic: isPublic,
-                  );
+                  try {
+                    final response = await _apiService.createPlaylist(
+                      name: nameController.text.trim(),
+                      description: descriptionController.text.trim().isEmpty
+                          ? null
+                          : descriptionController.text.trim(),
+                      isPublic: isPublic,
+                    );
 
-                  if (response['success'] == true) {
+                    if (response['success'] == true) {
+                      Navigator.pop(context);
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                              content:
+                                  Text(dialogL10n.playlistCreatedSuccessfully)),
+                        );
+                      }
+                    } else {
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                              content: Text(response['message'] ??
+                                  dialogL10n.failedToCreatePlaylist)),
+                        );
+                      }
+                    }
+                  } catch (e) {
                     Navigator.pop(context);
                     if (mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                            content: Text('Playlist created successfully!')),
-                      );
-                    }
-                  } else {
-                    if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                            content: Text(response['message'] ??
-                                'Failed to create playlist')),
+                        SnackBar(content: Text('${dialogL10n.error}: $e')),
                       );
                     }
                   }
-                } catch (e) {
-                  Navigator.pop(context);
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Error creating playlist: $e')),
-                    );
-                  }
-                }
-              },
-              child: const Text('Create'),
-            ),
-          ],
-        ),
+                },
+                child: Text(dialogL10n.create),
+              ),
+            ],
+          );
+        },
       ),
     );
   }

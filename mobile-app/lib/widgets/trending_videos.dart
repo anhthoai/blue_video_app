@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../core/services/video_service.dart';
 import '../models/video_model.dart';
 import 'common/presigned_image.dart';
+import '../l10n/app_localizations.dart';
 
 class TrendingVideos extends ConsumerWidget {
   const TrendingVideos({super.key});
@@ -12,6 +13,7 @@ class TrendingVideos extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final videosAsync = ref.watch(videoListProvider);
+    final l10n = AppLocalizations.of(context);
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -23,7 +25,7 @@ class TrendingVideos extends ConsumerWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'Trending Now',
+                l10n.trendingNow,
                 style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                       fontWeight: FontWeight.bold,
                     ),
@@ -32,7 +34,7 @@ class TrendingVideos extends ConsumerWidget {
                 onPressed: () {
                   // Navigate to trending page
                 },
-                child: const Text('See All'),
+                child: Text(l10n.seeAll),
               ),
             ],
           ),

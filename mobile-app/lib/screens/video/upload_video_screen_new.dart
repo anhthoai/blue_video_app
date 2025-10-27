@@ -8,6 +8,7 @@ import 'package:path/path.dart' as path;
 import '../../core/services/api_service.dart';
 import '../../core/utils/video_utils.dart';
 import '../../models/category_model.dart';
+import '../../l10n/app_localizations.dart';
 
 class UploadVideoScreenNew extends ConsumerStatefulWidget {
   const UploadVideoScreenNew({super.key});
@@ -126,8 +127,9 @@ class _UploadVideoScreenNewState extends ConsumerState<UploadVideoScreenNew> {
       });
 
       if (mounted) {
+        final l10n = AppLocalizations.of(context);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error processing video: $e')),
+          SnackBar(content: Text('${l10n.errorProcessingVideo}: $e')),
         );
       }
     }
@@ -166,14 +168,16 @@ class _UploadVideoScreenNewState extends ConsumerState<UploadVideoScreenNew> {
         // Extract video duration and generate thumbnails
         _extractVideoInfoAndGenerateThumbnails(file);
 
+        final l10n = AppLocalizations.of(context);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Processing video...')),
+          SnackBar(content: Text(l10n.processingVideo)),
         );
       }
     } catch (e) {
       print('Error picking video: $e');
+      final l10n = AppLocalizations.of(context);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error selecting video: $e')),
+        SnackBar(content: Text('${l10n.errorSelectingVideo}: $e')),
       );
     }
   }
@@ -189,8 +193,9 @@ class _UploadVideoScreenNewState extends ConsumerState<UploadVideoScreenNew> {
           _thumbnailFile = File(result.files.single.path!);
         });
 
+        final l10n = AppLocalizations.of(context);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Thumbnail selected')),
+          SnackBar(content: Text(l10n.thumbnailSelected)),
         );
       }
     } catch (e) {
@@ -204,8 +209,9 @@ class _UploadVideoScreenNewState extends ConsumerState<UploadVideoScreenNew> {
     }
 
     if (_videoFile == null) {
+      final l10n = AppLocalizations.of(context);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select a video file')),
+        SnackBar(content: Text(l10n.pleaseSelectVideo)),
       );
       return;
     }
@@ -267,8 +273,9 @@ class _UploadVideoScreenNewState extends ConsumerState<UploadVideoScreenNew> {
 
       if (response['success'] == true) {
         if (mounted) {
+          final l10n = AppLocalizations.of(context);
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Video uploaded successfully!')),
+            SnackBar(content: Text(l10n.videoUploadedSuccessfully)),
           );
           context.pop();
         }
@@ -296,7 +303,7 @@ class _UploadVideoScreenNewState extends ConsumerState<UploadVideoScreenNew> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Upload Video'),
+        title: Text(AppLocalizations.of(context).uploadVideo),
         centerTitle: true,
       ),
       body: _isUploading ? _buildUploadingView() : _buildForm(),
@@ -334,12 +341,13 @@ class _UploadVideoScreenNewState extends ConsumerState<UploadVideoScreenNew> {
           Card(
             child: ListTile(
               leading: const Icon(Icons.video_library),
-              title:
-                  Text(_videoFile != null ? _videoFileName! : 'Select Video'),
+              title: Text(_videoFile != null
+                  ? _videoFileName!
+                  : AppLocalizations.of(context).selectVideo),
               subtitle: _videoFile != null
                   ? Text(
                       'Size: ${(_videoFile!.lengthSync() / 1024 / 1024).toStringAsFixed(2)} MB')
-                  : const Text('Tap to select video file'),
+                  : Text(AppLocalizations.of(context).tapToSelectVideoFile),
               trailing: const Icon(Icons.chevron_right),
               onTap: _isUploading ? null : _pickVideo,
             ),
@@ -355,7 +363,8 @@ class _UploadVideoScreenNewState extends ConsumerState<UploadVideoScreenNew> {
                   : 'Select Thumbnail (Optional)'),
               subtitle: _thumbnailFile != null
                   ? Text(path.basename(_thumbnailFile!.path))
-                  : const Text('Tap to select thumbnail image'),
+                  : Text(
+                      AppLocalizations.of(context).tapToSelectThumbnailImage),
               trailing: _thumbnailFile != null
                   ? Image.file(_thumbnailFile!,
                       width: 60, height: 60, fit: BoxFit.cover)
@@ -499,9 +508,9 @@ class _UploadVideoScreenNewState extends ConsumerState<UploadVideoScreenNew> {
           // Title
           TextFormField(
             controller: _titleController,
-            decoration: const InputDecoration(
-              labelText: 'Video Title *',
-              border: OutlineInputBorder(),
+            decoration: InputDecoration(
+              labelText: '${AppLocalizations.of(context).videoTitle} *',
+              border: const OutlineInputBorder(),
               hintText: 'Enter video title',
             ),
             validator: (value) {
@@ -517,9 +526,9 @@ class _UploadVideoScreenNewState extends ConsumerState<UploadVideoScreenNew> {
           // Description
           TextFormField(
             controller: _descriptionController,
-            decoration: const InputDecoration(
-              labelText: 'Description',
-              border: OutlineInputBorder(),
+            decoration: InputDecoration(
+              labelText: AppLocalizations.of(context).description,
+              border: const OutlineInputBorder(),
               hintText: 'Enter video description',
             ),
             maxLines: 3,
@@ -530,9 +539,9 @@ class _UploadVideoScreenNewState extends ConsumerState<UploadVideoScreenNew> {
           // Category
           DropdownButtonFormField<CategoryModel>(
             value: _selectedCategory,
-            decoration: const InputDecoration(
-              labelText: 'Category',
-              border: OutlineInputBorder(),
+            decoration: InputDecoration(
+              labelText: AppLocalizations.of(context).category,
+              border: const OutlineInputBorder(),
             ),
             items: _categories.map((category) {
               return DropdownMenuItem(
@@ -553,11 +562,11 @@ class _UploadVideoScreenNewState extends ConsumerState<UploadVideoScreenNew> {
           // Tags
           TextFormField(
             controller: _tagsController,
-            decoration: const InputDecoration(
-              labelText: 'Tags',
-              border: OutlineInputBorder(),
+            decoration: InputDecoration(
+              labelText: AppLocalizations.of(context).tags,
+              border: const OutlineInputBorder(),
               hintText: 'tag1, tag2, tag3',
-              helperText: 'Separate tags with commas',
+              helperText: AppLocalizations.of(context).separateTagsWithCommas,
             ),
             enabled: !_isUploading,
           ),
@@ -566,12 +575,12 @@ class _UploadVideoScreenNewState extends ConsumerState<UploadVideoScreenNew> {
           // Cost
           TextFormField(
             controller: _costController,
-            decoration: const InputDecoration(
-              labelText: 'Cost (Coins)',
-              border: OutlineInputBorder(),
+            decoration: InputDecoration(
+              labelText: AppLocalizations.of(context).costCoins,
+              border: const OutlineInputBorder(),
               hintText: '0',
-              helperText: '0 = Free video',
-              prefixIcon: Icon(Icons.monetization_on),
+              helperText: AppLocalizations.of(context).freeVideo,
+              prefixIcon: const Icon(Icons.monetization_on),
             ),
             keyboardType: TextInputType.number,
             validator: (value) {
@@ -590,11 +599,12 @@ class _UploadVideoScreenNewState extends ConsumerState<UploadVideoScreenNew> {
           // Public/VIP Switch
           Card(
             child: SwitchListTile(
-              title: const Text('Make Video Public'),
+              title: Text(AppLocalizations.of(context).makeVideoPublic),
               subtitle: Text(
                 _isPublic
-                    ? 'Anyone can watch this video'
-                    : 'Only VIP users can watch this video',
+                    ? AppLocalizations.of(context).anyoneCanWatchThisVideo
+                    : AppLocalizations.of(context)
+                        .onlyVipUsersCanWatchThisVideo,
               ),
               value: _isPublic,
               onChanged: _isUploading

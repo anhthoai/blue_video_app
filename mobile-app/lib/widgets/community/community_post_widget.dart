@@ -7,6 +7,7 @@ import '../../core/services/community_service.dart';
 import '../../models/community_post.dart';
 import '../social/comments_section.dart';
 import 'post_content_widget.dart';
+import '../../l10n/app_localizations.dart';
 
 class CommunityPostWidget extends ConsumerStatefulWidget {
   final CommunityPost post;
@@ -85,6 +86,7 @@ class _CommunityPostWidgetState extends ConsumerState<CommunityPostWidget> {
       await ref
           .read(communityServiceStateProvider.notifier)
           .bookmarkPost(widget.post.id);
+      final l10n = AppLocalizations.of(context);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
             content:
@@ -110,6 +112,7 @@ class _CommunityPostWidgetState extends ConsumerState<CommunityPostWidget> {
       await ref
           .read(communityServiceStateProvider.notifier)
           .followUser(widget.post.userId);
+      final l10n = AppLocalizations.of(context);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
             content: Text(_isFollowing
@@ -147,62 +150,66 @@ class _CommunityPostWidgetState extends ConsumerState<CommunityPostWidget> {
   void _showReportDialog() {
     String selectedReason = 'spam';
     final TextEditingController descriptionController = TextEditingController();
+    final l10n = AppLocalizations.of(context);
 
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Report Post'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text('Why are you reporting this post?'),
-            const SizedBox(height: 16),
-            DropdownButtonFormField<String>(
-              decoration: const InputDecoration(
-                labelText: 'Reason',
-                border: OutlineInputBorder(),
+      builder: (context) {
+        final dialogL10n = AppLocalizations.of(context);
+        return AlertDialog(
+          title: Text(dialogL10n.report),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('Why are you reporting this post?'),
+              const SizedBox(height: 16),
+              DropdownButtonFormField<String>(
+                decoration: const InputDecoration(
+                  labelText: 'Reason',
+                  border: OutlineInputBorder(),
+                ),
+                value: selectedReason,
+                items: const [
+                  DropdownMenuItem(value: 'spam', child: Text('Spam')),
+                  DropdownMenuItem(
+                      value: 'inappropriate',
+                      child: Text('Inappropriate Content')),
+                  DropdownMenuItem(
+                      value: 'harassment', child: Text('Harassment')),
+                  DropdownMenuItem(
+                      value: 'fake', child: Text('Fake Information')),
+                  DropdownMenuItem(value: 'other', child: Text('Other')),
+                ],
+                onChanged: (value) {
+                  selectedReason = value ?? 'spam';
+                },
               ),
-              value: selectedReason,
-              items: const [
-                DropdownMenuItem(value: 'spam', child: Text('Spam')),
-                DropdownMenuItem(
-                    value: 'inappropriate',
-                    child: Text('Inappropriate Content')),
-                DropdownMenuItem(
-                    value: 'harassment', child: Text('Harassment')),
-                DropdownMenuItem(
-                    value: 'fake', child: Text('Fake Information')),
-                DropdownMenuItem(value: 'other', child: Text('Other')),
-              ],
-              onChanged: (value) {
-                selectedReason = value ?? 'spam';
-              },
+              const SizedBox(height: 16),
+              TextField(
+                controller: descriptionController,
+                decoration: const InputDecoration(
+                  labelText: 'Additional details (optional)',
+                  border: OutlineInputBorder(),
+                ),
+                maxLines: 3,
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text(dialogL10n.cancel),
             ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: descriptionController,
-              decoration: const InputDecoration(
-                labelText: 'Additional details (optional)',
-                border: OutlineInputBorder(),
-              ),
-              maxLines: 3,
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(context);
+                _reportPost(selectedReason, descriptionController.text);
+              },
+              child: Text(dialogL10n.report),
             ),
           ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              _reportPost(selectedReason, descriptionController.text);
-            },
-            child: const Text('Report'),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -365,27 +372,31 @@ class _CommunityPostWidgetState extends ConsumerState<CommunityPostWidget> {
         ),
         if (widget.currentUserId != null &&
             widget.currentUserId != widget.post.userId)
-          GestureDetector(
-            onTap: _toggleFollow,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: _isFollowing
-                    ? Colors.grey[300]
-                    : Theme.of(context).primaryColor,
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: Theme.of(context).primaryColor),
-              ),
-              child: Text(
-                _isFollowing ? 'Following' : 'Follow',
-                style: TextStyle(
-                  color: _isFollowing ? Colors.grey[700] : Colors.white,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
+          Builder(builder: (context) {
+            final l10n = AppLocalizations.of(context);
+            return GestureDetector(
+              onTap: _toggleFollow,
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: _isFollowing
+                      ? Colors.grey[300]
+                      : Theme.of(context).primaryColor,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: Theme.of(context).primaryColor),
+                ),
+                child: Text(
+                  _isFollowing ? l10n.following : l10n.follow,
+                  style: TextStyle(
+                    color: _isFollowing ? Colors.grey[700] : Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
-            ),
-          ),
+            );
+          }),
         PopupMenuButton<String>(
           onSelected: (value) {
             switch (value) {
@@ -403,60 +414,66 @@ class _CommunityPostWidgetState extends ConsumerState<CommunityPostWidget> {
                 break;
             }
           },
-          itemBuilder: (context) => [
-            PopupMenuItem(
-              value: 'bookmark',
-              child: Row(
-                children: [
-                  Icon(
-                    widget.post.isBookmarked
-                        ? Icons.bookmark
-                        : Icons.bookmark_border,
-                    size: 16,
-                  ),
-                  const SizedBox(width: 8),
-                  Text(widget.post.isBookmarked ? 'Unbookmark' : 'Bookmark'),
-                ],
-              ),
-            ),
-            if (widget.currentUserId != null &&
-                widget.currentUserId == widget.post.userId)
+          itemBuilder: (context) {
+            final l10n = AppLocalizations.of(context);
+            return [
               PopupMenuItem(
-                value: 'pin',
+                value: 'bookmark',
                 child: Row(
                   children: [
                     Icon(
-                      widget.post.isPinned
-                          ? Icons.push_pin
-                          : Icons.push_pin_outlined,
+                      widget.post.isBookmarked
+                          ? Icons.bookmark
+                          : Icons.bookmark_border,
                       size: 16,
                     ),
                     const SizedBox(width: 8),
-                    Text(widget.post.isPinned ? 'Unpin Post' : 'Pin Post'),
+                    Text(widget.post.isBookmarked
+                        ? l10n.unbookmark
+                        : l10n.bookmark),
                   ],
                 ),
               ),
-            const PopupMenuItem(
-              value: 'share',
-              child: Row(
-                children: [
-                  Icon(Icons.share, size: 16),
-                  SizedBox(width: 8),
-                  Text('Share'),
-                ],
+              if (widget.currentUserId != null &&
+                  widget.currentUserId == widget.post.userId)
+                PopupMenuItem(
+                  value: 'pin',
+                  child: Row(
+                    children: [
+                      Icon(
+                        widget.post.isPinned
+                            ? Icons.push_pin
+                            : Icons.push_pin_outlined,
+                        size: 16,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(widget.post.isPinned ? 'Unpin Post' : 'Pin Post'),
+                    ],
+                  ),
+                ),
+              PopupMenuItem(
+                value: 'share',
+                child: Row(
+                  children: [
+                    const Icon(Icons.share, size: 16),
+                    const SizedBox(width: 8),
+                    Text(l10n.share),
+                  ],
+                ),
               ),
-            ),
-            const PopupMenuItem(
-              value: 'report',
-              child: Row(
-                children: [
-                  Icon(Icons.report, size: 16, color: Colors.red),
-                  SizedBox(width: 8),
-                  Text('Report', style: TextStyle(color: Colors.red)),
-                ],
+              PopupMenuItem(
+                value: 'report',
+                child: Row(
+                  children: [
+                    const Icon(Icons.report, size: 16, color: Colors.red),
+                    const SizedBox(width: 8),
+                    Text(l10n.report,
+                        style: const TextStyle(color: Colors.red)),
+                  ],
+                ),
               ),
-            ),
-          ],
+            ];
+          },
         ),
       ],
     );

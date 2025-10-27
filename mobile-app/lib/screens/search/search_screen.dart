@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../widgets/search/search_tabs.dart';
 import '../../widgets/search/search_bar.dart' as custom;
+import '../../l10n/app_localizations.dart';
 
 class SearchScreen extends ConsumerStatefulWidget {
   final String? initialQuery;
@@ -51,10 +52,12 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.background,
       appBar: AppBar(
-        title: const Text('Search'),
+        title: Text(l10n.search),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () => context.pop(),
@@ -84,19 +87,21 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   }
 
   Widget _buildEmptyState() {
-    return const Center(
+    final l10n = AppLocalizations.of(context);
+
+    return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
+          const Icon(
             Icons.search,
             size: 64,
             color: Colors.grey,
           ),
-          SizedBox(height: 16),
+          const SizedBox(height: 16),
           Text(
-            'Search for videos, users, posts and more',
-            style: TextStyle(
+            l10n.searchHint,
+            style: const TextStyle(
               fontSize: 16,
               color: Colors.grey,
             ),

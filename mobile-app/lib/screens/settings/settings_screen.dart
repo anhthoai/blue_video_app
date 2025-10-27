@@ -13,7 +13,7 @@ class SettingsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context);
     final currentLocale = ref.watch(localeProvider);
-    
+
     String getLanguageName(String languageCode) {
       switch (languageCode) {
         case 'zh':
@@ -25,7 +25,7 @@ class SettingsScreen extends ConsumerWidget {
           return 'English';
       }
     }
-    
+
     return Scaffold(
       appBar: AppBar(
         title: Text(l10n.settings),
@@ -37,20 +37,20 @@ class SettingsScreen extends ConsumerWidget {
           // App Information Section
           _buildSection(
             context,
-            'App Information',
+            l10n.appInformation,
             [
               _buildListTile(
                 context,
                 icon: Icons.info_outline,
-                title: 'App Version',
+                title: l10n.appVersion,
                 subtitle: '1.0.0 (Test Build)',
                 onTap: () {},
               ),
               _buildListTile(
                 context,
                 icon: Icons.bug_report,
-                title: 'Test Instructions',
-                subtitle: 'How to test the app features',
+                title: l10n.testInstructions,
+                subtitle: l10n.testInstructionsSubtitle,
                 onTap: () => context.push('/main/test-instructions'),
               ),
             ],
@@ -61,30 +61,30 @@ class SettingsScreen extends ConsumerWidget {
           // Account Section
           _buildSection(
             context,
-            'Account',
+            l10n.account,
             [
               _buildListTile(
                 context,
                 icon: Icons.person_outline,
-                title: 'Profile Settings',
-                subtitle: 'Manage your profile information',
+                title: l10n.profileSettings,
+                subtitle: l10n.profileSettingsSubtitle,
                 onTap: () => context.push('/main/profile/edit'),
               ),
               _buildListTile(
                 context,
                 icon: Icons.notifications_outlined,
-                title: 'Notifications',
-                subtitle: 'Manage notification preferences',
+                title: l10n.notifications,
+                subtitle: l10n.notificationsSubtitle,
                 onTap: () {},
               ),
               _buildListTile(
                 context,
                 icon: Icons.privacy_tip_outlined,
-                title: 'Privacy & Security',
-                subtitle: 'Manage your privacy settings',
+                title: l10n.privacySecurity,
+                subtitle: l10n.privacySecuritySubtitle,
                 onTap: () {},
               ),
-              _buildNsfwToggle(context, ref),
+              _buildNsfwToggle(context, ref, l10n),
             ],
           ),
 
@@ -93,13 +93,13 @@ class SettingsScreen extends ConsumerWidget {
           // App Settings Section
           _buildSection(
             context,
-            'App Settings',
+            l10n.appSettings,
             [
               _buildListTile(
                 context,
                 icon: Icons.dark_mode_outlined,
-                title: 'Theme',
-                subtitle: 'Light, Dark, or System',
+                title: l10n.theme,
+                subtitle: l10n.themeSubtitle,
                 onTap: () {},
               ),
               _buildListTile(
@@ -112,8 +112,8 @@ class SettingsScreen extends ConsumerWidget {
               _buildListTile(
                 context,
                 icon: Icons.storage_outlined,
-                title: 'Storage',
-                subtitle: 'Manage app storage',
+                title: l10n.storage,
+                subtitle: l10n.storageSubtitle,
                 onTap: () {},
               ),
             ],
@@ -124,27 +124,27 @@ class SettingsScreen extends ConsumerWidget {
           // Support Section
           _buildSection(
             context,
-            'Support',
+            l10n.support,
             [
               _buildListTile(
                 context,
                 icon: Icons.help_outline,
-                title: 'Help & Support',
-                subtitle: 'Get help with the app',
+                title: l10n.helpSupport,
+                subtitle: l10n.helpSupportSubtitle,
                 onTap: () {},
               ),
               _buildListTile(
                 context,
                 icon: Icons.feedback_outlined,
-                title: 'Send Feedback',
-                subtitle: 'Share your thoughts',
+                title: l10n.sendFeedback,
+                subtitle: l10n.sendFeedbackSubtitle,
                 onTap: () {},
               ),
               _buildListTile(
                 context,
                 icon: Icons.star_outline,
-                title: 'Rate App',
-                subtitle: 'Rate us on the app store',
+                title: l10n.rateApp,
+                subtitle: l10n.rateAppSubtitle,
                 onTap: () {},
               ),
             ],
@@ -155,19 +155,18 @@ class SettingsScreen extends ConsumerWidget {
           // Debug Section (for testing)
           _buildSection(
             context,
-            'Debug (Testing Only)',
+            l10n.debugTestingOnly,
             [
               _buildListTile(
                 context,
                 icon: Icons.science_outlined,
-                title: 'Mock Data Status',
-                subtitle: 'Mock data is active for testing',
+                title: l10n.mockDataStatus,
+                subtitle: l10n.mockDataStatusSubtitle,
                 onTap: () {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text(
-                          'Mock data is currently active for testing purposes'),
-                      duration: Duration(seconds: 2),
+                    SnackBar(
+                      content: Text(l10n.mockDataStatusSubtitle),
+                      duration: const Duration(seconds: 2),
                     ),
                   );
                 },
@@ -175,14 +174,13 @@ class SettingsScreen extends ConsumerWidget {
               _buildListTile(
                 context,
                 icon: Icons.api_outlined,
-                title: 'API Status',
-                subtitle: 'No real API connections',
+                title: l10n.apiStatus,
+                subtitle: l10n.apiStatusSubtitle,
                 onTap: () {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content:
-                          Text('No real API connections - using mock data'),
-                      duration: Duration(seconds: 2),
+                    SnackBar(
+                      content: Text(l10n.apiStatusSubtitle),
+                      duration: const Duration(seconds: 2),
                     ),
                   );
                 },
@@ -200,19 +198,19 @@ class SettingsScreen extends ConsumerWidget {
                 final shouldLogout = await showDialog<bool>(
                   context: context,
                   builder: (context) => AlertDialog(
-                    title: const Text('Logout'),
-                    content: const Text('Are you sure you want to logout?'),
+                    title: Text(l10n.logoutConfirmTitle),
+                    content: Text(l10n.logoutConfirmMessage),
                     actions: [
                       TextButton(
                         onPressed: () => Navigator.pop(context, false),
-                        child: const Text('Cancel'),
+                        child: Text(l10n.cancel),
                       ),
                       TextButton(
                         onPressed: () => Navigator.pop(context, true),
                         style: TextButton.styleFrom(
                           foregroundColor: Colors.red,
                         ),
-                        child: const Text('Logout'),
+                        child: Text(l10n.logout),
                       ),
                     ],
                   ),
@@ -230,7 +228,7 @@ class SettingsScreen extends ConsumerWidget {
                     if (context.mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
-                          content: Text('Logout failed: $e'),
+                          content: Text('${l10n.logoutFailed}: $e'),
                           backgroundColor: Colors.red,
                         ),
                       );
@@ -239,7 +237,7 @@ class SettingsScreen extends ConsumerWidget {
                 }
               },
               icon: const Icon(Icons.logout),
-              label: const Text('Logout'),
+              label: Text(l10n.logout),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.red,
                 foregroundColor: Colors.white,
@@ -294,16 +292,17 @@ class SettingsScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildNsfwToggle(BuildContext context, WidgetRef ref) {
+  Widget _buildNsfwToggle(
+      BuildContext context, WidgetRef ref, AppLocalizations l10n) {
     final nsfwSettings = ref.watch(nsfwSettingsProvider);
 
     return ListTile(
       leading: const Icon(Icons.explicit, color: Colors.orange),
-      title: const Text('Show NSFW Content'),
+      title: Text(l10n.showNsfwContent),
       subtitle: Text(
         nsfwSettings.isNsfwViewingEnabled
-            ? 'NSFW content is visible'
-            : 'NSFW content is blurred (18+ required)',
+            ? l10n.nsfwContentVisible
+            : l10n.nsfwContentBlurred,
       ),
       trailing: Switch(
         value: nsfwSettings.isNsfwViewingEnabled,
@@ -316,21 +315,19 @@ class SettingsScreen extends ConsumerWidget {
                 context: context,
                 barrierDismissible: false,
                 builder: (context) => AlertDialog(
-                  title: const Text('Age Confirmation Required'),
-                  content: const Text(
-                    'You must be 18 years or older to view NSFW content.\n\nDo you confirm that you are 18 years or older?',
-                  ),
+                  title: Text(l10n.ageConfirmationRequired),
+                  content: Text(l10n.ageConfirmationMessage),
                   actions: [
                     TextButton(
                       onPressed: () => Navigator.pop(context, false),
-                      child: const Text('Cancel'),
+                      child: Text(l10n.cancel),
                     ),
                     ElevatedButton(
                       onPressed: () => Navigator.pop(context, true),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.orange,
                       ),
-                      child: const Text('I am 18+'),
+                      child: Text(l10n.iAm18Plus),
                     ),
                   ],
                 ),

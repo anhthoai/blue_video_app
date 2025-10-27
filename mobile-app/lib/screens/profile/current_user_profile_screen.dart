@@ -11,6 +11,7 @@ import '../../models/video_model.dart';
 import '../../models/community_post.dart';
 import '../../widgets/common/presigned_image.dart';
 import '../../widgets/community/community_post_widget.dart';
+import '../../l10n/app_localizations.dart';
 
 class CurrentUserProfileScreen extends ConsumerStatefulWidget {
   const CurrentUserProfileScreen({super.key});
@@ -310,48 +311,51 @@ class _CurrentUserProfileScreenState
           // Wallet quick actions (Coin Recharge / History)
           _buildWalletQuickActions(),
           // Tab Bar
-          TabBar(
-            controller: _tabController,
-            isScrollable: true,
-            tabAlignment: TabAlignment.start,
-            labelPadding: const EdgeInsets.symmetric(horizontal: 12),
-            indicatorPadding: const EdgeInsets.symmetric(horizontal: 8),
-            labelStyle: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-            ),
-            unselectedLabelStyle: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-            ),
-            tabs: const [
-              Tab(
-                icon: Icon(Icons.video_library, size: 24),
-                text: 'Videos',
-                height: 60,
+          Builder(builder: (context) {
+            final l10n = AppLocalizations.of(context);
+            return TabBar(
+              controller: _tabController,
+              isScrollable: true,
+              tabAlignment: TabAlignment.start,
+              labelPadding: const EdgeInsets.symmetric(horizontal: 12),
+              indicatorPadding: const EdgeInsets.symmetric(horizontal: 8),
+              labelStyle: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
               ),
-              Tab(
-                icon: Icon(Icons.post_add, size: 24),
-                text: 'Posts',
-                height: 60,
+              unselectedLabelStyle: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
               ),
-              Tab(
-                icon: Icon(Icons.favorite, size: 24),
-                text: 'Liked',
-                height: 60,
-              ),
-              Tab(
-                icon: Icon(Icons.playlist_play, size: 24),
-                text: 'Playlists',
-                height: 60,
-              ),
-              Tab(
-                icon: Icon(Icons.analytics, size: 24),
-                text: 'Analytics',
-                height: 60,
-              ),
-            ],
-          ),
+              tabs: [
+                Tab(
+                  icon: const Icon(Icons.video_library, size: 24),
+                  text: l10n.videos,
+                  height: 60,
+                ),
+                Tab(
+                  icon: const Icon(Icons.post_add, size: 24),
+                  text: l10n.posts,
+                  height: 60,
+                ),
+                Tab(
+                  icon: const Icon(Icons.favorite, size: 24),
+                  text: l10n.liked,
+                  height: 60,
+                ),
+                Tab(
+                  icon: const Icon(Icons.playlist_play, size: 24),
+                  text: l10n.playlists,
+                  height: 60,
+                ),
+                Tab(
+                  icon: const Icon(Icons.analytics, size: 24),
+                  text: l10n.analytics,
+                  height: 60,
+                ),
+              ],
+            );
+          }),
           // Tab Content
           Expanded(
             child: TabBarView(
@@ -409,17 +413,24 @@ class _CurrentUserProfileScreenState
             ),
           ),
           const Spacer(),
-          _WalletActionButton(
-            icon: Icons.account_balance_wallet_outlined,
-            label: 'Recharge',
-            onTap: () => context.push('/main/coin-recharge'),
-          ),
-          const SizedBox(width: 8),
-          _WalletActionButton(
-            icon: Icons.receipt_long_outlined,
-            label: 'History',
-            onTap: () => context.push('/main/coin-history'),
-          ),
+          Builder(builder: (context) {
+            final l10n = AppLocalizations.of(context);
+            return Row(
+              children: [
+                _WalletActionButton(
+                  icon: Icons.account_balance_wallet_outlined,
+                  label: l10n.recharge,
+                  onTap: () => context.push('/main/coin-recharge'),
+                ),
+                const SizedBox(width: 8),
+                _WalletActionButton(
+                  icon: Icons.receipt_long_outlined,
+                  label: l10n.history,
+                  onTap: () => context.push('/main/coin-history'),
+                ),
+              ],
+            );
+          }),
         ],
       ),
     );
@@ -565,23 +576,26 @@ class _CurrentUserProfileScreenState
                   ],
                   const SizedBox(height: 6),
                   // Edit Profile Button
-                  ElevatedButton.icon(
-                    onPressed: () {
-                      context.push('/main/profile/edit');
-                    },
-                    icon: const Icon(Icons.edit, size: 14),
-                    label: const Text('Edit Profile'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.white,
-                      foregroundColor: Colors.blue,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
+                  Builder(builder: (context) {
+                    final l10n = AppLocalizations.of(context);
+                    return ElevatedButton.icon(
+                      onPressed: () {
+                        context.push('/main/profile/edit');
+                      },
+                      icon: const Icon(Icons.edit, size: 14),
+                      label: Text(l10n.editProfile),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.white,
+                        foregroundColor: Colors.blue,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 4),
+                        minimumSize: const Size(0, 28),
                       ),
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 4),
-                      minimumSize: const Size(0, 28),
-                    ),
-                  ),
+                    );
+                  }),
                   const SizedBox(height: 8),
                 ],
               ),
@@ -600,15 +614,18 @@ class _CurrentUserProfileScreenState
           bottom: BorderSide(color: Colors.grey[300]!),
         ),
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: [
-          _buildStatItem(_userVideos.length.toString(), 'Videos'),
-          _buildStatItem('0', 'Followers'),
-          _buildStatItem('0', 'Following'),
-          _buildStatItem(_calculateTotalLikes().toString(), 'Likes'),
-        ],
-      ),
+      child: Builder(builder: (context) {
+        final l10n = AppLocalizations.of(context);
+        return Row(
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
+          children: [
+            _buildStatItem(_userVideos.length.toString(), l10n.videos),
+            _buildStatItem('0', l10n.followers),
+            _buildStatItem('0', l10n.following),
+            _buildStatItem(_calculateTotalLikes().toString(), l10n.likes),
+          ],
+        );
+      }),
     );
   }
 
@@ -635,6 +652,8 @@ class _CurrentUserProfileScreenState
   }
 
   Widget _buildVideosTab() {
+    final l10n = AppLocalizations.of(context);
+
     if (_isLoadingVideos) {
       return const Center(child: CircularProgressIndicator());
     }
@@ -648,7 +667,7 @@ class _CurrentUserProfileScreenState
                 size: 64, color: Colors.grey[400]),
             const SizedBox(height: 16),
             Text(
-              'No videos yet',
+              l10n.noVideosYet,
               style: TextStyle(color: Colors.grey[600]),
             ),
             const SizedBox(height: 24),
@@ -657,7 +676,7 @@ class _CurrentUserProfileScreenState
                 context.push('/main/upload');
               },
               icon: const Icon(Icons.add),
-              label: const Text('Upload Video'),
+              label: Text(l10n.uploadVideo),
             ),
           ],
         ),
@@ -743,13 +762,14 @@ class _CurrentUserProfileScreenState
                             }
                           },
                           itemBuilder: (context) => [
-                            const PopupMenuItem(
+                            PopupMenuItem(
                               value: 'add_to_playlist',
                               child: Row(
                                 children: [
-                                  Icon(Icons.playlist_add, size: 20),
-                                  SizedBox(width: 8),
-                                  Text('Add to Playlist'),
+                                  const Icon(Icons.playlist_add, size: 20),
+                                  const SizedBox(width: 8),
+                                  Text(AppLocalizations.of(context)
+                                      .addToPlaylist),
                                 ],
                               ),
                             ),
@@ -802,24 +822,24 @@ class _CurrentUserProfileScreenState
         child: Center(
           child: Padding(
             padding: const EdgeInsets.all(32.0),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
                 Icon(Icons.post_add_outlined,
                     size: 64, color: Colors.grey[400]),
-          const SizedBox(height: 16),
-          Text(
-            'No posts yet',
-            style: TextStyle(color: Colors.grey[600]),
-          ),
-          const SizedBox(height: 24),
-          ElevatedButton.icon(
-            onPressed: () {
-              context.push('/main/community/create-post');
-            },
-            icon: const Icon(Icons.add),
-            label: const Text('Create Post'),
-          ),
+                const SizedBox(height: 16),
+                Text(
+                  'No posts yet',
+                  style: TextStyle(color: Colors.grey[600]),
+                ),
+                const SizedBox(height: 24),
+                ElevatedButton.icon(
+                  onPressed: () {
+                    context.push('/main/community/create-post');
+                  },
+                  icon: const Icon(Icons.add),
+                  label: const Text('Create Post'),
+                ),
                 const SizedBox(height: 16),
                 ElevatedButton.icon(
                   onPressed: () {
@@ -868,27 +888,27 @@ class _CurrentUserProfileScreenState
         child: Center(
           child: Padding(
             padding: const EdgeInsets.all(32.0),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.favorite_outline, size: 64, color: Colors.grey[400]),
-          const SizedBox(height: 16),
-          Text(
-            'No liked videos yet',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-              color: Colors.grey[600],
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Videos you like will appear here',
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.grey[600],
-            ),
-          ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.favorite_outline, size: 64, color: Colors.grey[400]),
+                const SizedBox(height: 16),
+                Text(
+                  'No liked videos yet',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.grey[600],
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Videos you like will appear here',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.grey[600],
+                  ),
+                ),
                 const SizedBox(height: 24),
                 ElevatedButton.icon(
                   onPressed: () {
@@ -969,13 +989,14 @@ class _CurrentUserProfileScreenState
                               }
                             },
                             itemBuilder: (context) => [
-                              const PopupMenuItem(
+                              PopupMenuItem(
                                 value: 'add_to_playlist',
                                 child: Row(
                                   children: [
-                                    Icon(Icons.playlist_add, size: 20),
-                                    SizedBox(width: 8),
-                                    Text('Add to Playlist'),
+                                    const Icon(Icons.playlist_add, size: 20),
+                                    const SizedBox(width: 8),
+                                    Text(AppLocalizations.of(context)
+                                        .addToPlaylist),
                                   ],
                                 ),
                               ),
@@ -1032,36 +1053,36 @@ class _CurrentUserProfileScreenState
         child: Center(
           child: Padding(
             padding: const EdgeInsets.all(32.0),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
                 Icon(Icons.playlist_play_outlined,
                     size: 64, color: Colors.grey[400]),
-          const SizedBox(height: 16),
-          Text(
-            'No playlists yet',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-              color: Colors.grey[600],
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Create your first playlist',
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.grey[600],
-            ),
-          ),
-          const SizedBox(height: 24),
-          ElevatedButton.icon(
-            onPressed: () {
+                const SizedBox(height: 16),
+                Text(
+                  'No playlists yet',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.grey[600],
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Create your first playlist',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.grey[600],
+                  ),
+                ),
+                const SizedBox(height: 24),
+                ElevatedButton.icon(
+                  onPressed: () {
                     _showCreatePlaylistDialog();
-            },
-            icon: const Icon(Icons.add),
-            label: const Text('Create Playlist'),
-          ),
+                  },
+                  icon: const Icon(Icons.add),
+                  label: const Text('Create Playlist'),
+                ),
                 const SizedBox(height: 16),
                 ElevatedButton.icon(
                   onPressed: () {
@@ -1161,49 +1182,53 @@ class _CurrentUserProfileScreenState
       // Show playlist selection dialog
       showDialog(
         context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('Add to Playlist'),
-          content: SizedBox(
-            width: double.maxFinite,
-            child: ListView.builder(
-              shrinkWrap: true,
-              itemCount: playlists.length + 1,
-              itemBuilder: (context, index) {
-                if (index == playlists.length) {
+        builder: (context) {
+          final dialogL10n = AppLocalizations.of(context);
+          return AlertDialog(
+            title: Text(dialogL10n.addToPlaylist),
+            content: SizedBox(
+              width: double.maxFinite,
+              child: ListView.builder(
+                shrinkWrap: true,
+                itemCount: playlists.length + 1,
+                itemBuilder: (context, index) {
+                  if (index == playlists.length) {
+                    return ListTile(
+                      leading: const Icon(Icons.add),
+                      title: Text(dialogL10n.createNewPlaylist),
+                      onTap: () {
+                        Navigator.pop(context);
+                        _showCreatePlaylistDialog();
+                      },
+                    );
+                  }
+
+                  final playlist = playlists[index] as Map<String, dynamic>;
                   return ListTile(
-                    leading: const Icon(Icons.add),
-                    title: const Text('Create New Playlist'),
-                    onTap: () {
+                    leading: const Icon(Icons.playlist_play),
+                    title: Text(playlist['name'] ?? 'Untitled'),
+                    subtitle: Text('${playlist['videoCount'] ?? 0} videos'),
+                    trailing: playlist['isPublic'] == false
+                        ? const Icon(Icons.lock, size: 16)
+                        : null,
+                    onTap: () async {
                       Navigator.pop(context);
-                      _showCreatePlaylistDialog();
+                      await _addVideoToPlaylist(
+                          playlist['id'], playlist['name'],
+                          videoId: currentVideoId);
                     },
                   );
-                }
-
-                final playlist = playlists[index] as Map<String, dynamic>;
-                return ListTile(
-                  leading: const Icon(Icons.playlist_play),
-                  title: Text(playlist['name'] ?? 'Untitled'),
-                  subtitle: Text('${playlist['videoCount'] ?? 0} videos'),
-                  trailing: playlist['isPublic'] == false
-                      ? const Icon(Icons.lock, size: 16)
-                      : null,
-                  onTap: () async {
-                    Navigator.pop(context);
-                    await _addVideoToPlaylist(playlist['id'], playlist['name'],
-                        videoId: currentVideoId);
-                  },
-                );
-              },
+                },
+              ),
             ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
-            ),
-          ],
-        ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: Text(dialogL10n.cancel),
+              ),
+            ],
+          );
+        },
       );
     } catch (e) {
       if (mounted) {
@@ -1270,99 +1295,104 @@ class _CurrentUserProfileScreenState
     final nameController = TextEditingController();
     final descriptionController = TextEditingController();
     bool isPublic = true;
+    final l10n = AppLocalizations.of(context);
 
     showDialog(
       context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setState) => AlertDialog(
-          title: const Text('Create New Playlist'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: nameController,
-                decoration: const InputDecoration(
-                  labelText: 'Playlist Name',
-                  hintText: 'Enter playlist name',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: descriptionController,
-                decoration: const InputDecoration(
-                  labelText: 'Description (Optional)',
-                  hintText: 'Enter playlist description',
-                  border: OutlineInputBorder(),
-                ),
-                maxLines: 2,
-              ),
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                  Checkbox(
-                    value: isPublic,
-                    onChanged: (value) {
-                      setState(() {
-                        isPublic = value ?? true;
-                      });
-                    },
+      builder: (context) {
+        final dialogL10n = AppLocalizations.of(context);
+        return StatefulBuilder(
+          builder: (context, setState) => AlertDialog(
+            title: Text(dialogL10n.createNewPlaylist),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: nameController,
+                  decoration: InputDecoration(
+                    labelText: dialogL10n.playlistName,
+                    hintText: dialogL10n.enterPlaylistName,
+                    border: const OutlineInputBorder(),
                   ),
-                  const Text('Public playlist'),
-                ],
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: descriptionController,
+                  decoration: InputDecoration(
+                    labelText: dialogL10n.descriptionOptional,
+                    hintText: dialogL10n.enterPlaylistDescription,
+                    border: const OutlineInputBorder(),
+                  ),
+                  maxLines: 2,
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Checkbox(
+                      value: isPublic,
+                      onChanged: (value) {
+                        setState(() {
+                          isPublic = value ?? true;
+                        });
+                      },
+                    ),
+                    Text(dialogL10n.publicPlaylist),
+                  ],
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: Text(dialogL10n.cancel),
+              ),
+              ElevatedButton(
+                onPressed: () async {
+                  if (nameController.text.trim().isEmpty) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                          content: Text(dialogL10n.pleaseEnterPlaylistName)),
+                    );
+                    return;
+                  }
+
+                  try {
+                    final response = await _apiService.createPlaylist(
+                      name: nameController.text.trim(),
+                      description: descriptionController.text.trim().isEmpty
+                          ? null
+                          : descriptionController.text.trim(),
+                      isPublic: isPublic,
+                    );
+
+                    if (response['success'] == true) {
+                      Navigator.pop(context);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                            content:
+                                Text(dialogL10n.playlistCreatedSuccessfully)),
+                      );
+                      _loadUserPlaylists(); // Refresh the list
+                    } else {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                            content: Text(response['message'] ??
+                                dialogL10n.failedToCreatePlaylist)),
+                      );
+                    }
+                  } catch (e) {
+                    Navigator.pop(context);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Error creating playlist: $e')),
+                    );
+                  }
+                },
+                child: Text(dialogL10n.create),
               ),
             ],
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              onPressed: () async {
-                if (nameController.text.trim().isEmpty) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                        content: Text('Please enter a playlist name')),
-                  );
-                  return;
-                }
-
-                try {
-                  final response = await _apiService.createPlaylist(
-                    name: nameController.text.trim(),
-                    description: descriptionController.text.trim().isEmpty
-                        ? null
-                        : descriptionController.text.trim(),
-                    isPublic: isPublic,
-                  );
-
-                  if (response['success'] == true) {
-                    Navigator.pop(context);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                          content: Text('Playlist created successfully!')),
-                    );
-                    _loadUserPlaylists(); // Refresh the list
-                  } else {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                          content: Text(response['message'] ??
-                              'Failed to create playlist')),
-                    );
-                  }
-                } catch (e) {
-                  Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Error creating playlist: $e')),
-                  );
-                }
-              },
-              child: const Text('Create'),
-            ),
-          ],
-        ),
-      ),
+        );
+      },
     );
   }
 
