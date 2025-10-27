@@ -393,6 +393,7 @@ final authStateProvider = StreamProvider<UserModel?>((ref) async* {
 // Create a StateNotifier for current user
 class CurrentUserNotifier extends StateNotifier<UserModel?> {
   final AuthService _authService;
+  bool _isDisposed = false;
 
   CurrentUserNotifier(this._authService) : super(_authService.currentUser) {
     // Listen to auth service changes
@@ -400,11 +401,15 @@ class CurrentUserNotifier extends StateNotifier<UserModel?> {
   }
 
   void _onAuthServiceChanged() {
-    state = _authService.currentUser;
+    // Only update state if not disposed
+    if (!_isDisposed && mounted) {
+      state = _authService.currentUser;
+    }
   }
 
   @override
   void dispose() {
+    _isDisposed = true;
     _authService.removeListener(_onAuthServiceChanged);
     super.dispose();
   }

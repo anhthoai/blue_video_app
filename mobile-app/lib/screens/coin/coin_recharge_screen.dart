@@ -58,10 +58,12 @@ class _CoinRechargeScreenState extends ConsumerState<CoinRechargeScreen> {
   Future<void> _processRecharge() async {
     if (coinPackages.isEmpty || selectedPackageIndex >= coinPackages.length) {
       print('⚠️ No package selected or packages not loaded');
-      final l10n = AppLocalizations.of(context);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l10n.pleaseSelectCoinPackage)),
-      );
+      if (mounted) {
+        final l10n = AppLocalizations.of(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(l10n.pleaseSelectCoinPackage)),
+        );
+      }
       return;
     }
 
@@ -132,8 +134,6 @@ class _CoinRechargeScreenState extends ConsumerState<CoinRechargeScreen> {
         Navigator.of(context).pop();
         // Refresh user balance and update UI
         _refreshUserBalance();
-        // Force rebuild to show updated balance
-        setState(() {});
       },
       onCancel: () {
         Navigator.of(context).pop();
@@ -149,8 +149,6 @@ class _CoinRechargeScreenState extends ConsumerState<CoinRechargeScreen> {
         Navigator.of(context).pop();
         // Refresh user balance and update UI
         _refreshUserBalance();
-        // Force rebuild to show updated balance
-        setState(() {});
       },
       onCancel: () {
         Navigator.of(context).pop();
@@ -186,6 +184,11 @@ class _CoinRechargeScreenState extends ConsumerState<CoinRechargeScreen> {
       // Debug: Print updated user data
       final updatedUser = ref.read(currentUserProvider);
       print('✅ User balance refreshed: ${updatedUser?.coinBalance}');
+
+      // Only update UI if widget is still mounted
+      if (mounted) {
+        setState(() {});
+      }
     } catch (e) {
       print('❌ Failed to refresh user balance: $e');
     }
