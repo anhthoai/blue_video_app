@@ -220,6 +220,7 @@ class AuthService {
     required String username,
   }) async {
     try {
+      print('🔐 AuthService: Starting registration for $username');
       final response = await _apiService.register(
         username: username,
         email: email,
@@ -237,6 +238,8 @@ class AuthService {
           bio: userData['bio'],
           avatarUrl: userData['avatarUrl'],
           isVerified: userData['isVerified'] ?? false,
+          isVip: userData['isVip'] ?? false,
+          coinBalance: userData['coinBalance'] ?? 0,
           createdAt: DateTime.parse(
               userData['createdAt'] ?? DateTime.now().toIso8601String()),
         );
@@ -247,11 +250,26 @@ class AuthService {
 
         // Always save user after registration
         await _saveUserToPrefs();
+
+        print(
+            '🔐 AuthService: User data saved, scheduling listener notification');
+
+        // Schedule notification for next frame to avoid widget disposal issues
+        // This gives the navigation time to complete before updating listeners
+        Future.microtask(() {
+          _notifyListeners();
+          print('🔐 AuthService: Listeners notified');
+        });
+
+        print(
+            '🔐 AuthService: Registration successful for ${_currentUser?.username}');
         return _currentUser;
       }
+      print(
+          '🔐 AuthService: Registration failed - invalid response: $response');
       return null;
     } catch (e) {
-      print('Registration error: $e');
+      print('🔐 AuthService: Registration error: $e');
       return null;
     }
   }
@@ -402,8 +420,16 @@ class CurrentUserNotifier extends StateNotifier<UserModel?> {
 
   void _onAuthServiceChanged() {
     // Only update state if not disposed
-    if (!_isDisposed && mounted) {
-      state = _authService.currentUser;
+    if (_isDisposed) return;
+
+    try {
+      if (mounted) {
+        state = _authService.currentUser;
+      }
+    } catch (e) {
+      // Widget might be in the process of being disposed, ignore the error
+      print(
+          '⚠️ CurrentUserNotifier: Unable to update state (widget disposed): $e');
     }
   }
 

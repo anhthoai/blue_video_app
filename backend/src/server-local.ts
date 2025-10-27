@@ -376,9 +376,16 @@ app.post('/api/v1/auth/register', async (req, res) => {
 
     console.log(`✅ New user registered: ${email} ${isFirstUser ? '(ADMIN)' : ''}`);
 
+    // TODO: Send verification email here
+    // For now, we'll log that email should be sent
+    if (!isFirstUser) {
+      console.log(`📧 TODO: Send verification email to ${email}`);
+      console.log(`   Verification token should be generated and sent via email service`);
+    }
+
     res.status(201).json({
       success: true,
-      message: `Registration successful${isFirstUser ? ' - You are the first user and have been granted admin privileges!' : ''}`,
+      message: `Registration successful${isFirstUser ? ' - You are the first user and have been granted admin privileges!' : '. Please check your email for verification link.'}`,
       data: {
         user: {
           id: newUser.id,
@@ -390,6 +397,8 @@ app.post('/api/v1/auth/register', async (req, res) => {
           avatarUrl: newUser.avatarUrl,
           role: newUser.role,
           isVerified: newUser.isVerified,
+          coinBalance: newUser.coinBalance || 0,
+          isVip: newUser.isVip || false,
           createdAt: newUser.createdAt.toISOString(),
         },
         accessToken,
