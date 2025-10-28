@@ -254,49 +254,49 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
 
                 const SizedBox(height: 32),
 
-                // Divider
-                Row(
-                  children: [
-                    const Expanded(child: Divider()),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: Text(
-                        'OR',
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
-                    ),
-                    const Expanded(child: Divider()),
-                  ],
-                ),
+                // Divider (Hidden - will be used when social login is implemented)
+                // Row(
+                //   children: [
+                //     const Expanded(child: Divider()),
+                //     Padding(
+                //       padding: const EdgeInsets.symmetric(horizontal: 16),
+                //       child: Text(
+                //         'OR',
+                //         style: Theme.of(context).textTheme.bodySmall,
+                //       ),
+                //     ),
+                //     const Expanded(child: Divider()),
+                //   ],
+                // ),
 
-                const SizedBox(height: 32),
+                // const SizedBox(height: 32),
 
-                // Social Login Buttons
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: () {
-                          // Handle Google login
-                        },
-                        icon: const Icon(Icons.g_mobiledata),
-                        label: const Text('Google'),
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: () {
-                          // Handle Apple login
-                        },
-                        icon: const Icon(Icons.apple),
-                        label: const Text('Apple'),
-                      ),
-                    ),
-                  ],
-                ),
+                // Social Login Buttons (Hidden - will be implemented in future)
+                // Row(
+                //   children: [
+                //     Expanded(
+                //       child: OutlinedButton.icon(
+                //         onPressed: () {
+                //           // Handle Google login
+                //         },
+                //         icon: const Icon(Icons.g_mobiledata),
+                //         label: const Text('Google'),
+                //       ),
+                //     ),
+                //     const SizedBox(width: 16),
+                //     Expanded(
+                //       child: OutlinedButton.icon(
+                //         onPressed: () {
+                //           // Handle Apple login
+                //         },
+                //         icon: const Icon(Icons.apple),
+                //         label: const Text('Apple'),
+                //       ),
+                //     ),
+                //   ],
+                // ),
 
-                const SizedBox(height: 32),
+                // const SizedBox(height: 32),
 
                 // Sign In Link
                 Row(
