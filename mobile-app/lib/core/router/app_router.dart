@@ -8,6 +8,7 @@ import '../../screens/auth/login_screen.dart';
 import '../../screens/auth/register_screen.dart';
 import '../../screens/auth/forgot_password_screen.dart';
 import '../../screens/auth/reset_password_screen.dart';
+import '../../screens/auth/verify_email_screen.dart';
 import '../../screens/main/main_screen.dart';
 import '../../screens/video/video_detail_screen.dart';
 import '../../screens/video/video_player_screen.dart';
@@ -79,6 +80,13 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) {
           final token = state.uri.queryParameters['token'];
           return ResetPasswordScreen(token: token);
+        },
+      ),
+      GoRoute(
+        path: '/auth/verify-email',
+        builder: (context, state) {
+          final token = state.uri.queryParameters['token'] ?? '';
+          return VerifyEmailScreen(token: token);
         },
       ),
 

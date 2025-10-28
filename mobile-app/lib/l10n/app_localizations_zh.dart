@@ -929,6 +929,25 @@ class AppLocalizationsZh extends AppLocalizations {
   @override
   String get darkMode => '深色模式';
 
+  // Email verification
+  @override
+  String get emailVerification => '邮箱验证';
+
+  @override
+  String get verifyingEmail => '正在验证您的邮箱...';
+
+  @override
+  String get emailVerified => '邮箱已验证！';
+
+  @override
+  String get verificationFailed => '验证失败';
+
+  @override
+  String get goToLogin => '前往登录';
+
+  @override
+  String get tryAgain => '重试';
+
   // Auth additional
   @override
   String get welcomeBack => '欢迎回来';

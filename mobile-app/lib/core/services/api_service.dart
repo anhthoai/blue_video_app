@@ -144,6 +144,15 @@ class ApiService {
     return data;
   }
 
+  Future<Map<String, dynamic>> verifyEmail(String token) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/auth/verify-email?token=$token'),
+      headers: await _getHeaders(),
+    );
+
+    return await _handleResponse(response);
+  }
+
   Future<void> logout() async {
     await clearTokens();
   }

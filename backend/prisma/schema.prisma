@@ -38,6 +38,8 @@ model User {
   isActive      Boolean  @default(true) @map("is_active")
   coinBalance   Int      @default(0) @map("coin_balance")
   isVip         Boolean  @default(false) @map("is_vip")
+  verificationToken String? @map("verification_token")
+  verificationTokenExpiry DateTime? @map("verification_token_expiry")
   createdAt     DateTime @default(now()) @map("created_at")
   updatedAt     DateTime @updatedAt @map("updated_at")
 

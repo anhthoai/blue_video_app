@@ -935,6 +935,25 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get darkMode => 'Dark Mode';
 
+  // Email verification
+  @override
+  String get emailVerification => 'Email Verification';
+
+  @override
+  String get verifyingEmail => 'Verifying your email...';
+
+  @override
+  String get emailVerified => 'Email Verified!';
+
+  @override
+  String get verificationFailed => 'Verification Failed';
+
+  @override
+  String get goToLogin => 'Go to Login';
+
+  @override
+  String get tryAgain => 'Try Again';
+
   // Auth additional
   @override
   String get welcomeBack => 'Welcome Back';

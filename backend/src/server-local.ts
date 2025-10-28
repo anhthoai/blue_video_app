@@ -96,6 +96,62 @@ app.get('/api-docs.json', (_req, res) => {
 
 /**
  * @swagger
+ * /auth/verify-email:
+ *   get:
+ *     tags: [Authentication]
+ *     summary: Verify user email address
+ *     description: Verifies a user's email address using the token sent via email
+ *     parameters:
+ *       - in: query
+ *         name: token
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: JWT verification token from email
+ *     responses:
+ *       200:
+ *         description: Email verified successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: Email verified successfully! You can now log in.
+ *       400:
+ *         description: Invalid or expired token
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: Invalid or expired verification token
+ *       404:
+ *         description: User not found or token already used
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: User not found or token already used
+ */
+
+/**
+ * @swagger
  * /health:
  *   get:
  *     tags: [Health]
@@ -347,6 +403,14 @@ app.post('/api/v1/auth/register', async (req, res) => {
     // Hash password
     const passwordHash = await bcrypt.hash(password, 10);
 
+    // Generate verification token (valid for 24 hours)
+    const verificationToken = jwt.sign(
+      { email, type: 'email_verification' },
+      process.env['JWT_SECRET'] || 'your-secret-key',
+      { expiresIn: '24h' }
+    );
+    const verificationTokenExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours from now
+
     // Create user
     const newUser = await prisma.user.create({
       data: {
@@ -358,6 +422,8 @@ app.post('/api/v1/auth/register', async (req, res) => {
         bio,
         role: isFirstUser ? 'ADMIN' : 'USER',
         isVerified: isFirstUser, // Auto-verify admin
+        verificationToken: isFirstUser ? null : verificationToken,
+        verificationTokenExpiry: isFirstUser ? null : verificationTokenExpiry,
       },
     });
 
@@ -376,11 +442,30 @@ app.post('/api/v1/auth/register', async (req, res) => {
 
     console.log(`✅ New user registered: ${email} ${isFirstUser ? '(ADMIN)' : ''}`);
 
-    // TODO: Send verification email here
-    // For now, we'll log that email should be sent
+    // Send verification email (only for non-admin users)
     if (!isFirstUser) {
-      console.log(`📧 TODO: Send verification email to ${email}`);
-      console.log(`   Verification token should be generated and sent via email service`);
+      console.log(`📧 Sending verification email to ${email}...`);
+      
+      // DEVELOPMENT WORKAROUND: Log verification URL to console
+      const apiUrl = process.env['API_URL'] || 'http://localhost:3000';
+      const verificationUrl = `${apiUrl}/api/v1/auth/verify-email?token=${verificationToken}`;
+      console.log('\n' + '='.repeat(80));
+      console.log('📧 EMAIL VERIFICATION LINK (Copy this to verify):');
+      console.log(verificationUrl);
+      console.log('='.repeat(80) + '\n');
+      
+      const emailSent = await emailService.sendVerificationEmail(
+        email,
+        username,
+        verificationToken
+      );
+      
+      if (emailSent) {
+        console.log(`✅ Verification email sent successfully to ${email}`);
+      } else {
+        console.log(`⚠️ Failed to send verification email to ${email} (may be blocked by recipient)`);
+        console.log(`   You can still verify using the URL above`);
+      }
     }
 
     res.status(201).json({
@@ -411,6 +496,225 @@ app.post('/api/v1/auth/register', async (req, res) => {
       success: false,
       message: 'Registration failed',
     });
+  }
+});
+
+// Helper function to generate verification response HTML
+const generateVerificationHTML = (success: boolean, title: string, message: string, username?: string, email?: string) => {
+  const appName = process.env['APP_NAME'] || 'Blue Video';
+  const iconColor = success ? '#4CAF50' : '#F44336';
+  const icon = success ? '✓' : '✗';
+  
+  return `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>${title} - ${appName}</title>
+        <style>
+          body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          }
+          .container {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            max-width: 500px;
+            width: 90%;
+            text-align: center;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+          }
+          .icon {
+            width: 80px;
+            height: 80px;
+            margin: 0 auto 20px;
+            background: ${iconColor};
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 50px;
+            color: white;
+          }
+          h1 {
+            color: #333;
+            margin: 20px 0;
+            font-size: 28px;
+          }
+          p {
+            color: #666;
+            line-height: 1.6;
+            margin: 15px 0;
+            font-size: 16px;
+          }
+          .info {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #eee;
+            font-size: 14px;
+            color: #999;
+          }
+          .button {
+            display: inline-block;
+            margin-top: 20px;
+            padding: 12px 30px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            text-decoration: none;
+            border-radius: 25px;
+            font-weight: 600;
+            transition: transform 0.2s;
+          }
+          .button:hover {
+            transform: scale(1.05);
+          }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="icon">${icon}</div>
+          <h1>${title}</h1>
+          <p>${message}</p>
+          ${username && email ? `
+            <div class="info">
+              <p><strong>Account:</strong> ${username}</p>
+              <p><strong>Email:</strong> ${email}</p>
+            </div>
+          ` : ''}
+          <p style="margin-top: 30px; font-size: 14px; color: #999;">
+            You can close this window and return to the app.
+          </p>
+        </div>
+        <script>
+          // Auto-close after 5 seconds if opened in a popup
+          setTimeout(() => {
+            if (window.opener) {
+              window.close();
+            }
+          }, 5000);
+        </script>
+      </body>
+    </html>
+  `;
+};
+
+// Email verification endpoint
+app.get('/api/v1/auth/verify-email', async (req, res) => {
+  try {
+    const { token } = req.query;
+
+    if (!token || typeof token !== 'string') {
+      res.status(400).send(
+        generateVerificationHTML(
+          false,
+          'Verification Failed',
+          'Verification token is required. Please check your email and click the verification link again.'
+        )
+      );
+      return;
+    }
+
+    // Verify the token
+    let decoded;
+    try {
+      decoded = jwt.verify(token, process.env['JWT_SECRET'] || 'your-secret-key') as {
+        email: string;
+        type: string;
+      };
+    } catch (error) {
+      res.status(400).send(
+        generateVerificationHTML(
+          false,
+          'Verification Failed',
+          'Invalid or expired verification token. The link may have expired or been used already.'
+        )
+      );
+      return;
+    }
+
+    if (decoded.type !== 'email_verification') {
+      res.status(400).send(
+        generateVerificationHTML(
+          false,
+          'Verification Failed',
+          'Invalid token type. Please use the verification link from your email.'
+        )
+      );
+      return;
+    }
+
+    // Find user with this email and token
+    const user = await prisma.user.findFirst({
+      where: {
+        email: decoded.email,
+        verificationToken: token,
+      },
+    });
+
+    if (!user) {
+      res.status(404).send(
+        generateVerificationHTML(
+          false,
+          'Verification Failed',
+          'User not found or this verification link has already been used. If you already verified your email, you can log in to the app.'
+        )
+      );
+      return;
+    }
+
+    // Check if token has expired
+    if (user.verificationTokenExpiry && user.verificationTokenExpiry < new Date()) {
+      res.status(400).send(
+        generateVerificationHTML(
+          false,
+          'Link Expired',
+          'This verification link has expired. Please contact support to request a new verification email.',
+          user.username,
+          user.email
+        )
+      );
+      return;
+    }
+
+    // Verify the user
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        isVerified: true,
+        verificationToken: null,
+        verificationTokenExpiry: null,
+      },
+    });
+
+    console.log(`✅ Email verified for user: ${user.email}`);
+
+    // Return beautiful HTML success page
+    res.send(
+      generateVerificationHTML(
+        true,
+        'Email Verified Successfully!',
+        'Your email address has been verified. You can now log in to your account with full access.',
+        user.username,
+        user.email
+      )
+    );
+  } catch (error) {
+    console.error('Email verification error:', error);
+    res.status(500).send(
+      generateVerificationHTML(
+        false,
+        'Verification Error',
+        'An error occurred while verifying your email. Please try again or contact support.'
+      )
+    );
   }
 });
 

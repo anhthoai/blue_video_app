@@ -365,6 +365,14 @@ abstract class AppLocalizations {
   String get lightMode;
   String get darkMode;
 
+  // Email verification
+  String get emailVerification;
+  String get verifyingEmail;
+  String get emailVerified;
+  String get verificationFailed;
+  String get goToLogin;
+  String get tryAgain;
+
   // Auth additional
   String get welcomeBack;
   String get signInToAccount;

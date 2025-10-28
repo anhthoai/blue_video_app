@@ -930,6 +930,25 @@ class AppLocalizationsJa extends AppLocalizations {
   @override
   String get darkMode => 'ダークモード';
 
+  // Email verification
+  @override
+  String get emailVerification => 'メール認証';
+
+  @override
+  String get verifyingEmail => 'メールを認証中...';
+
+  @override
+  String get emailVerified => 'メール認証完了！';
+
+  @override
+  String get verificationFailed => '認証失敗';
+
+  @override
+  String get goToLogin => 'ログインへ';
+
+  @override
+  String get tryAgain => '再試行';
+
   // Auth additional
   @override
   String get welcomeBack => 'おかえりなさい';
