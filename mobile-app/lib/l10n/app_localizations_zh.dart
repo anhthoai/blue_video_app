@@ -948,6 +948,31 @@ class AppLocalizationsZh extends AppLocalizations {
   @override
   String get tryAgain => '重试';
 
+  // App updates
+  @override
+  String get updateAvailable => '有可用更新';
+
+  @override
+  String get updateRequired => '需要更新';
+
+  @override
+  String get currentVersion => '当前版本';
+
+  @override
+  String get latestVersion => '最新版本';
+
+  @override
+  String get whatsNew => '更新内容';
+
+  @override
+  String get updateNow => '立即更新';
+
+  @override
+  String get later => '稍后';
+
+  @override
+  String get forceUpdateMessage => '此更新为必需更新，请立即更新以继续使用应用。';
+
   // Auth additional
   @override
   String get welcomeBack => '欢迎回来';

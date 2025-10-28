@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../l10n/app_localizations.dart';
+import '../../core/services/version_service.dart';
+import '../../core/services/app_lifecycle_service.dart';
 import '../home/home_screen.dart';
 import '../discover/discover_screen.dart';
 import '../community/community_screen.dart';
@@ -18,6 +20,7 @@ class MainScreen extends ConsumerStatefulWidget {
 
 class _MainScreenState extends ConsumerState<MainScreen> {
   int _currentIndex = 0;
+  AppLifecycleObserver? _lifecycleObserver;
 
   final List<Widget> _screens = [
     const HomeScreen(),
@@ -26,6 +29,34 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     const ChatListScreen(),
     const CurrentUserProfileScreen(),
   ];
+
+  @override
+  void initState() {
+    super.initState();
+
+    // Initialize lifecycle observer and check for updates
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        final versionService = ref.read(versionServiceProvider);
+        _lifecycleObserver = AppLifecycleObserver(
+          context: context,
+          versionService: versionService,
+        );
+        WidgetsBinding.instance.addObserver(_lifecycleObserver!);
+
+        // Check for updates on startup
+        _lifecycleObserver!.checkForUpdatesOnStartup();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    if (_lifecycleObserver != null) {
+      WidgetsBinding.instance.removeObserver(_lifecycleObserver!);
+    }
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {

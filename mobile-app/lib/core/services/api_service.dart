@@ -153,6 +153,21 @@ class ApiService {
     return await _handleResponse(response);
   }
 
+  Future<Map<String, dynamic>> checkAppVersion({
+    required String platform,
+    required String currentVersion,
+  }) async {
+    // Use root URL (not /api/v1) for app-version endpoint
+    final rootUrl = baseUrl.replaceAll('/api/v1', '');
+    final response = await http.get(
+      Uri.parse(
+          '$rootUrl/app-version?platform=$platform&currentVersion=$currentVersion'),
+      headers: await _getHeaders(),
+    );
+
+    return await _handleResponse(response);
+  }
+
   Future<void> logout() async {
     await clearTokens();
   }

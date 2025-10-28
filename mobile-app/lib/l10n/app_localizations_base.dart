@@ -373,6 +373,16 @@ abstract class AppLocalizations {
   String get goToLogin;
   String get tryAgain;
 
+  // App updates
+  String get updateAvailable;
+  String get updateRequired;
+  String get currentVersion;
+  String get latestVersion;
+  String get whatsNew;
+  String get updateNow;
+  String get later;
+  String get forceUpdateMessage;
+
   // Auth additional
   String get welcomeBack;
   String get signInToAccount;

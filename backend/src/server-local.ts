@@ -199,6 +199,112 @@ app.get('/health', (_req, res) => {
   });
 });
 
+/**
+ * @swagger
+ * /app-version:
+ *   get:
+ *     tags: [App Management]
+ *     summary: Check for app updates
+ *     description: Returns the latest app version information for auto-update checks
+ *     parameters:
+ *       - in: query
+ *         name: platform
+ *         schema:
+ *           type: string
+ *           enum: [android, ios]
+ *         description: Platform to check version for
+ *       - in: query
+ *         name: currentVersion
+ *         schema:
+ *           type: string
+ *         description: Current app version (e.g., 1.0.0)
+ *     responses:
+ *       200:
+ *         description: Version information retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 latestVersion:
+ *                   type: string
+ *                   example: 1.0.1
+ *                 currentVersion:
+ *                   type: string
+ *                   example: 1.0.0
+ *                 updateRequired:
+ *                   type: boolean
+ *                 forceUpdate:
+ *                   type: boolean
+ *                 downloadUrl:
+ *                   type: string
+ *                 releaseNotes:
+ *                   type: string
+ *                 releaseDate:
+ *                   type: string
+ */
+app.get('/app-version', (req, res) => {
+  const platform = req.query['platform'] as string;
+  const currentVersion = req.query['currentVersion'] as string;
+
+  // Version configuration (update these when releasing new versions)
+  const versionConfig = {
+    android: {
+      latestVersion: process.env['ANDROID_LATEST_VERSION'] || '1.0.0',
+      minVersion: process.env['ANDROID_MIN_VERSION'] || '1.0.0',
+      downloadUrl: process.env['ANDROID_DOWNLOAD_URL'] || 'https://onlybl.com/downloads/blue-video.apk',
+      releaseNotes: process.env['ANDROID_RELEASE_NOTES'] || 'Bug fixes and performance improvements',
+      releaseDate: process.env['ANDROID_RELEASE_DATE'] || new Date().toISOString(),
+    },
+    ios: {
+      latestVersion: process.env['IOS_LATEST_VERSION'] || '1.0.0',
+      minVersion: process.env['IOS_MIN_VERSION'] || '1.0.0',
+      downloadUrl: process.env['IOS_DOWNLOAD_URL'] || 'https://onlybl.com/downloads/blue-video.ipa',
+      releaseNotes: process.env['IOS_RELEASE_NOTES'] || 'Bug fixes and performance improvements',
+      releaseDate: process.env['IOS_RELEASE_DATE'] || new Date().toISOString(),
+    },
+  };
+
+  const platformConfig = platform === 'ios' ? versionConfig.ios : versionConfig.android;
+  const latestVersion = platformConfig.latestVersion;
+  const minVersion = platformConfig.minVersion;
+
+  // Compare versions
+  const isUpdateAvailable = currentVersion ? compareVersions(currentVersion, latestVersion) < 0 : true;
+  const isForceUpdate = currentVersion ? compareVersions(currentVersion, minVersion) < 0 : false;
+
+  res.json({
+    success: true,
+    latestVersion,
+    minVersion,
+    currentVersion: currentVersion || 'unknown',
+    updateRequired: isUpdateAvailable,
+    forceUpdate: isForceUpdate,
+    downloadUrl: platformConfig.downloadUrl,
+    releaseNotes: platformConfig.releaseNotes,
+    releaseDate: platformConfig.releaseDate,
+    platform: platform || 'android',
+  });
+});
+
+// Helper function to compare semantic versions (e.g., 1.0.0)
+function compareVersions(v1: string, v2: string): number {
+  const parts1 = v1.split('.').map(Number);
+  const parts2 = v2.split('.').map(Number);
+
+  for (let i = 0; i < Math.max(parts1.length, parts2.length); i++) {
+    const part1 = parts1[i] || 0;
+    const part2 = parts2[i] || 0;
+
+    if (part1 < part2) return -1;
+    if (part1 > part2) return 1;
+  }
+
+  return 0; // Versions are equal
+}
+
 // Authentication middleware
 const authenticateToken = async (req: any, res: any, next: any) => {
   try {

@@ -954,6 +954,32 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get tryAgain => 'Try Again';
 
+  // App updates
+  @override
+  String get updateAvailable => 'Update Available';
+
+  @override
+  String get updateRequired => 'Update Required';
+
+  @override
+  String get currentVersion => 'Current Version';
+
+  @override
+  String get latestVersion => 'Latest Version';
+
+  @override
+  String get whatsNew => "What's New";
+
+  @override
+  String get updateNow => 'Update Now';
+
+  @override
+  String get later => 'Later';
+
+  @override
+  String get forceUpdateMessage =>
+      'This update is required to continue using the app. Please update now.';
+
   // Auth additional
   @override
   String get welcomeBack => 'Welcome Back';

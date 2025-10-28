@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/services/auth_service.dart';
@@ -51,12 +52,20 @@ class SettingsScreen extends ConsumerWidget {
             context,
             l10n.appInformation,
             [
-              _buildListTile(
-                context,
-                icon: Icons.info_outline,
-                title: l10n.appVersion,
-                subtitle: '1.0.0 (Test Build)',
-                onTap: () {},
+              FutureBuilder<PackageInfo>(
+                future: PackageInfo.fromPlatform(),
+                builder: (context, snapshot) {
+                  final versionText = snapshot.hasData
+                      ? '${snapshot.data!.version} (${snapshot.data!.buildNumber})'
+                      : '...';
+                  return ListTile(
+                    leading: const Icon(Icons.info_outline, color: Colors.blue),
+                    title: Text(l10n.appVersion),
+                    subtitle: Text(versionText),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () {},
+                  );
+                },
               ),
               _buildListTile(
                 context,

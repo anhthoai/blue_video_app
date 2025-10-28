@@ -949,6 +949,31 @@ class AppLocalizationsJa extends AppLocalizations {
   @override
   String get tryAgain => '再試行';
 
+  // App updates
+  @override
+  String get updateAvailable => 'アップデート可能';
+
+  @override
+  String get updateRequired => 'アップデート必須';
+
+  @override
+  String get currentVersion => '現在のバージョン';
+
+  @override
+  String get latestVersion => '最新バージョン';
+
+  @override
+  String get whatsNew => '新機能';
+
+  @override
+  String get updateNow => '今すぐ更新';
+
+  @override
+  String get later => '後で';
+
+  @override
+  String get forceUpdateMessage => 'このアップデートは必須です。アプリを使用し続けるには今すぐ更新してください。';
+
   // Auth additional
   @override
   String get welcomeBack => 'おかえりなさい';
