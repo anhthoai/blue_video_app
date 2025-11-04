@@ -1762,7 +1762,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
   }
 
   Widget _buildRecommendedVideos() {
-    final videosAsync = ref.watch(videoListProvider);
+    final videosAsync = ref.watch(defaultVideoListProvider);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

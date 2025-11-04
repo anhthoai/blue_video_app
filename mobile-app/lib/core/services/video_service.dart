@@ -108,12 +108,13 @@ class VideoService {
     }
   }
 
-  // Get videos with pagination
+  // Get videos with pagination and filters
   Future<List<VideoModel>> getVideos({
     int page = 1,
     int limit = 20,
     String? category,
     String? search,
+    String? sortBy, // 'newest', 'trending', 'topRated', 'mostViewed', 'random'
   }) async {
     try {
       final response = await _apiService.getVideos(
@@ -125,9 +126,14 @@ class VideoService {
 
       if (response['success'] == true && response['data'] != null) {
         final videosData = response['data'] as List;
-        return videosData.map((videoData) {
+        var videos = videosData.map((videoData) {
           return VideoModel.fromJson(videoData as Map<String, dynamic>);
         }).toList();
+
+        // Apply client-side sorting based on sortBy parameter
+        videos = _sortVideos(videos, sortBy);
+
+        return videos;
       }
       return [];
     } catch (e) {
@@ -135,6 +141,46 @@ class VideoService {
       print('Error details: ${e.toString()}');
       return [];
     }
+  }
+
+  // Sort videos based on the specified criteria
+  List<VideoModel> _sortVideos(List<VideoModel> videos, String? sortBy) {
+    switch (sortBy) {
+      case 'newest':
+        videos.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+        break;
+      case 'trending':
+        // Sort by combination of recent views and engagement
+        videos.sort((a, b) {
+          final aScore =
+              (a.viewCount * 0.4) + (a.likeCount * 0.3) + (a.shareCount * 0.3);
+          final bScore =
+              (b.viewCount * 0.4) + (b.likeCount * 0.3) + (b.shareCount * 0.3);
+          return bScore.compareTo(aScore);
+        });
+        break;
+      case 'topRated':
+        // Sort by like ratio and like count
+        videos.sort((a, b) {
+          final aRatio = a.viewCount > 0 ? a.likeCount / a.viewCount : 0;
+          final bRatio = b.viewCount > 0 ? b.likeCount / b.viewCount : 0;
+          final comparison = bRatio.compareTo(aRatio);
+          return comparison != 0
+              ? comparison
+              : b.likeCount.compareTo(a.likeCount);
+        });
+        break;
+      case 'mostViewed':
+        videos.sort((a, b) => b.viewCount.compareTo(a.viewCount));
+        break;
+      case 'random':
+        videos.shuffle();
+        break;
+      default:
+        // Default: newest first
+        videos.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    }
+    return videos;
   }
 
   // Get trending videos
@@ -246,11 +292,58 @@ final videoServiceProvider = Provider<VideoService>((ref) {
   return VideoService();
 });
 
-// Video list provider
-final videoListProvider = FutureProvider<List<VideoModel>>((ref) async {
+// Video list provider with parameters
+final videoListProvider =
+    FutureProvider.family<List<VideoModel>, VideoFilterParams>(
+  (ref, params) async {
+    final videoService = ref.watch(videoServiceProvider);
+    return await videoService.getVideos(
+      page: params.page,
+      limit: params.limit,
+      category: params.categoryId,
+      sortBy: params.sortBy,
+    );
+  },
+);
+
+// Default video list provider (for backward compatibility)
+final defaultVideoListProvider = FutureProvider<List<VideoModel>>((ref) async {
   final videoService = ref.watch(videoServiceProvider);
   return await videoService.getVideos();
 });
+
+// Video filter parameters class
+class VideoFilterParams {
+  final int page;
+  final int limit;
+  final String? categoryId;
+  final String? sortBy;
+
+  const VideoFilterParams({
+    this.page = 1,
+    this.limit = 20,
+    this.categoryId,
+    this.sortBy,
+  });
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is VideoFilterParams &&
+        other.page == page &&
+        other.limit == limit &&
+        other.categoryId == categoryId &&
+        other.sortBy == sortBy;
+  }
+
+  @override
+  int get hashCode {
+    return page.hashCode ^
+        limit.hashCode ^
+        (categoryId?.hashCode ?? 0) ^
+        (sortBy?.hashCode ?? 0);
+  }
+}
 
 // Trending videos provider
 final trendingVideosProvider = FutureProvider<List<VideoModel>>((ref) async {

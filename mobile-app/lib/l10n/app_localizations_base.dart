@@ -343,6 +343,13 @@ abstract class AppLocalizations {
   String get earned;
   String get trendingNow;
 
+  // Category filters
+  String get all;
+  String get categories;
+  String get topRated;
+  String get mostViewed;
+  String get random;
+
   // Upload video screen
   String get addTitle;
   String get addDescription;

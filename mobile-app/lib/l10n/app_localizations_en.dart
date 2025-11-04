@@ -878,6 +878,22 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get trendingNow => 'Trending Now';
 
+  // Category filters
+  @override
+  String get all => 'All';
+
+  @override
+  String get categories => 'Categories';
+
+  @override
+  String get topRated => 'Top Rated';
+
+  @override
+  String get mostViewed => 'Most Viewed';
+
+  @override
+  String get random => 'Random';
+
   // Upload video screen
   @override
   String get addTitle => 'Add Title';

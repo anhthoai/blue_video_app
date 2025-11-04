@@ -874,6 +874,22 @@ class AppLocalizationsJa extends AppLocalizations {
   @override
   String get trendingNow => 'トレンド';
 
+  // Category filters
+  @override
+  String get all => 'すべて';
+
+  @override
+  String get categories => 'カテゴリー';
+
+  @override
+  String get topRated => '高評価';
+
+  @override
+  String get mostViewed => '最も視聴された';
+
+  @override
+  String get random => 'ランダム';
+
   // Upload video screen
   @override
   String get addTitle => 'タイトルを追加';

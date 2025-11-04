@@ -873,6 +873,22 @@ class AppLocalizationsZh extends AppLocalizations {
   @override
   String get trendingNow => '热门推荐';
 
+  // Category filters
+  @override
+  String get all => '全部';
+
+  @override
+  String get categories => '分类';
+
+  @override
+  String get topRated => '最高评分';
+
+  @override
+  String get mostViewed => '最多观看';
+
+  @override
+  String get random => '随机';
+
   // Upload video screen
   @override
   String get addTitle => '添加标题';

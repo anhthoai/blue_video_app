@@ -12,7 +12,7 @@ class TrendingVideos extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final videosAsync = ref.watch(videoListProvider);
+    final videosAsync = ref.watch(defaultVideoListProvider);
     final l10n = AppLocalizations.of(context);
 
     return Container(
