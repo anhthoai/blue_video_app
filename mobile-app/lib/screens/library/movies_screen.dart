@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../l10n/app_localizations.dart';
 import '../../models/movie_model.dart';
+import '../../core/services/movie_service.dart';
 
 class MoviesScreen extends ConsumerStatefulWidget {
   const MoviesScreen({super.key});
@@ -28,63 +29,89 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
+    final filterOptionsAsync = ref.watch(movieFilterOptionsProvider);
 
     return Column(
       children: [
-        // Content Type Filter
-        _buildFilterBar(
-          title: 'Type',
-          options: [
-            {'id': null, 'name': l10n.all},
-            {'id': 'MOVIE', 'name': l10n.movie},
-            {'id': 'TV_SERIES', 'name': l10n.tvSeries},
-            {'id': 'SHORT', 'name': l10n.short},
-          ],
-          selectedId: _selectedContentType,
-          onSelect: (id) {
-            setState(() {
-              _selectedContentType = id;
-            });
-          },
-        ),
+        // Dynamic filters based on available data
+        filterOptionsAsync.when(
+          data: (filterOptions) => Column(
+            children: [
+              // Content Type Filter
+              if (filterOptions.contentTypes.isNotEmpty)
+                _buildFilterBar(
+                  title: 'Type',
+                  options: [
+                    {'id': null, 'name': l10n.all},
+                    ...filterOptions.contentTypes.map((type) {
+                      return {
+                        'id': type,
+                        'name': _getLocalizedContentType(type, l10n),
+                      };
+                    }).toList(),
+                  ],
+                  selectedId: _selectedContentType,
+                  onSelect: (id) {
+                    if (id != _selectedContentType) {
+                      setState(() {
+                        _selectedContentType = id;
+                      });
+                    }
+                  },
+                ),
 
-        // Genre Filter
-        _buildFilterBar(
-          title: 'Genre',
-          options: [
-            {'id': null, 'name': l10n.all},
-            {'id': 'drama', 'name': l10n.drama},
-            {'id': 'comedy', 'name': l10n.comedy},
-            {'id': 'romance', 'name': l10n.romance},
-            {'id': 'action', 'name': l10n.action},
-            {'id': 'thriller', 'name': l10n.thriller},
-            {'id': 'horror', 'name': l10n.horror},
-          ],
-          selectedId: _selectedGenre,
-          onSelect: (id) {
-            setState(() {
-              _selectedGenre = id;
-            });
-          },
-        ),
+              // Genre Filter
+              if (filterOptions.genres.isNotEmpty)
+                _buildFilterBar(
+                  title: 'Genre',
+                  options: [
+                    {'id': null, 'name': l10n.all},
+                    ...filterOptions.genres.map((genre) {
+                      return {
+                        'id': genre.toLowerCase(),
+                        'name': genre, // Use the actual genre name from TMDb
+                      };
+                    }).toList(),
+                  ],
+                  selectedId: _selectedGenre,
+                  onSelect: (id) {
+                    if (id != _selectedGenre) {
+                      setState(() {
+                        _selectedGenre = id;
+                      });
+                    }
+                  },
+                ),
 
-        // LGBTQ+ Type Filter
-        _buildFilterBar(
-          title: 'LGBTQ+',
-          options: [
-            {'id': null, 'name': l10n.all},
-            {'id': 'lesbian', 'name': l10n.lesbian},
-            {'id': 'gay', 'name': l10n.gay},
-            {'id': 'bisexual', 'name': l10n.bisexual},
-            {'id': 'transgender', 'name': l10n.transgender},
-            {'id': 'queer', 'name': l10n.queer},
-          ],
-          selectedId: _selectedLgbtqType,
-          onSelect: (id) {
-            setState(() {
-              _selectedLgbtqType = id;
-            });
-          },
+              // LGBTQ+ Type Filter
+              if (filterOptions.lgbtqTypes.isNotEmpty)
+                _buildFilterBar(
+                  title: 'LGBTQ+',
+                  options: [
+                    {'id': null, 'name': l10n.all},
+                    ...filterOptions.lgbtqTypes.map((type) {
+                      return {
+                        'id': type.toLowerCase(),
+                        'name': _getLocalizedLgbtqType(type, l10n),
+                      };
+                    }).toList(),
+                  ],
+                  selectedId: _selectedLgbtqType,
+                  onSelect: (id) {
+                    if (id != _selectedLgbtqType) {
+                      setState(() {
+                        _selectedLgbtqType = id;
+                      });
+                    }
+                  },
+                ),
+            ],
+          ),
+          loading: () => const SizedBox(
+            height: 150,
+            child: Center(child: CircularProgressIndicator()),
+          ),
+          error: (error, stack) => const SizedBox.shrink(),
         ),
 
         // Movies Grid
@@ -93,6 +120,38 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
         ),
       ],
     );
+  }
+
+  // Get localized content type name
+  String _getLocalizedContentType(String type, AppLocalizations l10n) {
+    switch (type) {
+      case 'MOVIE':
+        return l10n.movie;
+      case 'TV_SERIES':
+        return l10n.tvSeries;
+      case 'SHORT':
+        return l10n.short;
+      default:
+        return type;
+    }
+  }
+
+  // Get localized LGBTQ+ type name
+  String _getLocalizedLgbtqType(String type, AppLocalizations l10n) {
+    switch (type.toLowerCase()) {
+      case 'lesbian':
+        return l10n.lesbian;
+      case 'gay':
+        return l10n.gay;
+      case 'bisexual':
+        return l10n.bisexual;
+      case 'transgender':
+        return l10n.transgender;
+      case 'queer':
+        return l10n.queer;
+      default:
+        return type;
+    }
   }
 
   Widget _buildFilterBar({
@@ -144,86 +203,112 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
   }
 
   Widget _buildMoviesGrid(AppLocalizations l10n) {
-    // TODO: Replace with actual data from API
-    // For now, showing placeholder
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.movie_outlined,
-            size: 64,
-            color: Colors.grey[400],
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'No movies yet',
-            style: TextStyle(
-              fontSize: 18,
-              color: Colors.grey[600],
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Movies will appear here',
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.grey[500],
-            ),
-          ),
-          const SizedBox(height: 24),
-          Text(
-            'Selected filters:',
-            style: TextStyle(
-              fontSize: 12,
-              color: Colors.grey[600],
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Type: ${_selectedContentType ?? "All"}',
-            style: TextStyle(
-              fontSize: 11,
-              color: Colors.grey[500],
-            ),
-          ),
-          Text(
-            'Genre: ${_selectedGenre ?? "All"}',
-            style: TextStyle(
-              fontSize: 11,
-              color: Colors.grey[500],
-            ),
-          ),
-          Text(
-            'LGBTQ+: ${_selectedLgbtqType ?? "All"}',
-            style: TextStyle(
-              fontSize: 11,
-              color: Colors.grey[500],
-            ),
-          ),
-        ],
-      ),
+    final filterParams = MovieFilterParams(
+      contentType: _selectedContentType,
+      genre: _selectedGenre,
+      lgbtqType: _selectedLgbtqType,
     );
 
-    // When we have data, use this grid:
-    /*
-    return GridView.builder(
-      controller: _scrollController,
-      padding: const EdgeInsets.all(8),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        childAspectRatio: 0.65,
-        crossAxisSpacing: 8,
-        mainAxisSpacing: 8,
-      ),
-      itemCount: movies.length,
-      itemBuilder: (context, index) {
-        final movie = movies[index];
-        return _buildMovieCard(movie);
+    final moviesAsync = ref.watch(movieListProvider(filterParams));
+
+    return RefreshIndicator(
+      onRefresh: () async {
+        ref.invalidate(movieListProvider(filterParams));
+        // Wait a bit for the provider to refresh
+        await Future.delayed(const Duration(milliseconds: 500));
       },
+      child: moviesAsync.when(
+        data: (movies) {
+          if (movies.isEmpty) {
+            return ListView(
+              children: [
+                SizedBox(
+                  height: MediaQuery.of(context).size.height * 0.5,
+                  child: Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.movie_outlined,
+                          size: 64,
+                          color: Colors.grey[400],
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          'No movies yet',
+                          style: TextStyle(
+                            fontSize: 18,
+                            color: Colors.grey[600],
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Movies will appear here',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.grey[500],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            );
+          }
+
+          return GridView.builder(
+            controller: _scrollController,
+            padding: const EdgeInsets.all(8),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              childAspectRatio: 0.65,
+              crossAxisSpacing: 8,
+              mainAxisSpacing: 8,
+            ),
+            itemCount: movies.length,
+            itemBuilder: (context, index) {
+              final movie = movies[index];
+              return _buildMovieCard(movie);
+            },
+          );
+        },
+        loading: () => const Center(
+          child: CircularProgressIndicator(),
+        ),
+        error: (error, stack) => ListView(
+          children: [
+            SizedBox(
+              height: MediaQuery.of(context).size.height * 0.5,
+              child: Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.error, size: 64, color: Colors.red),
+                    const SizedBox(height: 16),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Text(
+                        '${l10n.errorLoadingData}: $error',
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    ElevatedButton(
+                      onPressed: () {
+                        ref.invalidate(movieListProvider(filterParams));
+                      },
+                      child: Text(l10n.retry),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
-    */
   }
 
   Widget _buildMovieCard(MovieModel movie) {

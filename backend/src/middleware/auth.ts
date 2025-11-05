@@ -11,9 +11,9 @@ export interface AuthRequest extends Request {
 }
 
 export interface JWTPayload {
-  id: string;
-  username: string;
+  userId: string;
   email: string;
+  role?: string;
   iat: number;
   exp: number;
 }
@@ -38,11 +38,11 @@ export const authenticateToken = async (
       return;
     }
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as JWTPayload;
+    const decoded = jwt.verify(token, process.env['JWT_SECRET']!) as JWTPayload;
     
     // Verify user still exists and is active
     const user = await prisma.user.findUnique({
-      where: { id: decoded.id },
+      where: { id: decoded.userId },
       select: { id: true, username: true, email: true, isActive: true },
     });
     
@@ -55,8 +55,8 @@ export const authenticateToken = async (
     }
 
     req.user = {
-      id: decoded.id,
-      username: decoded.username,
+      id: decoded.userId,
+      username: user.username,
       email: decoded.email,
     };
 
@@ -91,7 +91,7 @@ export const authenticateToken = async (
  */
 export const optionalAuth = async (
   req: AuthRequest,
-  res: Response,
+  _res: Response,
   next: NextFunction
 ): Promise<void> => {
   try {
@@ -103,18 +103,18 @@ export const optionalAuth = async (
       return;
     }
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as JWTPayload;
+    const decoded = jwt.verify(token, process.env['JWT_SECRET']!) as JWTPayload;
     
     // Verify user still exists and is active
     const user = await prisma.user.findUnique({
-      where: { id: decoded.id },
+      where: { id: decoded.userId },
       select: { id: true, username: true, email: true, isActive: true },
     });
     
     if (user && user.isActive) {
       req.user = {
-        id: decoded.id,
-        username: decoded.username,
+        id: decoded.userId,
+        username: user.username,
         email: decoded.email,
       };
     }
@@ -202,7 +202,6 @@ export const rateLimit = (windowMs: number, maxRequests: number) => {
   return (req: AuthRequest, res: Response, next: NextFunction): void => {
     const key = req.ip || 'unknown';
     const now = Date.now();
-    const windowStart = now - windowMs;
 
     // Clean up old entries
     for (const [ip, data] of requests.entries()) {

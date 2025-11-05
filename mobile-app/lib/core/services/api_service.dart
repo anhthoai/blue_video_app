@@ -1795,4 +1795,72 @@ class ApiService {
       rethrow;
     }
   }
+
+  // ============================================
+  // MOVIE/LIBRARY API METHODS
+  // ============================================
+
+  // Get movies with filters
+  Future<Map<String, dynamic>> getMovies({
+    int page = 1,
+    int limit = 20,
+    String? contentType,
+    String? genre,
+    String? lgbtqType,
+    String? search,
+  }) async {
+    final queryParams = <String, String>{
+      'page': page.toString(),
+      'limit': limit.toString(),
+    };
+
+    if (contentType != null) queryParams['contentType'] = contentType;
+    if (genre != null) queryParams['genre'] = genre;
+    if (lgbtqType != null) queryParams['lgbtqType'] = lgbtqType;
+    if (search != null) queryParams['search'] = search;
+
+    final uri = Uri.parse('$baseUrl/movies').replace(
+      queryParameters: queryParams,
+    );
+
+    final response = await http.get(
+      uri,
+      headers: await _getHeaders(),
+    );
+
+    return await _handleResponse(response);
+  }
+
+  // Get movie by ID
+  Future<Map<String, dynamic>> getMovieById(String movieId) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/movies/$movieId'),
+      headers: await _getHeaders(),
+    );
+
+    return await _handleResponse(response);
+  }
+
+  // Get episode stream URL
+  Future<Map<String, dynamic>> getEpisodeStreamUrl(
+    String movieId,
+    String episodeId,
+  ) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/movies/$movieId/episodes/$episodeId/stream'),
+      headers: await _getHeaders(),
+    );
+
+    return await _handleResponse(response);
+  }
+
+  // Get available filter options (genres, lgbtq types, content types)
+  Future<Map<String, dynamic>> getMovieFilterOptions() async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/movies/filters/options'),
+      headers: await _getHeaders(),
+    );
+
+    return await _handleResponse(response);
+  }
 }

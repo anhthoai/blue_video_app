@@ -24,6 +24,7 @@ import multer from 'multer';
 import { paymentService, IPNNotification } from './services/paymentService';
 import swaggerUi from 'swagger-ui-express';
 import { swaggerSpec } from './config/swagger';
+import movieRoutes from './routes/movies';
 
 // Initialize Prisma Client
 const prisma = new PrismaClient();
@@ -93,6 +94,12 @@ app.get('/api-docs.json', (_req, res) => {
   res.setHeader('Content-Type', 'application/json');
   res.send(swaggerSpec);
 });
+
+// ============================================
+// MOVIE/LIBRARY ROUTES
+// ============================================
+app.use('/api/v1/movies', movieRoutes);
+console.log('📚 Movie/Library routes registered at /api/v1/movies');
 
 /**
  * @swagger
@@ -8582,7 +8589,6 @@ app.get('/api/v1/users/vip-subscriptions', authenticateToken, async (req, res): 
     });
   }
 });
-
 
 // Start the server
 startServer();

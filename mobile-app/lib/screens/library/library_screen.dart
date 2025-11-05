@@ -37,9 +37,18 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
         centerTitle: true,
         bottom: TabBar(
           controller: _tabController,
-          indicatorColor: Theme.of(context).colorScheme.primary,
-          labelColor: Theme.of(context).colorScheme.primary,
-          unselectedLabelColor: Colors.grey,
+          indicatorColor: Colors.white,
+          indicatorWeight: 3,
+          labelColor: Colors.white,
+          unselectedLabelColor: Colors.white.withOpacity(0.6),
+          labelStyle: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.bold,
+          ),
+          unselectedLabelStyle: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.normal,
+          ),
           tabs: [
             Tab(text: l10n.movies),
             Tab(text: l10n.ebooks),
