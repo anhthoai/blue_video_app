@@ -894,6 +894,97 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get random => 'Random';
 
+  // Library Feature
+  @override
+  String get library => 'Library';
+
+  @override
+  String get movies => 'Movies';
+
+  @override
+  String get ebooks => 'Ebooks';
+
+  @override
+  String get magazines => 'Magazines';
+
+  @override
+  String get comics => 'Comics';
+
+  @override
+  String get movie => 'Movie';
+
+  @override
+  String get tvSeries => 'TV Series';
+
+  @override
+  String get short => 'Short';
+
+  @override
+  String get drama => 'Drama';
+
+  @override
+  String get comedy => 'Comedy';
+
+  @override
+  String get romance => 'Romance';
+
+  @override
+  String get action => 'Action';
+
+  @override
+  String get thriller => 'Thriller';
+
+  @override
+  String get horror => 'Horror';
+
+  @override
+  String get lesbian => 'Lesbian';
+
+  @override
+  String get gay => 'Gay';
+
+  @override
+  String get bisexual => 'Bisexual';
+
+  @override
+  String get transgender => 'Transgender';
+
+  @override
+  String get queer => 'Queer';
+
+  @override
+  String get episodes => 'Episodes';
+
+  @override
+  String get season => 'Season';
+
+  @override
+  String get episode => 'Episode';
+
+  @override
+  String get playMovie => 'Play Movie';
+
+  @override
+  String get addToWatchlist => 'Add to Watchlist';
+
+  @override
+  String get releaseYear => 'Release Year';
+
+  @override
+  String get rating => 'Rating';
+
+  @override
+  String get runtime => 'Runtime';
+
+  @override
+  String get director => 'Director';
+
+  @override
+  String get cast => 'Cast';
+
+  @override
+  String get overview => 'Overview';
+
   // Upload video screen
   @override
   String get addTitle => 'Add Title';

@@ -638,3 +638,209 @@ model PlaylistVideo {
   @@index([videoId])
   @@map("playlist_videos")
 }
+
+// ============================================
+// LIBRARY FEATURE - Movies, Episodes, Digital Content
+// ============================================
+
+enum MovieContentType {
+  MOVIE
+  TV_SERIES
+  SHORT
+  
+  @@map("movie_content_type")
+}
+
+enum MovieStatus {
+  RUMORED
+  PLANNED
+  IN_PRODUCTION
+  POST_PRODUCTION
+  RELEASED
+  CANCELED
+  
+  @@map("movie_status")
+}
+
+enum ContentSource {
+  UPLOAD
+  ULOZ
+  EXTERNAL
+  
+  @@map("content_source")
+}
+
+enum LibraryContentType {
+  EBOOK
+  AUDIOBOOK
+  MAGAZINE
+  COMIC
+  
+  @@map("library_content_type")
+}
+
+model Movie {
+  id         String   @id @default(uuid())
+  imdbId     String?  @unique @map("imdb_id")
+  tmdbId     String?  @map("tmdb_id")
+  tvdbId     String?  @map("tvdb_id")
+  
+  // Basic Info
+  title            String   @db.VarChar(500)
+  alternativeTitles Json?    @map("alternative_titles") // Array of {title, country, language}
+  slug             String   @unique @db.VarChar(500)
+  overview         String?  @db.Text
+  tagline          String?  @db.Text
+  
+  // Media
+  posterUrl    String? @map("poster_url") @db.Text
+  backdropUrl  String? @map("backdrop_url") @db.Text
+  photos       Json?   // Array of image URLs
+  trailerUrl   String? @map("trailer_url") @db.Text
+  
+  // Classification
+  contentType  MovieContentType @default(MOVIE) @map("content_type")
+  releaseDate  DateTime?        @map("release_date")
+  endDate      DateTime?        @map("end_date") // For TV series
+  runtime      Int?             // In minutes
+  
+  // Categories
+  genres       Json?   // Array of genre strings
+  countries    Json?   // Array of country codes
+  languages    Json?   // Array of language codes
+  isAdult      Boolean @default(false) @map("is_adult")
+  
+  // LGBTQ+ Classification
+  lgbtqTypes   Json?   @map("lgbtq_types") // Array: ['gay', 'lesbian', 'bisexual', 'transgender', 'queer']
+  
+  // Credits
+  directors    Json?   // Array of {id, name}
+  writers      Json?   // Array of {id, name}
+  producers    Json?   // Array of {id, name}
+  actors       Json?   // Array of {id, name, character, order}
+  
+  // Statistics
+  voteAverage  Decimal? @map("vote_average") @db.Decimal(3,1)
+  voteCount    Int?     @map("vote_count") @default(0)
+  popularity   Decimal? @db.Decimal(8,3)
+  views        Int      @default(0)
+  
+  // Status
+  status       MovieStatus @default(RELEASED)
+  
+  // Metadata
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+  createdBy    String?  @map("created_by")
+  
+  // Relations
+  episodes     MovieEpisode[]
+  
+  @@index([imdbId])
+  @@index([tmdbId])
+  @@index([contentType])
+  @@index([releaseDate])
+  @@index([status])
+  @@map("movies")
+}
+
+model MovieEpisode {
+  id         String   @id @default(uuid())
+  movieId    String   @map("movie_id")
+  
+  // Episode Info
+  episodeNumber Int    @map("episode_number")
+  seasonNumber  Int    @default(1) @map("season_number")
+  title         String? @db.VarChar(500)
+  overview      String? @db.Text
+  
+  // Media
+  thumbnailUrl  String? @map("thumbnail_url") @db.Text
+  duration      Int?    // In seconds
+  
+  // File Source (uloz.to)
+  source           ContentSource @default(ULOZ)
+  slug             String?       @db.VarChar(500)
+  parentFolderSlug String?       @map("parent_folder_slug") @db.VarChar(500)
+  fileUrl          String?       @map("file_url") @db.Text
+  streamUrl        String?       @map("stream_url") @db.Text
+  contentType      String?       @default("video") @map("content_type") @db.VarChar(50)
+  extension        String?       @db.VarChar(10)
+  fileSize         BigInt?       @map("file_size")
+  
+  // Dates
+  airDate      DateTime? @map("air_date")
+  
+  // Statistics
+  views        Int      @default(0)
+  
+  // Status
+  isAvailable  Boolean  @default(true) @map("is_available")
+  
+  // Metadata
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+  
+  // Relations
+  movie        Movie    @relation(fields: [movieId], references: [id], onDelete: Cascade)
+  
+  @@index([movieId])
+  @@index([seasonNumber, episodeNumber])
+  @@index([slug])
+  @@map("movie_episodes")
+}
+
+model LibraryContent {
+  id          String   @id @default(uuid())
+  
+  // Basic Info
+  title       String   @db.VarChar(500)
+  slug        String   @unique @db.VarChar(500)
+  description String?  @db.Text
+  
+  // Media
+  coverUrl     String? @map("cover_url") @db.Text
+  thumbnailUrl String? @map("thumbnail_url") @db.Text
+  
+  // Classification
+  contentType  LibraryContentType @map("content_type")
+  extension    String?            @db.VarChar(10)
+  fileSize     BigInt?            @map("file_size")
+  
+  // Categories
+  genres       Json?   // Array of genre strings
+  languages    Json?   // Array of language codes
+  isAdult      Boolean @default(false) @map("is_adult")
+  
+  // File Source
+  source           ContentSource @default(UPLOAD)
+  slugPath         String?       @map("slug_path") @db.VarChar(500)
+  fileUrl          String?       @map("file_url") @db.Text
+  parentFolderSlug String?       @map("parent_folder_slug") @db.VarChar(500)
+  
+  // For Gallery Content (magazines, comics)
+  pagesCount   Int?    @map("pages_count")
+  pagesUrls    Json?   @map("pages_urls") // Array of image URLs
+  
+  // Metadata
+  author        String?   @db.VarChar(500)
+  publisher     String?   @db.VarChar(500)
+  publishedDate DateTime? @map("published_date")
+  isbn          String?   @db.VarChar(20)
+  
+  // Statistics
+  views        Int      @default(0)
+  downloads    Int      @default(0)
+  
+  // Status
+  isAvailable  Boolean  @default(true) @map("is_available")
+  
+  // Metadata
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+  createdBy    String?  @map("created_by")
+  
+  @@index([contentType])
+  @@index([slugPath])
+  @@map("library_content")
+}

@@ -890,6 +890,97 @@ class AppLocalizationsJa extends AppLocalizations {
   @override
   String get random => 'ランダム';
 
+  // Library Feature
+  @override
+  String get library => 'ライブラリ';
+
+  @override
+  String get movies => '映画';
+
+  @override
+  String get ebooks => '電子書籍';
+
+  @override
+  String get magazines => '雑誌';
+
+  @override
+  String get comics => 'コミック';
+
+  @override
+  String get movie => '映画';
+
+  @override
+  String get tvSeries => 'テレビシリーズ';
+
+  @override
+  String get short => 'ショート';
+
+  @override
+  String get drama => 'ドラマ';
+
+  @override
+  String get comedy => 'コメディ';
+
+  @override
+  String get romance => 'ロマンス';
+
+  @override
+  String get action => 'アクション';
+
+  @override
+  String get thriller => 'スリラー';
+
+  @override
+  String get horror => 'ホラー';
+
+  @override
+  String get lesbian => 'レズビアン';
+
+  @override
+  String get gay => 'ゲイ';
+
+  @override
+  String get bisexual => 'バイセクシュアル';
+
+  @override
+  String get transgender => 'トランスジェンダー';
+
+  @override
+  String get queer => 'クィア';
+
+  @override
+  String get episodes => 'エピソード';
+
+  @override
+  String get season => 'シーズン';
+
+  @override
+  String get episode => 'エピソード';
+
+  @override
+  String get playMovie => '映画を再生';
+
+  @override
+  String get addToWatchlist => 'ウォッチリストに追加';
+
+  @override
+  String get releaseYear => '公開年';
+
+  @override
+  String get rating => '評価';
+
+  @override
+  String get runtime => '上映時間';
+
+  @override
+  String get director => '監督';
+
+  @override
+  String get cast => 'キャスト';
+
+  @override
+  String get overview => '概要';
+
   // Upload video screen
   @override
   String get addTitle => 'タイトルを追加';

@@ -350,6 +350,38 @@ abstract class AppLocalizations {
   String get mostViewed;
   String get random;
 
+  // Library Feature
+  String get library;
+  String get movies;
+  String get ebooks;
+  String get magazines;
+  String get comics;
+  String get movie;
+  String get tvSeries;
+  String get short;
+  String get drama;
+  String get comedy;
+  String get romance;
+  String get action;
+  String get thriller;
+  String get horror;
+  String get lesbian;
+  String get gay;
+  String get bisexual;
+  String get transgender;
+  String get queer;
+  String get episodes;
+  String get season;
+  String get episode;
+  String get playMovie;
+  String get addToWatchlist;
+  String get releaseYear;
+  String get rating;
+  String get runtime;
+  String get director;
+  String get cast;
+  String get overview;
+
   // Upload video screen
   String get addTitle;
   String get addDescription;

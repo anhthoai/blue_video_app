@@ -6,7 +6,8 @@ import '../../l10n/app_localizations.dart';
 import '../../core/services/version_service.dart';
 import '../../core/services/app_lifecycle_service.dart';
 import '../home/home_screen.dart';
-import '../discover/discover_screen.dart';
+// import '../discover/discover_screen.dart'; // Hidden for now
+import '../library/library_screen.dart';
 import '../community/community_screen.dart';
 import '../chat/chat_list_screen.dart';
 import '../profile/current_user_profile_screen.dart';
@@ -24,7 +25,8 @@ class _MainScreenState extends ConsumerState<MainScreen> {
 
   final List<Widget> _screens = [
     const HomeScreen(),
-    const DiscoverScreen(),
+    const LibraryScreen(), // New Library screen
+    // const DiscoverScreen(), // Hidden for now
     const CommunityScreen(),
     const ChatListScreen(),
     const CurrentUserProfileScreen(),
@@ -69,10 +71,15 @@ class _MainScreenState extends ConsumerState<MainScreen> {
         label: l10n.home,
       ),
       BottomNavigationBarItem(
-        icon: const Icon(Icons.explore_outlined),
-        activeIcon: const Icon(Icons.explore),
-        label: l10n.discover,
+        icon: const Icon(Icons.video_library_outlined),
+        activeIcon: const Icon(Icons.video_library),
+        label: l10n.library,
       ),
+      // BottomNavigationBarItem(
+      //   icon: const Icon(Icons.explore_outlined),
+      //   activeIcon: const Icon(Icons.explore),
+      //   label: l10n.discover,
+      // ),
       BottomNavigationBarItem(
         icon: const Icon(Icons.people_outlined),
         activeIcon: const Icon(Icons.people),

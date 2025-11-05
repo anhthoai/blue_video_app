@@ -889,6 +889,97 @@ class AppLocalizationsZh extends AppLocalizations {
   @override
   String get random => '随机';
 
+  // Library Feature
+  @override
+  String get library => '资料库';
+
+  @override
+  String get movies => '电影';
+
+  @override
+  String get ebooks => '电子书';
+
+  @override
+  String get magazines => '杂志';
+
+  @override
+  String get comics => '漫画';
+
+  @override
+  String get movie => '电影';
+
+  @override
+  String get tvSeries => '电视剧';
+
+  @override
+  String get short => '短片';
+
+  @override
+  String get drama => '剧情';
+
+  @override
+  String get comedy => '喜剧';
+
+  @override
+  String get romance => '爱情';
+
+  @override
+  String get action => '动作';
+
+  @override
+  String get thriller => '惊悚';
+
+  @override
+  String get horror => '恐怖';
+
+  @override
+  String get lesbian => '女同';
+
+  @override
+  String get gay => '男同';
+
+  @override
+  String get bisexual => '双性恋';
+
+  @override
+  String get transgender => '跨性别';
+
+  @override
+  String get queer => '酷儿';
+
+  @override
+  String get episodes => '集数';
+
+  @override
+  String get season => '季';
+
+  @override
+  String get episode => '集';
+
+  @override
+  String get playMovie => '播放电影';
+
+  @override
+  String get addToWatchlist => '加入观看列表';
+
+  @override
+  String get releaseYear => '上映年份';
+
+  @override
+  String get rating => '评分';
+
+  @override
+  String get runtime => '时长';
+
+  @override
+  String get director => '导演';
+
+  @override
+  String get cast => '演员';
+
+  @override
+  String get overview => '简介';
+
   // Upload video screen
   @override
   String get addTitle => '添加标题';
