@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../l10n/app_localizations.dart';
 import '../../models/movie_model.dart';
@@ -314,7 +315,8 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
   Widget _buildMovieCard(MovieModel movie) {
     return GestureDetector(
       onTap: () {
-        // TODO: Navigate to movie detail screen
+        // Navigate to movie detail screen
+        context.push('/main/library/movie/${movie.id}');
       },
       child: Card(
         clipBehavior: Clip.antiAlias,

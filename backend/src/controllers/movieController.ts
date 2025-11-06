@@ -178,7 +178,7 @@ export async function importFromImdb(req: Request, res: Response): Promise<void>
 export async function importEpisodesFromUloz(req: Request, res: Response): Promise<void> {
   try {
     const movieId = req.params['movieId'] as string;
-    const { folderUrl, fileUrl, episodeNumber, seasonNumber = 1 } = req.body;
+    const { url, folderUrl, fileUrl, episodeNumber, seasonNumber = 1 } = req.body;
 
     // Verify movie exists
     const movie = await prisma.movie.findUnique({
@@ -194,76 +194,188 @@ export async function importEpisodesFromUloz(req: Request, res: Response): Promi
     }
 
     let episodes = [];
+    let skippedCount = 0;
+    
+    // Support both 'url' and specific 'folderUrl'/'fileUrl'
+    const targetUrl = url || folderUrl || fileUrl;
 
-    if (folderUrl) {
-      // Import entire folder as episodes
-      const files = await ulozService.importFolderAsEpisodes(folderUrl);
-
-      for (const file of files) {
-        const episode = await prisma.movieEpisode.create({
-          data: {
-            movieId: movieId,
-            episodeNumber: file.suggestedEpisodeNumber || 1,
-            seasonNumber: Number(seasonNumber),
-            title: file.name,
-            slug: file.slug,
-            fileUrl: file.url,
-            contentType: file.contentType,
-            extension: file.extension,
-            fileSize: BigInt(file.size),
-            duration: file.duration || null,
-            thumbnailUrl: file.thumbnail || null,
-            source: 'ULOZ',
-          },
-        });
-
-        episodes.push(episode);
-      }
-    } else if (fileUrl) {
-      // Import single file
-      if (!episodeNumber) {
-        res.status(400).json({
-          success: false,
-          message: 'episodeNumber is required when importing a single file',
-        });
-        return;
-      }
-
-      const fileInfo = await ulozService.getFileInfo(fileUrl);
-
-      const episode = await prisma.movieEpisode.create({
-        data: {
-          movieId: movieId,
-          episodeNumber: Number(episodeNumber),
-          seasonNumber: Number(seasonNumber),
-          title: fileInfo.name,
-          slug: fileInfo.slug,
-          fileUrl: fileInfo.url,
-          contentType: fileInfo.contentType,
-          extension: fileInfo.extension,
-          fileSize: BigInt(fileInfo.size),
-          duration: fileInfo.duration || null,
-          thumbnailUrl: fileInfo.thumbnail || null,
-          source: 'ULOZ',
-        },
-      });
-
-      episodes.push(episode);
-    } else {
+    if (!targetUrl) {
       res.status(400).json({
         success: false,
-        message: 'Either folderUrl or fileUrl is required',
+        message: 'url, folderUrl, or fileUrl is required',
       });
       return;
     }
 
+    // Auto-detect if it's a folder or file
+    console.log('🔍 Auto-detecting type for:', targetUrl);
+    const detectedType = await ulozService.detectType(targetUrl);
+    console.log('   ✅ Detected as:', detectedType.toUpperCase());
+
+    if (detectedType === 'folder') {
+      // Import entire folder as episodes
+      try {
+        console.log('📁 Importing folder as episodes...');
+        const files = await ulozService.importFolderAsEpisodes(targetUrl);
+
+        if (files.length === 0) {
+          res.status(404).json({
+            success: false,
+            message: 'No video files found in folder',
+          });
+          return;
+        }
+
+        console.log(`   Found ${files.length} video files in folder`);
+
+        for (let i = 0; i < files.length; i++) {
+          const file = files[i];
+          if (!file) continue; // Skip if file is undefined
+          
+          // Use suggested episode number or calculate from existing episodes
+          const existingEpisodes = await prisma.movieEpisode.findMany({
+            where: { movieId },
+            orderBy: [{ seasonNumber: 'asc' }, { episodeNumber: 'asc' }],
+          });
+          
+          const lastEpisode = existingEpisodes
+            .filter(ep => ep.seasonNumber === Number(seasonNumber))
+            .sort((a, b) => b.episodeNumber - a.episodeNumber)[0];
+          
+          // Check if episode already exists (by movieId + slug)
+          const existingEpisode = await prisma.movieEpisode.findFirst({
+            where: {
+              movieId: movieId,
+              slug: file.slug,
+            },
+          });
+
+          if (existingEpisode) {
+            console.log(`   ⏭️  Skipping duplicate: ${file.name} (slug: ${file.slug})`);
+            skippedCount++;
+            continue;
+          }
+
+          const epNum = file.suggestedEpisodeNumber || 
+            (lastEpisode ? lastEpisode.episodeNumber + 1 : i + 1);
+          
+          console.log(`   ✅ Creating episode ${epNum}: ${file.name}`);
+          
+          const newEpisode = await prisma.movieEpisode.create({
+            data: {
+              movieId: movieId,
+              episodeNumber: epNum,
+              seasonNumber: Number(seasonNumber),
+              title: file.name, // Keep full filename
+              slug: file.slug,
+              fileUrl: file.url,
+              contentType: file.contentType,
+              extension: file.extension,
+              fileSize: BigInt(file.size),
+              duration: file.duration || null,
+              thumbnailUrl: file.thumbnail || null,
+              videoPreviewUrl: file.videoPreview || null,
+              folderSlug: file.folderSlug || null,
+              source: 'ULOZ',
+            },
+          });
+
+          episodes.push(newEpisode);
+        }
+        
+        console.log(`✅ Successfully imported ${episodes.length} new episode(s) from folder`);
+        if (skippedCount > 0) {
+          console.log(`   ⏭️  Skipped ${skippedCount} duplicate(s)`);
+        }
+      } catch (error: any) {
+        console.error('❌ Error importing folder:', error);
+        res.status(500).json({
+          success: false,
+          message: 'Failed to import episodes',
+          error: error.message,
+        });
+        return;
+      }
+    } else {
+      // Import single file
+      try {
+        console.log('📄 Importing single file...');
+        const fileInfo = await ulozService.getFileInfo(targetUrl);
+        
+        // Check if episode already exists (by movieId + slug)
+        const existingEpisode = await prisma.movieEpisode.findFirst({
+          where: {
+            movieId: movieId,
+            slug: fileInfo.slug,
+          },
+        });
+
+        if (existingEpisode) {
+          console.log(`   ⏭️  File already exists: ${fileInfo.name} (slug: ${fileInfo.slug})`);
+          skippedCount++;
+          // Don't add to episodes array, just skip
+        } else {
+          // Calculate episode number if not provided
+          const existingEpisodes = await prisma.movieEpisode.findMany({
+            where: { movieId },
+            orderBy: [{ seasonNumber: 'asc' }, { episodeNumber: 'asc' }],
+          });
+          
+          const lastEpisode = existingEpisodes
+            .filter(ep => ep.seasonNumber === Number(seasonNumber))
+            .sort((a, b) => b.episodeNumber - a.episodeNumber)[0];
+          
+          const epNum = episodeNumber 
+            ? Number(episodeNumber) 
+            : (lastEpisode ? lastEpisode.episodeNumber + 1 : 1);
+
+          console.log(`   ✅ Creating episode ${epNum}: ${fileInfo.name}`);
+
+          const newEpisode = await prisma.movieEpisode.create({
+            data: {
+              movieId: movieId,
+              episodeNumber: epNum,
+              seasonNumber: Number(seasonNumber),
+              title: fileInfo.name, // Use full filename as title
+              slug: fileInfo.slug,
+              fileUrl: fileInfo.url || targetUrl,
+              contentType: fileInfo.contentType,
+              extension: fileInfo.extension,
+              fileSize: BigInt(fileInfo.size),
+              duration: fileInfo.duration || null,
+              thumbnailUrl: fileInfo.thumbnail || null,
+              videoPreviewUrl: fileInfo.videoPreview || null,
+              folderSlug: fileInfo.folderSlug || null,
+              source: 'ULOZ',
+            },
+          });
+
+          episodes.push(newEpisode);
+          console.log(`✅ Successfully imported episode: ${fileInfo.name}`);
+        }
+      } catch (error: any) {
+        console.error('❌ Error importing file:', error);
+        res.status(500).json({
+          success: false,
+          message: 'Failed to import episodes',
+          error: error.message,
+        });
+        return;
+      }
+    }
+
+    const message = skippedCount > 0
+      ? `Imported ${episodes.length} new episode(s), skipped ${skippedCount} duplicate(s)`
+      : `Imported ${episodes.length} episode(s)`;
+
     res.json({
       success: true,
-      message: `Imported ${episodes.length} episode(s)`,
+      message,
       data: episodes.map(ep => ({
         ...ep,
         fileSize: ep.fileSize?.toString(),
       })),
+      skipped: skippedCount,
     });
   } catch (error: any) {
     console.error('Error importing episodes:', error);

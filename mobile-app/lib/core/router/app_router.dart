@@ -31,6 +31,8 @@ import '../../screens/coin/coin_history_screen.dart';
 import '../../screens/vip/vip_subscription_screen.dart';
 import '../../screens/discover/category_detail_screen.dart';
 import '../../screens/playlist/playlist_detail_screen.dart';
+import '../../screens/library/movie_detail_screen.dart';
+import '../../screens/library/movie_player_screen.dart';
 import '../../models/category_model.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
@@ -159,6 +161,26 @@ final routerProvider = Provider<GoRouter>((ref) {
                 authorId: authorId,
                 authorName: authorName,
                 authorAvatar: authorAvatar,
+              );
+            },
+          ),
+
+          // Library Routes
+          GoRoute(
+            path: 'library/movie/:movieId',
+            builder: (context, state) {
+              final movieId = state.pathParameters['movieId']!;
+              return MovieDetailScreen(movieId: movieId);
+            },
+          ),
+          GoRoute(
+            path: 'library/movie/:movieId/player',
+            builder: (context, state) {
+              final movieId = state.pathParameters['movieId']!;
+              final episodeId = state.uri.queryParameters['episodeId'];
+              return MoviePlayerScreen(
+                movieId: movieId,
+                initialEpisodeId: episodeId,
               );
             },
           ),

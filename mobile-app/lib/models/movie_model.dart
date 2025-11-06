@@ -340,11 +340,13 @@ class MovieEpisode {
 
   // Media
   final String? thumbnailUrl;
+  final String? videoPreviewUrl;
   final int? duration; // In seconds
 
   // File Source
   final String source; // 'UPLOAD', 'ULOZ', 'EXTERNAL'
   final String? slug;
+  final String? folderSlug;
   final String? parentFolderSlug;
   final String? fileUrl;
   final String? streamUrl;
@@ -373,9 +375,11 @@ class MovieEpisode {
     this.title,
     this.overview,
     this.thumbnailUrl,
+    this.videoPreviewUrl,
     this.duration,
     required this.source,
     this.slug,
+    this.folderSlug,
     this.parentFolderSlug,
     this.fileUrl,
     this.streamUrl,
@@ -398,15 +402,25 @@ class MovieEpisode {
       title: json['title'] as String?,
       overview: json['overview'] as String?,
       thumbnailUrl: json['thumbnailUrl'] as String?,
-      duration: json['duration'] as int?,
+      videoPreviewUrl: json['videoPreviewUrl'] as String?,
+      duration: json['duration'] != null
+          ? (json['duration'] is String
+              ? int.tryParse(json['duration'])
+              : json['duration'] as int?)
+          : null,
       source: json['source'] as String,
       slug: json['slug'] as String?,
+      folderSlug: json['folderSlug'] as String?,
       parentFolderSlug: json['parentFolderSlug'] as String?,
       fileUrl: json['fileUrl'] as String?,
       streamUrl: json['streamUrl'] as String?,
       contentType: json['contentType'] as String?,
       extension: json['extension'] as String?,
-      fileSize: json['fileSize'] as int?,
+      fileSize: json['fileSize'] != null
+          ? (json['fileSize'] is String
+              ? int.tryParse(json['fileSize'])
+              : json['fileSize'] as int?)
+          : null,
       airDate: json['airDate'] != null
           ? DateTime.parse(json['airDate'] as String)
           : null,
@@ -426,9 +440,11 @@ class MovieEpisode {
       'title': title,
       'overview': overview,
       'thumbnailUrl': thumbnailUrl,
+      'videoPreviewUrl': videoPreviewUrl,
       'duration': duration,
       'source': source,
       'slug': slug,
+      'folderSlug': folderSlug,
       'parentFolderSlug': parentFolderSlug,
       'fileUrl': fileUrl,
       'streamUrl': streamUrl,
@@ -446,9 +462,27 @@ class MovieEpisode {
   // Helper getters
   String get formattedDuration {
     if (duration == null) return '';
-    final minutes = duration! ~/ 60;
+    final hours = duration! ~/ 3600;
+    final minutes = (duration! % 3600) ~/ 60;
+
+    if (hours > 0) {
+      return '${hours}h ${minutes}m';
+    } else {
+      return '${minutes}m';
+    }
+  }
+
+  String get formattedDurationFull {
+    if (duration == null) return '';
+    final hours = duration! ~/ 3600;
+    final minutes = (duration! % 3600) ~/ 60;
     final seconds = duration! % 60;
-    return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
+
+    if (hours > 0) {
+      return '${hours.toString().padLeft(1, '0')}:${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
+    } else {
+      return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
+    }
   }
 
   String get episodeLabel =>

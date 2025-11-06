@@ -187,3 +187,4 @@ mobile-app/coverage/
 mobile-app/*.log
 mobile-app/tmp/
 mobile-app/temp/
+references/

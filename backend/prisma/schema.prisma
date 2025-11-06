@@ -755,12 +755,14 @@ model MovieEpisode {
   overview      String? @db.Text
   
   // Media
-  thumbnailUrl  String? @map("thumbnail_url") @db.Text
-  duration      Int?    // In seconds
+  thumbnailUrl     String? @map("thumbnail_url") @db.Text
+  videoPreviewUrl  String? @map("video_preview_url") @db.Text
+  duration         Int?    // In seconds
   
   // File Source (uloz.to)
   source           ContentSource @default(ULOZ)
   slug             String?       @db.VarChar(500)
+  folderSlug       String?       @map("folder_slug") @db.VarChar(500)
   parentFolderSlug String?       @map("parent_folder_slug") @db.VarChar(500)
   fileUrl          String?       @map("file_url") @db.Text
   streamUrl        String?       @map("stream_url") @db.Text
