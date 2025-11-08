@@ -248,11 +248,13 @@ class AlternativeTitle {
   final String title;
   final String? country;
   final String? language;
+  final String? type;
 
   AlternativeTitle({
     required this.title,
     this.country,
     this.language,
+    this.type,
   });
 
   factory AlternativeTitle.fromJson(Map<String, dynamic> json) {
@@ -260,6 +262,7 @@ class AlternativeTitle {
       title: json['title'] as String,
       country: json['country'] as String?,
       language: json['language'] as String?,
+      type: json['type'] as String?,
     );
   }
 
@@ -268,6 +271,7 @@ class AlternativeTitle {
       'title': title,
       'country': country,
       'language': language,
+      'type': type,
     };
   }
 }
@@ -301,12 +305,14 @@ class Actor {
   final String name;
   final String? character;
   final int? order;
+  final String? profileUrl;
 
   Actor({
     this.id,
     required this.name,
     this.character,
     this.order,
+    this.profileUrl,
   });
 
   factory Actor.fromJson(Map<String, dynamic> json) {
@@ -315,6 +321,7 @@ class Actor {
       name: json['name'] as String,
       character: json['character'] as String?,
       order: json['order'] as int?,
+      profileUrl: json['profileUrl'] as String?,
     );
   }
 
@@ -324,6 +331,7 @@ class Actor {
       'name': name,
       'character': character,
       'order': order,
+      'profileUrl': profileUrl,
     };
   }
 }

@@ -151,6 +151,19 @@ class MovieDetailScreen extends ConsumerWidget {
                                     fontWeight: FontWeight.bold)),
                           ),
                           const SizedBox(height: 8),
+                          if (movie.alternativeTitles != null &&
+                              movie.alternativeTitles!.isNotEmpty)
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 4),
+                              child: Text(
+                                'Original title(s): ${movie.alternativeTitles!.map((alt) => alt.title).join(', ')}',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: Colors.grey[700],
+                                  fontStyle: FontStyle.italic,
+                                ),
+                              ),
+                            ),
                           if (movie.voteAverage != null)
                             Row(
                               children: [
@@ -207,6 +220,33 @@ class MovieDetailScreen extends ConsumerWidget {
                                     .toList(),
                               ),
                             ),
+                          if (movie.countries != null &&
+                              movie.countries!.isNotEmpty)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 8),
+                              child: Text(
+                                'Country: ${movie.countries!.join(', ')}',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: Colors.grey[700],
+                                ),
+                              ),
+                            ),
+                          Padding(
+                            padding: const EdgeInsets.only(top: 4),
+                            child: Text(
+                              'Adult: ${movie.isAdult ? 'Yes' : 'No'}',
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: movie.isAdult
+                                    ? Colors.redAccent
+                                    : Colors.grey[700],
+                                fontWeight: movie.isAdult
+                                    ? FontWeight.w600
+                                    : FontWeight.w400,
+                              ),
+                            ),
+                          ),
                         ],
                       ),
                     ),
@@ -240,7 +280,7 @@ class MovieDetailScreen extends ConsumerWidget {
                               fontSize: 18, fontWeight: FontWeight.bold)),
                       const SizedBox(height: 12),
                       SizedBox(
-                        height: 120,
+                        height: 155,
                         child: ListView.builder(
                           scrollDirection: Axis.horizontal,
                           itemCount: movie.actors!.length > 10
@@ -248,6 +288,11 @@ class MovieDetailScreen extends ConsumerWidget {
                               : movie.actors!.length,
                           itemBuilder: (context, index) {
                             final actor = movie.actors![index];
+                            final hasAvatar = actor.profileUrl != null &&
+                                actor.profileUrl!.isNotEmpty;
+                            final placeholderInitial = actor.name.isNotEmpty
+                                ? actor.name[0].toUpperCase()
+                                : '?';
                             return Container(
                               width: 80,
                               margin: const EdgeInsets.only(right: 12),
@@ -256,12 +301,18 @@ class MovieDetailScreen extends ConsumerWidget {
                                   CircleAvatar(
                                     radius: 35,
                                     backgroundColor: Colors.grey[300],
-                                    child: Text(
-                                      actor.name[0].toUpperCase(),
-                                      style: const TextStyle(
-                                          fontSize: 24,
-                                          fontWeight: FontWeight.bold),
-                                    ),
+                                    backgroundImage: hasAvatar
+                                        ? NetworkImage(actor.profileUrl!)
+                                        : null,
+                                    child: hasAvatar
+                                        ? null
+                                        : Text(
+                                            placeholderInitial,
+                                            style: const TextStyle(
+                                              fontSize: 24,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
                                   ),
                                   const SizedBox(height: 8),
                                   Text(
@@ -273,6 +324,20 @@ class MovieDetailScreen extends ConsumerWidget {
                                     overflow: TextOverflow.ellipsis,
                                     textAlign: TextAlign.center,
                                   ),
+                                  if (actor.character != null &&
+                                      actor.character!.isNotEmpty) ...[
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      '(${actor.character})',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        color: Colors.grey[600],
+                                      ),
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                      textAlign: TextAlign.center,
+                                    ),
+                                  ],
                                 ],
                               ),
                             );

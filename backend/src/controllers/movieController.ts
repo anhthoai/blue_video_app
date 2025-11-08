@@ -5,6 +5,17 @@ import ulozService from '../services/ulozService';
 
 const prisma = new PrismaClient();
 
+const regionDisplay = new Intl.DisplayNames(['en'], { type: 'region' });
+
+function getCountryName(code?: string | null): string | null {
+  if (!code) return null;
+  try {
+    return regionDisplay.of(code.toUpperCase()) || code.toUpperCase();
+  } catch {
+    return code.toUpperCase();
+  }
+}
+
 /**
  * Generate slug from title
  */
@@ -36,45 +47,90 @@ function mapTMDbStatus(status: string): 'RUMORED' | 'PLANNED' | 'IN_PRODUCTION' 
  */
 export async function importFromImdb(req: Request, res: Response): Promise<void> {
   try {
-    const { imdbId, imdbIds } = req.body;
+    const {
+      imdbId,
+      imdbIds,
+      tmdbId,
+      tmdbIds,
+      ids,
+      identifiers,
+    } = req.body;
     const userId = (req as any).user?.id;
 
-    if (!imdbId && !imdbIds) {
+    const idsToImport: string[] = (
+      identifiers ||
+      ids ||
+      imdbIds ||
+      tmdbIds ||
+      (imdbId ? [imdbId] : undefined) ||
+      (tmdbId ? [tmdbId] : undefined)
+    )
+      ?.map((value: string | number) => value?.toString().trim())
+      .filter((value: string | undefined) => !!value) as string[];
+
+    if (!idsToImport || idsToImport.length === 0) {
       res.status(400).json({
         success: false,
-        message: 'imdbId or imdbIds array is required',
+        message: 'At least one IMDb or TMDb identifier is required',
       });
       return;
     }
-
-    const idsToImport = imdbIds || [imdbId];
     const results = [];
 
     for (const id of idsToImport) {
       try {
-        // Check if movie already exists
-        const existing = await prisma.movie.findUnique({
-          where: { imdbId: id },
-        });
+        const rawInput = `${id}`.trim();
+        let identifier = rawInput;
+        let tmdbTypeHint: 'movie' | 'tv' | undefined;
 
-        if (existing) {
+        const tmdbUrlMatch = identifier.match(/themoviedb\.org\/(movie|tv)\/(\d+)/i);
+        const tmdbUrlType = tmdbUrlMatch?.[1];
+        const tmdbUrlId = tmdbUrlMatch?.[2];
+        if (tmdbUrlType && tmdbUrlId) {
+          tmdbTypeHint = tmdbUrlType.toLowerCase() as 'movie' | 'tv';
+          identifier = tmdbUrlId;
+        }
+
+        const tmdbPrefixMatch = identifier.match(/^(movie|tv)[/:](\d+)$/i);
+        const tmdbPrefixType = tmdbPrefixMatch?.[1];
+        const tmdbPrefixId = tmdbPrefixMatch?.[2];
+        if (tmdbPrefixType && tmdbPrefixId) {
+          tmdbTypeHint = tmdbPrefixType.toLowerCase() as 'movie' | 'tv';
+          identifier = tmdbPrefixId;
+        }
+
+        if (!identifier) {
+          continue;
+        }
+
+        const isImdb = /^tt\d+$/i.test(identifier);
+        const isTmdb = /^\d+$/.test(identifier);
+
+        if (!isImdb && !isTmdb) {
           results.push({
-            imdbId: id,
+            identifier: rawInput,
             success: false,
-            message: 'Movie already exists',
-            movieId: existing.id,
+            message: 'Identifier must be an IMDb (ttxxxxxx) or TMDb (numeric) ID',
           });
           continue;
         }
 
-        // Fetch from TMDb
-        const tmdbData = await tmdbService.findByImdbId(id);
+        if (tmdbTypeHint) {
+          console.log(`🎬 Import request -> Identifier: ${identifier} (${tmdbTypeHint.toUpperCase()} ID)`);
+        } else {
+          console.log(`🎬 Import request -> Identifier: ${identifier} (${isImdb ? 'IMDb' : 'TMDb'})`);
+        }
+
+        const tmdbData = isImdb
+          ? await tmdbService.findByImdbId(identifier)
+          : await tmdbService.findByTmdbId(identifier, tmdbTypeHint);
 
         if (!tmdbData) {
+          console.warn(`⚠️ TMDb lookup failed for identifier ${identifier}`);
           results.push({
-            imdbId: id,
+            identifier: rawInput,
             success: false,
-            message: 'Movie not found in TMDb',
+            message: 'Title not found in TMDb',
           });
           continue;
         }
@@ -82,15 +138,113 @@ export async function importFromImdb(req: Request, res: Response): Promise<void>
         const { type, data } = tmdbData;
         const isMovie = type === 'movie';
         const movieData = data as any;
+        const tmdbIdValue = movieData.id?.toString();
+        const imdbIdValue = (
+          (isImdb ? identifier : null) ||
+          movieData.imdb_id ||
+          movieData.external_ids?.imdb_id ||
+          null
+        )?.toString() || null;
+
+        // Check for duplicates based on available IDs
+        const duplicateConditions: any[] = [];
+        if (imdbIdValue) duplicateConditions.push({ imdbId: imdbIdValue });
+        if (tmdbIdValue) duplicateConditions.push({ tmdbId: tmdbIdValue });
+
+        let existing = null;
+        if (duplicateConditions.length > 0) {
+          existing = await prisma.movie.findFirst({
+            where: {
+              OR: duplicateConditions,
+            },
+          });
+        }
+
+        if (existing) {
+          results.push({
+            identifier: rawInput,
+            success: false,
+            message: 'Movie already exists',
+            movieId: existing.id,
+          });
+          continue;
+        }
+
+        console.log(
+          `✅ TMDb lookup success -> ${tmdbIdValue || 'unknown TMDb id'} (${movieData.title || movieData.name}) [${tmdbData.type.toUpperCase()}]`
+        );
 
         // Prepare movie data
         const slug = generateSlug(movieData.title || movieData.name);
         const title = movieData.title || movieData.name;
+        const resolvedCountries =
+          (movieData.production_countries?.map((c: any) =>
+            c?.name || getCountryName(c?.iso_3166_1)
+          ) ?? [])
+            .filter((value: string | null) => !!value)
+            .map((value: string | null) => value as string);
+        const originCountries = Array.isArray(movieData.origin_country)
+          ? movieData.origin_country
+              .map((code: string) => getCountryName(code))
+              .filter((value: string | null) => !!value)
+              .map((value: string | null) => value as string)
+          : [];
+
+        const alternativeTitles: Array<{ title: string; country?: string | null; language?: string | null; type?: string | null }> = [];
+        const primaryTitle = title;
+        const originalTitle = isMovie ? movieData.original_title : movieData.original_name;
+        const originalLanguage = movieData.original_language || movieData.languages?.[0];
+        const originalCountry = resolvedCountries[0] || originCountries[0] || null;
+
+        const addAlternativeTitle = (
+          altTitle?: string | null,
+          country?: string | null,
+          language?: string | null,
+          type?: string | null
+        ) => {
+          if (!altTitle) return;
+          if (altTitle.trim() === '') return;
+          if (altTitle.trim() === primaryTitle?.trim()) return;
+
+          const key = `${altTitle.trim().toLowerCase()}__${country ?? ''}__${language ?? ''}`;
+          if (!alternativeTitles.some((item) => `${item.title.trim().toLowerCase()}__${item.country ?? ''}__${item.language ?? ''}` === key)) {
+            alternativeTitles.push({
+              title: altTitle.trim(),
+              country: country ?? null,
+              language: language ?? null,
+              type: type ?? null,
+            });
+          }
+        };
+
+        addAlternativeTitle(originalTitle, originalCountry, originalLanguage, 'original');
+
+        if (isMovie) {
+          const altTitles = movieData.alternative_titles?.titles || [];
+          altTitles.forEach((item: any) => {
+            addAlternativeTitle(
+              item?.title,
+              item?.iso_3166_1 ? getCountryName(item.iso_3166_1) : null,
+              item?.iso_639_1 || null,
+              item?.type || null,
+            );
+          });
+        } else {
+          const altTitles = movieData.alternative_titles?.results || [];
+          altTitles.forEach((item: any) => {
+            addAlternativeTitle(
+              item?.title,
+              item?.iso_3166_1 ? getCountryName(item.iso_3166_1) : null,
+              null,
+              item?.type || null,
+            );
+          });
+        }
 
         const movie = await prisma.movie.create({
           data: {
-            imdbId: id,
-            tmdbId: movieData.id?.toString(),
+            imdbId: imdbIdValue,
+            tmdbId: tmdbIdValue,
             title,
             slug,
             overview: movieData.overview,
@@ -99,19 +253,19 @@ export async function importFromImdb(req: Request, res: Response): Promise<void>
             backdropUrl: tmdbService.getImageUrl(movieData.backdrop_path, 'original'),
             trailerUrl: tmdbService.getTrailerUrl(movieData.videos),
             contentType: isMovie ? 'MOVIE' : (movieData.number_of_seasons ? 'TV_SERIES' : 'SHORT'),
-            releaseDate: movieData.release_date || movieData.first_air_date 
+            releaseDate: movieData.release_date || movieData.first_air_date
               ? new Date(movieData.release_date || movieData.first_air_date)
               : null,
             endDate: movieData.last_air_date ? new Date(movieData.last_air_date) : null,
-            runtime: isMovie 
-              ? movieData.runtime 
+            runtime: isMovie
+              ? movieData.runtime
               : (movieData.episode_run_time && movieData.episode_run_time[0]),
             genres: movieData.genres?.map((g: any) => g.name) || [],
-            countries: movieData.production_countries?.map((c: any) => c.iso_3166_1) 
-              || movieData.origin_country || [],
+            countries: resolvedCountries.length > 0 ? resolvedCountries : originCountries,
             languages: movieData.spoken_languages?.map((l: any) => l.iso_639_1)
               || movieData.languages || [],
             isAdult: movieData.adult || false,
+            alternativeTitles: alternativeTitles,
             directors: movieData.credits?.crew
               ?.filter((c: any) => c.job === 'Director')
               .map((c: any) => ({ id: c.id.toString(), name: c.name })) || [],
@@ -124,10 +278,11 @@ export async function importFromImdb(req: Request, res: Response): Promise<void>
             actors: movieData.credits?.cast
               ?.slice(0, 20)
               .map((a: any) => ({
-                id: a.id.toString(),
+                id: a.id?.toString(),
                 name: a.name,
                 character: a.character,
                 order: a.order,
+                profileUrl: tmdbService.getImageUrl(a.profile_path, 'w185'),
               })) || [],
             voteAverage: movieData.vote_average,
             voteCount: movieData.vote_count,
@@ -138,16 +293,21 @@ export async function importFromImdb(req: Request, res: Response): Promise<void>
         });
 
         results.push({
-          imdbId: id,
+          identifier: rawInput,
+          imdbId: imdbIdValue,
+          tmdbId: tmdbIdValue,
+          type: tmdbData.type,
           success: true,
           message: 'Movie imported successfully',
           movieId: movie.id,
           movie,
         });
+
+        console.log(`🎉 Created movie ${movie.title} (${movie.id})`);
       } catch (error: any) {
         console.error(`Error importing movie ${id}:`, error);
         results.push({
-          imdbId: id,
+          identifier: `${id}`,
           success: false,
           message: error.message || 'Failed to import movie',
         });
@@ -158,7 +318,7 @@ export async function importFromImdb(req: Request, res: Response): Promise<void>
 
     res.json({
       success: successCount > 0,
-      message: `Imported ${successCount} of ${idsToImport.length} movies`,
+      message: `Imported ${successCount} of ${idsToImport.length} title(s)`,
       results,
     });
   } catch (error: any) {
@@ -195,7 +355,7 @@ export async function importEpisodesFromUloz(req: Request, res: Response): Promi
 
     let episodes = [];
     let skippedCount = 0;
-    
+
     // Support both 'url' and specific 'folderUrl'/'fileUrl'
     const targetUrl = url || folderUrl || fileUrl;
 
@@ -231,17 +391,17 @@ export async function importEpisodesFromUloz(req: Request, res: Response): Promi
         for (let i = 0; i < files.length; i++) {
           const file = files[i];
           if (!file) continue; // Skip if file is undefined
-          
+
           // Use suggested episode number or calculate from existing episodes
           const existingEpisodes = await prisma.movieEpisode.findMany({
             where: { movieId },
             orderBy: [{ seasonNumber: 'asc' }, { episodeNumber: 'asc' }],
           });
-          
+
           const lastEpisode = existingEpisodes
             .filter(ep => ep.seasonNumber === Number(seasonNumber))
             .sort((a, b) => b.episodeNumber - a.episodeNumber)[0];
-          
+
           // Check if episode already exists (by movieId + slug)
           const existingEpisode = await prisma.movieEpisode.findFirst({
             where: {
@@ -255,17 +415,17 @@ export async function importEpisodesFromUloz(req: Request, res: Response): Promi
 
           if (existingEpisode) {
             console.log(`   ⏭️  Episode already exists: ${file.name} (slug: ${file.slug})`);
-            
+
             // Check if we need to add missing subtitles
             if (file.subtitles && file.subtitles.length > 0) {
               let addedSubtitles = 0;
-              
+
               for (const sub of file.subtitles) {
                 // Check if this subtitle already exists
                 const hasSubtitle = existingEpisode.subtitles.some(
                   existing => existing.slug === sub.slug
                 );
-                
+
                 if (!hasSubtitle) {
                   await prisma.subtitle.create({
                     data: {
@@ -280,21 +440,21 @@ export async function importEpisodesFromUloz(req: Request, res: Response): Promi
                   addedSubtitles++;
                 }
               }
-              
+
               if (addedSubtitles > 0) {
                 console.log(`      📝 Added ${addedSubtitles} new subtitle(s) to existing episode`);
               }
             }
-            
+
             skippedCount++;
             continue;
           }
 
-          const epNum = file.suggestedEpisodeNumber || 
+          const epNum = file.suggestedEpisodeNumber ||
             (lastEpisode ? lastEpisode.episodeNumber + 1 : i + 1);
-          
+
           console.log(`   ✅ Creating episode ${epNum}: ${file.name}`);
-          
+
           // Create the episode first
           const newEpisode = await prisma.movieEpisode.create({
             data: {
@@ -314,12 +474,12 @@ export async function importEpisodesFromUloz(req: Request, res: Response): Promi
               source: 'ULOZ',
             },
           });
-          
+
           // Add subtitles with duplicate checking
           if (file.subtitles && file.subtitles.length > 0) {
             let addedSubtitles = 0;
             let skippedSubtitles = 0;
-            
+
             for (const sub of file.subtitles) {
               // Check if subtitle already exists for this episode (by episodeId + slug)
               const existingSubtitle = await prisma.subtitle.findFirst({
@@ -328,12 +488,12 @@ export async function importEpisodesFromUloz(req: Request, res: Response): Promi
                   slug: sub.slug,
                 },
               });
-              
+
               if (existingSubtitle) {
                 skippedSubtitles++;
                 continue;
               }
-              
+
               // Create the subtitle
               await prisma.subtitle.create({
                 data: {
@@ -345,10 +505,10 @@ export async function importEpisodesFromUloz(req: Request, res: Response): Promi
                   source: 'ULOZ',
                 },
               });
-              
+
               addedSubtitles++;
             }
-            
+
             if (addedSubtitles > 0) {
               console.log(`      📝 Added ${addedSubtitles} subtitle(s)`);
             }
@@ -359,7 +519,7 @@ export async function importEpisodesFromUloz(req: Request, res: Response): Promi
 
           episodes.push(newEpisode);
         }
-        
+
         console.log(`✅ Successfully imported ${episodes.length} new episode(s) from folder`);
         if (skippedCount > 0) {
           console.log(`   ⏭️  Skipped ${skippedCount} duplicate(s)`);
@@ -378,7 +538,7 @@ export async function importEpisodesFromUloz(req: Request, res: Response): Promi
       try {
         console.log('📄 Importing single file...');
         const fileInfo = await ulozService.getFileInfo(targetUrl);
-        
+
         // Check if episode already exists (by movieId + slug)
         const existingEpisode = await prisma.movieEpisode.findFirst({
           where: {
@@ -397,13 +557,13 @@ export async function importEpisodesFromUloz(req: Request, res: Response): Promi
             where: { movieId },
             orderBy: [{ seasonNumber: 'asc' }, { episodeNumber: 'asc' }],
           });
-          
+
           const lastEpisode = existingEpisodes
             .filter(ep => ep.seasonNumber === Number(seasonNumber))
             .sort((a, b) => b.episodeNumber - a.episodeNumber)[0];
-          
-          const epNum = episodeNumber 
-            ? Number(episodeNumber) 
+
+          const epNum = episodeNumber
+            ? Number(episodeNumber)
             : (lastEpisode ? lastEpisode.episodeNumber + 1 : 1);
 
           console.log(`   ✅ Creating episode ${epNum}: ${fileInfo.name}`);
@@ -710,7 +870,7 @@ export async function getSubtitleStream(req: Request, res: Response): Promise<vo
 
     if (subtitle.source === 'ULOZ' && subtitle.slug) {
       console.log('   Getting stream URL from uloz.to...');
-      
+
       // Use slug to get stream URL
       const streamUrl = await ulozService.getStreamUrl(subtitle.slug);
 

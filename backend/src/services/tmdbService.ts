@@ -9,6 +9,17 @@ interface TMDbConfig {
 interface TMDbMovie {
   id: number;
   imdb_id?: string;
+  external_ids?: {
+    imdb_id?: string;
+  };
+  alternative_titles?: {
+    titles: Array<{
+      iso_3166_1?: string;
+      iso_639_1?: string;
+      title: string;
+      type?: string;
+    }>;
+  };
   title: string;
   original_title: string;
   overview: string;
@@ -38,12 +49,14 @@ interface TMDbMovie {
       name: string;
       character: string;
       order: number;
+      profile_path?: string;
     }>;
     crew: Array<{
       id: number;
       name: string;
       job: string;
       department: string;
+      profile_path?: string;
     }>;
   };
   images?: {
@@ -55,6 +68,16 @@ interface TMDbMovie {
 interface TMDbTVShow {
   id: number;
   imdb_id?: string;
+  external_ids?: {
+    imdb_id?: string;
+  };
+  alternative_titles?: {
+    results: Array<{
+      iso_3166_1?: string;
+      title: string;
+      type?: string;
+    }>;
+  };
   name: string;
   original_name: string;
   overview: string;
@@ -87,12 +110,14 @@ interface TMDbTVShow {
       name: string;
       character: string;
       order: number;
+      profile_path?: string;
     }>;
     crew: Array<{
       id: number;
       name: string;
       job: string;
       department: string;
+      profile_path?: string;
     }>;
   };
   images?: {
@@ -199,7 +224,7 @@ export class TMDbService {
     try {
       const response = await this.client.get(`/movie/${movieId}`, {
         params: {
-          append_to_response: 'credits,videos,images',
+          append_to_response: 'credits,videos,images,external_ids,alternative_titles',
         },
       });
 
@@ -217,7 +242,7 @@ export class TMDbService {
     try {
       const response = await this.client.get(`/tv/${tvId}`, {
         params: {
-          append_to_response: 'credits,videos,images',
+          append_to_response: 'credits,videos,images,external_ids,alternative_titles',
         },
       });
 
@@ -304,6 +329,43 @@ export class TMDbService {
     );
 
     return trailer ? `https://www.youtube.com/watch?v=${trailer.key}` : null;
+  }
+
+  async findByTmdbId(
+    tmdbId: string | number,
+    preferredType?: 'movie' | 'tv'
+  ): Promise<{ type: 'movie' | 'tv'; data: TMDbMovie | TMDbTVShow } | null> {
+    const id = typeof tmdbId === 'string' ? parseInt(tmdbId, 10) : tmdbId;
+
+    if (Number.isNaN(id)) {
+      throw new Error('Invalid TMDb ID');
+    }
+
+    const attemptOrder: Array<'movie' | 'tv'> = preferredType
+      ? preferredType === 'tv'
+        ? ['tv', 'movie']
+        : ['movie', 'tv']
+      : ['movie', 'tv'];
+
+    for (const type of attemptOrder) {
+      try {
+        if (type === 'movie') {
+          const movieData = await this.getMovie(id);
+          return { type: 'movie', data: movieData };
+        } else {
+          const tvData = await this.getTVShow(id);
+          return { type: 'tv', data: tvData };
+        }
+      } catch (error: any) {
+        const status = error?.response?.status;
+        if (status && status !== 404) {
+          throw error;
+        }
+        // If 404, continue to next attempt
+      }
+    }
+
+    return null;
   }
 }
 

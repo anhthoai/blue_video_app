@@ -5,7 +5,8 @@
  * 
  * Usage:
  *   node import-movies.js tt14452776
- *   node import-movies.js tt14452776 tt13406036 tt5164432
+ *   node import-movies.js 278137
+ *   node import-movies.js tt14452776 278137 tt5164432
  *   node import-movies.js --batch movies.txt
  */
 
@@ -61,16 +62,60 @@ async function login() {
   }
 }
 
-/**
- * Import a single movie by IMDb ID
- */
-async function importMovie(token, imdbId) {
+function normalizeIdentifier(input) {
+  const trimmed = `${input}`.trim();
+
+  if (!trimmed) return null;
+
+  const urlMatch = trimmed.match(/themoviedb\.org\/(movie|tv)\/(\d+)/i);
+  if (urlMatch) {
+    return `${urlMatch[1].toLowerCase()}:${urlMatch[2]}`;
+  }
+
+  const prefixMatch = trimmed.match(/^(movie|tv)[/:](\d+)$/i);
+  if (prefixMatch) {
+    return `${prefixMatch[1].toLowerCase()}:${prefixMatch[2]}`;
+  }
+
+  if (/^tt\d+$/i.test(trimmed) || /^\d+$/.test(trimmed)) {
+    return trimmed;
+  }
+
+  return null;
+}
+
+function displayIdentifierInfo(identifier) {
+  if (identifier.startsWith('tv:')) {
+    return { label: 'TMDb TV', formatted: identifier, payload: identifier };
+  }
+  if (identifier.startsWith('movie:')) {
+    return { label: 'TMDb Movie', formatted: identifier, payload: identifier };
+  }
+  if (/^tt\d+$/i.test(identifier)) {
+    return { label: 'IMDb', formatted: identifier, payload: identifier };
+  }
+  if (/^\d+$/.test(identifier)) {
+    return { label: 'TMDb', formatted: identifier, payload: identifier };
+  }
+
+  return { label: 'Unknown', formatted: identifier, payload: identifier };
+}
+
+async function importMovie(token, identifierInput) {
+  const normalized = normalizeIdentifier(identifierInput);
+
+  if (!normalized) {
+    log(`⚠️  Skipping invalid identifier: ${identifierInput}`, colors.yellow);
+    return { success: false, message: 'Invalid identifier' };
+  }
+
+  const { label } = displayIdentifierInfo(normalized);
   try {
-    log(`\n📥 Importing ${imdbId}...`, colors.yellow);
+    log(`\n📥 Importing ${normalized} (${label})...`, colors.yellow);
 
     const response = await axios.post(
       `${API_BASE_URL}/api/v1/movies/import/imdb`,
-      { imdbId },
+      { identifiers: [normalized] },
       {
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -96,14 +141,19 @@ async function importMovie(token, imdbId) {
       }
     } else {
       log(`❌ Import failed: ${response.data.message}`, colors.red);
+      if (Array.isArray(response.data.results) && response.data.results.length > 0) {
+        response.data.results.forEach((item, idx) => {
+          log(`   [${idx + 1}] ${item.identifier || item.imdbId || item.tmdbId || 'Unknown'} -> ${item.message}`, colors.red);
+        });
+      }
       return { success: false, message: response.data.message };
     }
   } catch (error) {
     if (error.response?.status === 409 || error.response?.data?.message?.includes('already exists')) {
-      log(`⚠️  Movie already exists (${imdbId})`, colors.yellow);
+      log(`⚠️  Movie already exists (${normalized})`, colors.yellow);
       return { success: false, message: 'Already exists' };
     }
-    log(`❌ Error importing ${imdbId}: ${error.message}`, colors.red);
+    log(`❌ Error importing ${normalized}: ${error.message}`, colors.red);
     if (error.response?.data) {
       log(`   Details: ${JSON.stringify(error.response.data)}`, colors.red);
     }
@@ -114,8 +164,8 @@ async function importMovie(token, imdbId) {
 /**
  * Import multiple movies
  */
-async function importBatch(token, imdbIds) {
-  log(`\n📦 Batch importing ${imdbIds.length} movies...`, colors.bright);
+async function importBatch(token, rawIds) {
+  log(`\n📦 Batch importing ${rawIds.length} movies...`, colors.bright);
   
   const results = {
     success: 0,
@@ -123,13 +173,13 @@ async function importBatch(token, imdbIds) {
     skipped: 0,
   };
 
-  for (let i = 0; i < imdbIds.length; i++) {
-    const imdbId = imdbIds[i].trim();
-    if (!imdbId) continue;
+  for (let i = 0; i < rawIds.length; i++) {
+    const identifier = rawIds[i].trim();
+    if (!identifier) continue;
 
-    log(`\n[${i + 1}/${imdbIds.length}] ${imdbId}`, colors.bright);
+    log(`\n[${i + 1}/${rawIds.length}] ${identifier}`, colors.bright);
     
-    const result = await importMovie(token, imdbId);
+    const result = await importMovie(token, identifier);
     
     if (result.success) {
       results.success++;
@@ -140,7 +190,7 @@ async function importBatch(token, imdbIds) {
     }
 
     // Small delay between imports to avoid rate limiting
-    if (i < imdbIds.length - 1) {
+    if (i < rawIds.length - 1) {
       await new Promise(resolve => setTimeout(resolve, 500));
     }
   }
@@ -193,44 +243,47 @@ async function main() {
   const initialCount = await getMovieCount(token);
   log(`\n📊 Current library: ${initialCount} movie(s)`, colors.cyan);
 
-  let imdbIds = [];
+  let movieIdentifiers = [];
 
   // Check if batch import from file
   if (args[0] === '--batch' && args[1]) {
     const filename = args[1];
-    log(`\n📄 Reading IMDb IDs from ${filename}...`, colors.cyan);
+    log(`\n📄 Reading identifiers from ${filename}...`, colors.cyan);
     
     try {
       const fileContent = fs.readFileSync(filename, 'utf-8');
-      imdbIds = fileContent
+      movieIdentifiers = fileContent
         .split('\n')
-        .map(line => line.split('#')[0].trim()) // Remove comments
-        .filter(line => line && line.startsWith('tt'));
-      
-      log(`✅ Found ${imdbIds.length} IMDb IDs`, colors.green);
+        .map(line => line.split('#')[0].trim())
+        .map(line => normalizeIdentifier(line))
+        .filter(Boolean);
+
+      log(`✅ Found ${movieIdentifiers.length} valid identifier(s)`, colors.green);
     } catch (error) {
       log(`❌ Error reading file: ${error.message}`, colors.red);
       process.exit(1);
     }
   } else {
     // Single or multiple IDs from command line
-    imdbIds = args;
+    movieIdentifiers = args
+      .map(value => normalizeIdentifier(value))
+      .filter(Boolean);
   }
 
-  log(`\n🎬 Importing ${imdbIds.length} movie(s)...`, colors.bright);
+  log(`\n🎬 Importing ${movieIdentifiers.length} movie(s)...`, colors.bright);
   log('='.repeat(50), colors.cyan);
 
   // Import movies
   let results;
-  if (imdbIds.length === 1) {
-    const result = await importMovie(token, imdbIds[0]);
+  if (movieIdentifiers.length === 1) {
+    const result = await importMovie(token, movieIdentifiers[0]);
     results = {
       success: result.success ? 1 : 0,
       failed: result.success ? 0 : 1,
       skipped: 0,
     };
   } else {
-    results = await importBatch(token, imdbIds);
+    results = await importBatch(token, movieIdentifiers);
   }
 
   // Summary
@@ -242,6 +295,7 @@ async function main() {
   }
   if (results.failed > 0) {
     log(`   ❌ Failed: ${results.failed}`, colors.red);
+    log('   Review logs above for detailed reasons.', colors.red);
   }
 
   // Check final count
