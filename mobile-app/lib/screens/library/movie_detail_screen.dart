@@ -312,96 +312,121 @@ class MovieDetailScreen extends ConsumerWidget {
                               fontSize: 18, fontWeight: FontWeight.bold)),
                       const SizedBox(height: 12),
                       // Show episodes for all content types
-                      ...movie.episodes!.map((ep) => Card(
-                            margin: const EdgeInsets.only(bottom: 8),
-                            child: ListTile(
-                              leading: Container(
-                                width: 100,
-                                height: 60,
-                                decoration: BoxDecoration(
-                                  color: Colors.grey[300],
-                                  borderRadius: BorderRadius.circular(4),
-                                ),
-                                child: ep.thumbnailUrl != null
-                                    ? Stack(
-                                        fit: StackFit.expand,
-                                        children: [
-                                          ClipRRect(
-                                            borderRadius:
-                                                BorderRadius.circular(4),
-                                            child: Image.network(
-                                              ep.thumbnailUrl!,
-                                              fit: BoxFit.cover,
-                                              errorBuilder:
-                                                  (context, error, stackTrace) {
-                                                return Container(
-                                                  color: Colors.grey[300],
-                                                  child: const Icon(
-                                                      Icons.play_circle_outline,
-                                                      size: 32),
-                                                );
-                                              },
-                                              loadingBuilder: (context, child,
-                                                  loadingProgress) {
-                                                if (loadingProgress == null) {
-                                                  return child;
-                                                }
-                                                return Center(
-                                                  child:
-                                                      CircularProgressIndicator(
-                                                    value: loadingProgress
-                                                                .expectedTotalBytes !=
-                                                            null
-                                                        ? loadingProgress
-                                                                .cumulativeBytesLoaded /
-                                                            loadingProgress
-                                                                .expectedTotalBytes!
-                                                        : null,
+                      ...movie.episodes!.map(
+                        (ep) => Card(
+                          margin: const EdgeInsets.only(bottom: 8),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(10),
+                            onTap: () {
+                              context.push(
+                                '/main/library/movie/${movie.id}/player?episodeId=${ep.id}',
+                              );
+                            },
+                            child: Padding(
+                              padding: const EdgeInsets.all(12),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Container(
+                                        width: 90,
+                                        height: 54,
+                                        decoration: BoxDecoration(
+                                          color: Colors.grey[300],
+                                          borderRadius:
+                                              BorderRadius.circular(8),
+                                        ),
+                                        child: ClipRRect(
+                                          borderRadius:
+                                              BorderRadius.circular(8),
+                                          child: ep.thumbnailUrl != null
+                                              ? Image.network(
+                                                  ep.thumbnailUrl!,
+                                                  fit: BoxFit.cover,
+                                                  errorBuilder: (_, __, ___) =>
+                                                      const Icon(
+                                                    Icons.play_circle_outline,
+                                                    size: 32,
                                                   ),
-                                                );
-                                              },
-                                            ),
-                                          ),
-                                          Center(
-                                            child: Container(
-                                              padding: const EdgeInsets.all(4),
-                                              decoration: BoxDecoration(
-                                                color: Colors.black
-                                                    .withOpacity(0.5),
-                                                shape: BoxShape.circle,
+                                                )
+                                              : const Icon(
+                                                  Icons.play_circle_outline,
+                                                  size: 32,
+                                                ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              ep.title ?? 'Video File',
+                                              style: const TextStyle(
+                                                fontWeight: FontWeight.w600,
+                                                fontSize: 13,
                                               ),
-                                              child: const Icon(
-                                                Icons.play_arrow,
-                                                color: Colors.white,
-                                                size: 24,
-                                              ),
+                                              maxLines: 2,
+                                              overflow: TextOverflow.ellipsis,
                                             ),
-                                          ),
-                                        ],
-                                      )
-                                    : const Icon(Icons.play_circle_outline,
-                                        size: 32),
+                                            const SizedBox(height: 4),
+                                            if (ep.duration != null)
+                                              Text(
+                                                ep.formattedDuration,
+                                                style: TextStyle(
+                                                  fontSize: 12,
+                                                  color: Colors.grey[600],
+                                                ),
+                                              ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  if (ep.subtitles != null &&
+                                      ep.subtitles!.isNotEmpty)
+                                    Padding(
+                                      padding: const EdgeInsets.only(top: 10),
+                                      child: Wrap(
+                                        spacing: 8,
+                                        runSpacing: 8,
+                                        children: ep.subtitles!
+                                            .map(
+                                              (sub) => Container(
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                  horizontal: 6,
+                                                  vertical: 3,
+                                                ),
+                                                decoration: BoxDecoration(
+                                                  color: Colors.grey[200],
+                                                  borderRadius:
+                                                      BorderRadius.circular(6),
+                                                ),
+                                                child: Text(
+                                                  sub.flagEmoji,
+                                                  style: const TextStyle(
+                                                    fontSize: 14,
+                                                  ),
+                                                ),
+                                              ),
+                                            )
+                                            .toList(),
+                                      ),
+                                    ),
+                                ],
                               ),
-                              title: Text(ep.title ?? 'Video File',
-                                  style: const TextStyle(
-                                      fontWeight: FontWeight.w600,
-                                      fontSize: 13),
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis),
-                              subtitle: ep.duration != null
-                                  ? Text(ep.formattedDuration,
-                                      style: TextStyle(
-                                          fontSize: 12,
-                                          color: Colors.grey[600]))
-                                  : null,
-                              onTap: () {
-                                // Navigate to movie player screen
-                                context.push(
-                                  '/main/library/movie/${movie.id}/player?episodeId=${ep.id}',
-                                );
-                              },
                             ),
-                          )),
+                          ),
+                        ),
+                      ),
                     ],
                   ),
                 ),

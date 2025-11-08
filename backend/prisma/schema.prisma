@@ -785,11 +785,37 @@ model MovieEpisode {
   
   // Relations
   movie        Movie    @relation(fields: [movieId], references: [id], onDelete: Cascade)
+  subtitles    Subtitle[]
   
   @@index([movieId])
   @@index([seasonNumber, episodeNumber])
   @@index([slug])
   @@map("movie_episodes")
+}
+
+model Subtitle {
+  id        String   @id @default(uuid())
+  episodeId String   @map("episode_id")
+  
+  // Subtitle Info
+  language  String   @db.VarChar(10) // ISO 639-2 code (eng, tha, jpn, etc.)
+  label     String   @db.VarChar(100) // Display name (English, Thai, Japanese, etc.)
+  
+  // File Info
+  slug      String   @db.VarChar(500)
+  fileUrl   String   @map("file_url") @db.Text
+  source    ContentSource @default(ULOZ)
+  
+  // Metadata
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  
+  // Relations
+  episode   MovieEpisode @relation(fields: [episodeId], references: [id], onDelete: Cascade)
+  
+  @@index([episodeId])
+  @@index([slug])
+  @@map("subtitles")
 }
 
 model LibraryContent {

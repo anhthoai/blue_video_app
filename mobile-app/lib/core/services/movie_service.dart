@@ -75,6 +75,31 @@ class MovieService {
     }
   }
 
+  // Get subtitle stream URL
+  Future<String?> getSubtitleStreamUrl(
+      String movieId, String episodeId, String subtitleId) async {
+    try {
+      print('📝 Fetching subtitle stream URL...');
+      print('   Movie ID: $movieId');
+      print('   Episode ID: $episodeId');
+      print('   Subtitle ID: $subtitleId');
+
+      final response = await _apiService.getSubtitleStreamUrl(
+          movieId, episodeId, subtitleId);
+
+      if (response['success'] == true && response['data'] != null) {
+        final streamUrl = response['data']['streamUrl'] as String?;
+        print('✅ Subtitle stream URL: $streamUrl');
+        return streamUrl;
+      }
+      print('❌ No stream URL in response');
+      return null;
+    } catch (e) {
+      print('❌ Error getting subtitle stream URL: $e');
+      return null;
+    }
+  }
+
   // Get available filter options
   Future<MovieFilterOptions> getFilterOptions() async {
     try {

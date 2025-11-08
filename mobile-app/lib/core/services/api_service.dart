@@ -1854,6 +1854,21 @@ class ApiService {
     return await _handleResponse(response);
   }
 
+  // Get subtitle stream URL
+  Future<Map<String, dynamic>> getSubtitleStreamUrl(
+    String movieId,
+    String episodeId,
+    String subtitleId,
+  ) async {
+    final response = await http.get(
+      Uri.parse(
+          '$baseUrl/movies/$movieId/episodes/$episodeId/subtitles/$subtitleId/stream'),
+      headers: await _getHeaders(),
+    );
+
+    return await _handleResponse(response);
+  }
+
   // Get available filter options (genres, lgbtq types, content types)
   Future<Map<String, dynamic>> getMovieFilterOptions() async {
     final response = await http.get(

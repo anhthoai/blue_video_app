@@ -423,29 +423,70 @@ export class UlozService {
   }
 
   /**
-   * Import folder as episodes
+   * Import folder as episodes with subtitles
    * Returns array of file information that can be used to create episodes
    */
-  async importFolderAsEpisodes(folderUrl: string): Promise<Array<UlozFile & { suggestedEpisodeNumber?: number }>> {
+  async importFolderAsEpisodes(folderUrl: string): Promise<Array<UlozFile & { 
+    suggestedEpisodeNumber?: number;
+    subtitles?: Array<{
+      slug: string;
+      name: string;
+      url: string;
+      language: string;
+      label: string;
+    }>;
+  }>> {
     try {
       const files = await this.getFolderContents(folderUrl);
 
-      // Filter video files
+      // Filter video files and subtitle files
       const videoFiles = files.filter(file => 
         file.type.includes('video') || 
         this.isVideoExtension(this.extractExtension(file.name))
       );
 
-      // Get detailed info for each file and try to extract episode numbers
+      const subtitleFiles = files.filter(file =>
+        this.isSubtitleExtension(this.extractExtension(file.name))
+      );
+
+      console.log(`   Found ${videoFiles.length} video files and ${subtitleFiles.length} subtitle files`);
+
+      // Get detailed info for each video file and match subtitles
       const episodePromises = videoFiles.map(async (file, index) => {
         try {
           // Use slug instead of url to avoid double /file/ in the path
           const fileInfo = await this.getFileInfo(file.slug);
           const episodeNumber = this.extractEpisodeNumber(file.name) || index + 1;
 
+          // Find matching subtitle files for this video
+          const videoBaseName = this.getBaseFilename(file.name);
+          const matchingSubtitles = subtitleFiles
+            .filter(subtitleFile => {
+              const subtitleBaseName = this.getBaseFilename(subtitleFile.name);
+              return videoBaseName === subtitleBaseName;
+            })
+            .map(subtitleFile => {
+              const langInfo = this.extractSubtitleLanguage(subtitleFile.name);
+              return {
+                slug: subtitleFile.slug,
+                name: subtitleFile.name,
+                url: `https://uloz.to/file/${subtitleFile.slug}`, // Use simple format for subtitles
+                language: langInfo.code,
+                label: langInfo.label,
+              };
+            });
+
+          if (matchingSubtitles.length > 0) {
+            console.log(`   📝 Found ${matchingSubtitles.length} subtitle(s) for: ${file.name}`);
+            matchingSubtitles.forEach(sub => {
+              console.log(`      - ${sub.label} (${sub.language})`);
+            });
+          }
+
           return {
             ...fileInfo,
             suggestedEpisodeNumber: episodeNumber,
+            subtitles: matchingSubtitles,
           };
         } catch (error) {
           console.error(`Error getting info for file ${file.name}:`, error);
@@ -454,7 +495,16 @@ export class UlozService {
       });
 
       const episodes = await Promise.all(episodePromises);
-      return episodes.filter(ep => ep !== null) as Array<UlozFile & { suggestedEpisodeNumber?: number }>;
+      return episodes.filter(ep => ep !== null) as Array<UlozFile & { 
+        suggestedEpisodeNumber?: number;
+        subtitles?: Array<{
+          slug: string;
+          name: string;
+          url: string;
+          language: string;
+          label: string;
+        }>;
+      }>;
     } catch (error) {
       console.error('Error importing folder as episodes:', error);
       throw error;
@@ -479,6 +529,169 @@ export class UlozService {
   private isVideoExtension(ext: string): boolean {
     const videoExtensions = ['mp4', 'mkv', 'avi', 'mov', 'webm', 'flv', 'wmv', 'm4v'];
     return videoExtensions.includes(ext.toLowerCase());
+  }
+
+  /**
+   * Check if extension is a subtitle format
+   */
+  private isSubtitleExtension(ext: string): boolean {
+    const subtitleExtensions = ['srt', 'vtt', 'ass', 'ssa'];
+    return subtitleExtensions.includes(ext.toLowerCase());
+  }
+
+  /**
+   * Extract language code from subtitle filename
+   * Supports formats: filename.eng.srt, filename.tha.srt, filename.srt (default to eng)
+   */
+  private extractSubtitleLanguage(filename: string): { code: string; label: string } {
+    const languageMap: { [key: string]: string } = {
+      // Common languages
+      'eng': 'English',
+      'tha': 'Thai',
+      'jpn': 'Japanese',
+      'kor': 'Korean',
+      'chi': 'Chinese (Simplified)',
+      'zho': 'Chinese (Traditional)',
+      'spa': 'Spanish',
+      'fre': 'French',
+      'fra': 'French',
+      'ger': 'German',
+      'deu': 'German',
+      'ita': 'Italian',
+      'por': 'Portuguese',
+      'rus': 'Russian',
+      'ara': 'Arabic',
+      'hin': 'Hindi',
+      'vie': 'Vietnamese',
+      
+      // European languages
+      'dut': 'Dutch',
+      'nld': 'Dutch',
+      'pol': 'Polish',
+      'cze': 'Czech',
+      'ces': 'Czech',
+      'hun': 'Hungarian',
+      'gre': 'Greek',
+      'ell': 'Greek',
+      'rum': 'Romanian',
+      'ron': 'Romanian',
+      'tur': 'Turkish',
+      'swe': 'Swedish',
+      'nor': 'Norwegian',
+      'dan': 'Danish',
+      'fin': 'Finnish',
+      'ukr': 'Ukrainian',
+      
+      // Asian languages
+      'fil': 'Filipino',
+      'ind': 'Indonesian',
+      'may': 'Malay',
+      'msa': 'Malay',
+      'bur': 'Burmese',
+      'mya': 'Burmese',
+      'khm': 'Khmer',
+      'lao': 'Lao',
+      
+      // Other
+      'heb': 'Hebrew',
+      'per': 'Persian',
+      'fas': 'Persian',
+      'ben': 'Bengali',
+      'tam': 'Tamil',
+      'tel': 'Telugu',
+      'urd': 'Urdu',
+      'slo': 'Slovak',
+      'slk': 'Slovak',
+      'bul': 'Bulgarian',
+      'hrv': 'Croatian',
+      'srp': 'Serbian',
+      'slv': 'Slovenian',
+      'est': 'Estonian',
+      'lav': 'Latvian',
+      'lit': 'Lithuanian',
+      'ice': 'Icelandic',
+      'isl': 'Icelandic',
+      'mal': 'Malayalam',
+      'kan': 'Kannada',
+      'mar': 'Marathi',
+      'guj': 'Gujarati',
+      'pan': 'Punjabi',
+      'ori': 'Odia',
+      'asm': 'Assamese',
+      'nep': 'Nepali',
+      'sin': 'Sinhala',
+      'mon': 'Mongolian',
+      'tib': 'Tibetan',
+      'bod': 'Tibetan',
+      'geo': 'Georgian',
+      'kat': 'Georgian',
+      'arm': 'Armenian',
+      'hye': 'Armenian',
+      'aze': 'Azerbaijani',
+      'kaz': 'Kazakh',
+      'uzb': 'Uzbek',
+      'tgk': 'Tajik',
+      'pus': 'Pashto',
+      'kur': 'Kurdish',
+      'amh': 'Amharic',
+      'swa': 'Swahili',
+      'hau': 'Hausa',
+      'yor': 'Yoruba',
+      'zul': 'Zulu',
+      'afr': 'Afrikaans',
+      'mlt': 'Maltese',
+      'glg': 'Galician',
+      'cat': 'Catalan',
+      'baq': 'Basque',
+      'eus': 'Basque',
+      'wel': 'Welsh',
+      'cym': 'Welsh',
+      'gle': 'Irish',
+      'sco': 'Scots Gaelic',
+      'gla': 'Scots Gaelic',
+      'ltz': 'Luxembourgish',
+      'mao': 'Maori',
+      'mri': 'Maori',
+      'haw': 'Hawaiian',
+      'smo': 'Samoan',
+      'ton': 'Tongan',
+      'fij': 'Fijian',
+    };
+
+    // Try to find language code before the extension
+    // e.g., "filename.eng.srt" or "filename.tha.srt"
+    const match = filename.match(/\.([a-z]{3})\.[^.]+$/i);
+    
+    if (match && match[1]) {
+      const code = match[1].toLowerCase();
+      return {
+        code,
+        label: languageMap[code] || code.toUpperCase(),
+      };
+    }
+
+    // Default to English if no language code found
+    return { code: 'eng', label: 'English' };
+  }
+
+  /**
+   * Get base filename without language code and extension
+   * e.g., "video.eng.srt" -> "video"
+   */
+  private getBaseFilename(filename: string): string {
+    // Remove extension(s)
+    let base = filename;
+    
+    // Remove subtitle extension (.srt, .vtt, etc.)
+    base = base.replace(/\.(srt|vtt|ass|ssa)$/i, '');
+    
+    // Remove language code if present (.eng, .tha, etc.)
+    base = base.replace(/\.[a-z]{3}$/i, '');
+    
+    // Remove video extension (.mp4, .mkv, etc.)
+    base = base.replace(/\.(mp4|mkv|avi|mov|webm|flv|wmv|m4v)$/i, '');
+    
+    return base;
   }
 
   /**

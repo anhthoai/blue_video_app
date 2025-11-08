@@ -248,10 +248,44 @@ export async function importEpisodesFromUloz(req: Request, res: Response): Promi
               movieId: movieId,
               slug: file.slug,
             },
+            include: {
+              subtitles: true,
+            },
           });
 
           if (existingEpisode) {
-            console.log(`   ⏭️  Skipping duplicate: ${file.name} (slug: ${file.slug})`);
+            console.log(`   ⏭️  Episode already exists: ${file.name} (slug: ${file.slug})`);
+            
+            // Check if we need to add missing subtitles
+            if (file.subtitles && file.subtitles.length > 0) {
+              let addedSubtitles = 0;
+              
+              for (const sub of file.subtitles) {
+                // Check if this subtitle already exists
+                const hasSubtitle = existingEpisode.subtitles.some(
+                  existing => existing.slug === sub.slug
+                );
+                
+                if (!hasSubtitle) {
+                  await prisma.subtitle.create({
+                    data: {
+                      episodeId: existingEpisode.id,
+                      language: sub.language,
+                      label: sub.label,
+                      slug: sub.slug,
+                      fileUrl: sub.url,
+                      source: 'ULOZ',
+                    },
+                  });
+                  addedSubtitles++;
+                }
+              }
+              
+              if (addedSubtitles > 0) {
+                console.log(`      📝 Added ${addedSubtitles} new subtitle(s) to existing episode`);
+              }
+            }
+            
             skippedCount++;
             continue;
           }
@@ -261,6 +295,7 @@ export async function importEpisodesFromUloz(req: Request, res: Response): Promi
           
           console.log(`   ✅ Creating episode ${epNum}: ${file.name}`);
           
+          // Create the episode first
           const newEpisode = await prisma.movieEpisode.create({
             data: {
               movieId: movieId,
@@ -279,6 +314,48 @@ export async function importEpisodesFromUloz(req: Request, res: Response): Promi
               source: 'ULOZ',
             },
           });
+          
+          // Add subtitles with duplicate checking
+          if (file.subtitles && file.subtitles.length > 0) {
+            let addedSubtitles = 0;
+            let skippedSubtitles = 0;
+            
+            for (const sub of file.subtitles) {
+              // Check if subtitle already exists for this episode (by episodeId + slug)
+              const existingSubtitle = await prisma.subtitle.findFirst({
+                where: {
+                  episodeId: newEpisode.id,
+                  slug: sub.slug,
+                },
+              });
+              
+              if (existingSubtitle) {
+                skippedSubtitles++;
+                continue;
+              }
+              
+              // Create the subtitle
+              await prisma.subtitle.create({
+                data: {
+                  episodeId: newEpisode.id,
+                  language: sub.language,
+                  label: sub.label,
+                  slug: sub.slug,
+                  fileUrl: sub.url,
+                  source: 'ULOZ',
+                },
+              });
+              
+              addedSubtitles++;
+            }
+            
+            if (addedSubtitles > 0) {
+              console.log(`      📝 Added ${addedSubtitles} subtitle(s)`);
+            }
+            if (skippedSubtitles > 0) {
+              console.log(`      ⏭️  Skipped ${skippedSubtitles} duplicate subtitle(s)`);
+            }
+          }
 
           episodes.push(newEpisode);
         }
@@ -492,6 +569,9 @@ export async function getMovieById(req: Request, res: Response): Promise<void> {
       where: { id },
       include: {
         episodes: {
+          include: {
+            subtitles: true,
+          },
           orderBy: [
             { seasonNumber: 'asc' },
             { episodeNumber: 'asc' },
@@ -598,6 +678,82 @@ export async function getEpisodeStream(req: Request, res: Response): Promise<voi
     res.status(500).json({
       success: false,
       message: 'Failed to get stream URL',
+      error: error.message,
+    });
+  }
+}
+
+/**
+ * Get subtitle stream URL
+ * GET /api/v1/movies/:movieId/episodes/:episodeId/subtitles/:subtitleId/stream
+ */
+export async function getSubtitleStream(req: Request, res: Response): Promise<void> {
+  try {
+    const subtitleId = req.params['subtitleId'] as string;
+
+    console.log(`📝 Getting subtitle stream for ID: ${subtitleId}`);
+
+    const subtitle = await prisma.subtitle.findUnique({
+      where: { id: subtitleId },
+    });
+
+    if (!subtitle) {
+      res.status(404).json({
+        success: false,
+        message: 'Subtitle not found',
+      });
+      return;
+    }
+
+    console.log(`   Subtitle: ${subtitle.label} (${subtitle.language})`);
+    console.log(`   Slug: ${subtitle.slug}`);
+
+    if (subtitle.source === 'ULOZ' && subtitle.slug) {
+      console.log('   Getting stream URL from uloz.to...');
+      
+      // Use slug to get stream URL
+      const streamUrl = await ulozService.getStreamUrl(subtitle.slug);
+
+      console.log(`   Stream URL: ${streamUrl || 'NULL'}`);
+
+      if (!streamUrl) {
+        res.status(404).json({
+          success: false,
+          message: 'Subtitle stream URL not available',
+        });
+        return;
+      }
+
+      res.json({
+        success: true,
+        data: {
+          streamUrl,
+          subtitle: {
+            id: subtitle.id,
+            language: subtitle.language,
+            label: subtitle.label,
+          },
+        },
+      });
+    } else {
+      // For non-ULOZ subtitles, use fileUrl directly
+      res.json({
+        success: true,
+        data: {
+          streamUrl: subtitle.fileUrl,
+          subtitle: {
+            id: subtitle.id,
+            language: subtitle.language,
+            label: subtitle.label,
+          },
+        },
+      });
+    }
+  } catch (error: any) {
+    console.error('Error getting subtitle stream:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get subtitle stream URL',
       error: error.message,
     });
   }

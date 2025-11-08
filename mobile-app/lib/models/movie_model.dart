@@ -328,6 +328,93 @@ class Actor {
   }
 }
 
+class Subtitle {
+  final String id;
+  final String episodeId;
+  final String language; // ISO 639-2 code
+  final String label; // Display name
+  final String slug;
+  final String fileUrl;
+  final String source;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+
+  Subtitle({
+    required this.id,
+    required this.episodeId,
+    required this.language,
+    required this.label,
+    required this.slug,
+    required this.fileUrl,
+    required this.source,
+    required this.createdAt,
+    required this.updatedAt,
+  });
+
+  factory Subtitle.fromJson(Map<String, dynamic> json) {
+    return Subtitle(
+      id: json['id'] as String,
+      episodeId: json['episodeId'] as String,
+      language: json['language'] as String,
+      label: json['label'] as String,
+      slug: json['slug'] as String,
+      fileUrl: json['fileUrl'] as String,
+      source: json['source'] as String,
+      createdAt: DateTime.parse(json['createdAt'] as String),
+      updatedAt: DateTime.parse(json['updatedAt'] as String),
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'episodeId': episodeId,
+      'language': language,
+      'label': label,
+      'slug': slug,
+      'fileUrl': fileUrl,
+      'source': source,
+      'createdAt': createdAt.toIso8601String(),
+      'updatedAt': updatedAt.toIso8601String(),
+    };
+  }
+
+  // Helper to get flag emoji for language
+  String get flagEmoji {
+    final flagMap = {
+      'eng': '🇬🇧',
+      'tha': '🇹🇭',
+      'jpn': '🇯🇵',
+      'kor': '🇰🇷',
+      'chi': '🇨🇳',
+      'zho': '🇹🇼',
+      'spa': '🇪🇸',
+      'fre': '🇫🇷',
+      'fra': '🇫🇷',
+      'ger': '🇩🇪',
+      'deu': '🇩🇪',
+      'ita': '🇮🇹',
+      'por': '🇵🇹',
+      'rus': '🇷🇺',
+      'ara': '🇸🇦',
+      'hin': '🇮🇳',
+      'vie': '🇻🇳',
+      'dut': '🇳🇱',
+      'nld': '🇳🇱',
+      'pol': '🇵🇱',
+      'cze': '🇨🇿',
+      'ces': '🇨🇿',
+      'hun': '🇭🇺',
+      'gre': '🇬🇷',
+      'ell': '🇬🇷',
+      'rum': '🇷🇴',
+      'ron': '🇷🇴',
+      'tur': '🇹🇷',
+    };
+    return flagMap[language.toLowerCase()] ?? '🌐';
+  }
+}
+
 class MovieEpisode {
   final String id;
   final String movieId;
@@ -367,6 +454,9 @@ class MovieEpisode {
   final DateTime createdAt;
   final DateTime updatedAt;
 
+  // Subtitles
+  final List<Subtitle>? subtitles;
+
   MovieEpisode({
     required this.id,
     required this.movieId,
@@ -391,6 +481,7 @@ class MovieEpisode {
     this.isAvailable = true,
     required this.createdAt,
     required this.updatedAt,
+    this.subtitles,
   });
 
   factory MovieEpisode.fromJson(Map<String, dynamic> json) {
@@ -428,6 +519,11 @@ class MovieEpisode {
       isAvailable: json['isAvailable'] as bool? ?? true,
       createdAt: DateTime.parse(json['createdAt'] as String),
       updatedAt: DateTime.parse(json['updatedAt'] as String),
+      subtitles: json['subtitles'] != null
+          ? (json['subtitles'] as List)
+              .map((e) => Subtitle.fromJson(e as Map<String, dynamic>))
+              .toList()
+          : null,
     );
   }
 
@@ -456,6 +552,7 @@ class MovieEpisode {
       'isAvailable': isAvailable,
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt.toIso8601String(),
+      'subtitles': subtitles?.map((e) => e.toJson()).toList(),
     };
   }
 
