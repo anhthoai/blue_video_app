@@ -15,6 +15,7 @@ import 'package:video_player/video_player.dart';
 
 import '../../models/movie_model.dart';
 import '../../core/services/movie_service.dart';
+import '../../core/services/auth_service.dart';
 import '../../l10n/app_localizations.dart';
 import '../../utils/subtitle_parser.dart';
 
@@ -58,6 +59,12 @@ class _MoviePlayerScreenState extends ConsumerState<MoviePlayerScreen>
   bool _isInitializing = false;
   bool _isMuted = false;
   bool _hasPlayedNext = false; // Flag to prevent multiple auto-play triggers
+  bool _isPreviewMode = false;
+  bool _hasShownPreviewWarning = false;
+  bool _hasShownPreviewDialog =
+      false; // Flag to prevent showing preview dialog multiple times
+  BuildContext?
+      _previewDialogContext; // Track preview dialog context for closing
 
   String? _currentEpisodeId;
   MovieEpisode? _currentEpisode;
@@ -118,6 +125,11 @@ class _MoviePlayerScreenState extends ConsumerState<MoviePlayerScreen>
       _isInitializing = true;
       _currentEpisodeId = episode.id;
       _currentEpisode = episode;
+      _hasShownPreviewWarning = false;
+      _hasShownPreviewDialog = false; // Reset for new episode
+      _previewDialogContext = null;
+      _isPreviewMode =
+          !(ref.read(authServiceProvider).currentUser?.isVip ?? false);
     });
 
     try {
@@ -173,6 +185,24 @@ class _MoviePlayerScreenState extends ConsumerState<MoviePlayerScreen>
           // Update subtitle text based on current position
           _updateSubtitleText();
 
+          if (_isPreviewMode &&
+              !_hasShownPreviewWarning &&
+              _videoController!.value.position.inSeconds >= 10) {
+            _hasShownPreviewWarning = true;
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text(
+                    '5 seconds remaining! Upgrade to VIP for full access.'),
+                duration: Duration(seconds: 2),
+              ),
+            );
+          }
+
+          if (_isPreviewMode &&
+              _videoController!.value.position.inSeconds >= 15) {
+            _handlePreviewLimitReached();
+          }
+
           // Check if video has finished and auto-play next episode
           if (!_hasPlayedNext &&
               _videoController!.value.position >=
@@ -199,6 +229,10 @@ class _MoviePlayerScreenState extends ConsumerState<MoviePlayerScreen>
       });
 
       _videoController!.play();
+
+      if (_isPreviewMode) {
+        _setupPreviewMode();
+      }
 
       // Auto-load English subtitle if available
       _autoLoadEnglishSubtitle(episode);
@@ -296,6 +330,110 @@ class _MoviePlayerScreenState extends ConsumerState<MoviePlayerScreen>
         _currentSubtitleText = '';
       });
     }
+  }
+
+  void _setupPreviewMode() {
+    Future.delayed(const Duration(seconds: 2), () {
+      if (mounted && _isPreviewMode) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Preview mode: Only 15 seconds available'),
+            duration: Duration(seconds: 3),
+          ),
+        );
+      }
+    });
+  }
+
+  void _handlePreviewLimitReached() {
+    if (_videoController != null && _isPlaying && !_hasShownPreviewDialog) {
+      _videoController!.pause();
+      setState(() {
+        _isPlaying = false;
+        _hasShownPreviewDialog = true; // Mark as shown
+      });
+      _showPreviewDialog();
+    }
+  }
+
+  void _closePreviewDialogIfOpen() {
+    if (_previewDialogContext != null) {
+      Navigator.of(_previewDialogContext!).pop();
+      _previewDialogContext = null;
+    }
+  }
+
+  void _showPreviewDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        _previewDialogContext = dialogContext;
+        return AlertDialog(
+          title: const Text('Preview Limit Reached'),
+          content: const Text(
+            'You have watched 15 seconds. Upgrade to VIP to enjoy full access.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: _closePreviewDialogIfOpen,
+              child: const Text('Close'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                _closePreviewDialogIfOpen();
+
+                await context.push(
+                  '/main/vip-subscription/system?name=${Uri.encodeComponent('Blue Video Team')}',
+                );
+
+                if (mounted) {
+                  print(
+                      '🔄 Checking VIP status after returning from upgrade screen...');
+                  await ref.read(authServiceProvider).refreshCurrentUser();
+
+                  final isVip =
+                      ref.read(authServiceProvider).currentUser?.isVip ?? false;
+
+                  print(
+                      '💎 Current VIP status: $isVip, Preview mode: $_isPreviewMode');
+
+                  if (isVip && _isPreviewMode) {
+                    print('✅ User is now VIP - disabling preview mode');
+
+                    setState(() {
+                      _isPreviewMode = false;
+                      _hasShownPreviewWarning = false;
+                      _hasShownPreviewDialog = false; // Reset dialog flag
+                    });
+
+                    _closePreviewDialogIfOpen();
+
+                    if (_videoController != null && !_isPlaying) {
+                      _videoController!.play();
+                      setState(() {
+                        _isPlaying = true;
+                      });
+                    }
+
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Welcome VIP! Enjoy unlimited viewing!'),
+                        backgroundColor: Colors.green,
+                        duration: Duration(seconds: 3),
+                      ),
+                    );
+                  }
+                }
+              },
+              child: const Text('Upgrade to VIP'),
+            ),
+          ],
+        );
+      },
+    ).then((_) {
+      _previewDialogContext = null;
+    });
   }
 
   void _showSubtitleSelector() {

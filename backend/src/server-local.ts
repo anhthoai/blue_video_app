@@ -427,6 +427,21 @@ app.post('/api/v1/auth/login', async (req, res) => {
       return;
     }
 
+    // Check if user has any active VIP subscriptions
+    const now = new Date();
+    const activeVipSubscription = await prisma.vipSubscription.findFirst({
+      where: {
+        subscriberId: user.id,
+        status: 'ACTIVE',
+        endDate: {
+          gt: now,
+        },
+      },
+    });
+
+    const isVip = !!activeVipSubscription;
+    console.log(`💎 VIP status for user ${user.id}: ${isVip ? 'ACTIVE' : 'INACTIVE'}`);
+
     // Generate tokens
     const accessTokenExpiry = rememberMe ? '30d' : '24h';
     const accessToken = jwt.sign(
@@ -460,7 +475,7 @@ app.post('/api/v1/auth/login', async (req, res) => {
           role: user.role,
           isVerified: user.isVerified,
           coinBalance: user.coinBalance,
-          isVip: user.isVip,
+          isVip: isVip,
           createdAt: user.createdAt.toISOString(),
         },
         accessToken,
@@ -2634,9 +2649,32 @@ app.get('/api/v1/authors/:authorId/vip-status', authenticateToken, async (req, r
 // Get VIP packages for an author
 app.get('/api/v1/authors/:authorId/vip-packages', authenticateToken, async (req, res): Promise<void> => {
   try {
-    const { authorId } = req.params;
+    let { authorId } = req.params;
     
     console.log(`🔍 Fetching VIP packages for author: ${authorId}`);
+    
+    // If authorId is "system", use the first admin user
+    if (authorId === 'system') {
+      const adminUser = await prisma.user.findFirst({
+        where: {
+          role: 'ADMIN',
+        },
+        orderBy: {
+          createdAt: 'asc',
+        },
+      });
+      
+      if (!adminUser) {
+        res.status(404).json({
+          success: false,
+          message: 'No admin user found in the system',
+        });
+        return;
+      }
+      
+      authorId = adminUser.id;
+      console.log(`📦 Using first admin user as system author: ${authorId}`);
+    }
     
     let packages = await prisma.vipPackage.findMany({
       where: {
@@ -2723,7 +2761,7 @@ app.get('/api/v1/authors/:authorId/vip-packages', authenticateToken, async (req,
 app.post('/api/v1/vip-subscriptions', authenticateToken, async (req, res): Promise<void> => {
   try {
     const currentUserId = req.user?.id;
-    const { authorId, packageId, paymentMethod: requestedMethod } = req.body;
+    let { authorId, packageId, paymentMethod: requestedMethod } = req.body;
     
     if (!currentUserId) {
       res.status(401).json({
@@ -2741,8 +2779,32 @@ app.post('/api/v1/vip-subscriptions', authenticateToken, async (req, res): Promi
       return;
     }
     
-    // Check if user is trying to subscribe to themselves
-    if (currentUserId === authorId) {
+    // If authorId is "system", use the first admin user
+    const isSystemSubscription = authorId === 'system';
+    if (isSystemSubscription) {
+      const adminUser = await prisma.user.findFirst({
+        where: {
+          role: 'ADMIN',
+        },
+        orderBy: {
+          createdAt: 'asc',
+        },
+      });
+      
+      if (!adminUser) {
+        res.status(404).json({
+          success: false,
+          message: 'No admin user found in the system',
+        });
+        return;
+      }
+      
+      authorId = adminUser.id;
+      console.log(`📦 Using first admin user as system author: ${authorId}`);
+    }
+    
+    // Check if user is trying to subscribe to themselves (skip for system subscriptions)
+    if (!isSystemSubscription && currentUserId === authorId) {
       res.status(400).json({
         success: false,
         message: 'You cannot subscribe to yourself',
@@ -2885,6 +2947,8 @@ app.post('/api/v1/vip-subscriptions', authenticateToken, async (req, res): Promi
           paymentId: payment.id,
         },
       });
+      
+      console.log(`✅ VIP subscription created with status ACTIVE`);
       
       // Create coin transactions
       await prisma.coinTransaction.createMany({
@@ -3220,6 +3284,21 @@ app.get('/api/v1/users/:userId', async (req, res) => {
     console.log(`📊 Manual count - Followers: ${manualFollowersCount}, Following: ${manualFollowingCount}, Videos: ${manualVideosCount}`);
     console.log(`👥 Current user ${currentUserId} isFollowing: ${isFollowing}`);
 
+    // Check if user has any active VIP subscriptions
+    const now = new Date();
+    const activeVipSubscription = await prisma.vipSubscription.findFirst({
+      where: {
+        subscriberId: userId,
+        status: 'ACTIVE',
+        endDate: {
+          gt: now,
+        },
+      },
+    });
+
+    const isVip = !!activeVipSubscription;
+    console.log(`💎 VIP status for user ${userId}: ${isVip ? 'ACTIVE' : 'INACTIVE'}`);
+
     // Build proper avatar URL
     const avatarUrl = user.avatar && user.fileDirectory
       ? await buildFileUrl(user.fileDirectory, user.avatar, 'avatars')
@@ -3237,7 +3316,7 @@ app.get('/api/v1/users/:userId', async (req, res) => {
       isVerified: user.isVerified,
       role: user.role,
       coinBalance: user.coinBalance,
-      isVip: user.isVip,
+      isVip: isVip,
       followersCount: manualFollowersCount,
       followingCount: manualFollowingCount,
       videosCount: manualVideosCount,
@@ -7013,6 +7092,8 @@ async function processIPNNotification(notification: IPNNotification): Promise<vo
         },
       });
 
+      console.log(`✅ VIP subscription activated via payment webhook`);
+
       // Create coin transaction record for user (RECHARGE - coins added from payment)
       await prisma.coinTransaction.create({
         data: {
@@ -8201,8 +8282,8 @@ app.post('/api/v1/authors/:authorId/vip-packages/setup', authenticateToken, asyn
       {
         authorId: authorId,
         duration: 'ONE_MONTH' as const,
-        price: 6.99,
-        coins: 699, // $6.99 * 100
+        price: 9.99,
+        coins: 999, // $9.99 * 100
       },
       {
         authorId: authorId,
@@ -8259,9 +8340,32 @@ app.post('/api/v1/authors/:authorId/vip-packages/setup', authenticateToken, asyn
 // Get VIP packages for an author
 app.get('/api/v1/authors/:authorId/vip-packages', authenticateToken, async (req, res): Promise<void> => {
   try {
-    const { authorId } = req.params;
+    let { authorId } = req.params;
     
     console.log(`🔍 Fetching VIP packages for author: ${authorId}`);
+    
+    // If authorId is "system", use the first admin user
+    if (authorId === 'system') {
+      const adminUser = await prisma.user.findFirst({
+        where: {
+          role: 'ADMIN',
+        },
+        orderBy: {
+          createdAt: 'asc',
+        },
+      });
+      
+      if (!adminUser) {
+        res.status(404).json({
+          success: false,
+          message: 'No admin user found in the system',
+        });
+        return;
+      }
+      
+      authorId = adminUser.id;
+      console.log(`📦 Using first admin user as system author: ${authorId}`);
+    }
     
     let packages = await prisma.vipPackage.findMany({
       where: {

@@ -46,6 +46,10 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
   bool _isEmbedVideo = false;
   bool _isPreviewMode = false;
   bool _hasShownPreviewWarning = false;
+  bool _hasShownPreviewDialog =
+      false; // Flag to prevent showing preview dialog multiple times
+  BuildContext?
+      _previewDialogContext; // Track preview dialog context for closing
 
   // Follow functionality
   final ApiService _apiService = ApiService();
@@ -857,12 +861,20 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
   }
 
   void _handlePreviewLimitReached() {
-    if (_videoController != null && _isPlaying) {
+    if (_videoController != null && _isPlaying && !_hasShownPreviewDialog) {
       _videoController!.pause();
       setState(() {
         _isPlaying = false;
+        _hasShownPreviewDialog = true; // Mark as shown
       });
       _showUpgradeDialog();
+    }
+  }
+
+  void _closePreviewDialogIfOpen() {
+    if (_previewDialogContext != null) {
+      Navigator.of(_previewDialogContext!).pop();
+      _previewDialogContext = null;
     }
   }
 
@@ -870,29 +882,73 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) => AlertDialog(
-        title: const Text('Preview Limit Reached'),
-        content: const Text(
-          'You\'ve watched 15 seconds. Upgrade to VIP or purchase this video to watch the full content.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Close'),
+      builder: (dialogContext) {
+        _previewDialogContext = dialogContext;
+        return AlertDialog(
+          title: const Text('Preview Limit Reached'),
+          content: const Text(
+            'You\'ve watched 15 seconds. Upgrade to VIP or purchase this video to watch the full content.',
           ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              // TODO: Navigate to upgrade/purchase screen
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Upgrade feature coming soon!')),
-              );
-            },
-            child: const Text('Upgrade'),
-          ),
-        ],
-      ),
-    );
+          actions: [
+            TextButton(
+              onPressed: _closePreviewDialogIfOpen,
+              child: const Text('Close'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                _closePreviewDialogIfOpen();
+
+                await context.push(
+                  '/main/vip-subscription/system?name=${Uri.encodeComponent('Blue Video Team')}',
+                );
+
+                if (mounted) {
+                  print(
+                      '🔄 Checking VIP status after returning from upgrade screen...');
+                  await ref.read(authServiceProvider).refreshCurrentUser();
+
+                  final isVip =
+                      ref.read(authServiceProvider).currentUser?.isVip ?? false;
+
+                  print(
+                      '💎 Current VIP status: $isVip, Preview mode: $_isPreviewMode');
+
+                  if (isVip && _isPreviewMode) {
+                    print('✅ User is now VIP - disabling preview mode');
+
+                    setState(() {
+                      _isPreviewMode = false;
+                      _hasShownPreviewWarning = false;
+                      _hasShownPreviewDialog = false; // Reset dialog flag
+                    });
+
+                    _closePreviewDialogIfOpen();
+
+                    if (_videoController != null && !_isPlaying) {
+                      _videoController!.play();
+                      setState(() {
+                        _isPlaying = true;
+                      });
+                    }
+
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Welcome VIP! Enjoy unlimited viewing!'),
+                        backgroundColor: Colors.green,
+                        duration: Duration(seconds: 3),
+                      ),
+                    );
+                  }
+                }
+              },
+              child: const Text('Upgrade to VIP'),
+            ),
+          ],
+        );
+      },
+    ).then((_) {
+      _previewDialogContext = null;
+    });
   }
 
   void _onScroll() {
@@ -2006,12 +2062,11 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
   }
 
   void _showVideoOptions() {
-    final l10n = AppLocalizations.of(context);
+    final dialogL10n = AppLocalizations.of(context);
 
     showModalBottomSheet(
       context: context,
       builder: (context) {
-        final dialogL10n = AppLocalizations.of(context);
         return Container(
           padding: const EdgeInsets.all(16),
           child: Column(

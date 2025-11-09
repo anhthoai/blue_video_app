@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/services/api_service.dart';
+import '../../core/services/auth_service.dart';
 import '../../widgets/dialogs/usdt_payment_dialog.dart';
 import '../../widgets/dialogs/credit_card_payment_dialog.dart';
 
@@ -111,18 +112,25 @@ class _VipSubscriptionScreenState extends ConsumerState<VipSubscriptionScreen> {
     UsdtPaymentDialog.show(
       context,
       paymentData: paymentData,
-      onPaymentComplete: () {
+      onPaymentComplete: () async {
         Navigator.of(context).pop();
+
+        // Refresh user data to get updated VIP status
+        print('🔄 Refreshing user data after VIP subscription...');
+        await ref.read(authServiceProvider).refreshCurrentUser();
+
         // Show success message
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('VIP subscription activated successfully!'),
-            backgroundColor: Colors.green,
-            duration: Duration(seconds: 3),
-          ),
-        );
-        // Navigate back
-        context.pop();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('VIP subscription activated successfully!'),
+              backgroundColor: Colors.green,
+              duration: Duration(seconds: 3),
+            ),
+          );
+          // Navigate back
+          context.pop();
+        }
       },
       onCancel: () {
         Navigator.of(context).pop();
@@ -134,18 +142,25 @@ class _VipSubscriptionScreenState extends ConsumerState<VipSubscriptionScreen> {
     CreditCardPaymentDialog.show(
       context,
       paymentData: paymentData,
-      onPaymentComplete: () {
+      onPaymentComplete: () async {
         Navigator.of(context).pop();
+
+        // Refresh user data to get updated VIP status
+        print('🔄 Refreshing user data after VIP subscription...');
+        await ref.read(authServiceProvider).refreshCurrentUser();
+
         // Show success message
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('VIP subscription activated successfully!'),
-            backgroundColor: Colors.green,
-            duration: Duration(seconds: 3),
-          ),
-        );
-        // Navigate back
-        context.pop();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('VIP subscription activated successfully!'),
+              backgroundColor: Colors.green,
+              duration: Duration(seconds: 3),
+            ),
+          );
+          // Navigate back
+          context.pop();
+        }
       },
       onCancel: () {
         Navigator.of(context).pop();
@@ -446,9 +461,16 @@ class _VipSubscriptionScreenState extends ConsumerState<VipSubscriptionScreen> {
         ),
         actions: [
           TextButton(
-            onPressed: () {
+            onPressed: () async {
               Navigator.of(context).pop();
-              context.pop(); // Navigate back to previous screen
+
+              // Refresh user data to get updated VIP status
+              print('🔄 Refreshing user data after VIP subscription...');
+              await ref.read(authServiceProvider).refreshCurrentUser();
+
+              if (mounted) {
+                context.pop(); // Navigate back to previous screen
+              }
             },
             child: const Text(
               'Continue',
@@ -673,9 +695,6 @@ class _VipSubscriptionScreenState extends ConsumerState<VipSubscriptionScreen> {
                               itemBuilder: (context, index) {
                                 final package = vipPackages[index];
                                 final duration = package['duration'] as String;
-                                final price = (package['price'] is String)
-                                    ? double.parse(package['price'] as String)
-                                    : (package['price'] as double);
                                 final coins = (package['coins'] is String)
                                     ? int.parse(package['coins'] as String)
                                     : (package['coins'] as int);
