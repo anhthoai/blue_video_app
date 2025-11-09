@@ -110,12 +110,25 @@ async function importMovie(token, identifierInput) {
   }
 
   const { label } = displayIdentifierInfo(normalized);
+  const isTv = normalized.startsWith('tv:');
+  const isMovie = normalized.startsWith('movie:');
+  const isNumeric = /^\d+$/.test(normalized);
+
   try {
     log(`\n📥 Importing ${normalized} (${label})...`, colors.yellow);
 
     const response = await axios.post(
       `${API_BASE_URL}/api/v1/movies/import/imdb`,
-      { identifiers: [normalized] },
+      {
+        identifiers: [normalized],
+        preferredType: isTv
+          ? 'TV_SERIES'
+          : isMovie
+            ? 'MOVIE'
+            : isNumeric
+              ? undefined
+              : undefined,
+      },
       {
         headers: {
           'Authorization': `Bearer ${token}`,

@@ -33,6 +33,9 @@ import '../../screens/discover/category_detail_screen.dart';
 import '../../screens/playlist/playlist_detail_screen.dart';
 import '../../screens/library/movie_detail_screen.dart';
 import '../../screens/library/movie_player_screen.dart';
+import '../../screens/library/add_movie/add_movie_start_screen.dart';
+import '../../screens/library/add_movie/add_movie_method_screen.dart';
+import '../../screens/library/add_movie/add_movie_manual_screen.dart';
 import '../../models/category_model.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
@@ -172,6 +175,62 @@ final routerProvider = Provider<GoRouter>((ref) {
               final movieId = state.pathParameters['movieId']!;
               return MovieDetailScreen(movieId: movieId);
             },
+          ),
+          GoRoute(
+            path: 'library/add',
+            builder: (context, state) {
+              final type = state.uri.queryParameters['type'];
+              final title = state.uri.queryParameters['title'];
+              final imdbId = state.uri.queryParameters['imdbId'];
+              final tmdbId = state.uri.queryParameters['tmdbId'];
+              final tvdbId = state.uri.queryParameters['tvdbId'];
+
+              return AddMovieStartScreen(
+                initialType: type,
+                initialTitle: title,
+                initialImdbId: imdbId,
+                initialTmdbId: tmdbId,
+                initialTvdbId: tvdbId,
+              );
+            },
+            routes: [
+              GoRoute(
+                path: 'methods',
+                builder: (context, state) {
+                  final type = state.uri.queryParameters['type'];
+                  final title = state.uri.queryParameters['title'] ?? '';
+                  final imdbId = state.uri.queryParameters['imdbId'];
+                  final tmdbId = state.uri.queryParameters['tmdbId'];
+                  final tvdbId = state.uri.queryParameters['tvdbId'];
+
+                  return AddMovieMethodScreen(
+                    selectedType: type,
+                    title: title,
+                    imdbId: imdbId,
+                    tmdbId: tmdbId,
+                    tvdbId: tvdbId,
+                  );
+                },
+              ),
+              GoRoute(
+                path: 'manual',
+                builder: (context, state) {
+                  final type = state.uri.queryParameters['type'];
+                  final title = state.uri.queryParameters['title'];
+                  final imdbId = state.uri.queryParameters['imdbId'];
+                  final tmdbId = state.uri.queryParameters['tmdbId'];
+                  final tvdbId = state.uri.queryParameters['tvdbId'];
+
+                  return AddMovieManualScreen(
+                    initialType: type,
+                    initialTitle: title,
+                    initialImdbId: imdbId,
+                    initialTmdbId: tmdbId,
+                    initialTvdbId: tvdbId,
+                  );
+                },
+              ),
+            ],
           ),
           GoRoute(
             path: 'library/movie/:movieId/player',

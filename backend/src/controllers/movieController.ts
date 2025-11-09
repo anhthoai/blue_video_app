@@ -7,6 +7,21 @@ const prisma = new PrismaClient();
 
 const regionDisplay = new Intl.DisplayNames(['en'], { type: 'region' });
 
+async function generateUniqueSlug(title: string): Promise<string> {
+  const baseSlug = generateSlug(title);
+  let candidate = baseSlug;
+  let counter = 1;
+
+  while (true) {
+    const existing = await prisma.movie.findUnique({ where: { slug: candidate } });
+    if (!existing) {
+      return candidate;
+    }
+    counter += 1;
+    candidate = `${baseSlug}-${counter}`;
+  }
+}
+
 function getCountryName(code?: string | null): string | null {
   if (!code) return null;
   try {
@@ -54,6 +69,7 @@ export async function importFromImdb(req: Request, res: Response): Promise<void>
       tmdbIds,
       ids,
       identifiers,
+      preferredType,
     } = req.body;
     const userId = (req as any).user?.id;
 
@@ -121,6 +137,16 @@ export async function importFromImdb(req: Request, res: Response): Promise<void>
           console.log(`🎬 Import request -> Identifier: ${identifier} (${isImdb ? 'IMDb' : 'TMDb'})`);
         }
 
+        const preferredKind = preferredType === 'TV_SERIES'
+          ? 'tv'
+          : preferredType === 'MOVIE'
+              ? 'movie'
+              : undefined;
+
+        if (!tmdbTypeHint && isTmdb && preferredKind) {
+          tmdbTypeHint = preferredKind as 'movie' | 'tv';
+        }
+
         const tmdbData = isImdb
           ? await tmdbService.findByImdbId(identifier)
           : await tmdbService.findByTmdbId(identifier, tmdbTypeHint);
@@ -146,21 +172,29 @@ export async function importFromImdb(req: Request, res: Response): Promise<void>
           null
         )?.toString() || null;
 
-        // Check for duplicates based on available IDs
-        const duplicateConditions: any[] = [];
-        if (imdbIdValue) duplicateConditions.push({ imdbId: imdbIdValue });
-        if (tmdbIdValue) duplicateConditions.push({ tmdbId: tmdbIdValue });
-
         let existing = null;
-        if (duplicateConditions.length > 0) {
+
+        if (imdbIdValue) {
           existing = await prisma.movie.findFirst({
             where: {
-              OR: duplicateConditions,
+              imdbId: imdbIdValue,
+            },
+          });
+        }
+
+        if (!existing && tmdbIdValue) {
+          existing = await prisma.movie.findFirst({
+            where: {
+              tmdbId: tmdbIdValue,
+              contentType: isMovie ? 'MOVIE' : 'TV_SERIES',
             },
           });
         }
 
         if (existing) {
+          console.warn(
+            `⚠️ Duplicate detected for identifier ${rawInput} (contentType=${existing.contentType})`,
+          );
           results.push({
             identifier: rawInput,
             success: false,
@@ -326,6 +360,122 @@ export async function importFromImdb(req: Request, res: Response): Promise<void>
     res.status(500).json({
       success: false,
       message: 'Failed to import movies',
+      error: error.message,
+    });
+  }
+}
+
+export async function createMovieManual(req: Request, res: Response): Promise<void> {
+  try {
+    const userId = (req as any).user?.id;
+    const {
+      contentType = 'MOVIE',
+      title,
+      alternativeTitles,
+      imdbId,
+      tmdbId,
+      tvdbId,
+      plot,
+      releaseDate,
+      runtime,
+      genres,
+      countries,
+      languages,
+      posterUrl,
+      trailerUrl,
+      isAdult = false,
+    } = req.body;
+
+    if (!title || typeof title !== 'string' || title.trim() === '') {
+      res.status(400).json({
+        success: false,
+        message: 'Title is required',
+      });
+      return;
+    }
+
+    if (imdbId) {
+      const duplicateImdb = await prisma.movie.findFirst({
+        where: { imdbId: imdbId as string },
+      });
+
+      if (duplicateImdb) {
+        res.status(409).json({
+          success: false,
+          message: 'Movie with the same IMDb ID already exists',
+          movieId: duplicateImdb.id,
+        });
+        return;
+      }
+    }
+
+    if (tmdbId) {
+      const duplicateTmdb = await prisma.movie.findFirst({
+        where: {
+          tmdbId: tmdbId as string,
+          contentType: contentType === 'TV_SERIES' ? 'TV_SERIES' : 'MOVIE',
+        },
+      });
+
+      if (duplicateTmdb) {
+        console.warn(
+          `⚠️ Manual create rejected: TMDb ${tmdbId as string} already exists for ${duplicateTmdb.contentType}`,
+        );
+        res.status(409).json({
+          success: false,
+          message: 'Movie with the same TMDb ID already exists',
+          movieId: duplicateTmdb.id,
+        });
+        return;
+      }
+    }
+
+    const slug = await generateUniqueSlug(title);
+
+    const parsedAlternativeTitles = Array.isArray(alternativeTitles)
+      ? alternativeTitles
+          .filter((item: any) => item && item.title)
+          .map((item: any) => ({
+            title: item.title,
+            country: item.country || null,
+            language: item.language || null,
+            type: item.type || null,
+          }))
+      : [];
+
+    const movie = await prisma.movie.create({
+      data: {
+        title: title.trim(),
+        slug,
+        contentType: contentType === 'TV_SERIES' ? 'TV_SERIES' : 'MOVIE',
+        overview: plot || null,
+        alternativeTitles: parsedAlternativeTitles,
+        imdbId: imdbId || null,
+        tmdbId: tmdbId || null,
+        tvdbId: tvdbId || null,
+        releaseDate: releaseDate ? new Date(releaseDate) : null,
+        runtime: runtime ? Number(runtime) : null,
+        genres: Array.isArray(genres) ? genres : [],
+        countries: Array.isArray(countries) ? countries : [],
+        languages: Array.isArray(languages) ? languages : [],
+        posterUrl: posterUrl || null,
+        trailerUrl: trailerUrl || null,
+        isAdult: Boolean(isAdult),
+        status: 'RELEASED',
+        createdBy: userId || null,
+      },
+    });
+
+    res.status(201).json({
+      success: true,
+      message: 'Movie created successfully',
+      data: movie,
+    });
+  } catch (error: any) {
+    console.error('Error creating manual movie:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to create movie manually',
       error: error.message,
     });
   }
@@ -712,6 +862,58 @@ export async function getMovies(req: Request, res: Response) {
     res.status(500).json({
       success: false,
       message: 'Failed to fetch movies',
+      error: error.message,
+    });
+  }
+}
+
+export async function findMoviesByIdentifiers(req: Request, res: Response): Promise<void> {
+  try {
+    const { imdbId, tmdbId, tvdbId, contentType } = req.query;
+
+    const filters: any[] = [];
+
+    if (imdbId) {
+      filters.push({ imdbId: imdbId as string });
+    }
+
+    if (tmdbId) {
+      filters.push({
+        tmdbId: tmdbId as string,
+        ...(contentType ? { contentType: contentType as string } : {}),
+      });
+    }
+
+    if (tvdbId) {
+      filters.push({ tvdbId: tvdbId as string });
+    }
+
+    if (filters.length === 0) {
+      res.status(400).json({
+        success: false,
+        message: 'Please provide at least one identifier (imdbId, tmdbId, tvdbId)',
+      });
+      return;
+    }
+
+    const movies = await prisma.movie.findMany({
+      where: {
+        OR: filters,
+      },
+      orderBy: {
+        title: 'asc',
+      },
+    });
+
+    res.json({
+      success: true,
+      data: movies,
+    });
+  } catch (error: any) {
+    console.error('Error finding movies by identifiers:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to find movies by identifiers',
       error: error.message,
     });
   }

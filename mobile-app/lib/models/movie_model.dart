@@ -122,7 +122,7 @@ class MovieModel {
       endDate: json['endDate'] != null
           ? DateTime.parse(json['endDate'] as String)
           : null,
-      runtime: json['runtime'] as int?,
+      runtime: _parseInt(json['runtime']),
       genres: json['genres'] != null
           ? List<String>.from(json['genres'] as List)
           : null,
@@ -156,14 +156,10 @@ class MovieModel {
               .map((e) => Actor.fromJson(e as Map<String, dynamic>))
               .toList()
           : null,
-      voteAverage: json['voteAverage'] != null
-          ? (json['voteAverage'] as num).toDouble()
-          : null,
-      voteCount: json['voteCount'] as int?,
-      popularity: json['popularity'] != null
-          ? (json['popularity'] as num).toDouble()
-          : null,
-      views: json['views'] as int? ?? 0,
+      voteAverage: _parseDouble(json['voteAverage']),
+      voteCount: _parseInt(json['voteCount']),
+      popularity: _parseDouble(json['popularity']),
+      views: _parseInt(json['views']) ?? 0,
       status: json['status'] as String,
       createdAt: DateTime.parse(json['createdAt'] as String),
       updatedAt: DateTime.parse(json['updatedAt'] as String),
@@ -242,6 +238,25 @@ class MovieModel {
         return contentType;
     }
   }
+}
+
+double? _parseDouble(dynamic value) {
+  if (value == null) return null;
+  if (value is num) return value.toDouble();
+  if (value is String) {
+    return double.tryParse(value);
+  }
+  return null;
+}
+
+int? _parseInt(dynamic value) {
+  if (value == null) return null;
+  if (value is int) return value;
+  if (value is num) return value.toInt();
+  if (value is String) {
+    return int.tryParse(value);
+  }
+  return null;
 }
 
 class AlternativeTitle {

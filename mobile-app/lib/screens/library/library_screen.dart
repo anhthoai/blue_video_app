@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../l10n/app_localizations.dart';
 import 'movies_screen.dart';
@@ -35,6 +36,20 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
       appBar: AppBar(
         title: Text(l10n.library),
         centerTitle: true,
+        actions: [
+          TextButton.icon(
+            onPressed: () {
+              if (mounted) {
+                context.push('/main/library/add');
+              }
+            },
+            icon: const Icon(Icons.add, color: Colors.white),
+            label: const Text(
+              'Add',
+              style: TextStyle(color: Colors.white),
+            ),
+          ),
+        ],
         bottom: TabBar(
           controller: _tabController,
           indicatorColor: Colors.white,

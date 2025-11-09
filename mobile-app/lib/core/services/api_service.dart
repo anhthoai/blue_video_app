@@ -1831,6 +1831,58 @@ class ApiService {
     return await _handleResponse(response);
   }
 
+  Future<Map<String, dynamic>> importMoviesByIdentifiers(
+      List<String> identifiers,
+      {String? preferredType}) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/movies/import/imdb'),
+      headers: await _getHeaders(),
+      body: json.encode({
+        'identifiers': identifiers,
+        if (preferredType != null) 'preferredType': preferredType,
+      }),
+    );
+
+    return await _handleResponse(response);
+  }
+
+  Future<Map<String, dynamic>> createManualMovie(
+      Map<String, dynamic> payload) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/movies'),
+      headers: await _getHeaders(),
+      body: json.encode(payload),
+    );
+
+    return await _handleResponse(response);
+  }
+
+  Future<Map<String, dynamic>> findMoviesByIdentifiers({
+    String? imdbId,
+    String? tmdbId,
+    String? tvdbId,
+    String? contentType,
+  }) async {
+    final queryParams = <String, String>{};
+    if (imdbId != null && imdbId.isNotEmpty) queryParams['imdbId'] = imdbId;
+    if (tmdbId != null && tmdbId.isNotEmpty) queryParams['tmdbId'] = tmdbId;
+    if (tvdbId != null && tvdbId.isNotEmpty) queryParams['tvdbId'] = tvdbId;
+    if (contentType != null && contentType.isNotEmpty) {
+      queryParams['contentType'] = contentType;
+    }
+
+    final uri = Uri.parse('$baseUrl/movies/by-identifiers').replace(
+      queryParameters: queryParams,
+    );
+
+    final response = await http.get(
+      uri,
+      headers: await _getHeaders(),
+    );
+
+    return await _handleResponse(response);
+  }
+
   // Get movie by ID
   Future<Map<String, dynamic>> getMovieById(String movieId) async {
     final response = await http.get(

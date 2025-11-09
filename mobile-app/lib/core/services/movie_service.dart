@@ -119,6 +119,161 @@ class MovieService {
       return MovieFilterOptions(genres: [], lgbtqTypes: [], contentTypes: []);
     }
   }
+
+  Future<ImportMovieResult> importMovieByIdentifiers({
+    required List<String> identifiers,
+    String? preferredType,
+  }) async {
+    try {
+      if (identifiers.isEmpty) {
+        return ImportMovieResult(
+          success: false,
+          message: 'No identifiers provided',
+        );
+      }
+
+      final response = await _apiService.importMoviesByIdentifiers(
+        identifiers,
+        preferredType: preferredType,
+      );
+
+      if (response['success'] == true && response['results'] is List) {
+        final results = response['results'] as List;
+        if (results.isNotEmpty) {
+          final first = results.first as Map<String, dynamic>;
+          final movieData = first['movie'];
+
+          return ImportMovieResult(
+            success: first['success'] == true,
+            message: first['message'] as String?,
+            movie: movieData != null
+                ? MovieModel.fromJson(movieData as Map<String, dynamic>)
+                : null,
+          );
+        }
+      }
+
+      return ImportMovieResult(
+        success: response['success'] == true,
+        message: response['message'] as String?,
+      );
+    } catch (e) {
+      print('Error importing movie: $e');
+      return ImportMovieResult(
+        success: false,
+        message: e.toString(),
+      );
+    }
+  }
+
+  Future<ManualMovieResult> createManualMovie({
+    required String contentType,
+    required String title,
+    String? plot,
+    List<Map<String, dynamic>>? alternativeTitles,
+    String? imdbId,
+    String? tmdbId,
+    String? tvdbId,
+    DateTime? releaseDate,
+    int? runtime,
+    List<String>? genres,
+    List<String>? countries,
+    List<String>? languages,
+    String? posterUrl,
+    String? trailerUrl,
+  }) async {
+    try {
+      final payload = {
+        'contentType': contentType,
+        'title': title,
+        if (plot != null && plot.isNotEmpty) 'plot': plot,
+        if (alternativeTitles != null && alternativeTitles.isNotEmpty)
+          'alternativeTitles': alternativeTitles,
+        if (imdbId != null && imdbId.isNotEmpty) 'imdbId': imdbId,
+        if (tmdbId != null && tmdbId.isNotEmpty) 'tmdbId': tmdbId,
+        if (tvdbId != null && tvdbId.isNotEmpty) 'tvdbId': tvdbId,
+        if (releaseDate != null) 'releaseDate': releaseDate.toIso8601String(),
+        if (runtime != null) 'runtime': runtime,
+        if (genres != null) 'genres': genres,
+        if (countries != null) 'countries': countries,
+        if (languages != null) 'languages': languages,
+        if (posterUrl != null && posterUrl.isNotEmpty) 'posterUrl': posterUrl,
+        if (trailerUrl != null && trailerUrl.isNotEmpty)
+          'trailerUrl': trailerUrl,
+      };
+
+      final response = await _apiService.createManualMovie(payload);
+
+      if (response['success'] == true && response['data'] != null) {
+        return ManualMovieResult(
+          success: true,
+          movie: MovieModel.fromJson(response['data'] as Map<String, dynamic>),
+          message: response['message'] as String?,
+        );
+      }
+
+      return ManualMovieResult(
+        success: response['success'] == true,
+        message: response['message'] as String?,
+      );
+    } catch (e) {
+      print('Error creating manual movie: $e');
+      return ManualMovieResult(
+        success: false,
+        message: e.toString(),
+      );
+    }
+  }
+
+  Future<List<MovieModel>> findMoviesByIdentifiers({
+    String? imdbId,
+    String? tmdbId,
+    String? tvdbId,
+    String? contentType,
+  }) async {
+    try {
+      final response = await _apiService.findMoviesByIdentifiers(
+        imdbId: imdbId,
+        tmdbId: tmdbId,
+        tvdbId: tvdbId,
+        contentType: contentType,
+      );
+
+      if (response['success'] == true && response['data'] != null) {
+        final items = response['data'] as List;
+        return items
+            .map((item) => MovieModel.fromJson(item as Map<String, dynamic>))
+            .toList();
+      }
+    } catch (e) {
+      print('Error finding movies by identifiers: $e');
+    }
+    return [];
+  }
+}
+
+class ImportMovieResult {
+  final bool success;
+  final String? message;
+  final MovieModel? movie;
+
+  ImportMovieResult({
+    required this.success,
+    this.message,
+    this.movie,
+  });
+}
+
+class ManualMovieResult {
+  final bool success;
+  final MovieModel? movie;
+  final String? message;
+
+  ManualMovieResult({
+    required this.success,
+    this.movie,
+    this.message,
+  });
 }
 
 // Movie filter options class
