@@ -71,10 +71,25 @@ class _AddMovieStartScreenState extends ConsumerState<AddMovieStartScreen> {
     });
 
     try {
+      final hasTitle = _titleController.text.trim().isNotEmpty;
+      final hasImdb = _imdbController.text.trim().isNotEmpty;
+      final hasTmdb = _tmdbController.text.trim().isNotEmpty;
+      final hasTvdb = _tvdbController.text.trim().isNotEmpty;
+
+      if (!hasTitle && !hasImdb && !hasTmdb && !hasTvdb) {
+        setState(() {
+          _isChecking = false;
+          _hasChecked = false;
+          _errorMessage =
+              'Please enter a title or at least one external ID to search.';
+        });
+        return;
+      }
+
       final movieService = ref.read(movieServiceProvider);
       List<MovieModel> movies = [];
 
-      if (_titleController.text.trim().isNotEmpty) {
+      if (hasTitle) {
         movies = await movieService.getMovies(
           limit: 20,
           search: _titleController.text.trim(),
@@ -82,15 +97,9 @@ class _AddMovieStartScreenState extends ConsumerState<AddMovieStartScreen> {
         );
       } else {
         final searchResults = await movieService.findMoviesByIdentifiers(
-          imdbId: _imdbController.text.trim().isEmpty
-              ? null
-              : _imdbController.text.trim(),
-          tmdbId: _tmdbController.text.trim().isEmpty
-              ? null
-              : _tmdbController.text.trim(),
-          tvdbId: _tvdbController.text.trim().isEmpty
-              ? null
-              : _tvdbController.text.trim(),
+          imdbId: hasImdb ? _imdbController.text.trim() : null,
+          tmdbId: hasTmdb ? _tmdbController.text.trim() : null,
+          tvdbId: hasTvdb ? _tvdbController.text.trim() : null,
           contentType: _selectedType,
         );
         movies = searchResults;

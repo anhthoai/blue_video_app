@@ -4,6 +4,7 @@ class UserModel {
   final String id;
   final String email;
   final String username;
+  final String role;
   final String? phoneNumber;
   final String? firstName;
   final String? lastName;
@@ -29,6 +30,7 @@ class UserModel {
     required this.id,
     required this.email,
     required this.username,
+    this.role = 'USER',
     this.phoneNumber,
     this.firstName,
     this.lastName,
@@ -56,6 +58,7 @@ class UserModel {
     String? id,
     String? email,
     String? username,
+    String? role,
     String? phoneNumber,
     String? firstName,
     String? lastName,
@@ -81,6 +84,7 @@ class UserModel {
       id: id ?? this.id,
       email: email ?? this.email,
       username: username ?? this.username,
+      role: role ?? this.role,
       phoneNumber: phoneNumber ?? this.phoneNumber,
       firstName: firstName ?? this.firstName,
       lastName: lastName ?? this.lastName,
@@ -110,6 +114,7 @@ class UserModel {
       'id': id,
       'email': email,
       'username': username,
+      'role': role,
       'phoneNumber': phoneNumber,
       'firstName': firstName,
       'lastName': lastName,
@@ -139,6 +144,7 @@ class UserModel {
       id: json['id'] as String,
       email: json['email'] as String,
       username: json['username'] as String,
+      role: json['role'] as String? ?? 'USER',
       phoneNumber: json['phoneNumber'] as String?,
       firstName: json['firstName'] as String?,
       lastName: json['lastName'] as String?,
@@ -190,6 +196,6 @@ class UserModel {
   // String representation
   @override
   String toString() {
-    return 'UserModel(id: $id, username: $username, email: $email)';
+    return 'UserModel(id: $id, username: $username, email: $email, role: $role)';
   }
 }

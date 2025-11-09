@@ -1883,6 +1883,27 @@ class ApiService {
     return await _handleResponse(response);
   }
 
+  Future<Map<String, dynamic>> importEpisodesFromUloz(
+    String movieId, {
+    required String targetUrl,
+    int? seasonNumber,
+    int? episodeNumber,
+  }) async {
+    final payload = <String, dynamic>{
+      'url': targetUrl,
+      if (seasonNumber != null) 'seasonNumber': seasonNumber,
+      if (episodeNumber != null) 'episodeNumber': episodeNumber,
+    };
+
+    final response = await http.post(
+      Uri.parse('$baseUrl/movies/$movieId/episodes/import/uloz'),
+      headers: await _getHeaders(),
+      body: json.encode(payload),
+    );
+
+    return await _handleResponse(response);
+  }
+
   // Get movie by ID
   Future<Map<String, dynamic>> getMovieById(String movieId) async {
     final response = await http.get(

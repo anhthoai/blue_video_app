@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../models/movie_model.dart';
 import '../../core/services/movie_service.dart';
+import '../../core/services/auth_service.dart';
 import '../../l10n/app_localizations.dart';
 
 class MovieDetailScreen extends ConsumerWidget {
@@ -55,6 +56,10 @@ class MovieDetailScreen extends ConsumerWidget {
   ) {
     final isMovieType =
         movie.contentType == 'MOVIE' || movie.contentType == 'SHORT';
+    final authService = ref.watch(authServiceProvider);
+    final isAdmin = authService.isAdmin;
+    final episodes = movie.episodes ?? [];
+    final hasEpisodes = episodes.isNotEmpty;
 
     return RefreshIndicator(
       onRefresh: () async {
@@ -366,19 +371,36 @@ class MovieDetailScreen extends ConsumerWidget {
                     ],
                   ),
                 ),
-              if (movie.episodes != null && movie.episodes!.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(isMovieType ? 'Files' : l10n.episodes,
-                          style: const TextStyle(
-                              fontSize: 18, fontWeight: FontWeight.bold)),
-                      const SizedBox(height: 12),
-                      // Show episodes for all content types
-                      ...movie.episodes!.map(
-                        (ep) => Card(
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            isMovieType ? 'Files' : l10n.episodes,
+                            style: const TextStyle(
+                                fontSize: 18, fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                        if (isAdmin)
+                          IconButton(
+                            icon: const Icon(Icons.add),
+                            tooltip: 'Import from uloz.to',
+                            onPressed: () => _showImportEpisodesDialog(
+                              context,
+                              ref,
+                              movie,
+                            ),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    if (hasEpisodes)
+                      for (final ep in episodes)
+                        Card(
                           margin: const EdgeInsets.only(bottom: 8),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(10),
@@ -491,15 +513,187 @@ class MovieDetailScreen extends ConsumerWidget {
                             ),
                           ),
                         ),
+                    if (!hasEpisodes)
+                      Text(
+                        'No episodes available yet.',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.grey[600],
+                        ),
                       ),
-                    ],
-                  ),
+                  ],
                 ),
+              ),
               const SizedBox(height: 80),
             ]),
           ),
         ],
       ),
+    );
+  }
+
+  Future<void> _showImportEpisodesDialog(
+    BuildContext context,
+    WidgetRef ref,
+    MovieModel movie,
+  ) async {
+    final urlController = TextEditingController();
+    final seasonController = TextEditingController(
+      text: movie.contentType == 'TV_SERIES' ? '1' : '',
+    );
+    final episodeController = TextEditingController();
+
+    String? errorMessage;
+    bool isLoading = false;
+
+    final messenger = ScaffoldMessenger.of(context);
+
+    await showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              title: Text(
+                movie.contentType == 'TV_SERIES'
+                    ? 'Import episodes'
+                    : 'Import files',
+              ),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextField(
+                      controller: urlController,
+                      decoration: const InputDecoration(
+                        labelText: 'File or folder URL / slug',
+                        hintText: 'https://uloz.to/... or folder slug',
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: seasonController,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(
+                        labelText: 'Season number (optional)',
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: episodeController,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(
+                        labelText: 'Starting episode number (optional)',
+                      ),
+                    ),
+                    if (errorMessage != null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 12),
+                        child: Text(
+                          errorMessage!,
+                          style: const TextStyle(color: Colors.red),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: isLoading
+                      ? null
+                      : () {
+                          Navigator.of(dialogContext).pop();
+                        },
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  onPressed: isLoading
+                      ? null
+                      : () async {
+                          final target = urlController.text.trim();
+                          if (target.isEmpty) {
+                            setState(() {
+                              errorMessage =
+                                  'Please enter a file or folder slug or URL.';
+                            });
+                            return;
+                          }
+
+                          final seasonInput = seasonController.text.trim();
+                          final episodeInput = episodeController.text.trim();
+
+                          final seasonNumber = seasonInput.isEmpty
+                              ? null
+                              : int.tryParse(seasonInput);
+                          if (seasonInput.isNotEmpty && seasonNumber == null) {
+                            setState(() {
+                              errorMessage =
+                                  'Season number must be a valid integer.';
+                            });
+                            return;
+                          }
+
+                          final episodeNumber = episodeInput.isEmpty
+                              ? null
+                              : int.tryParse(episodeInput);
+                          if (episodeInput.isNotEmpty &&
+                              episodeNumber == null) {
+                            setState(() {
+                              errorMessage =
+                                  'Episode number must be a valid integer.';
+                            });
+                            return;
+                          }
+
+                          setState(() {
+                            isLoading = true;
+                            errorMessage = null;
+                          });
+
+                          final result = await ref
+                              .read(movieServiceProvider)
+                              .importEpisodesFromUloz(
+                                movieId: movie.id,
+                                targetUrl: target,
+                                seasonNumber: seasonNumber,
+                                episodeNumber: episodeNumber,
+                              );
+
+                          if (result.success) {
+                            Navigator.of(dialogContext).pop();
+                            ref.invalidate(movieDetailProvider(movie.id));
+                            messenger.showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  result.message ??
+                                      'Imported ${result.newCount} episode(s)',
+                                ),
+                              ),
+                            );
+                          } else {
+                            setState(() {
+                              isLoading = false;
+                              errorMessage = result.message ??
+                                  'Failed to import episodes. Please try again.';
+                            });
+                          }
+                        },
+                  child: isLoading
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Text('Import'),
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
   }
 }

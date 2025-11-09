@@ -250,6 +250,42 @@ class MovieService {
     }
     return [];
   }
+
+  Future<ImportEpisodesResult> importEpisodesFromUloz({
+    required String movieId,
+    required String targetUrl,
+    int? seasonNumber,
+    int? episodeNumber,
+  }) async {
+    try {
+      final response = await _apiService.importEpisodesFromUloz(
+        movieId,
+        targetUrl: targetUrl,
+        seasonNumber: seasonNumber,
+        episodeNumber: episodeNumber,
+      );
+
+      if (response['success'] == true) {
+        return ImportEpisodesResult(
+          success: true,
+          message: response['message'] as String?,
+          newCount: (response['data'] as List?)?.length ?? 0,
+          skippedCount: response['skipped'] as int? ?? 0,
+        );
+      }
+
+      return ImportEpisodesResult(
+        success: false,
+        message: response['message'] as String?,
+      );
+    } catch (e) {
+      print('Error importing episodes: $e');
+      return ImportEpisodesResult(
+        success: false,
+        message: e.toString(),
+      );
+    }
+  }
 }
 
 class ImportMovieResult {
@@ -273,6 +309,20 @@ class ManualMovieResult {
     required this.success,
     this.movie,
     this.message,
+  });
+}
+
+class ImportEpisodesResult {
+  final bool success;
+  final String? message;
+  final int newCount;
+  final int skippedCount;
+
+  ImportEpisodesResult({
+    required this.success,
+    this.message,
+    this.newCount = 0,
+    this.skippedCount = 0,
   });
 }
 

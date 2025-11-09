@@ -22,6 +22,7 @@ class AuthService {
   bool get isLoggedIn => _currentUser != null;
 
   UserModel? get currentUser => _currentUser;
+  bool get isAdmin => _currentUser?.role == 'ADMIN';
 
   // Add listener for user changes
   void addListener(VoidCallback listener) {
@@ -181,6 +182,7 @@ class AuthService {
           id: userData['id'] ?? 'unknown',
           email: userData['email'] ?? email,
           username: userData['username'] ?? 'User',
+          role: userData['role'] ?? 'USER',
           bio: userData['bio'],
           avatarUrl: userData['avatarUrl'],
           isVerified: userData['isVerified'] ?? false,
@@ -235,6 +237,7 @@ class AuthService {
           id: userData['id'] ?? 'unknown',
           email: userData['email'] ?? email,
           username: userData['username'] ?? username,
+          role: userData['role'] ?? 'USER',
           bio: userData['bio'],
           avatarUrl: userData['avatarUrl'],
           isVerified: userData['isVerified'] ?? false,
