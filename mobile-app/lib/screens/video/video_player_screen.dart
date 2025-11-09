@@ -875,6 +875,11 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
     if (_previewDialogContext != null) {
       Navigator.of(_previewDialogContext!).pop();
       _previewDialogContext = null;
+      if (mounted && _isPreviewMode) {
+        setState(() {
+          _hasShownPreviewDialog = false;
+        });
+      }
     }
   }
 
@@ -948,6 +953,11 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
       },
     ).then((_) {
       _previewDialogContext = null;
+      if (mounted && _isPreviewMode) {
+        setState(() {
+          _hasShownPreviewDialog = false;
+        });
+      }
     });
   }
 

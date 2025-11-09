@@ -360,6 +360,11 @@ class _MoviePlayerScreenState extends ConsumerState<MoviePlayerScreen>
     if (_previewDialogContext != null) {
       Navigator.of(_previewDialogContext!).pop();
       _previewDialogContext = null;
+      if (mounted && _isPreviewMode) {
+        setState(() {
+          _hasShownPreviewDialog = false;
+        });
+      }
     }
   }
 
@@ -433,6 +438,11 @@ class _MoviePlayerScreenState extends ConsumerState<MoviePlayerScreen>
       },
     ).then((_) {
       _previewDialogContext = null;
+      if (mounted && _isPreviewMode) {
+        setState(() {
+          _hasShownPreviewDialog = false;
+        });
+      }
     });
   }
 
