@@ -5,10 +5,12 @@ import 'search_tab_content.dart';
 
 class SearchTabs extends ConsumerStatefulWidget {
   final String query;
+  final String? initialTab;
 
   const SearchTabs({
     super.key,
     required this.query,
+    this.initialTab,
   });
 
   @override
@@ -32,16 +34,38 @@ class _SearchTabsState extends ConsumerState<SearchTabs>
   @override
   void initState() {
     super.initState();
+    final initialIndex = _resolveInitialIndex(widget.initialTab);
     _tabController = TabController(
       length: _tabs.length,
       vsync: this,
+      initialIndex: initialIndex,
     );
+  }
+
+  @override
+  void didUpdateWidget(covariant SearchTabs oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.initialTab != widget.initialTab &&
+        widget.initialTab != null) {
+      final newIndex = _resolveInitialIndex(widget.initialTab);
+      if (newIndex != _tabController.index && newIndex < _tabs.length) {
+        _tabController.animateTo(newIndex);
+      }
+    }
   }
 
   @override
   void dispose() {
     _tabController.dispose();
     super.dispose();
+  }
+
+  int _resolveInitialIndex(String? initialTab) {
+    if (initialTab == null) return 0;
+    final index = _tabs.indexWhere(
+      (tab) => tab.toLowerCase() == initialTab.toLowerCase(),
+    );
+    return index >= 0 ? index : 0;
   }
 
   @override

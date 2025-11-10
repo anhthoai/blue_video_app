@@ -4,8 +4,9 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/services/api_service.dart';
 import '../../core/services/auth_service.dart';
+import '../../core/services/movie_service.dart';
+import '../../models/movie_model.dart';
 import '../../widgets/video_card.dart';
-import '../../widgets/common/presigned_image.dart';
 
 class SearchTabContent extends ConsumerStatefulWidget {
   final String query;
@@ -23,6 +24,7 @@ class SearchTabContent extends ConsumerStatefulWidget {
 
 class _SearchTabContentState extends ConsumerState<SearchTabContent> {
   final ApiService _apiService = ApiService();
+  List<MovieModel> _libraryResults = [];
   List<dynamic> _results = [];
   bool _isLoading = false;
   String? _error;
@@ -80,6 +82,11 @@ class _SearchTabContentState extends ConsumerState<SearchTabContent> {
 
       setState(() {
         _results = results;
+        if (widget.contentType == 'Library') {
+          _libraryResults = List<MovieModel>.from(results);
+        } else {
+          _libraryResults = [];
+        }
         _isLoading = false;
       });
     } catch (e) {
@@ -96,8 +103,12 @@ class _SearchTabContentState extends ConsumerState<SearchTabContent> {
   }
 
   Future<List<dynamic>> _searchLibrary() async {
-    // For now, return empty - implement when library feature is ready
-    return [];
+    final movieService = ref.read(movieServiceProvider);
+    final movies = await movieService.getMovies(
+      limit: 24,
+      search: widget.query,
+    );
+    return movies;
   }
 
   Future<List<dynamic>> _searchPosts() async {
@@ -205,6 +216,8 @@ class _SearchTabContentState extends ConsumerState<SearchTabContent> {
     switch (widget.contentType) {
       case 'Video':
         return _buildVideoResults();
+      case 'Library':
+        return _buildLibraryResults();
       case 'Posts':
         return _buildPostResults();
       case 'User':
@@ -243,6 +256,25 @@ class _SearchTabContentState extends ConsumerState<SearchTabContent> {
             context.go('/main/profile/${video['userId']}');
           },
         );
+      },
+    );
+  }
+
+  Widget _buildLibraryResults() {
+    final movies = _libraryResults;
+
+    return GridView.builder(
+      padding: const EdgeInsets.all(16),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        childAspectRatio: 0.62,
+        crossAxisSpacing: 12,
+        mainAxisSpacing: 12,
+      ),
+      itemCount: movies.length,
+      itemBuilder: (context, index) {
+        final movie = movies[index];
+        return _LibrarySearchCard(movie: movie);
       },
     );
   }
@@ -644,5 +676,168 @@ class _SearchTabContentState extends ConsumerState<SearchTabContent> {
         ],
       );
     }
+  }
+}
+
+class _LibrarySearchCard extends StatelessWidget {
+  final MovieModel movie;
+
+  const _LibrarySearchCard({
+    required this.movie,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () {
+        context.push('/main/library/movie/${movie.id}');
+      },
+      child: Card(
+        clipBehavior: Clip.antiAlias,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  if (movie.posterUrl != null && movie.posterUrl!.isNotEmpty)
+                    Image.network(
+                      movie.posterUrl!,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) {
+                        return Container(
+                          color: Colors.grey[300],
+                          child: const Icon(
+                            Icons.movie,
+                            size: 48,
+                            color: Colors.grey,
+                          ),
+                        );
+                      },
+                    )
+                  else
+                    Container(
+                      color: Colors.grey[300],
+                      child: const Icon(
+                        Icons.movie,
+                        size: 48,
+                        color: Colors.grey,
+                      ),
+                    ),
+                  Positioned(
+                    top: 8,
+                    left: 8,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withOpacity(0.55),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        movie.displayType,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+                  if (movie.voteAverage != null)
+                    Positioned(
+                      top: 8,
+                      right: 8,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 3,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withOpacity(0.7),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(
+                              Icons.star_rounded,
+                              color: Colors.amber,
+                              size: 14,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              movie.voteAverage!.toStringAsFixed(1),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    movie.title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 14,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      Text(
+                        movie.releaseYear,
+                        style: TextStyle(
+                          color: Colors.grey[600],
+                          fontSize: 12,
+                        ),
+                      ),
+                      if (movie.formattedRuntime.isNotEmpty) ...[
+                        const SizedBox(width: 6),
+                        Container(
+                          width: 4,
+                          height: 4,
+                          decoration: BoxDecoration(
+                            color: Colors.grey[500],
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          movie.formattedRuntime,
+                          style: TextStyle(
+                            color: Colors.grey[600],
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }

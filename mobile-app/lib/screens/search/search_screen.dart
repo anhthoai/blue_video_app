@@ -8,10 +8,12 @@ import '../../l10n/app_localizations.dart';
 
 class SearchScreen extends ConsumerStatefulWidget {
   final String? initialQuery;
+  final String? initialTab;
 
   const SearchScreen({
     super.key,
     this.initialQuery,
+    this.initialTab,
   });
 
   @override
@@ -79,7 +81,10 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
           Expanded(
             child: _currentQuery.isEmpty
                 ? _buildEmptyState()
-                : SearchTabs(query: _currentQuery),
+                : SearchTabs(
+                    query: _currentQuery,
+                    initialTab: widget.initialTab,
+                  ),
           ),
         ],
       ),

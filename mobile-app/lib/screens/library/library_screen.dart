@@ -37,6 +37,15 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
         title: Text(l10n.library),
         centerTitle: true,
         actions: [
+          IconButton(
+            tooltip: l10n.search,
+            icon: const Icon(Icons.search, color: Colors.white),
+            onPressed: () {
+              if (mounted) {
+                context.push('/main/search?tab=Library');
+              }
+            },
+          ),
           TextButton.icon(
             onPressed: () {
               if (mounted) {

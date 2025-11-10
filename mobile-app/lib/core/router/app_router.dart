@@ -299,7 +299,14 @@ final routerProvider = Provider<GoRouter>((ref) {
           // Other Routes
           GoRoute(
             path: 'search',
-            builder: (context, state) => const SearchScreen(),
+            builder: (context, state) {
+              final query = state.uri.queryParameters['q'];
+              final tab = state.uri.queryParameters['tab'];
+              return SearchScreen(
+                initialQuery: query,
+                initialTab: tab,
+              );
+            },
           ),
           GoRoute(
             path: 'settings',
