@@ -251,6 +251,31 @@ class MovieService {
     return [];
   }
 
+  Future<List<TmdbSearchResult>> searchTmdbTitles({
+    required String query,
+    required String contentType,
+  }) async {
+    try {
+      final response = await _apiService.searchTmdbTitles(
+        query: query,
+        type: contentType,
+      );
+
+      if (response['success'] == true && response['data'] != null) {
+        final items = response['data'] as List;
+        return items
+            .map(
+              (item) => TmdbSearchResult.fromJson(item as Map<String, dynamic>),
+            )
+            .where((item) => item.tmdbId != null && item.tmdbId!.isNotEmpty)
+            .toList();
+      }
+    } catch (e) {
+      print('Error searching TMDb titles: $e');
+    }
+    return [];
+  }
+
   Future<ImportEpisodesResult> importEpisodesFromUloz({
     required String movieId,
     required String targetUrl,
@@ -285,6 +310,51 @@ class MovieService {
         message: e.toString(),
       );
     }
+  }
+}
+
+class TmdbSearchResult {
+  final String? tmdbId;
+  final String title;
+  final String? originalTitle;
+  final String? overview;
+  final String? releaseDate;
+  final String? posterUrl;
+  final String? backdropUrl;
+  final double? voteAverage;
+  final double? popularity;
+  final String contentType;
+
+  TmdbSearchResult({
+    required this.tmdbId,
+    required this.title,
+    required this.contentType,
+    this.originalTitle,
+    this.overview,
+    this.releaseDate,
+    this.posterUrl,
+    this.backdropUrl,
+    this.voteAverage,
+    this.popularity,
+  });
+
+  factory TmdbSearchResult.fromJson(Map<String, dynamic> json) {
+    return TmdbSearchResult(
+      tmdbId: json['tmdbId']?.toString(),
+      title: json['title']?.toString() ?? 'Unknown Title',
+      originalTitle: json['originalTitle']?.toString(),
+      overview: json['overview']?.toString(),
+      releaseDate: json['releaseDate']?.toString(),
+      posterUrl: json['posterUrl']?.toString(),
+      backdropUrl: json['backdropUrl']?.toString(),
+      voteAverage: json['voteAverage'] is num
+          ? (json['voteAverage'] as num).toDouble()
+          : double.tryParse(json['voteAverage']?.toString() ?? ''),
+      popularity: json['popularity'] is num
+          ? (json['popularity'] as num).toDouble()
+          : double.tryParse(json['popularity']?.toString() ?? ''),
+      contentType: json['contentType']?.toString() ?? 'MOVIE',
+    );
   }
 }
 

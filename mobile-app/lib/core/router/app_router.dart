@@ -34,7 +34,6 @@ import '../../screens/playlist/playlist_detail_screen.dart';
 import '../../screens/library/movie_detail_screen.dart';
 import '../../screens/library/movie_player_screen.dart';
 import '../../screens/library/add_movie/add_movie_start_screen.dart';
-import '../../screens/library/add_movie/add_movie_method_screen.dart';
 import '../../screens/library/add_movie/add_movie_manual_screen.dart';
 import '../../models/category_model.dart';
 
@@ -194,24 +193,6 @@ final routerProvider = Provider<GoRouter>((ref) {
               );
             },
             routes: [
-              GoRoute(
-                path: 'methods',
-                builder: (context, state) {
-                  final type = state.uri.queryParameters['type'];
-                  final title = state.uri.queryParameters['title'] ?? '';
-                  final imdbId = state.uri.queryParameters['imdbId'];
-                  final tmdbId = state.uri.queryParameters['tmdbId'];
-                  final tvdbId = state.uri.queryParameters['tvdbId'];
-
-                  return AddMovieMethodScreen(
-                    selectedType: type,
-                    title: title,
-                    imdbId: imdbId,
-                    tmdbId: tmdbId,
-                    tvdbId: tvdbId,
-                  );
-                },
-              ),
               GoRoute(
                 path: 'manual',
                 builder: (context, state) {

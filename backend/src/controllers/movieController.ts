@@ -919,6 +919,60 @@ export async function findMoviesByIdentifiers(req: Request, res: Response): Prom
   }
 }
 
+export async function searchTmdbTitles(req: Request, res: Response): Promise<void> {
+  try {
+    const { query, type = 'MOVIE', page = '1' } = req.query;
+
+    if (!query || typeof query !== 'string' || !query.trim()) {
+      res.status(400).json({
+        success: false,
+        message: 'Query parameter "query" is required',
+      });
+      return;
+    }
+
+    const trimmedQuery = query.trim();
+    const pageNumber = Number(page) || 1;
+    const normalizedType =
+      typeof type === 'string' && type.toUpperCase() === 'TV_SERIES'
+        ? 'TV_SERIES'
+        : 'MOVIE';
+
+    const tmdbResponse =
+      normalizedType === 'TV_SERIES'
+        ? await tmdbService.searchTVShows(trimmedQuery, pageNumber)
+        : await tmdbService.searchMovies(trimmedQuery, pageNumber);
+
+    const results = (tmdbResponse?.results || []).map((item: any) => ({
+      tmdbId: item?.id ? item.id.toString() : null,
+      title: item?.title || item?.name || '',
+      originalTitle: item?.original_title || item?.original_name || null,
+      overview: item?.overview || '',
+      releaseDate: item?.release_date || item?.first_air_date || null,
+      posterUrl: tmdbService.getImageUrl(item?.poster_path, 'w342'),
+      backdropUrl: tmdbService.getImageUrl(item?.backdrop_path, 'w780'),
+      voteAverage: item?.vote_average ?? null,
+      popularity: item?.popularity ?? null,
+      contentType: normalizedType,
+      originCountry: item?.origin_country || [],
+      originalLanguage: item?.original_language || null,
+    }));
+
+    res.json({
+      success: true,
+      data: results,
+      totalPages: tmdbResponse?.total_pages ?? 1,
+    });
+  } catch (error: any) {
+    console.error('Error searching TMDb titles:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to search TMDb titles',
+      error: error?.message || 'Unknown error',
+    });
+  }
+}
+
 /**
  * Get movie by ID
  * GET /api/v1/movies/:id

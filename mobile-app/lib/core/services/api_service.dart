@@ -1951,4 +1951,30 @@ class ApiService {
 
     return await _handleResponse(response);
   }
+
+  Future<Map<String, dynamic>> searchTmdbTitles({
+    required String query,
+    String? type,
+    int page = 1,
+  }) async {
+    final queryParams = <String, String>{
+      'query': query,
+      'page': page.toString(),
+    };
+
+    if (type != null && type.isNotEmpty) {
+      queryParams['type'] = type;
+    }
+
+    final uri = Uri.parse('$baseUrl/movies/external/tmdb/search').replace(
+      queryParameters: queryParams,
+    );
+
+    final response = await http.get(
+      uri,
+      headers: await _getHeaders(),
+    );
+
+    return await _handleResponse(response);
+  }
 }

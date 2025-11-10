@@ -8,6 +8,7 @@ const router = Router();
 router.get('/', movieController.getMovies);
 router.get('/filters/options', movieController.getFilterOptions);
 router.get('/by-identifiers', movieController.findMoviesByIdentifiers);
+router.get('/external/tmdb/search', movieController.searchTmdbTitles);
 router.get('/:id', movieController.getMovieById);
 router.get('/:movieId/episodes/:episodeId/stream', movieController.getEpisodeStream);
 router.get('/:movieId/episodes/:episodeId/subtitles/:subtitleId/stream', movieController.getSubtitleStream);
