@@ -269,9 +269,9 @@ export class PaymentService {
    */
   getCoinPackages() {
     return [
-      { coins: 100, usd: 1.00, label: '100 Coins' },
-      { coins: 200, usd: 2.00, label: '200 Coins' },
-      { coins: 500, usd: 5.00, label: '500 Coins' },
+      //{ coins: 100, usd: 1.00, label: '100 Coins' },
+      //{ coins: 200, usd: 2.00, label: '200 Coins' },
+      //{ coins: 500, usd: 5.00, label: '500 Coins' },
       { coins: 1000, usd: 10.00, label: '1000 Coins' },
       { coins: 2000, usd: 20.00, label: '2000 Coins' },
       { coins: 10000, usd: 100.00, label: '10000 Coins' },

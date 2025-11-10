@@ -7246,78 +7246,6 @@ app.post('/api/v1/payment/simulate-ipn/:orderId', async (req, res): Promise<void
 });
 
 // Payment status endpoint for frontend polling
-app.get('/payment/success', (_req, res): void => {
-  res.send(`<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Payment Submitted</title>
-  <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background:#f8fafc; margin:0; display:flex; align-items:center; justify-content:center; min-height:100vh; color:#0f172a; }
-    .card { background:#ffffff; padding:32px; border-radius:18px; box-shadow:0 22px 45px rgba(15,23,42,0.18); max-width:420px; text-align:center; }
-    h1 { margin-top:0; font-size:24px; }
-    p { font-size:15px; line-height:1.6; color:#475569; }
-    button { margin-top:22px; padding:12px 24px; font-size:15px; font-weight:600; border:none; border-radius:999px; background:#4ade80; color:#0f172a; cursor:pointer; }
-    button:active { transform:scale(0.98); }
-  </style>
-  <script>
-    window.addEventListener('load', function() {
-      if (window.ReactNativeWebView) {
-        window.ReactNativeWebView.postMessage('payment-success');
-      }
-      if (window.opener) {
-        try { window.opener.postMessage('payment-success', '*'); } catch (e) {}
-      }
-    });
-  </script>
-</head>
-<body>
-  <div class="card">
-    <h1>Payment submitted</h1>
-    <p>You can close this window and return to the Blue Video app. We will notify you once the payment is confirmed.</p>
-    <button onclick="window.close()">Close</button>
-  </div>
-</body>
-</html>`);
-});
-
-app.get('/payment/fail', (_req, res): void => {
-  res.send(`<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Payment Cancelled</title>
-  <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background:#f8fafc; margin:0; display:flex; align-items:center; justify-content:center; min-height:100vh; color:#0f172a; }
-    .card { background:#ffffff; padding:32px; border-radius:18px; box-shadow:0 22px 45px rgba(15,23,42,0.18); max-width:420px; text-align:center; }
-    h1 { margin-top:0; font-size:24px; color:#ef4444; }
-    p { font-size:15px; line-height:1.6; color:#475569; }
-    button { margin-top:22px; padding:12px 24px; font-size:15px; font-weight:600; border:none; border-radius:999px; background:#94a3b8; color:#0f172a; cursor:pointer; }
-    button:active { transform:scale(0.98); }
-  </style>
-  <script>
-    window.addEventListener('load', function() {
-      if (window.ReactNativeWebView) {
-        window.ReactNativeWebView.postMessage('payment-fail');
-      }
-      if (window.opener) {
-        try { window.opener.postMessage('payment-fail', '*'); } catch (e) {}
-      }
-    });
-  </script>
-</head>
-<body>
-  <div class="card">
-    <h1>Payment cancelled</h1>
-    <p>The transaction did not complete. You can retry the payment from the Blue Video app.</p>
-    <button onclick="window.close()">Close</button>
-  </div>
-</body>
-</html>`);
-});
-
 app.get('/api/v1/payment/status/:orderId', authenticateToken, async (req, res): Promise<void> => {
   try {
     const { orderId } = req.params;
@@ -7355,21 +7283,158 @@ app.get('/api/v1/payment/status/:orderId', authenticateToken, async (req, res): 
   }
 });
 
+// Payment success redirect (after gateway processes payment)
+app.get('/payment/success', async (req, res): Promise<void> => {
+  try {
+    console.log('✅ Payment success redirect received');
+    console.log('   Query params:', req.query);
+    
+    // Return a simple HTML page that the WebView can detect
+    res.send(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <style>
+          body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          }
+          .container {
+            text-align: center;
+            padding: 40px;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+          }
+          .icon {
+            font-size: 64px;
+            margin-bottom: 20px;
+          }
+          h1 {
+            color: #22c55e;
+            margin: 0 0 10px 0;
+          }
+          p {
+            color: #666;
+            margin: 0;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="icon">✅</div>
+          <h1>Payment Successful!</h1>
+          <p>Please wait while we confirm your payment...</p>
+        </div>
+      </body>
+      </html>
+    `);
+  } catch (error) {
+    console.error('❌ Error handling payment success:', error);
+    res.status(500).send('Error processing payment success');
+  }
+});
+
+// Payment failure redirect (after gateway rejects payment)
+// Handles both /payment/fail?msg=error and /payment/fail<error> formats
+app.get(/^\/payment\/fail(.*)$/, async (req, res): Promise<void> => {
+  try {
+    // Extract error from query params or from path
+    let errorMsg = (req.query['msg'] as string) || 'Payment processing failed';
+    
+    // Check if error message is in the path (gateway concatenates it)
+    const pathMatch = req.path.match(/^\/payment\/fail(.+)$/);
+    if (pathMatch && pathMatch[1]) {
+      const pathError = decodeURIComponent(pathMatch[1]);
+      if (pathError && !pathError.startsWith('?')) {
+        errorMsg = pathError;
+      }
+    }
+    
+    console.log('❌ Payment failure redirect received');
+    console.log('   Error message:', errorMsg);
+    console.log('   Path:', req.path);
+    console.log('   Query params:', req.query);
+    
+    res.send(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <style>
+          body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+          }
+          .container {
+            text-align: center;
+            padding: 40px;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+            max-width: 400px;
+          }
+          .icon {
+            font-size: 64px;
+            margin-bottom: 20px;
+          }
+          h1 {
+            color: #ef4444;
+            margin: 0 0 10px 0;
+          }
+          p {
+            color: #666;
+            margin: 10px 0;
+          }
+          .error-msg {
+            background: #fee;
+            padding: 10px;
+            border-radius: 8px;
+            color: #c00;
+            font-size: 14px;
+            margin-top: 15px;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="icon">❌</div>
+          <h1>Payment Failed</h1>
+          <p>Your payment could not be processed.</p>
+          <div class="error-msg">${errorMsg}</div>
+          <p style="margin-top: 20px;">Please try again or contact support.</p>
+        </div>
+      </body>
+      </html>
+    `);
+  } catch (error) {
+    console.error('❌ Error handling payment failure:', error);
+    res.status(500).send('Error processing payment failure');
+  }
+});
+
 app.post('/api/v1/payment/ipn', express.urlencoded({ extended: true }), async (req, res): Promise<void> => {
   try {
     const notification: IPNNotification = req.body;
 
     console.log('🎯 IPN notification received:', notification);
 
+    // For demo purposes, accept all notifications
+    // In production, verify signature
     if (!paymentService.verifyIPNSignature(notification)) {
       console.error('Invalid IPN signature:', notification);
       res.status(400).send('Invalid signature');
-      return;
-    }
-
-    if (notification.prerequest === '1' || notification.prerequest === 'true') {
-      console.log('✅ IPN prerequest acknowledged');
-      res.send('READY');
       return;
     }
 

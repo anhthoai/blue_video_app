@@ -1,11 +1,10 @@
-import 'dart:async';
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'dart:convert';
+import 'dart:async';
 import 'package:http/http.dart' as http;
 import 'package:webview_flutter/webview_flutter.dart';
-
 import '../../core/services/api_service.dart';
 
 class CreditCardPaymentDialog extends ConsumerStatefulWidget {
@@ -44,112 +43,17 @@ class CreditCardPaymentDialog extends ConsumerStatefulWidget {
 
 class _CreditCardPaymentDialogState
     extends ConsumerState<CreditCardPaymentDialog> {
-  late final WebViewController _webViewController;
-  Timer? _pollTimer;
-  bool _isLoadingGateway = true;
-  bool _hasStartedPolling = false;
-
-  late final String _orderId;
-  late final String _endpointUrl;
-  late final String _transId;
-  late final String _amountParam;
-  late final String _sign;
-  late final double _usdAmount;
-
-  @override
-  void initState() {
-    super.initState();
-    final paymentData = widget.paymentData;
-
-    _orderId = paymentData['orderId']?.toString() ??
-        paymentData['extOrderId']?.toString() ??
-        '';
-    _endpointUrl = paymentData['endpointUrl'] as String? ??
-        paymentData['endpoint_url'] as String? ??
-        '';
-    _transId = paymentData['transId']?.toString() ??
-        paymentData['trans_id']?.toString() ??
-        '';
-    _amountParam = paymentData['amount']?.toString() ??
-        paymentData['usdAmount']?.toString() ??
-        '0';
-    _sign = paymentData['sign']?.toString() ?? '';
-    _usdAmount = _parseUsdAmount(paymentData);
-
-    _webViewController = WebViewController()
-      ..setJavaScriptMode(JavaScriptMode.unrestricted)
-      ..setBackgroundColor(const Color(0x00000000))
-      ..setNavigationDelegate(
-        NavigationDelegate(
-          onPageStarted: (url) {
-            setState(() {
-              _isLoadingGateway = true;
-            });
-          },
-          onPageFinished: (url) {
-            if (mounted) {
-              setState(() {
-                _isLoadingGateway = false;
-              });
-            }
-            _handleNavigation(url);
-          },
-          onNavigationRequest: (request) {
-            if (_handleNavigation(request.url)) {
-              return NavigationDecision.prevent;
-            }
-            return NavigationDecision.navigate;
-          },
-          onWebResourceError: (error) {
-            if (!mounted) return;
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(
-                  'Failed to load payment page: ${error.description}',
-                ),
-                backgroundColor: Colors.red,
-              ),
-            );
-          },
-        ),
-      )
-      ..loadHtmlString(_buildAutoSubmitForm());
-
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) {
-        return;
-      }
-
-      if (_orderId.isEmpty ||
-          _endpointUrl.isEmpty ||
-          _transId.isEmpty ||
-          _sign.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content:
-                Text('Missing payment information. Please try again later.'),
-            backgroundColor: Colors.red,
-            duration: Duration(seconds: 4),
-          ),
-        );
-        widget.onCancel();
-        return;
-      }
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Redirecting to secure payment gateway...'),
-          duration: Duration(seconds: 3),
-        ),
-      );
-
-      _startPolling();
-    });
-  }
+  final _formKey = GlobalKey<FormState>();
+  final _cardNumberController = TextEditingController();
+  final _cvcController = TextEditingController();
+  final _expiryController = TextEditingController();
+  bool isProcessing = false;
 
   @override
   void dispose() {
-    _pollTimer?.cancel();
+    _cardNumberController.dispose();
+    _cvcController.dispose();
+    _expiryController.dispose();
     super.dispose();
   }
 
@@ -159,9 +63,9 @@ class _CreditCardPaymentDialogState
     final orderNumber = paymentData['transId']?.toString() ??
         paymentData['trans_id']?.toString() ??
         'N/A';
-    final displayAmount = _usdAmount > 0
-        ? '\$${_usdAmount.toStringAsFixed(2)}'
-        : (_amountParam.isNotEmpty ? _amountParam : '—');
+    final usdAmount = paymentData['amount'] is int
+        ? (paymentData['amount'] as int).toDouble()
+        : paymentData['amount'] as double;
 
     return Dialog(
       shape: RoundedRectangleBorder(
@@ -177,6 +81,7 @@ class _CreditCardPaymentDialogState
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
+              // Header
               Row(
                 children: [
                   const Icon(
@@ -195,12 +100,15 @@ class _CreditCardPaymentDialogState
                     ),
                   ),
                   IconButton(
-                    onPressed: _handleCancel,
+                    onPressed: widget.onCancel,
                     icon: const Icon(Icons.close),
                   ),
                 ],
               ),
+
               const SizedBox(height: 16),
+
+              // Order Details
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
@@ -209,7 +117,6 @@ class _CreditCardPaymentDialogState
                   border: Border.all(color: Colors.grey[200]!),
                 ),
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
                       children: [
@@ -217,7 +124,7 @@ class _CreditCardPaymentDialogState
                           'Order Number',
                           style: TextStyle(
                             fontSize: 14,
-                            fontWeight: FontWeight.w600,
+                            fontWeight: FontWeight.w500,
                           ),
                         ),
                         const Spacer(),
@@ -225,7 +132,7 @@ class _CreditCardPaymentDialogState
                           orderNumber,
                           style: const TextStyle(
                             fontSize: 14,
-                            color: Colors.redAccent,
+                            color: Colors.red,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
@@ -238,83 +145,291 @@ class _CreditCardPaymentDialogState
                           'Amount',
                           style: TextStyle(
                             fontSize: 14,
-                            fontWeight: FontWeight.w600,
+                            fontWeight: FontWeight.w500,
                           ),
                         ),
                         const Spacer(),
-                        Text(
-                          '$displayAmount USD',
-                          style: const TextStyle(
-                            fontSize: 14,
-                            color: Colors.black87,
-                          ),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Text(
+                              '$usdAmount (USD)',
+                              style: const TextStyle(
+                                fontSize: 14,
+                                color: Colors.black87,
+                              ),
+                            ),
+                            Text(
+                              'about USD',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey[600],
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),
                   ],
                 ),
               ),
+
               const SizedBox(height: 16),
-              SizedBox(
-                height: 420,
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: Stack(
-                    children: [
-                      WebViewWidget(controller: _webViewController),
-                      if (_isLoadingGateway)
-                        Container(
-                          color: Colors.white.withOpacity(0.85),
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: const [
-                              SizedBox(
-                                width: 36,
-                                height: 36,
-                                child: CircularProgressIndicator(),
+
+              // Credit Card Form
+              Form(
+                key: _formKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Credit Card Number
+                    const Text(
+                      'Credit Card number',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        // Card logos
+                        Row(
+                          children: [
+                            Container(
+                              width: 32,
+                              height: 20,
+                              decoration: BoxDecoration(
+                                color: Colors.blue,
+                                borderRadius: BorderRadius.circular(4),
                               ),
-                              SizedBox(height: 16),
-                              Text(
-                                'Connecting to payment gateway...',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w500,
+                              child: const Center(
+                                child: Text(
+                                  'VISA',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 8,
+                                    fontWeight: FontWeight.bold,
+                                  ),
                                 ),
-                                textAlign: TextAlign.center,
                               ),
-                            ],
+                            ),
+                            const SizedBox(width: 4),
+                            Container(
+                              width: 32,
+                              height: 20,
+                              decoration: BoxDecoration(
+                                color: Colors.red,
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: const Center(
+                                child: Text(
+                                  'MC',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 8,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            Container(
+                              width: 32,
+                              height: 20,
+                              decoration: BoxDecoration(
+                                color: Colors.blue[800],
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: const Center(
+                                child: Text(
+                                  'JCB',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 8,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    TextFormField(
+                      controller: _cardNumberController,
+                      keyboardType: TextInputType.number,
+                      inputFormatters: [
+                        FilteringTextInputFormatter.digitsOnly,
+                        LengthLimitingTextInputFormatter(19),
+                        CardNumberInputFormatter(),
+                      ],
+                      decoration: InputDecoration(
+                        hintText: '1234 5678 9012 3456',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 16,
+                        ),
+                      ),
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Please enter card number';
+                        }
+                        if (value.replaceAll(' ', '').length < 16) {
+                          return 'Please enter a valid card number';
+                        }
+                        return null;
+                      },
+                    ),
+
+                    const SizedBox(height: 12),
+
+                    // CVC Code
+                    const Text(
+                      'Credit Card Code(CVC)',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.credit_card,
+                          size: 20,
+                          color: Colors.grey,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          '888',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey[600],
                           ),
                         ),
-                    ],
-                  ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    TextFormField(
+                      controller: _cvcController,
+                      keyboardType: TextInputType.number,
+                      inputFormatters: [
+                        FilteringTextInputFormatter.digitsOnly,
+                        LengthLimitingTextInputFormatter(4),
+                      ],
+                      decoration: InputDecoration(
+                        hintText: '123',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 16,
+                        ),
+                      ),
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Please enter CVC code';
+                        }
+                        if (value.length < 3) {
+                          return 'Please enter a valid CVC code';
+                        }
+                        return null;
+                      },
+                    ),
+
+                    const SizedBox(height: 12),
+
+                    // Expire Date
+                    const Text(
+                      'Expire Date(MM/YY)',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    TextFormField(
+                      controller: _expiryController,
+                      keyboardType: TextInputType.number,
+                      inputFormatters: [
+                        FilteringTextInputFormatter.digitsOnly,
+                        LengthLimitingTextInputFormatter(4),
+                        ExpiryDateInputFormatter(),
+                      ],
+                      decoration: InputDecoration(
+                        hintText: 'MM/YY',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 16,
+                        ),
+                      ),
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Please enter expiry date';
+                        }
+                        if (value.length < 5) {
+                          return 'Please enter a valid expiry date';
+                        }
+                        return null;
+                      },
+                    ),
+                  ],
                 ),
               ),
+
               const SizedBox(height: 16),
-              Text(
-                'Complete your card details in the secure payment page above. '
-                'Do not close this window until you return to Blue Video.',
-                style: TextStyle(
-                  fontSize: 13,
-                  color: Colors.grey[600],
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 20),
+
+              // Pay Button
               SizedBox(
                 width: double.infinity,
-                child: OutlinedButton(
-                  onPressed: _handleCancel,
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    side: const BorderSide(color: Color(0xFF8B5CF6)),
-                  ),
-                  child: const Text(
-                    'Cancel Payment',
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
+                child: ElevatedButton(
+                  onPressed: isProcessing ? null : _processPayment,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF8B5CF6),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
                     ),
                   ),
+                  child: isProcessing
+                      ? const Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                color: Colors.white,
+                                strokeWidth: 2,
+                              ),
+                            ),
+                            SizedBox(width: 12),
+                            Text(
+                              'Processing...',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        )
+                      : Text(
+                          'Pay \$${usdAmount.toStringAsFixed(2)}',
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                 ),
               ),
             ],
@@ -324,207 +439,329 @@ class _CreditCardPaymentDialogState
     );
   }
 
-  double _parseUsdAmount(Map<String, dynamic> paymentData) {
-    final amountValue = paymentData['usdAmount'] ?? paymentData['amount'];
-    if (amountValue is num) {
-      return amountValue.toDouble();
-    }
-    if (amountValue is String) {
-      return double.tryParse(amountValue) ?? 0.0;
-    }
-    return 0.0;
-  }
-
-  String _buildAutoSubmitForm() {
-    final sanitizedEndpoint = _endpointUrl;
-    final sanitizedAmount = _amountParam;
-    final sanitizedTransId = _transId;
-    final sanitizedSign = _sign;
-
-    return '''
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Redirecting…</title>
-  <style>
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      background-color: #f9fafb;
-      color: #0f172a;
-      margin: 0;
-      padding: 24px;
-      text-align: center;
-    }
-    .card {
-      display: inline-block;
-      background: #ffffff;
-      padding: 24px;
-      border-radius: 16px;
-      box-shadow: 0 12px 40px rgba(15, 23, 42, 0.12);
-      max-width: 420px;
-      width: 100%;
-    }
-    h2 {
-      margin-top: 0;
-      font-size: 20px;
-    }
-    p {
-      color: #475569;
-      font-size: 14px;
-      line-height: 1.6;
-    }
-    button {
-      margin-top: 20px;
-      padding: 12px 20px;
-      background: #6c5ce7;
-      color: #ffffff;
-      border: none;
-      border-radius: 12px;
-      font-size: 15px;
-      font-weight: 600;
-      cursor: pointer;
-    }
-    button:focus {
-      outline: none;
-      box-shadow: 0 0 0 3px rgba(108, 92, 231, 0.35);
-    }
-    .hint {
-      margin-top: 18px;
-      font-size: 13px;
-      color: #64748b;
-    }
-  </style>
-  <script>
-    function submitForm() {
-      document.forms[0].submit();
-    }
-    window.addEventListener('load', function() {
-      setTimeout(submitForm, 600);
-    });
-  </script>
-</head>
-<body>
-  <div class="card">
-    <h2>Connecting to secure payment...</h2>
-    <p>Please wait a moment. If the payment page does not open automatically, tap the button below.</p>
-    <form action="$sanitizedEndpoint" method="post">
-      <input type="hidden" name="trans_id" value="$sanitizedTransId" />
-      <input type="hidden" name="amount" value="$sanitizedAmount" />
-      <input type="hidden" name="sign" value="$sanitizedSign" />
-      <button type="submit">Continue to payment</button>
-    </form>
-    <p class="hint">Keep this window open until you return to the app.</p>
-  </div>
-</body>
-</html>
-''';
-  }
-
-  bool _handleNavigation(String url) {
-    try {
-      final apiUri = Uri.parse(ApiService.baseUrl);
-      final origin = '${apiUri.scheme}://${apiUri.authority}';
-      final successUrl = '$origin/payment/success';
-      final failureUrl = '$origin/payment/fail';
-
-      if (url.startsWith(successUrl)) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Payment submitted. Waiting for confirmation...'),
-              duration: Duration(seconds: 3),
-            ),
-          );
-        }
-        return false;
-      }
-
-      if (url.startsWith(failureUrl)) {
-        _handlePaymentFailure('Payment was cancelled or failed.');
-        return true;
-      }
-    } catch (e) {
-      // Ignore parsing errors
-    }
-    return false;
-  }
-
-  Future<void> _startPolling() async {
-    if (_hasStartedPolling || _orderId.isEmpty) {
+  void _processPayment() async {
+    if (!_formKey.currentState!.validate()) {
       return;
     }
-    _hasStartedPolling = true;
 
-    int attempt = 0;
-    _pollTimer = Timer.periodic(const Duration(seconds: 6), (timer) async {
-      attempt++;
+    setState(() {
+      isProcessing = true;
+    });
+
+    try {
+      // Get payment data
+      final paymentData = widget.paymentData;
+      final transId = paymentData['trans_id']?.toString() ??
+          paymentData['transId']?.toString() ??
+          '';
+      final amount = paymentData['amount']?.toString() ?? '';
+      final sign = paymentData['sign']?.toString() ?? '';
+      final endpointUrl = paymentData['endpoint_url']?.toString() ??
+          paymentData['endpointUrl']?.toString() ??
+          '';
+      final orderId = paymentData['orderId'] as String? ?? '';
+
+      if (transId.isEmpty ||
+          amount.isEmpty ||
+          sign.isEmpty ||
+          endpointUrl.isEmpty) {
+        throw Exception('Missing payment data');
+      }
+
+      print('💳 Opening payment gateway...');
+      print('   Transaction ID: $transId');
+      print('   Amount: $amount');
+      print('   Endpoint: $endpointUrl');
+
+      // Open WebView with payment form
+      if (mounted) {
+        await Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (context) => _CreditCardPaymentWebView(
+              transId: transId,
+              amount: amount,
+              sign: sign,
+              endpointUrl: endpointUrl,
+              orderId: orderId,
+              onPaymentComplete: widget.onPaymentComplete,
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      print('❌ Credit Card Payment failed: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Payment failed: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          isProcessing = false;
+        });
+      }
+    }
+  }
+}
+
+class CardNumberInputFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    final text = newValue.text;
+    if (text.length <= 4) {
+      return newValue;
+    }
+
+    final buffer = StringBuffer();
+    for (int i = 0; i < text.length; i++) {
+      buffer.write(text[i]);
+      final nonZeroIndex = i + 1;
+      if (nonZeroIndex % 4 == 0 && nonZeroIndex != text.length) {
+        buffer.write(' ');
+      }
+    }
+
+    final string = buffer.toString();
+    return newValue.copyWith(
+      text: string,
+      selection: TextSelection.collapsed(offset: string.length),
+    );
+  }
+}
+
+class ExpiryDateInputFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    final text = newValue.text;
+    if (text.length <= 2) {
+      return newValue;
+    }
+
+    final buffer = StringBuffer();
+    for (int i = 0; i < text.length; i++) {
+      buffer.write(text[i]);
+      if (i == 1 && text.length > 2) {
+        buffer.write('/');
+      }
+    }
+
+    final string = buffer.toString();
+    return newValue.copyWith(
+      text: string,
+      selection: TextSelection.collapsed(offset: string.length),
+    );
+  }
+}
+
+class _CreditCardPaymentWebView extends StatefulWidget {
+  final String transId;
+  final String amount;
+  final String sign;
+  final String endpointUrl;
+  final String orderId;
+  final VoidCallback onPaymentComplete;
+
+  const _CreditCardPaymentWebView({
+    required this.transId,
+    required this.amount,
+    required this.sign,
+    required this.endpointUrl,
+    required this.orderId,
+    required this.onPaymentComplete,
+  });
+
+  @override
+  State<_CreditCardPaymentWebView> createState() =>
+      _CreditCardPaymentWebViewState();
+}
+
+class _CreditCardPaymentWebViewState extends State<_CreditCardPaymentWebView> {
+  late final WebViewController _controller;
+  Timer? _pollTimer;
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _initializeWebView();
+    _startPolling();
+  }
+
+  @override
+  void dispose() {
+    _pollTimer?.cancel();
+    super.dispose();
+  }
+
+  void _initializeWebView() {
+    _controller = WebViewController()
+      ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      ..setNavigationDelegate(
+        NavigationDelegate(
+          onPageStarted: (String url) {
+            print('📄 Page started loading: $url');
+            setState(() {
+              _isLoading = true;
+            });
+          },
+          onPageFinished: (String url) {
+            setState(() {
+              _isLoading = false;
+            });
+            print('✅ Page finished loading: $url');
+
+            // Check if we're on success/fail page
+            if (url.contains('/payment/success')) {
+              print('✅ Payment successful! Detected success URL');
+            } else if (url.contains('/payment/fail')) {
+              print('❌ Payment failed! Detected fail URL');
+            }
+          },
+          onWebResourceError: (WebResourceError error) {
+            print('❌ WebView error: ${error.description}');
+            setState(() {
+              _isLoading = false;
+            });
+
+            // Don't close on timeout - let user see the error
+            if (error.errorCode == -6) {
+              // ERR_CONNECTION_REFUSED
+              print('⚠️  Connection refused - gateway might be down');
+            } else if (error.errorCode == -7) {
+              // ERR_TIMED_OUT
+              print('⚠️  Request timed out - gateway is slow');
+            }
+          },
+          onHttpError: (HttpResponseError error) {
+            print('❌ HTTP error: ${error.response?.statusCode}');
+            setState(() {
+              _isLoading = false;
+            });
+          },
+        ),
+      );
+
+    // Create HTML form that auto-submits
+    final html = '''
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <style>
+          body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background: #f5f5f5;
+          }
+          .container {
+            text-align: center;
+            padding: 20px;
+          }
+          .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #8B5CF6;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+          }
+          @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+          }
+        </style>
+      </head>
+      <body onload="document.getElementById('paymentForm').submit();">
+        <div class="container">
+          <div class="spinner"></div>
+          <p>Redirecting to payment gateway...</p>
+          <form id="paymentForm" action="${widget.endpointUrl}" method="post">
+            <input type="hidden" name="trans_id" value="${widget.transId}">
+            <input type="hidden" name="amount" value="${widget.amount}">
+            <input type="hidden" name="sign" value="${widget.sign}">
+            <noscript>
+              <input type="submit" value="Click here if not redirected automatically">
+            </noscript>
+          </form>
+        </div>
+      </body>
+      </html>
+    ''';
+
+    _controller.loadHtmlString(html);
+  }
+
+  void _startPolling() {
+    _pollTimer = Timer.periodic(const Duration(seconds: 10), (timer) async {
       try {
+        print(
+            '🔍 Checking credit card payment status for order: ${widget.orderId}');
+
         final response = await http.get(
-          Uri.parse('${ApiService.baseUrl}/payment/status/$_orderId'),
+          Uri.parse('${ApiService.baseUrl}/payment/status/${widget.orderId}'),
           headers: await ApiService().getHeaders(),
         );
 
         if (response.statusCode == 200) {
           final data = jsonDecode(response.body);
-          if (data['success'] == true) {
-            final status = (data['data']['status'] as String?) ?? '';
-            if (status == 'COMPLETED') {
-              timer.cancel();
-              _handlePaymentSuccess();
-              return;
-            } else if (status == 'FAILED' || status == 'CANCELLED') {
-              timer.cancel();
-              _handlePaymentFailure(
-                  'Payment failed. Please try again with another method.');
-              return;
+          if (data['success'] == true &&
+              data['data']['status'] == 'COMPLETED') {
+            timer.cancel();
+            print('✅ Credit Card payment confirmed via IPN!');
+
+            if (mounted) {
+              Navigator.of(context).pop();
+              widget.onPaymentComplete();
             }
           }
         }
       } catch (e) {
         print('❌ Error checking credit card payment status: $e');
       }
-
-      if (attempt >= 24) {
-        timer.cancel();
-        _handlePaymentFailure(
-            'Payment confirmation is taking longer than expected. Please verify the transaction status later.');
-      }
     });
   }
 
-  void _handlePaymentSuccess() {
-    _pollTimer?.cancel();
-    if (!mounted) return;
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Payment confirmed! Thank you.'),
-        backgroundColor: Colors.green,
-        duration: Duration(seconds: 3),
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Payment Gateway'),
+        backgroundColor: const Color(0xFF8B5CF6),
+        foregroundColor: Colors.white,
+        leading: IconButton(
+          icon: const Icon(Icons.close),
+          onPressed: () {
+            _pollTimer?.cancel();
+            Navigator.of(context).pop();
+          },
+        ),
+      ),
+      body: Stack(
+        children: [
+          WebViewWidget(controller: _controller),
+          if (_isLoading)
+            const Center(
+              child: CircularProgressIndicator(
+                color: Color(0xFF8B5CF6),
+              ),
+            ),
+        ],
       ),
     );
-
-    widget.onPaymentComplete();
-  }
-
-  void _handlePaymentFailure(String message) {
-    _pollTimer?.cancel();
-    if (!mounted) return;
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: Colors.red,
-      ),
-    );
-
-    widget.onCancel();
-  }
-
-  void _handleCancel() {
-    _pollTimer?.cancel();
-    widget.onCancel();
   }
 }
