@@ -812,20 +812,62 @@ export async function getMovies(req: Request, res: Response) {
     // Note: For JSON array filtering, we'll filter in memory after query
     // since Prisma doesn't support case-insensitive JSON array contains
 
-    if (search) {
-      where.OR = [
-        { title: { contains: search as string, mode: 'insensitive' } },
-        { overview: { contains: search as string, mode: 'insensitive' } },
-      ];
-    }
+    let movies: any[] = [];
 
-    // Fetch all movies matching basic filters (without genre/lgbtq filtering)
-    let movies = await prisma.movie.findMany({
-      where,
-      orderBy: {
-        releaseDate: 'desc',
-      },
-    });
+    if (search) {
+      // Search with relevance scoring
+      const searchTerm = search as string;
+      const searchLower = searchTerm.toLowerCase();
+
+      // Fetch movies that match title or overview
+      where.OR = [
+        { title: { contains: searchTerm, mode: 'insensitive' } },
+        { overview: { contains: searchTerm, mode: 'insensitive' } },
+      ];
+
+      const allMatches = await prisma.movie.findMany({
+        where,
+      });
+
+      // Sort by relevance: exact match > starts with > contains
+      movies = allMatches
+        .map((movie) => {
+          const titleLower = movie.title.toLowerCase();
+          let score = 0;
+
+          // Exact match gets highest score
+          if (titleLower === searchLower) {
+            score = 1000;
+          }
+          // Starts with search term
+          else if (titleLower.startsWith(searchLower)) {
+            score = 500;
+          }
+          // Contains as a word (surrounded by spaces or start/end)
+          else if (new RegExp(`\\b${searchLower}\\b`).test(titleLower)) {
+            score = 250;
+          }
+          // Contains anywhere in title
+          else if (titleLower.includes(searchLower)) {
+            score = 100;
+          }
+          // Overview match (lower priority)
+          else if (movie.overview?.toLowerCase().includes(searchLower)) {
+            score = 10;
+          }
+
+          return { ...movie, _relevanceScore: score };
+        })
+        .sort((a, b) => b._relevanceScore - a._relevanceScore);
+    } else {
+      // No search term, fetch all movies with filters
+      movies = await prisma.movie.findMany({
+        where,
+        orderBy: {
+          releaseDate: 'desc',
+        },
+      });
+    }
 
     // Apply genre filter (case-insensitive)
     if (genre) {

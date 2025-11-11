@@ -21,10 +21,105 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
   String? _selectedGenre;
   String? _selectedLgbtqType;
 
+  // Pagination state
+  List<MovieModel> _movies = [];
+  int _currentPage = 1;
+  bool _isLoading = false;
+  bool _isLoadingMore = false; // Separate flag for loading more
+  bool _hasMore = true;
+  bool _isInitialLoad = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_onScroll);
+    _loadMovies();
+  }
+
   @override
   void dispose() {
     _scrollController.dispose();
     super.dispose();
+  }
+
+  void _onScroll() {
+    // Trigger at 70% to prefetch before user reaches the end
+    if (_scrollController.position.pixels >=
+            _scrollController.position.maxScrollExtent * 0.7 &&
+        !_isLoading &&
+        !_isLoadingMore &&
+        _hasMore) {
+      _loadMoreMovies();
+    }
+  }
+
+  Future<void> _loadMovies() async {
+    if (_isLoading) return;
+
+    setState(() {
+      _isLoading = true;
+      _isInitialLoad = true;
+      _currentPage = 1;
+      _movies = [];
+      _hasMore = true;
+    });
+
+    try {
+      final movieService = ref.read(movieServiceProvider);
+      final movies = await movieService.getMovies(
+        page: 1,
+        limit: 20,
+        contentType: _selectedContentType,
+        genre: _selectedGenre,
+        lgbtqType: _selectedLgbtqType,
+      );
+
+      setState(() {
+        _movies = movies;
+        _hasMore = movies.length >= 20;
+        _isLoading = false;
+        _isInitialLoad = false;
+      });
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+        _isInitialLoad = false;
+      });
+    }
+  }
+
+  Future<void> _loadMoreMovies() async {
+    if (_isLoadingMore || !_hasMore) return;
+
+    setState(() {
+      _isLoadingMore = true;
+    });
+
+    try {
+      final movieService = ref.read(movieServiceProvider);
+      final movies = await movieService.getMovies(
+        page: _currentPage + 1,
+        limit: 20,
+        contentType: _selectedContentType,
+        genre: _selectedGenre,
+        lgbtqType: _selectedLgbtqType,
+      );
+
+      if (mounted) {
+        setState(() {
+          _currentPage++;
+          _movies.addAll(movies);
+          _hasMore = movies.length >= 20;
+          _isLoadingMore = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoadingMore = false;
+        });
+      }
+    }
   }
 
   @override
@@ -57,6 +152,7 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
                       setState(() {
                         _selectedContentType = id;
                       });
+                      _loadMovies();
                     }
                   },
                 ),
@@ -80,6 +176,7 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
                       setState(() {
                         _selectedGenre = id;
                       });
+                      _loadMovies();
                     }
                   },
                 ),
@@ -103,6 +200,7 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
                       setState(() {
                         _selectedLgbtqType = id;
                       });
+                      _loadMovies();
                     }
                   },
                 ),
@@ -204,111 +302,111 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
   }
 
   Widget _buildMoviesGrid(AppLocalizations l10n) {
-    final filterParams = MovieFilterParams(
-      contentType: _selectedContentType,
-      genre: _selectedGenre,
-      lgbtqType: _selectedLgbtqType,
-    );
-
-    final moviesAsync = ref.watch(movieListProvider(filterParams));
-
     return RefreshIndicator(
-      onRefresh: () async {
-        ref.invalidate(movieListProvider(filterParams));
-        // Wait a bit for the provider to refresh
-        await Future.delayed(const Duration(milliseconds: 500));
-      },
-      child: moviesAsync.when(
-        data: (movies) {
-          if (movies.isEmpty) {
-            return ListView(
-              children: [
-                SizedBox(
-                  height: MediaQuery.of(context).size.height * 0.5,
-                  child: Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.movie_outlined,
-                          size: 64,
-                          color: Colors.grey[400],
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          'No movies yet',
-                          style: TextStyle(
-                            fontSize: 18,
-                            color: Colors.grey[600],
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Movies will appear here',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: Colors.grey[500],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            );
-          }
-
-          return GridView.builder(
-            controller: _scrollController,
-            padding: const EdgeInsets.all(8),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-              childAspectRatio: 0.65,
-              crossAxisSpacing: 8,
-              mainAxisSpacing: 8,
-            ),
-            itemCount: movies.length,
-            itemBuilder: (context, index) {
-              final movie = movies[index];
-              return _buildMovieCard(movie);
-            },
-          );
-        },
-        loading: () => const Center(
-          child: CircularProgressIndicator(),
-        ),
-        error: (error, stack) => ListView(
-          children: [
-            SizedBox(
-              height: MediaQuery.of(context).size.height * 0.5,
-              child: Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
+      onRefresh: _loadMovies,
+      child: _isInitialLoad
+          ? const Center(
+              child: CircularProgressIndicator(),
+            )
+          : _movies.isEmpty
+              ? ListView(
                   children: [
-                    const Icon(Icons.error, size: 64, color: Colors.red),
-                    const SizedBox(height: 16),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: Text(
-                        '${l10n.errorLoadingData}: $error',
-                        textAlign: TextAlign.center,
+                    SizedBox(
+                      height: MediaQuery.of(context).size.height * 0.5,
+                      child: Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.movie_outlined,
+                              size: 64,
+                              color: Colors.grey[400],
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              'No movies yet',
+                              style: TextStyle(
+                                fontSize: 18,
+                                color: Colors.grey[600],
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Movies will appear here',
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: Colors.grey[500],
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
-                    const SizedBox(height: 16),
-                    ElevatedButton(
-                      onPressed: () {
-                        ref.invalidate(movieListProvider(filterParams));
+                  ],
+                )
+              : Stack(
+                  children: [
+                    GridView.builder(
+                      controller: _scrollController,
+                      padding: const EdgeInsets.all(8),
+                      gridDelegate:
+                          const SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 2,
+                        childAspectRatio: 0.65,
+                        crossAxisSpacing: 8,
+                        mainAxisSpacing: 8,
+                      ),
+                      itemCount: _movies.length,
+                      itemBuilder: (context, index) {
+                        final movie = _movies[index];
+                        return _buildMovieCard(movie);
                       },
-                      child: Text(l10n.retry),
                     ),
+                    // Small loading indicator at bottom when loading more
+                    if (_isLoadingMore)
+                      Positioned(
+                        bottom: 16,
+                        left: 0,
+                        right: 0,
+                        child: Center(
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 8,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withOpacity(0.7),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    valueColor: AlwaysStoppedAnimation<Color>(
+                                      Colors.white,
+                                    ),
+                                  ),
+                                ),
+                                SizedBox(width: 8),
+                                Text(
+                                  'Loading...',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
                   ],
                 ),
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 
