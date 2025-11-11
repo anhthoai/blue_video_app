@@ -57,6 +57,93 @@ function mapTMDbStatus(status: string): 'RUMORED' | 'PLANNED' | 'IN_PRODUCTION' 
 }
 
 /**
+ * Determine if a movie/TV show should be marked as adult based on TMDb certifications
+ * Note: TMDb's 'adult' field only indicates pornographic content, not age ratings
+ */
+function isAdultContent(data: any): boolean {
+  // First check the 'adult' flag (for pornographic content)
+  if (data.adult === true) {
+    return true;
+  }
+
+  // Helper function to check if a certification is adult-rated
+  const isAdultCert = (countryCode: string, cert: string): boolean => {
+    if (!cert) return false;
+
+    // UK: 18, 18A
+    if (countryCode === 'GB' && (cert === '18' || cert === '18A')) {
+      return true;
+    }
+    
+    // US: NC-17, R, X, TV-MA
+    if (countryCode === 'US' && (cert === 'NC-17' || cert === 'X' || cert === 'TV-MA')) {
+      return true;
+    }
+    
+    // Australia: R18+, X18+, RC, MA15+
+    if (countryCode === 'AU' && (cert === 'R18+' || cert === 'X18+' || cert === 'RC' || cert === 'MA15+')) {
+      return true;
+    }
+    
+    // Germany: 18, 18+
+    if (countryCode === 'DE' && (cert === '18' || cert === '18+')) {
+      return true;
+    }
+    
+    // France: -18, 18
+    if (countryCode === 'FR' && (cert === '-18' || cert === '18')) {
+      return true;
+    }
+    
+    // South Korea: 청소년관람불가 (18), 제한상영가 (Restricted)
+    if (countryCode === 'KR' && (cert === '청소년관람불가' || cert === '제한상영가' || cert === '18')) {
+      return true;
+    }
+    
+    // Finland: K-18
+    if (countryCode === 'FI' && cert === 'K-18') {
+      return true;
+    }
+    
+    // Norway: 18
+    if (countryCode === 'NO' && cert === '18') {
+      return true;
+    }
+    
+    // Generic 18+ check for other countries
+    if (cert.includes('18') && !cert.includes('15-18')) {
+      return true;
+    }
+
+    return false;
+  };
+
+  // Check release_dates for movies
+  if (data.release_dates?.results) {
+    for (const country of data.release_dates.results) {
+      const countryCode = country.iso_3166_1;
+      
+      for (const release of country.release_dates) {
+        if (isAdultCert(countryCode, release.certification)) {
+          return true;
+        }
+      }
+    }
+  }
+
+  // Check content_ratings for TV shows
+  if (data.content_ratings?.results) {
+    for (const rating of data.content_ratings.results) {
+      if (isAdultCert(rating.iso_3166_1, rating.rating)) {
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
+
+/**
  * Import movie from IMDb/TMDb
  * POST /api/v1/movies/import/imdb
  */
@@ -298,7 +385,7 @@ export async function importFromImdb(req: Request, res: Response): Promise<void>
             countries: resolvedCountries.length > 0 ? resolvedCountries : originCountries,
             languages: movieData.spoken_languages?.map((l: any) => l.iso_639_1)
               || movieData.languages || [],
-            isAdult: movieData.adult || false,
+            isAdult: isAdultContent(movieData),
             alternativeTitles: alternativeTitles,
             directors: movieData.credits?.crew
               ?.filter((c: any) => c.job === 'Director')

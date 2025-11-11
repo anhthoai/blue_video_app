@@ -224,7 +224,7 @@ export class TMDbService {
     try {
       const response = await this.client.get(`/movie/${movieId}`, {
         params: {
-          append_to_response: 'credits,videos,images,external_ids,alternative_titles',
+          append_to_response: 'credits,videos,images,external_ids,alternative_titles,release_dates',
         },
       });
 
@@ -242,7 +242,7 @@ export class TMDbService {
     try {
       const response = await this.client.get(`/tv/${tvId}`, {
         params: {
-          append_to_response: 'credits,videos,images,external_ids,alternative_titles',
+          append_to_response: 'credits,videos,images,external_ids,alternative_titles,content_ratings',
         },
       });
 
