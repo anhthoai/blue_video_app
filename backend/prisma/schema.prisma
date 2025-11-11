@@ -697,6 +697,7 @@ model Movie {
   backdropUrl  String? @map("backdrop_url") @db.Text
   photos       Json?   // Array of image URLs
   trailerUrl   String? @map("trailer_url") @db.Text
+  sourceUrl    String? @map("source_url") @db.Text // Original source URL (e.g., b4watch.com)
   
   // Classification
   contentType  MovieContentType @default(MOVIE) @map("content_type")

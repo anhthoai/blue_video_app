@@ -383,6 +383,7 @@ export async function createMovieManual(req: Request, res: Response): Promise<vo
       languages,
       posterUrl,
       trailerUrl,
+      sourceUrl,
       isAdult = false,
     } = req.body;
 
@@ -460,6 +461,7 @@ export async function createMovieManual(req: Request, res: Response): Promise<vo
         languages: Array.isArray(languages) ? languages : [],
         posterUrl: posterUrl || null,
         trailerUrl: trailerUrl || null,
+        sourceUrl: sourceUrl || null,
         isAdult: Boolean(isAdult),
         status: 'RELEASED',
         createdBy: userId || null,
@@ -787,6 +789,7 @@ export async function getMovies(req: Request, res: Response) {
       genre,
       lgbtqType,
       search,
+      sourceUrl,
       status = 'RELEASED',
     } = req.query;
 
@@ -799,6 +802,11 @@ export async function getMovies(req: Request, res: Response) {
 
     if (contentType) {
       where.contentType = contentType as string;
+    }
+
+    // Search by sourceUrl (exact match)
+    if (sourceUrl) {
+      where.sourceUrl = sourceUrl as string;
     }
 
     // Note: For JSON array filtering, we'll filter in memory after query
