@@ -75,13 +75,13 @@ function isAdultContent(data: any): boolean {
       return true;
     }
     
-    // US: NC-17, R, X, TV-MA
-    if (countryCode === 'US' && (cert === 'NC-17' || cert === 'X' || cert === 'TV-MA')) {
+    // US: NC-17, X (not TV-MA which is 17+, not 18+)
+    if (countryCode === 'US' && (cert === 'NC-17' || cert === 'X')) {
       return true;
     }
     
-    // Australia: R18+, X18+, RC, MA15+
-    if (countryCode === 'AU' && (cert === 'R18+' || cert === 'X18+' || cert === 'RC' || cert === 'MA15+')) {
+    // Australia: R18+, X18+, RC (not MA15+ which is 15+, not 18+)
+    if (countryCode === 'AU' && (cert === 'R18+' || cert === 'X18+' || cert === 'RC')) {
       return true;
     }
     

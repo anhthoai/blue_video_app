@@ -49,10 +49,10 @@ New helper function that checks:
 1. **Pornographic content**: `data.adult === true`
 2. **Age certifications**: Checks country-specific ratings
 
-Supported certifications:
+Supported certifications (18+ only):
 - **UK (GB)**: 18, 18A
-- **US**: NC-17, X, TV-MA
-- **Australia (AU)**: R18+, X18+, RC, MA15+
+- **US**: NC-17, X (excludes TV-MA/R which are 17+)
+- **Australia (AU)**: R18+, X18+, RC (excludes MA15+ which is 15+)
 - **Germany (DE)**: 18, 18+
 - **France (FR)**: -18, 18
 - **South Korea (KR)**: 청소년관람불가, 제한상영가, 18
