@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 import tmdbService from '../services/tmdbService';
 import ulozService from '../services/ulozService';
+import { StorageService } from '../config/storage';
 
 const prisma = new PrismaClient();
 
@@ -694,7 +695,40 @@ export async function importEpisodesFromUloz(req: Request, res: Response): Promi
 
           console.log(`   ✅ Creating episode ${epNum}: ${file.name}`);
 
-          // Create the episode first
+          // Upload preview URLs to S3 to avoid expiration
+          // Store S3 key instead of URL for presigned URL generation
+          let thumbnailUrl = file.thumbnail || null;
+          let videoPreviewUrl = file.videoPreview || null;
+
+          if (file.thumbnail) {
+            console.log(`   📥 Uploading episode thumbnail to S3...`);
+            const result = await StorageService.uploadFromUrl(
+              file.thumbnail,
+              `episode-thumbnails/${movieId}`,
+              `ep${epNum}_thumb`
+            );
+            if (result) {
+              // Store S3 key prefixed with 's3://' to indicate it needs presigned URL
+              thumbnailUrl = `s3://${result.key}`;
+              console.log(`   ✅ Thumbnail uploaded: ${result.key}`);
+            }
+          }
+
+          if (file.videoPreview) {
+            console.log(`   📥 Uploading video preview to S3...`);
+            const result = await StorageService.uploadFromUrl(
+              file.videoPreview,
+              `episode-previews/${movieId}`,
+              `ep${epNum}_preview`
+            );
+            if (result) {
+              // Store S3 key prefixed with 's3://' to indicate it needs presigned URL
+              videoPreviewUrl = `s3://${result.key}`;
+              console.log(`   ✅ Video preview uploaded: ${result.key}`);
+            }
+          }
+
+          // Create the episode with permanent URLs
           const newEpisode = await prisma.movieEpisode.create({
             data: {
               movieId: movieId,
@@ -707,8 +741,8 @@ export async function importEpisodesFromUloz(req: Request, res: Response): Promi
               extension: file.extension,
               fileSize: BigInt(file.size),
               duration: file.duration || null,
-              thumbnailUrl: file.thumbnail || null,
-              videoPreviewUrl: file.videoPreview || null,
+              thumbnailUrl: thumbnailUrl,
+              videoPreviewUrl: videoPreviewUrl,
               folderSlug: file.folderSlug || null,
               source: 'ULOZ',
             },
@@ -807,6 +841,39 @@ export async function importEpisodesFromUloz(req: Request, res: Response): Promi
 
           console.log(`   ✅ Creating episode ${epNum}: ${fileInfo.name}`);
 
+          // Upload preview URLs to S3 to avoid expiration
+          // Store S3 key instead of URL for presigned URL generation
+          let thumbnailUrl = fileInfo.thumbnail || null;
+          let videoPreviewUrl = fileInfo.videoPreview || null;
+
+          if (fileInfo.thumbnail) {
+            console.log(`   📥 Uploading episode thumbnail to S3...`);
+            const result = await StorageService.uploadFromUrl(
+              fileInfo.thumbnail,
+              `episode-thumbnails/${movieId}`,
+              `ep${epNum}_thumb`
+            );
+            if (result) {
+              // Store S3 key prefixed with 's3://' to indicate it needs presigned URL
+              thumbnailUrl = `s3://${result.key}`;
+              console.log(`   ✅ Thumbnail uploaded: ${result.key}`);
+            }
+          }
+
+          if (fileInfo.videoPreview) {
+            console.log(`   📥 Uploading video preview to S3...`);
+            const result = await StorageService.uploadFromUrl(
+              fileInfo.videoPreview,
+              `episode-previews/${movieId}`,
+              `ep${epNum}_preview`
+            );
+            if (result) {
+              // Store S3 key prefixed with 's3://' to indicate it needs presigned URL
+              videoPreviewUrl = `s3://${result.key}`;
+              console.log(`   ✅ Video preview uploaded: ${result.key}`);
+            }
+          }
+
           const newEpisode = await prisma.movieEpisode.create({
             data: {
               movieId: movieId,
@@ -819,8 +886,8 @@ export async function importEpisodesFromUloz(req: Request, res: Response): Promi
               extension: fileInfo.extension,
               fileSize: BigInt(fileInfo.size),
               duration: fileInfo.duration || null,
-              thumbnailUrl: fileInfo.thumbnail || null,
-              videoPreviewUrl: fileInfo.videoPreview || null,
+              thumbnailUrl: thumbnailUrl,
+              videoPreviewUrl: videoPreviewUrl,
               folderSlug: fileInfo.folderSlug || null,
               source: 'ULOZ',
             },
@@ -1141,16 +1208,47 @@ export async function getMovieById(req: Request, res: Response): Promise<void> {
       return;
     }
 
+    // Generate presigned URLs for episode previews if stored as S3 keys
+    const episodesWithUrls = await Promise.all(
+      movie.episodes.map(async (ep: any) => {
+        let thumbnailUrl = ep.thumbnailUrl;
+        let videoPreviewUrl = ep.videoPreviewUrl;
+
+        // If URL starts with 's3://', generate presigned URL
+        if (thumbnailUrl && thumbnailUrl.startsWith('s3://')) {
+          const key = thumbnailUrl.substring(5); // Remove 's3://' prefix
+          try {
+            thumbnailUrl = await StorageService.getSignedUrl(key, 3600); // 1 hour expiry
+          } catch (error) {
+            console.error(`Failed to generate presigned URL for thumbnail: ${key}`);
+          }
+        }
+
+        if (videoPreviewUrl && videoPreviewUrl.startsWith('s3://')) {
+          const key = videoPreviewUrl.substring(5); // Remove 's3://' prefix
+          try {
+            videoPreviewUrl = await StorageService.getSignedUrl(key, 3600); // 1 hour expiry
+          } catch (error) {
+            console.error(`Failed to generate presigned URL for video preview: ${key}`);
+          }
+        }
+
+        return {
+          ...ep,
+          fileSize: ep.fileSize?.toString(),
+          thumbnailUrl,
+          videoPreviewUrl,
+        };
+      })
+    );
+
     res.json({
       success: true,
       data: {
         ...movie,
         voteAverage: movie.voteAverage ? parseFloat(movie.voteAverage.toString()) : null,
         popularity: movie.popularity ? parseFloat(movie.popularity.toString()) : null,
-        episodes: movie.episodes.map((ep: any) => ({
-          ...ep,
-          fileSize: ep.fileSize?.toString(),
-        })),
+        episodes: episodesWithUrls,
       },
     });
   } catch (error: any) {

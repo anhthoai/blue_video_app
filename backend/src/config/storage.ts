@@ -1,4 +1,5 @@
-import AWS from 'aws-sdk';
+import { S3Client, PutObjectCommand, DeleteObjectCommand, HeadObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import multer from 'multer';
 import multerS3 from 'multer-s3';
 import { v4 as uuidv4 } from 'uuid';
@@ -16,13 +17,15 @@ export const s3Config = {
   cdnUrl: process.env['CDN_URL'] || '',
 };
 
-// Initialize S3 client
-export const s3 = new AWS.S3({
+// Initialize S3 client (AWS SDK v3)
+export const s3Client = new S3Client({
   endpoint: s3Config.endpoint,
-  accessKeyId: s3Config.accessKeyId,
-  secretAccessKey: s3Config.secretAccessKey,
+  credentials: {
+    accessKeyId: s3Config.accessKeyId,
+    secretAccessKey: s3Config.secretAccessKey,
+  },
   region: s3Config.region,
-  s3ForcePathStyle: true, // For S3-compatible services
+  forcePathStyle: true, // For S3-compatible services
 });
 
 // File upload configuration
@@ -36,7 +39,7 @@ export const uploadConfig = {
 // Multer configuration for S3 uploads
 export const upload = multer({
   storage: multerS3({
-    s3: s3,
+    s3: s3Client,
     bucket: s3Config.bucketName,
     key: (_req, file, cb) => {
       const fileExtension = file.originalname.split('.').pop();
@@ -86,6 +89,81 @@ export const upload = multer({
 // Storage utility functions
 export class StorageService {
   /**
+   * Download a file from a URL and upload it to S3
+   */
+  static async uploadFromUrl(
+    url: string,
+    folder: string = 'uploads',
+    filename?: string
+  ): Promise<{ url: string; key: string; size: number } | null> {
+    try {
+      console.log(`📥 Downloading from URL: ${url}`);
+      
+      // Download the file
+      const response = await fetch(url);
+      if (!response.ok) {
+        console.error(`❌ Failed to download: ${response.status} ${response.statusText}`);
+        return null;
+      }
+
+      const buffer = Buffer.from(await response.arrayBuffer());
+      const contentType = response.headers.get('content-type') || 'application/octet-stream';
+      
+      // Determine file extension from content type or URL
+      let extension = 'bin';
+      if (contentType.includes('image/jpeg') || contentType.includes('image/jpg')) {
+        extension = 'jpg';
+      } else if (contentType.includes('image/png')) {
+        extension = 'png';
+      } else if (contentType.includes('image/webp')) {
+        extension = 'webp';
+      } else if (contentType.includes('image/gif')) {
+        extension = 'gif';
+      } else if (contentType.includes('video/webm')) {
+        extension = 'webm';
+      } else if (contentType.includes('video/mp4')) {
+        extension = 'mp4';
+      } else {
+        // Try to extract from URL
+        const urlExtension = url.split('.').pop()?.split('?')[0];
+        if (urlExtension && urlExtension.length <= 4) {
+          extension = urlExtension;
+        }
+      }
+
+      const key = `${folder}/${filename || uuidv4()}.${extension}`;
+
+      console.log(`📤 Uploading to S3: ${key}`);
+      
+      const uploadCommand = new PutObjectCommand({
+        Bucket: s3Config.bucketName,
+        Key: key,
+        Body: buffer,
+        ContentType: contentType,
+        // Don't set ACL for private buckets - presigned URLs will be used
+        // ACL: 'public-read',
+      });
+
+      await s3Client.send(uploadCommand);
+
+      const fileUrl = s3Config.cdnUrl
+        ? `${s3Config.cdnUrl}/${key}`
+        : `${s3Config.endpoint}/${s3Config.bucketName}/${key}`;
+
+      console.log(`✅ Upload successful: ${fileUrl}`);
+
+      return {
+        url: fileUrl,
+        key: key,
+        size: buffer.length,
+      };
+    } catch (error: any) {
+      console.error(`❌ Error uploading from URL:`, error.message);
+      return null;
+    }
+  }
+
+  /**
    * Upload file to S3-compatible storage
    */
   static async uploadFile(
@@ -97,7 +175,7 @@ export class StorageService {
       const fileName = `${uuidv4()}.${fileExtension}`;
       const key = `${folder}/${fileName}`;
 
-      const uploadParams = {
+      const uploadCommand = new PutObjectCommand({
         Bucket: s3Config.bucketName,
         Key: key,
         Body: file.buffer,
@@ -106,12 +184,16 @@ export class StorageService {
           originalName: file.originalname,
           uploadedAt: new Date().toISOString(),
         },
-      };
+      });
 
-      const result = await s3.upload(uploadParams).promise();
+      await s3Client.send(uploadCommand);
+      
+      const fileUrl = s3Config.cdnUrl 
+        ? `${s3Config.cdnUrl}/${key}` 
+        : `${s3Config.endpoint}/${s3Config.bucketName}/${key}`;
       
       return {
-        url: s3Config.cdnUrl ? `${s3Config.cdnUrl}/${key}` : result.Location,
+        url: fileUrl,
         key: key,
         size: file.size,
       };
@@ -126,10 +208,11 @@ export class StorageService {
    */
   static async deleteFile(key: string): Promise<void> {
     try {
-      await s3.deleteObject({
+      const deleteCommand = new DeleteObjectCommand({
         Bucket: s3Config.bucketName,
         Key: key,
-      }).promise();
+      });
+      await s3Client.send(deleteCommand);
     } catch (error) {
       console.error('Delete error:', error);
       throw new Error('Failed to delete file');
@@ -154,13 +237,12 @@ export class StorageService {
     expiresIn: number = 3600
   ): Promise<string> {
     try {
-      const params = {
+      const command = new GetObjectCommand({
         Bucket: s3Config.bucketName,
         Key: key,
-        Expires: expiresIn,
-      };
+      });
       
-      return await s3.getSignedUrlPromise('getObject', params);
+      return await getSignedUrl(s3Client, command, { expiresIn });
     } catch (error) {
       console.error('Signed URL error:', error);
       throw new Error('Failed to generate signed URL');
@@ -172,10 +254,11 @@ export class StorageService {
    */
   static async fileExists(key: string): Promise<boolean> {
     try {
-      await s3.headObject({
+      const command = new HeadObjectCommand({
         Bucket: s3Config.bucketName,
         Key: key,
-      }).promise();
+      });
+      await s3Client.send(command);
       return true;
     } catch (error) {
       return false;
@@ -187,10 +270,11 @@ export class StorageService {
    */
   static async getFileMetadata(key: string): Promise<any> {
     try {
-      const result = await s3.headObject({
+      const command = new HeadObjectCommand({
         Bucket: s3Config.bucketName,
         Key: key,
-      }).promise();
+      });
+      const result = await s3Client.send(command);
       
       return {
         size: result.ContentLength,
