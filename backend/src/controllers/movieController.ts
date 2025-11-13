@@ -607,6 +607,13 @@ export async function importEpisodesFromUloz(req: Request, res: Response): Promi
       return;
     }
 
+    // Build date-based storage prefix segments (e.g., 2025/11/13)
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const datePath = `${year}/${month}/${day}`;
+
     // Auto-detect if it's a folder or file
     console.log('🔍 Auto-detecting type for:', targetUrl);
     const detectedType = await ulozService.detectType(targetUrl);
@@ -704,7 +711,7 @@ export async function importEpisodesFromUloz(req: Request, res: Response): Promi
             console.log(`   📥 Uploading episode thumbnail to S3...`);
             const result = await StorageService.uploadFromUrl(
               file.thumbnail,
-              `episode-thumbnails/${movieId}`,
+              `episode-thumbnails/${datePath}/${movieId}`,
               `ep${epNum}_thumb`
             );
             if (result) {
@@ -718,7 +725,7 @@ export async function importEpisodesFromUloz(req: Request, res: Response): Promi
             console.log(`   📥 Uploading video preview to S3...`);
             const result = await StorageService.uploadFromUrl(
               file.videoPreview,
-              `episode-previews/${movieId}`,
+              `episode-previews/${datePath}/${movieId}`,
               `ep${epNum}_preview`
             );
             if (result) {
@@ -850,7 +857,7 @@ export async function importEpisodesFromUloz(req: Request, res: Response): Promi
             console.log(`   📥 Uploading episode thumbnail to S3...`);
             const result = await StorageService.uploadFromUrl(
               fileInfo.thumbnail,
-              `episode-thumbnails/${movieId}`,
+              `episode-thumbnails/${datePath}/${movieId}`,
               `ep${epNum}_thumb`
             );
             if (result) {
@@ -864,7 +871,7 @@ export async function importEpisodesFromUloz(req: Request, res: Response): Promi
             console.log(`   📥 Uploading video preview to S3...`);
             const result = await StorageService.uploadFromUrl(
               fileInfo.videoPreview,
-              `episode-previews/${movieId}`,
+              `episode-previews/${datePath}/${movieId}`,
               `ep${epNum}_preview`
             );
             if (result) {
@@ -1513,6 +1520,50 @@ export async function deleteMovie(req: Request, res: Response): Promise<void> {
   try {
     const id = req.params['id'] as string;
 
+    // Get movie with episodes to clean up S3 files
+    const movie = await prisma.movie.findUnique({
+      where: { id },
+      include: {
+        episodes: {
+          select: {
+            id: true,
+            thumbnailUrl: true,
+            videoPreviewUrl: true,
+          },
+        },
+      },
+    });
+
+    if (movie) {
+      // Clean up S3 files for all episodes in the background
+      console.log(`🗑️  Cleaning up S3 files for ${movie.episodes.length} episodes...`);
+      
+      // Don't await - let cleanup happen in background
+      Promise.all(
+        movie.episodes.map(async (episode) => {
+          try {
+            // Delete thumbnail if it's an S3 key
+            if (episode.thumbnailUrl && episode.thumbnailUrl.startsWith('s3://')) {
+              const key = episode.thumbnailUrl.substring(5);
+              await StorageService.deleteFile(key);
+              console.log(`✅ Deleted thumbnail: ${key}`);
+            }
+            
+            // Delete video preview if it's an S3 key
+            if (episode.videoPreviewUrl && episode.videoPreviewUrl.startsWith('s3://')) {
+              const key = episode.videoPreviewUrl.substring(5);
+              await StorageService.deleteFile(key);
+              console.log(`✅ Deleted video preview: ${key}`);
+            }
+          } catch (error) {
+            console.error(`⚠️  Failed to delete S3 files for episode ${episode.id}:`, error);
+            // Continue cleanup even if one fails
+          }
+        })
+      ).catch(error => console.error('⚠️  S3 cleanup error:', error));
+    }
+
+    // Delete movie (episodes will be cascade deleted)
     await prisma.movie.delete({
       where: { id },
     });

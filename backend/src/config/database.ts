@@ -5,14 +5,18 @@ import prisma from '../lib/prisma';
 dotenv.config();
 
 // Redis Configuration (Optional)
-export const redisConfig = {
+export const redisConfig: any = {
   host: process.env['REDIS_HOST'] || 'localhost',
   port: parseInt(process.env['REDIS_PORT'] || '6379'),
-  password: process.env['REDIS_PASSWORD'],
   retryDelayOnFailover: 100,
   enableReadyCheck: false,
   maxRetriesPerRequest: null,
 };
+
+// Only add password if it's defined
+if (process.env['REDIS_PASSWORD']) {
+  redisConfig.password = process.env['REDIS_PASSWORD'];
+}
 
 // Create Redis client (only if USE_REDIS is true)
 let redisClient: any = null;

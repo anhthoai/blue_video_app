@@ -3,7 +3,9 @@ import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import multer from 'multer';
 import multerS3 from 'multer-s3';
 import { v4 as uuidv4 } from 'uuid';
+import sharp from 'sharp';
 import dotenv from 'dotenv';
+import { redisClient } from './database';
 
 dotenv.config();
 
@@ -89,9 +91,38 @@ export const upload = multer({
 // Storage utility functions
 export class StorageService {
   /**
-   * Download a file from a URL and upload it to S3
+   * Download a file from a URL and upload it to S3 with retry mechanism
    */
   static async uploadFromUrl(
+    url: string,
+    folder: string = 'uploads',
+    filename?: string,
+    maxRetries: number = 3
+  ): Promise<{ url: string; key: string; size: number } | null> {
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        return await this._uploadFromUrlAttempt(url, folder, filename);
+      } catch (error: any) {
+        console.error(`❌ Upload attempt ${attempt}/${maxRetries} failed:`, error.message);
+        
+        if (attempt === maxRetries) {
+          console.error(`❌ All ${maxRetries} attempts failed for: ${url}`);
+          return null;
+        }
+        
+        // Exponential backoff: 1s, 2s, 4s
+        const delay = Math.pow(2, attempt - 1) * 1000;
+        console.log(`⏳ Retrying in ${delay}ms...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Internal method for single upload attempt
+   */
+  private static async _uploadFromUrlAttempt(
     url: string,
     folder: string = 'uploads',
     filename?: string
@@ -106,19 +137,25 @@ export class StorageService {
         return null;
       }
 
-      const buffer = Buffer.from(await response.arrayBuffer());
-      const contentType = response.headers.get('content-type') || 'application/octet-stream';
+      let buffer: any = Buffer.from(await response.arrayBuffer());
+      let contentType = response.headers.get('content-type') || 'application/octet-stream';
       
       // Determine file extension from content type or URL
       let extension = 'bin';
+      let isImage = false;
+      
       if (contentType.includes('image/jpeg') || contentType.includes('image/jpg')) {
         extension = 'jpg';
+        isImage = true;
       } else if (contentType.includes('image/png')) {
         extension = 'png';
+        isImage = true;
       } else if (contentType.includes('image/webp')) {
         extension = 'webp';
+        isImage = true;
       } else if (contentType.includes('image/gif')) {
         extension = 'gif';
+        isImage = true;
       } else if (contentType.includes('video/webm')) {
         extension = 'webm';
       } else if (contentType.includes('video/mp4')) {
@@ -128,6 +165,34 @@ export class StorageService {
         const urlExtension = url.split('.').pop()?.split('?')[0];
         if (urlExtension && urlExtension.length <= 4) {
           extension = urlExtension;
+          isImage = ['jpg', 'jpeg', 'png', 'webp'].includes(urlExtension.toLowerCase());
+        }
+      }
+
+      // Compress images to reduce storage cost and improve loading speed
+      if (isImage && extension !== 'gif') {
+        try {
+          console.log(`🗜️  Compressing image (${(buffer.length / 1024).toFixed(1)}KB)...`);
+          const compressed = await sharp(buffer)
+            .resize(1280, 720, { // Max dimensions while maintaining aspect ratio
+              fit: 'inside',
+              withoutEnlargement: true,
+            })
+            .webp({ quality: 85 }) // Convert to WebP for better compression
+            .toBuffer();
+          
+          const originalSize = buffer.length;
+          const compressedSize = compressed.length;
+          const savings = ((1 - compressedSize / originalSize) * 100).toFixed(1);
+          
+          console.log(`✅ Compressed: ${(compressedSize / 1024).toFixed(1)}KB (${savings}% smaller)`);
+          
+          buffer = compressed;
+          contentType = 'image/webp';
+          extension = 'webp';
+        } catch (error: any) {
+          console.warn(`⚠️  Compression failed, using original: ${error.message}`);
+          // Continue with original buffer
         }
       }
 
@@ -161,6 +226,32 @@ export class StorageService {
       console.error(`❌ Error uploading from URL:`, error.message);
       return null;
     }
+  }
+
+  /**
+   * Batch upload multiple URLs in parallel
+   */
+  static async uploadFromUrlBatch(
+    urls: Array<{ url: string; folder: string; filename?: string }>,
+    concurrency: number = 3
+  ): Promise<Array<{ url: string; key: string; size: number } | null>> {
+    const results: Array<{ url: string; key: string; size: number } | null> = [];
+    
+    // Process in batches of `concurrency` at a time
+    for (let i = 0; i < urls.length; i += concurrency) {
+      const batch = urls.slice(i, i + concurrency);
+      console.log(`📦 Processing batch ${Math.floor(i / concurrency) + 1}/${Math.ceil(urls.length / concurrency)}`);
+      
+      const batchResults = await Promise.all(
+        batch.map(({ url, folder, filename }) =>
+          this.uploadFromUrl(url, folder, filename)
+        )
+      );
+      
+      results.push(...batchResults);
+    }
+    
+    return results;
   }
 
   /**
@@ -230,19 +321,50 @@ export class StorageService {
   }
 
   /**
-   * Generate signed URL for private files
+   * Generate signed URL for private files with caching
    */
   static async getSignedUrl(
     key: string,
     expiresIn: number = 3600
   ): Promise<string> {
     try {
+      // Try to get from cache first (if Redis is enabled)
+      const cacheKey = `presigned:${key}`;
+      
+      if (redisClient && redisClient.get) {
+        try {
+          const cached = await redisClient.get(cacheKey);
+          if (cached) {
+            console.log(`🎯 Cache hit for presigned URL: ${key}`);
+            return cached;
+          }
+        } catch (error) {
+          console.warn('⚠️  Redis cache read failed:', error);
+          // Continue to generate new URL
+        }
+      }
+      
+      // Generate new presigned URL
       const command = new GetObjectCommand({
         Bucket: s3Config.bucketName,
         Key: key,
       });
       
-      return await getSignedUrl(s3Client, command, { expiresIn });
+      const url = await getSignedUrl(s3Client, command, { expiresIn });
+      
+      // Cache the URL (cache for 30 minutes, less than actual expiry for safety)
+      if (redisClient && redisClient.set) {
+        const cacheExpiry = Math.min(1800, expiresIn - 60); // 30 min or expiry - 1 min
+        try {
+          await redisClient.set(cacheKey, url, { EX: cacheExpiry });
+          console.log(`💾 Cached presigned URL for ${cacheExpiry}s: ${key}`);
+        } catch (error) {
+          console.warn('⚠️  Redis cache write failed:', error);
+          // URL is still valid, just not cached
+        }
+      }
+      
+      return url;
     } catch (error) {
       console.error('Signed URL error:', error);
       throw new Error('Failed to generate signed URL');
