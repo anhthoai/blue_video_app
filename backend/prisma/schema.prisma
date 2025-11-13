@@ -671,12 +671,35 @@ enum ContentSource {
 }
 
 enum LibraryContentType {
+  FOLDER
+  VIDEO
+  AUDIO
+  IMAGE
   EBOOK
-  AUDIOBOOK
   MAGAZINE
   COMIC
-  
+  PDF
+  EPUB
+  ARCHIVE
+  DOCUMENT
+  PLAYLIST
+  OTHER
+
   @@map("library_content_type")
+}
+
+enum LibrarySection {
+  VIDEOS
+  AUDIO
+  EBOOKS
+  MAGAZINES
+  COMICS
+  IMAGES
+  DOCUMENTS
+  ARCHIVES
+  OTHER
+
+  @@map("library_section")
 }
 
 model Movie {
@@ -833,6 +856,8 @@ model LibraryContent {
   
   // Classification
   contentType  LibraryContentType @map("content_type")
+  section      LibrarySection?    @map("section")
+  isFolder     Boolean            @default(false) @map("is_folder")
   extension    String?            @db.VarChar(10)
   fileSize     BigInt?            @map("file_size")
   
@@ -846,6 +871,13 @@ model LibraryContent {
   slugPath         String?       @map("slug_path") @db.VarChar(500)
   fileUrl          String?       @map("file_url") @db.Text
   parentFolderSlug String?       @map("parent_folder_slug") @db.VarChar(500)
+  parentId         String?       @map("parent_id")
+  filePath         String?       @map("file_path") @db.VarChar(1000)
+  ulozSlug         String?       @map("uloz_slug") @db.VarChar(500)
+  ulozFolderSlug   String?       @map("uloz_folder_slug") @db.VarChar(500)
+  mimeType         String?       @map("mime_type") @db.VarChar(100)
+  duration         Int?          // In seconds for audio/video files
+  metadata         Json?
   
   // For Gallery Content (magazines, comics)
   pagesCount   Int?    @map("pages_count")
@@ -869,7 +901,14 @@ model LibraryContent {
   updatedAt    DateTime @updatedAt @map("updated_at")
   createdBy    String?  @map("created_by")
   
+  // Relations
+  parent   LibraryContent? @relation("LibraryParentChild", fields: [parentId], references: [id], onDelete: Cascade)
+  children LibraryContent[] @relation("LibraryParentChild")
+
   @@index([contentType])
   @@index([slugPath])
+  @@index([section])
+  @@index([parentId])
+  @@index([ulozSlug])
   @@map("library_content")
 }

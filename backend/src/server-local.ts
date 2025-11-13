@@ -25,6 +25,7 @@ import { paymentService, IPNNotification } from './services/paymentService';
 import swaggerUi from 'swagger-ui-express';
 import { swaggerSpec } from './config/swagger';
 import movieRoutes from './routes/movies';
+import libraryRoutes from './routes/library';
 
 // Initialize Prisma Client
 const prisma = new PrismaClient();
@@ -100,6 +101,8 @@ app.get('/api-docs.json', (_req, res) => {
 // ============================================
 app.use('/api/v1/movies', movieRoutes);
 console.log('📚 Movie/Library routes registered at /api/v1/movies');
+app.use('/api/v1/library', libraryRoutes);
+console.log('📚 Library content routes registered at /api/v1/library');
 
 /**
  * @swagger

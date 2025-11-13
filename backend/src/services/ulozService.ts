@@ -28,6 +28,10 @@ interface UlozFolderFile {
   type: string;
   url: string;
   description?: string;
+  isFolder: boolean;
+  extension?: string;
+  contentType?: string;
+  childCount?: number;
 }
 
 interface UlozStreamLinks {
@@ -113,6 +117,95 @@ export class UlozService {
     if (!this.sessionToken) {
       await this.login();
     }
+  }
+
+  /**
+   * Get the root folder slug for the authenticated user
+   */
+  async getRootFolderSlug(): Promise<string | null> {
+    await this.ensureLoggedIn();
+    return this.rootFolderSlug;
+  }
+
+  private async fetchFolderFiles(userLogin: string, folderSlug: string): Promise<any[]> {
+    const endpoint = `/v8/user/${userLogin}/folder/${folderSlug}/file-list`;
+    console.log(`   > Fetching files via ${endpoint}`);
+
+    const response = await this.client.get(endpoint, {
+      params: {
+        per_page: 200,
+      },
+    });
+
+    if (!response?.data) {
+      return [];
+    }
+
+    if (Array.isArray(response.data)) {
+      return response.data;
+    }
+    if (Array.isArray(response.data?.subfolders)) {
+      return response.data.subfolders;
+    }
+    if (Array.isArray(response.data?.items)) {
+      return response.data.items;
+    }
+    if (Array.isArray(response.data?.files)) {
+      return response.data.files;
+    }
+    if (response.data?.data && Array.isArray(response.data.data)) {
+      return response.data.data;
+    }
+
+    return [];
+  }
+
+  private async fetchFolderFolders(userLogin: string, folderSlug: string): Promise<any[]> {
+    const endpoint = `/v9/user/${userLogin}/folder/${folderSlug}/folder-list`;
+    console.log(`   > Fetching subfolders via ${endpoint}`);
+
+    const response = await this.client.get(endpoint, {
+      params: {
+        per_page: 200,
+      },
+    });
+
+    if (!response?.data) {
+      return [];
+    }
+
+    console.log(
+      `     ↳ folder-list keys: ${Object.keys(response.data || {}).join(', ')}`
+    );
+
+    if (response.data?.subfolders && !Array.isArray(response.data.subfolders)) {
+      console.log(
+        `     ↳ subfolders type: ${typeof response.data.subfolders}, entries: ${Object.keys(response.data.subfolders || {}).length}`
+      );
+    } else if (Array.isArray(response.data?.subfolders)) {
+      console.log(`     ↳ subfolders array length: ${response.data.subfolders.length}`);
+      if (response.data.subfolders.length > 0) {
+        console.log(
+          `       Example subfolder: ${JSON.stringify(response.data.subfolders[0], null, 2)}`
+        );
+      }
+      return response.data.subfolders;
+    }
+
+    if (Array.isArray(response.data)) {
+      return response.data;
+    }
+    if (Array.isArray(response.data?.items)) {
+      return response.data.items;
+    }
+    if (Array.isArray(response.data?.folders)) {
+      return response.data.folders;
+    }
+    if (response.data?.data && Array.isArray(response.data.data)) {
+      return response.data.data;
+    }
+
+    return [];
   }
 
   /**
@@ -257,60 +350,100 @@ export class UlozService {
       
       console.log(`📁 Getting folder contents for: ${folderSlug} (user: ${userLogin})`);
 
-      // Try different folder endpoints
-      const folderEndpoints = [
-        `/v8/user/${userLogin}/folder/${folderSlug}/file-list`,
-        `/v8/folder/${folderSlug}/file-list`,
-        `/v8/user/${userLogin}/folders/${folderSlug}/files`,
-      ];
-
-      let lastError: any = null;
-      
-      for (const endpoint of folderEndpoints) {
-        try {
-          console.log(`   Trying endpoint: ${endpoint}`);
-          const response = await this.client.get(endpoint);
-
-          // Handle different response structures
-          let items: any[] = [];
-          if (response.data?.items) {
-            items = response.data.items;
-          } else if (response.data?.files) {
-            items = response.data.files;
-          } else if (Array.isArray(response.data)) {
-            items = response.data;
-          } else if (response.data?.data && Array.isArray(response.data.data)) {
-            items = response.data.data;
+      const [files, folders] = await Promise.all([
+        this.fetchFolderFiles(userLogin, folderSlug),
+        this.fetchFolderFolders(userLogin, folderSlug).catch(error => {
+          if (error?.response?.status === 404) {
+            return [];
           }
+          throw error;
+        }),
+      ]);
 
-          if (items.length > 0) {
-            console.log(`   ✅ Found ${items.length} items in folder`);
-            
-            return items.map((item: any) => ({
-              slug: item.slug || item.id || item.file_slug,
-              name: item.name || item.filename || item.file_name || item.title,
-              size: item.size || item.filesize || 0,
-              type: item.type || item.contentType || item.content_type || 'video',
-              url: item.url || item.file_url || `https://uloz.to/file/${item.slug || item.id}`,
-              description: item.description,
-            }));
-          }
-        } catch (error: any) {
-          console.log(`   Endpoint ${endpoint} failed: ${error.response?.status || error.message}`);
-          lastError = error;
-          // Continue to next endpoint
+      console.log(
+        `   > files count: ${files.length}, folders count: ${Array.isArray(folders) ? folders.length : 'n/a'}`
+      );
+
+      const entries: UlozFolderFile[] = [];
+
+      for (const file of files) {
+        if (!file) continue;
+
+        const slug = file.slug || file.id || file.file_slug;
+        const rawName = file.name || file.filename || file.file_name || file.title || slug;
+        const normalizedName = rawName?.trim() || slug;
+        const size = Number(file.size || file.filesize || 0);
+        const rawType = (file.type || file.kind || file.contentType || file.content_type || '').toString().toLowerCase();
+        const extension = this.extractExtension(normalizedName);
+        const url = file.url || file.file_url || `https://uloz.to/file/${slug}`;
+
+        const entry: UlozFolderFile = {
+          slug,
+          name: normalizedName,
+          size,
+          type: rawType || 'file',
+          url,
+          description: file.description,
+          isFolder: false,
+          extension: extension || '',
+          contentType: file.content_type || file.mime_type || file.contentType,
+          childCount: 0,
+        };
+
+        if (!extension) {
+          delete entry.extension;
         }
+
+        entries.push(entry);
+        console.log(`       ↳ added file entry ${slug}`);
       }
 
-      // If all endpoints failed, throw the last error
-      if (lastError) {
-        throw lastError;
+      for (const folder of folders) {
+        if (!folder) continue;
+
+        const slug = folder.slug || folder.id || folder.folder_slug;
+        if (!slug) continue;
+
+        const rawName = folder.name || folder.title || slug;
+        const normalizedName = rawName?.trim() || slug;
+
+        const entry: UlozFolderFile = {
+          slug,
+          name: normalizedName,
+          size: Number(folder.size || folder.total_size || 0),
+          type: 'folder',
+          url: `https://uloz.to/folder/${slug}`,
+          description: folder.description,
+          isFolder: true,
+          extension: '',
+          contentType: folder.content_type || folder.contentType,
+          childCount: folder.children_count || folder.folder_count || folder.subfolders_count || 0,
+        };
+
+        delete entry.extension;
+
+        entries.push(entry);
+        console.log(`       ↳ added folder entry ${slug}`);
       }
 
-      return [];
+      console.log(`   ✅ Aggregated ${entries.length} item(s) from API`);
+
+      return entries;
     } catch (error: any) {
-      console.error('❌ Error getting folder contents:', error.response?.data || error.message);
-      throw new Error(`Failed to get folder contents: ${error.message}`);
+      const status = error?.response?.status;
+      const code = error?.response?.data?.error ?? error?.response?.data?.code;
+      const messagePayload = error?.response?.data || error.message;
+
+      console.error('❌ Error getting folder contents:', messagePayload);
+
+      const wrappedError: any = new Error(`Failed to get folder contents: ${messagePayload}`);
+      if (status) {
+        wrappedError.status = status;
+      }
+      if (code !== undefined) {
+        wrappedError.code = code;
+      }
+      throw wrappedError;
     }
   }
 
