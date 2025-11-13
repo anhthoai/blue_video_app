@@ -1,22 +1,16 @@
 import { Request, Response } from 'express';
-import { LibrarySection } from '@prisma/client';
-
 import prisma from '../lib/prisma';
 import { StorageService } from '../config/storage';
 
 const MAX_PAGE_SIZE = 200;
 
-function normalizeSection(sectionParam: string | undefined): LibrarySection | null {
+function normalizeSection(sectionParam: string | undefined): string | null {
   if (!sectionParam) {
     return null;
   }
 
-  const normalized = sectionParam.trim().toUpperCase();
-  if ((LibrarySection as any)[normalized]) {
-    return LibrarySection[normalized as keyof typeof LibrarySection];
-  }
-
-  return null;
+  const normalized = sectionParam.trim().toLowerCase();
+  return normalized.length > 0 ? normalized : null;
 }
 
 async function resolveMediaUrl(url?: string | null): Promise<string | null> {
@@ -73,23 +67,27 @@ async function buildBreadcrumbs(item: {
 
 export async function listLibrarySections(_req: Request, res: Response) {
   try {
-    const sections = Object.values(LibrarySection);
+    const grouped = await prisma.libraryContent.groupBy({
+      by: ['section'],
+      where: {
+        section: {
+          not: null,
+        },
+      },
+      _count: {
+        section: true,
+      },
+    });
 
-    const sectionSummaries = await Promise.all(
-      sections.map(async (section) => {
-        const total = await prisma.libraryContent.count({
-          where: {
-            section,
-            isFolder: false,
-          },
-        });
-
+    const sectionSummaries = grouped
+      .map((group) => {
+        const section = (group.section || '').toString().toLowerCase();
         return {
           section,
-          totalItems: total,
+          totalItems: group._count.section,
         };
       })
-    );
+      .sort((a, b) => a.section.localeCompare(b.section));
 
     res.json({
       success: true,
@@ -134,7 +132,7 @@ export async function listLibraryItems(req: Request, res: Response) {
         },
       });
 
-      if (!parent || parent.section !== section) {
+      if (!parent || (parent.section || '').toLowerCase() !== section) {
         res.status(404).json({
           success: false,
           message: 'Parent folder not found in this section',

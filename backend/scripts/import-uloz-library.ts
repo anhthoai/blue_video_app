@@ -7,7 +7,7 @@ import type { Prisma } from '@prisma/client';
 import { UlozService } from '../src/services/ulozService';
 
 interface SectionConfig {
-  section: LibrarySectionValue;
+  section: string;
   folderSlug: string;
   displayName?: string;
 }
@@ -23,43 +23,11 @@ interface SyncStats {
 const prisma = new PrismaClient();
 const ulozService = new UlozService();
 
-const LIBRARY_SECTION = {
-  VIDEOS: 'VIDEOS',
-  AUDIO: 'AUDIO',
-  EBOOKS: 'EBOOKS',
-  MAGAZINES: 'MAGAZINES',
-  COMICS: 'COMICS',
-  IMAGES: 'IMAGES',
-  DOCUMENTS: 'DOCUMENTS',
-  ARCHIVES: 'ARCHIVES',
-  OTHER: 'OTHER',
-} as const;
-
-type LibrarySectionValue = typeof LIBRARY_SECTION[keyof typeof LIBRARY_SECTION];
-
-const LIBRARY_CONTENT_TYPE = {
-  FOLDER: 'FOLDER',
-  VIDEO: 'VIDEO',
-  AUDIO: 'AUDIO',
-  IMAGE: 'IMAGE',
-  EBOOK: 'EBOOK',
-  MAGAZINE: 'MAGAZINE',
-  COMIC: 'COMIC',
-  PDF: 'PDF',
-  EPUB: 'EPUB',
-  ARCHIVE: 'ARCHIVE',
-  DOCUMENT: 'DOCUMENT',
-  PLAYLIST: 'PLAYLIST',
-  OTHER: 'OTHER',
-} as const;
-
-type LibraryContentTypeValue = typeof LIBRARY_CONTENT_TYPE[keyof typeof LIBRARY_CONTENT_TYPE];
-
 type LibraryContentEntity = Awaited<ReturnType<typeof prisma.libraryContent.upsert>>;
 
 interface CliOptions {
   folderSlug?: string;
-  section?: LibrarySectionValue;
+  section?: string;
   displayName?: string;
 }
 
@@ -104,54 +72,55 @@ function parseCliArgs(): CliOptions | null {
   }
 
   const sectionValue = options['section'];
-  let section: LibrarySectionValue | undefined;
-  if (sectionValue) {
-    const normalized = sectionValue.trim().toUpperCase();
-    if ((LIBRARY_SECTION as Record<string, string>)[normalized]) {
-      section = (LIBRARY_SECTION as Record<string, string>)[normalized] as LibrarySectionValue;
-    } else {
-      console.warn(`⚠️  Unknown section "${sectionValue}". Falling back to OTHER.`);
-      section = LIBRARY_SECTION.OTHER;
-    }
-  }
+  const section = sectionValue ? sectionValue.trim().toLowerCase() : undefined;
 
   const displayName = options['name'] ?? options['display'] ?? options['label'];
 
   return {
     folderSlug,
-    section: section ?? LIBRARY_SECTION.OTHER,
+    section: section ?? 'other',
     ...(displayName !== undefined ? { displayName } : {}),
   };
 }
 
 function buildEnvSections(): SectionConfig[] {
-  return [
-    {
-      section: LIBRARY_SECTION.VIDEOS,
-      folderSlug: process.env['ULOZ_LIBRARY_VIDEOS_FOLDER'] || '',
-      displayName: 'Videos',
-    },
-    {
-      section: LIBRARY_SECTION.AUDIO,
-      folderSlug: process.env['ULOZ_LIBRARY_AUDIO_FOLDER'] || '',
-      displayName: 'Audio',
-    },
-    {
-      section: LIBRARY_SECTION.EBOOKS,
-      folderSlug: process.env['ULOZ_LIBRARY_EBOOKS_FOLDER'] || '',
-      displayName: 'eBooks',
-    },
-    {
-      section: LIBRARY_SECTION.MAGAZINES,
-      folderSlug: process.env['ULOZ_LIBRARY_MAGAZINES_FOLDER'] || '',
-      displayName: 'Magazines',
-    },
-    {
-      section: LIBRARY_SECTION.COMICS,
-      folderSlug: process.env['ULOZ_LIBRARY_COMICS_FOLDER'] || '',
-      displayName: 'Comics',
-    },
-  ].filter(config => Boolean(config.folderSlug));
+  const configs: SectionConfig[] = [];
+  const envEntries = Object.entries(process.env);
+
+  for (const [key, value] of envEntries) {
+    if (!key || !value) {
+      continue;
+    }
+
+    const match = key.match(/^ULOZ_LIBRARY_(.+)_FOLDER$/i);
+    if (!match) {
+      continue;
+    }
+
+    const rawSection = match[1] || '';
+    const folderSlug = value.trim();
+    if (!folderSlug) {
+      continue;
+    }
+
+    const section = rawSection
+      .toLowerCase()
+      .replace(/__+/g, '_')
+      .replace(/_/g, '-');
+
+    const displayName = section
+      .split('-')
+      .map(part => part.charAt(0).toUpperCase() + part.slice(1))
+      .join(' ');
+
+    configs.push({
+      section,
+      folderSlug,
+      displayName,
+    });
+  }
+
+  return configs;
 }
 
 function resolveSectionConfigs(): SectionConfig[] {
@@ -160,7 +129,7 @@ function resolveSectionConfigs(): SectionConfig[] {
     console.log('⚙️  Using CLI arguments for library import');
     return [
       {
-        section: cliOptions.section ?? LIBRARY_SECTION.OTHER,
+        section: (cliOptions.section ?? 'other').toLowerCase(),
         folderSlug: cliOptions.folderSlug,
         displayName: cliOptions.displayName || cliOptions.section || cliOptions.folderSlug,
       },
@@ -437,74 +406,75 @@ function buildSlugPath(segments: string[]): string {
   return segments.map(segment => sanitizeSlugSegment(segment)).join('/');
 }
 
-function resolveContentType(extension?: string | null, section?: LibrarySectionValue): LibraryContentTypeValue {
+function resolveContentType(extension?: string | null, section?: string): string {
   const ext = (extension || '').toLowerCase();
+  const sectionLower = section?.toLowerCase();
 
-  if (section === LIBRARY_SECTION.MAGAZINES) {
-    return LIBRARY_CONTENT_TYPE.MAGAZINE;
+  if (sectionLower === 'magazines') {
+    return 'magazine';
   }
 
-  if (section === LIBRARY_SECTION.COMICS) {
-    return LIBRARY_CONTENT_TYPE.COMIC;
+  if (sectionLower === 'comics') {
+    return 'comic';
   }
 
-  if (section === LIBRARY_SECTION.VIDEOS && VIDEO_EXTENSIONS.has(ext)) {
-    return LIBRARY_CONTENT_TYPE.VIDEO;
+  if (sectionLower === 'videos' && VIDEO_EXTENSIONS.has(ext)) {
+    return 'video';
   }
 
-  if (section === LIBRARY_SECTION.AUDIO && AUDIO_EXTENSIONS.has(ext)) {
-    return LIBRARY_CONTENT_TYPE.AUDIO;
+  if (sectionLower === 'audio' && AUDIO_EXTENSIONS.has(ext)) {
+    return 'audio';
   }
 
-  if (section === LIBRARY_SECTION.EBOOKS) {
+  if (sectionLower === 'ebooks') {
     if (ext === 'pdf') {
-      return LIBRARY_CONTENT_TYPE.PDF;
+      return 'pdf';
     }
     if (EBOOK_EXTENSIONS.has(ext)) {
-      return LIBRARY_CONTENT_TYPE.EPUB;
+      return 'epub';
     }
   }
 
   if (!ext) {
-    return LIBRARY_CONTENT_TYPE.OTHER;
+    return 'other';
   }
 
   if (VIDEO_EXTENSIONS.has(ext)) {
-    return LIBRARY_CONTENT_TYPE.VIDEO;
+    return 'video';
   }
 
   if (AUDIO_EXTENSIONS.has(ext)) {
-    return LIBRARY_CONTENT_TYPE.AUDIO;
+    return 'audio';
   }
 
   if (IMAGE_EXTENSIONS.has(ext)) {
-    return LIBRARY_CONTENT_TYPE.IMAGE;
+    return 'image';
   }
 
   if (COMIC_EXTENSIONS.has(ext)) {
-    return LIBRARY_CONTENT_TYPE.COMIC;
+    return 'comic';
   }
 
   if (EBOOK_EXTENSIONS.has(ext)) {
-    return LIBRARY_CONTENT_TYPE.EPUB;
+    return 'epub';
   }
 
   if (ARCHIVE_EXTENSIONS.has(ext)) {
-    return LIBRARY_CONTENT_TYPE.ARCHIVE;
+    return 'archive';
   }
 
   if (DOCUMENT_EXTENSIONS.has(ext)) {
     if (ext === 'pdf') {
-      return LIBRARY_CONTENT_TYPE.PDF;
+      return 'pdf';
     }
-    return LIBRARY_CONTENT_TYPE.DOCUMENT;
+    return 'document';
   }
 
-  return LIBRARY_CONTENT_TYPE.OTHER;
+  return 'other';
 }
 
 async function upsertFolder(params: {
-  section: LibrarySectionValue;
+  section: string;
   slug: string;
   name: string;
   parentId: string | null;
@@ -514,12 +484,14 @@ async function upsertFolder(params: {
   description?: string;
   url?: string;
 }): Promise<{ status: 'created' | 'updated'; record: LibraryContentEntity }> {
+  const sectionValue = params.section.toLowerCase();
+
   const createData: any = {
     slug: params.slug,
     title: params.name,
     description: params.description || null,
-    contentType: LIBRARY_CONTENT_TYPE.FOLDER,
-    section: params.section,
+    contentType: 'folder',
+    section: sectionValue,
     isFolder: true,
     source: ContentSource.ULOZ,
     parentId: params.parentId,
@@ -535,8 +507,8 @@ async function upsertFolder(params: {
   const updateData: any = {
     title: params.name,
     description: params.description || null,
-    contentType: LIBRARY_CONTENT_TYPE.FOLDER,
-    section: params.section,
+    contentType: 'folder',
+    section: sectionValue,
     isFolder: true,
     parentId: params.parentId,
     parentFolderSlug: params.parentFolderSlug,
@@ -561,7 +533,7 @@ async function upsertFolder(params: {
 }
 
 async function upsertFile(params: {
-  section: LibrarySectionValue;
+  section: string;
   slug: string;
   name: string;
   parentId: string | null;
@@ -595,12 +567,15 @@ async function upsertFile(params: {
     const metadataPayload: Prisma.JsonObject | undefined =
       Object.keys(metadata).length > 0 ? (metadata as Prisma.JsonObject) : undefined;
 
+    const sectionValue = params.section.toLowerCase();
+    const contentTypeValue = fileContentType.toLowerCase();
+
     const createData: any = {
       slug: params.slug,
       title: params.name,
       description: params.description || fileInfo.description || null,
-      contentType: fileContentType,
-      section: params.section,
+      contentType: contentTypeValue,
+      section: sectionValue,
       isFolder: false,
       extension: extension,
       fileSize:
@@ -628,8 +603,8 @@ async function upsertFile(params: {
     const updateData: any = {
       title: params.name,
       description: params.description || fileInfo.description || null,
-      contentType: fileContentType,
-      section: params.section,
+      contentType: contentTypeValue,
+      section: sectionValue,
       isFolder: false,
       extension: extension,
       fileSize:
@@ -668,7 +643,7 @@ async function upsertFile(params: {
 }
 
 async function syncFolder(options: {
-  section: LibrarySectionValue;
+  section: string;
   folderSlug: string;
   parentId: string | null;
   parentFolderSlug: string | null;
@@ -692,7 +667,7 @@ async function syncFolder(options: {
 
     if (entry.isFolder) {
       const folderParams: {
-        section: LibrarySectionValue;
+        section: string;
         slug: string;
         name: string;
         parentId: string | null;
@@ -736,7 +711,7 @@ async function syncFolder(options: {
       });
     } else {
       const fileParams: {
-        section: LibrarySectionValue;
+        section: string;
         slug: string;
         name: string;
         parentId: string | null;
@@ -784,11 +759,15 @@ async function syncSection(config: SectionConfig): Promise<SyncStats> {
 
   folderContentsCache.clear();
 
-  const displayName = config.displayName || config.section.toLowerCase();
+  const sectionLower = config.section.toLowerCase();
+  const displayName = config.displayName || sectionLower;
 
-  console.log(`\n🚀 Syncing section ${config.section} (folder slug: ${config.folderSlug})`);
+  console.log(`\n🚀 Syncing section ${sectionLower} (folder slug: ${config.folderSlug})`);
 
-  const resolvedTarget = await resolveFolderTarget(config);
+  const resolvedTarget = await resolveFolderTarget({
+    ...config,
+    section: sectionLower,
+  });
   const rootPathSegments = resolvedTarget.pathSegments.length > 0 ? resolvedTarget.pathSegments : [displayName];
   const slugPath = buildSlugPath(rootPathSegments);
 
@@ -797,14 +776,14 @@ async function syncSection(config: SectionConfig): Promise<SyncStats> {
   }
 
   const { status, record } = await upsertFolder({
-    section: config.section,
+    section: sectionLower,
     slug: resolvedTarget.slug,
     name: rootPathSegments[rootPathSegments.length - 1] || displayName,
     parentId: null,
     parentFolderSlug: null,
     filePath: rootPathSegments.join('/'),
     slugPath,
-    description: `Root folder for ${config.section.toLowerCase()} library`,
+    description: `Root folder for ${sectionLower} library`,
     url: `https://uloz.to/folder/${resolvedTarget.slug}`,
   });
 
@@ -815,7 +794,7 @@ async function syncSection(config: SectionConfig): Promise<SyncStats> {
   }
 
   await syncFolder({
-    section: config.section,
+    section: sectionLower,
     folderSlug: resolvedTarget.slug,
     parentId: record.id,
     parentFolderSlug: resolvedTarget.slug,
@@ -823,7 +802,7 @@ async function syncSection(config: SectionConfig): Promise<SyncStats> {
     stats,
   });
 
-  console.log(`\n✅ Finished section ${config.section}`);
+  console.log(`\n✅ Finished section ${sectionLower}`);
   console.log(`   Folders created: ${stats.foldersCreated}`);
   console.log(`   Folders updated: ${stats.foldersUpdated}`);
   console.log(`   Files created: ${stats.filesCreated}`);

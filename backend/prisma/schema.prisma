@@ -670,38 +670,6 @@ enum ContentSource {
   @@map("content_source")
 }
 
-enum LibraryContentType {
-  FOLDER
-  VIDEO
-  AUDIO
-  IMAGE
-  EBOOK
-  MAGAZINE
-  COMIC
-  PDF
-  EPUB
-  ARCHIVE
-  DOCUMENT
-  PLAYLIST
-  OTHER
-
-  @@map("library_content_type")
-}
-
-enum LibrarySection {
-  VIDEOS
-  AUDIO
-  EBOOKS
-  MAGAZINES
-  COMICS
-  IMAGES
-  DOCUMENTS
-  ARCHIVES
-  OTHER
-
-  @@map("library_section")
-}
-
 model Movie {
   id         String   @id @default(uuid())
   imdbId     String?  @unique @map("imdb_id")
@@ -855,8 +823,8 @@ model LibraryContent {
   thumbnailUrl String? @map("thumbnail_url") @db.Text
   
   // Classification
-  contentType  LibraryContentType @map("content_type")
-  section      LibrarySection?    @map("section")
+  contentType  String?            @map("content_type") @db.VarChar(50)
+  section      String?            @map("section") @db.VarChar(100)
   isFolder     Boolean            @default(false) @map("is_folder")
   extension    String?            @db.VarChar(10)
   fileSize     BigInt?            @map("file_size")

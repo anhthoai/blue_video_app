@@ -386,7 +386,7 @@ export class UlozService {
           description: file.description,
           isFolder: false,
           extension: extension || '',
-          contentType: file.content_type || file.mime_type || file.contentType,
+          contentType: (file.content_type || file.mime_type || file.contentType || '').toString().toLowerCase() || undefined,
           childCount: 0,
         };
 
@@ -416,7 +416,7 @@ export class UlozService {
           description: folder.description,
           isFolder: true,
           extension: '',
-          contentType: folder.content_type || folder.contentType,
+          contentType: (folder.content_type || folder.contentType || '').toString().toLowerCase() || undefined,
           childCount: folder.children_count || folder.folder_count || folder.subfolders_count || 0,
         };
 
