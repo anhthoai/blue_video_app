@@ -46,6 +46,12 @@ npx ts-node scripts/import-uloz-library.ts \
   --folder 3C7c2EjZ1zrA \
   --section audio \
   --name "Audio"
+
+# Section names with spaces or mixed case
+npx ts-node scripts/import-uloz-library.ts \
+  --folder M7cb5igDiQOA \
+  --section "short movies" \
+  --name "Short Movies"
 ```
 
 Parameters:
@@ -53,7 +59,7 @@ Parameters:
 | Flag        | Description                                                                                     |
 |-------------|-------------------------------------------------------------------------------------------------|
 | `--folder`  | Folder slug or path inside your uloz.to account (required)                                      |
-| `--section` | Section identifier stored in the database (defaults to `other` if omitted). Use lowercase text. |
+| `--section` | Section identifier stored in the database (defaults to `other` if omitted). The value is lower‑cased and can contain spaces—wrap it in quotes, e.g. `--section "short movies"`. |
 | `--name`    | Display label for the root folder (defaults to the section or slug)                             |
 
 If CLI parameters are supplied they override any environment mappings.
