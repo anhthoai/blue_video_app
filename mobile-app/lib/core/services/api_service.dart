@@ -1977,4 +1977,59 @@ class ApiService {
 
     return await _handleResponse(response);
   }
+
+  // Library APIs
+  Future<Map<String, dynamic>> getLibrarySections() async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/library/sections'),
+      headers: await _getHeaders(),
+    );
+    return await _handleResponse(response);
+  }
+
+  Future<Map<String, dynamic>> getLibraryItems(
+    String section, {
+    int page = 1,
+    int limit = 40,
+    String? parentId,
+    String? path,
+    bool includeStreams = false,
+  }) async {
+    final Map<String, String> queryParams = {
+      'page': page.toString(),
+      'limit': limit.toString(),
+    };
+
+    if (parentId != null && parentId.isNotEmpty) {
+      queryParams['parentId'] = parentId;
+    }
+    if (path != null && path.isNotEmpty) {
+      queryParams['path'] = path;
+    }
+    if (includeStreams) {
+      queryParams['includeStreams'] = 'true';
+    }
+
+    final uri = Uri.parse(
+      '$baseUrl/library/${Uri.encodeComponent(section)}',
+    ).replace(queryParameters: queryParams);
+
+    final response = await http.get(
+      uri,
+      headers: await _getHeaders(),
+    );
+    return await _handleResponse(response);
+  }
+
+  Future<Map<String, dynamic>> getLibraryItem(
+    String id, {
+    bool includeStreams = true,
+  }) async {
+    final query = includeStreams ? '?includeStreams=true' : '';
+    final response = await http.get(
+      Uri.parse('$baseUrl/library/item/$id$query'),
+      headers: await _getHeaders(),
+    );
+    return await _handleResponse(response);
+  }
 }

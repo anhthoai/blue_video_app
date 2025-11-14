@@ -45,6 +45,7 @@ export class UlozService {
   private baseUrl: string;
   private sessionToken: string | null = null;
   private rootFolderSlug: string | null = null;
+  private streamCache: Map<string, { url: string; expiresAt: number }> = new Map();
 
   constructor() {
     this.config = {
@@ -511,7 +512,7 @@ export class UlozService {
   /**
    * Get download/stream links for a file
    */
-  async getStreamLinks(fileSlug: string): Promise<UlozStreamLinks> {
+  async getStreamLinks(fileSlug: string, attempt: number = 0): Promise<UlozStreamLinks> {
     try {
       await this.ensureLoggedIn();
       
@@ -534,6 +535,16 @@ export class UlozService {
         quickDirectLink: data.quick_direct_link || data.streamLink || data.link,
       };
     } catch (error: any) {
+      const status = error?.response?.status;
+
+      if (status === 401 && attempt < 1) {
+        console.warn('⚠️  uloz.to session appears invalid. Re-authenticating...');
+        this.sessionToken = null;
+        delete this.client.defaults.headers.common['X-User-Token'];
+        await this.ensureLoggedIn();
+        return this.getStreamLinks(fileSlug, attempt + 1);
+      }
+
       console.error('❌ Error getting stream links:', error.response?.data || error.message);
       throw new Error(`Failed to get stream links: ${error.message}`);
     }
@@ -545,10 +556,23 @@ export class UlozService {
   async getStreamUrl(fileUrl: string): Promise<string | null> {
     try {
       const fileSlug = this.extractSlug(fileUrl);
+      const cached = this.streamCache.get(fileSlug);
+      const now = Date.now();
+      if (cached && cached.expiresAt > now) {
+        return cached.url;
+      }
+
       const links = await this.getStreamLinks(fileSlug);
       
       // Prefer quick direct link (faster streaming)
-      return links.quickDirectLink || links.slowDirectLink || null;
+      const url = links.quickDirectLink || links.slowDirectLink || null;
+
+      if (url) {
+        const expiresAt = now + 15 * 60 * 1000; // cache for 15 minutes
+        this.streamCache.set(fileSlug, { url, expiresAt });
+      }
+
+      return url;
     } catch (error) {
       console.error('Error getting stream URL:', error);
       return null;

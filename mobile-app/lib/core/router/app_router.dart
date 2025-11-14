@@ -31,10 +31,16 @@ import '../../screens/coin/coin_history_screen.dart';
 import '../../screens/vip/vip_subscription_screen.dart';
 import '../../screens/discover/category_detail_screen.dart';
 import '../../screens/playlist/playlist_detail_screen.dart';
+import '../../core/models/library_navigation.dart';
 import '../../screens/library/movie_detail_screen.dart';
 import '../../screens/library/movie_player_screen.dart';
 import '../../screens/library/add_movie/add_movie_start_screen.dart';
 import '../../screens/library/add_movie/add_movie_manual_screen.dart';
+import '../../screens/library/library_folder_screen.dart';
+import '../../screens/library/library_image_viewer_screen.dart';
+import '../../screens/library/library_audio_player_screen.dart';
+import '../../screens/library/library_video_player_screen.dart';
+import '../../screens/library/library_document_screen.dart';
 import '../../models/category_model.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
@@ -224,6 +230,69 @@ final routerProvider = Provider<GoRouter>((ref) {
               );
             },
           ),
+          GoRoute(
+            path: 'library/section/:section/folder',
+            builder: (context, state) {
+              final section = state.pathParameters['section'] ?? '';
+              final extra = state.extra as LibraryFolderArgs?;
+              final parentId =
+                  extra?.parentId ?? state.uri.queryParameters['parentId'] ?? '';
+              final title =
+                  extra?.title ?? state.uri.queryParameters['title'] ?? 'Folder';
+
+              return LibraryFolderScreen(
+                args: LibraryFolderArgs(
+                  section: section,
+                  parentId: parentId,
+                  title: title,
+                ),
+              );
+            },
+          ),
+          GoRoute(
+            path: 'library/section/:section/image-viewer',
+            builder: (context, state) {
+              final extra = state.extra as LibraryImageViewerArgs?;
+              if (extra == null) {
+                return const _LibraryRouteFallback(
+                    message: 'Image viewer requires navigation data.');
+              }
+              return LibraryImageViewerScreen(args: extra);
+            },
+          ),
+          GoRoute(
+            path: 'library/section/:section/audio-player',
+            builder: (context, state) {
+              final extra = state.extra as LibraryAudioPlayerArgs?;
+              if (extra == null) {
+                return const _LibraryRouteFallback(
+                    message: 'Audio player requires track data.');
+              }
+              return LibraryAudioPlayerScreen(args: extra);
+            },
+          ),
+          GoRoute(
+            path: 'library/section/:section/video-player',
+            builder: (context, state) {
+              final extra = state.extra as LibraryVideoPlayerArgs?;
+              if (extra == null) {
+                return const _LibraryRouteFallback(
+                    message: 'Video player requires video data.');
+              }
+              return LibraryVideoPlayerScreen(args: extra);
+            },
+          ),
+          GoRoute(
+            path: 'library/section/:section/document',
+            builder: (context, state) {
+              final extra = state.extra as LibraryDocumentArgs?;
+              if (extra == null) {
+                return const _LibraryRouteFallback(
+                    message: 'Document viewer requires file data.');
+              }
+              return LibraryDocumentScreen(args: extra);
+            },
+          ),
 
           // Profile Routes
           GoRoute(
@@ -339,3 +408,26 @@ final routerProvider = Provider<GoRouter>((ref) {
     ),
   );
 });
+
+class _LibraryRouteFallback extends StatelessWidget {
+  const _LibraryRouteFallback({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(),
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Text(
+            message,
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.bodyLarge,
+          ),
+        ),
+      ),
+    );
+  }
+}

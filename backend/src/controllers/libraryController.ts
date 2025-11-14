@@ -1,6 +1,8 @@
 import { Request, Response } from 'express';
+import { ContentSource } from '@prisma/client';
 import prisma from '../lib/prisma';
 import { StorageService } from '../config/storage';
+import ulozService from '../services/ulozService';
 
 const MAX_PAGE_SIZE = 200;
 
@@ -29,6 +31,63 @@ async function resolveMediaUrl(url?: string | null): Promise<string | null> {
   }
 
   return url;
+}
+
+async function resolveFileStreamUrl(item: {
+  fileUrl?: string | null;
+  source: ContentSource;
+  ulozSlug?: string | null;
+  metadata?: any;
+}): Promise<string | null> {
+  const { fileUrl, source, ulozSlug, metadata } = item;
+
+  // Handle S3 stored content
+  if (fileUrl?.startsWith('s3://')) {
+    const key = fileUrl.substring(5);
+    try {
+      return await StorageService.getSignedUrl(key);
+    } catch (error) {
+      console.warn(`⚠️  Failed to generate signed URL for ${key}:`, (error as Error).message);
+      return null;
+    }
+  }
+
+  // If metadata already contains a stream/download URL, use it
+  const metadataUrl =
+    (metadata && typeof metadata === 'object'
+      ? metadata.streamUrl ||
+        metadata.downloadUrl ||
+        metadata.directUrl ||
+        metadata.direct_link
+      : null) ?? null;
+  if (metadataUrl && typeof metadataUrl === 'string' && metadataUrl.length > 4) {
+    return metadataUrl;
+  }
+
+  // Handle uloz.to content
+  if (source === ContentSource.ULOZ) {
+    const candidate = ulozSlug || fileUrl || metadataUrl;
+    if (candidate) {
+      try {
+        const streamUrl = await ulozService.getStreamUrl(candidate);
+        if (streamUrl) {
+          return streamUrl;
+        }
+      } catch (error) {
+        console.warn(
+          `⚠️  Failed to fetch uloz stream URL for ${candidate}:`,
+          (error as Error).message
+        );
+      }
+    }
+  }
+
+  // If already an accessible URL, return as-is
+  if (fileUrl && /^https?:\/\//i.test(fileUrl)) {
+    return fileUrl;
+  }
+
+  return null;
 }
 
 async function buildBreadcrumbs(item: {
@@ -195,6 +254,8 @@ export async function listLibraryItems(req: Request, res: Response) {
       Math.max(1, parseInt((req.query['limit'] as string) || '50', 10))
     );
     const skip = (page - 1) * limit;
+    const includeStreams =
+      (req.query['includeStreams'] as string | undefined)?.toLowerCase() === 'true';
 
     const whereClause: Record<string, any> = {
       section,
@@ -228,6 +289,8 @@ export async function listLibraryItems(req: Request, res: Response) {
           mimeType: true,
           duration: true,
           metadata: true,
+          source: true,
+          ulozSlug: true,
           updatedAt: true,
           createdAt: true,
           _count: {
@@ -252,6 +315,15 @@ export async function listLibraryItems(req: Request, res: Response) {
           ? await resolveMediaUrl(item.coverUrl)
           : item.coverUrl;
 
+        const streamUrl = includeStreams
+          ? await resolveFileStreamUrl({
+              fileUrl: item.fileUrl,
+              source: item.source,
+              ulozSlug: item.ulozSlug ?? null,
+              metadata: item.metadata ?? undefined,
+            })
+          : null;
+
         return {
           id: item.id,
           title: item.title,
@@ -262,6 +334,7 @@ export async function listLibraryItems(req: Request, res: Response) {
           extension: item.extension,
           fileSize: item.fileSize ? Number(item.fileSize) : null,
           fileUrl: item.fileUrl,
+          streamUrl,
           filePath: item.filePath,
           slugPath: item.slugPath,
           mimeType: item.mimeType,
@@ -269,6 +342,8 @@ export async function listLibraryItems(req: Request, res: Response) {
           metadata: item.metadata,
           thumbnailUrl,
           coverUrl,
+          source: item.source,
+          ulozSlug: item.ulozSlug,
           hasChildren: item._count.children > 0,
           createdAt: item.createdAt,
           updatedAt: item.updatedAt,
@@ -343,6 +418,8 @@ export async function getLibraryItem(req: Request, res: Response) {
         mimeType: true,
         duration: true,
         metadata: true,
+          source: true,
+          ulozSlug: true,
         createdAt: true,
         updatedAt: true,
       },
@@ -364,6 +441,13 @@ export async function getLibraryItem(req: Request, res: Response) {
       ? await resolveMediaUrl(item.coverUrl)
       : item.coverUrl;
 
+    const streamUrl = await resolveFileStreamUrl({
+      fileUrl: item.fileUrl,
+      source: item.source,
+      ulozSlug: item.ulozSlug ?? null,
+      metadata: item.metadata ?? undefined,
+    });
+
     const breadcrumbs = await buildBreadcrumbs(item);
 
     res.json({
@@ -373,6 +457,7 @@ export async function getLibraryItem(req: Request, res: Response) {
         fileSize: item.fileSize ? Number(item.fileSize) : null,
         thumbnailUrl,
         coverUrl,
+        streamUrl,
         breadcrumbs,
       },
     });
