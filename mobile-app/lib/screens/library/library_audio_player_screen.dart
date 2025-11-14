@@ -22,6 +22,7 @@ class _LibraryAudioPlayerScreenState extends State<LibraryAudioPlayerScreen> {
   bool _isPlaying = false;
   Duration _position = Duration.zero;
   Duration _duration = Duration.zero;
+  bool _isSeeking = false; // Track if user is actively seeking
   StreamSubscription<Duration>? _positionSub;
   StreamSubscription<Duration>? _durationSub;
   StreamSubscription<void>? _completeSub;
@@ -48,10 +49,18 @@ class _LibraryAudioPlayerScreenState extends State<LibraryAudioPlayerScreen> {
 
   Future<void> _initializePlayer() async {
     _positionSub = _audioPlayer.onPositionChanged.listen((position) {
-      setState(() => _position = position);
+      if (mounted && !_isSeeking) {
+        setState(() => _position = position);
+      }
     });
     _durationSub = _audioPlayer.onDurationChanged.listen((duration) {
-      setState(() => _duration = duration);
+      if (mounted) {
+        setState(() {
+          if (duration.inMilliseconds > 0) {
+            _duration = duration;
+          }
+        });
+      }
     });
     _completeSub = _audioPlayer.onPlayerComplete.listen((event) {
       _playNext();
@@ -73,14 +82,42 @@ class _LibraryAudioPlayerScreenState extends State<LibraryAudioPlayerScreen> {
       return;
     }
 
+    // First, set the duration from metadata immediately (for UI responsiveness)
+    Duration metadataDuration = Duration.zero;
+    if (track.duration != null && track.duration! > 0) {
+      metadataDuration = Duration(seconds: track.duration!);
+    }
+
+    if (mounted) {
+      setState(() {
+        _currentIndex = index;
+        _isPlaying = false;
+        _position = Duration.zero;
+        _duration = metadataDuration;
+        _isSeeking = false;
+      });
+    }
+
     await _audioPlayer.stop();
-    await _audioPlayer.play(UrlSource(url));
-    setState(() {
-      _currentIndex = index;
-      _isPlaying = true;
-      _position = Duration.zero;
-      _duration = Duration.zero;
-    });
+    
+    // Set source and wait for it to be ready
+    await _audioPlayer.setSourceUrl(url);
+    
+    // Try to get actual duration from audio file
+    final actualDuration = await _audioPlayer.getDuration();
+    
+    // Start playback
+    await _audioPlayer.resume();
+    
+    if (mounted) {
+      setState(() {
+        _isPlaying = true;
+        // Use actual duration if available, otherwise keep metadata duration
+        if (actualDuration != null && actualDuration.inMilliseconds > 0) {
+          _duration = actualDuration;
+        }
+      });
+    }
   }
 
   Future<void> _togglePlayPause() async {
@@ -109,11 +146,17 @@ class _LibraryAudioPlayerScreenState extends State<LibraryAudioPlayerScreen> {
     }
   }
 
-  Future<void> _seek(double value) async {
-    final position = Duration(
-      seconds: (value * _duration.inSeconds).round(),
-    );
+  Future<void> _seek(double milliseconds) async {
+    // Clamp the seek position to the actual duration
+    final clampedMillis = milliseconds.clamp(0, _duration.inMilliseconds.toDouble());
+    final position = Duration(milliseconds: clampedMillis.round());
     await _audioPlayer.seek(position);
+    if (mounted) {
+      setState(() {
+        _position = position;
+        _isSeeking = false;
+      });
+    }
   }
 
   String _formatDuration(Duration duration) {
@@ -151,12 +194,30 @@ class _LibraryAudioPlayerScreenState extends State<LibraryAudioPlayerScreen> {
                 const SizedBox(height: 12),
                 Slider(
                   min: 0,
-                  max: _duration.inSeconds > 0 ? 1 : 0,
-                  value: _duration.inSeconds > 0
-                      ? _position.inSeconds / _duration.inSeconds
+                  max: _duration.inMilliseconds > 0
+                      ? _duration.inMilliseconds.toDouble()
+                      : 1,
+                  value: _duration.inMilliseconds > 0
+                      ? _position.inMilliseconds
+                          .clamp(0, _duration.inMilliseconds)
+                          .toDouble()
                       : 0,
-                  onChanged: _duration.inSeconds > 0
-                      ? (value) => _seek(value)
+                  onChanged: _duration.inMilliseconds > 0
+                      ? (value) {
+                          // Clamp the value to max duration
+                          final clampedValue = value.clamp(0, _duration.inMilliseconds.toDouble());
+                          setState(() {
+                            _isSeeking = true;
+                            _position = Duration(milliseconds: clampedValue.round());
+                          });
+                        }
+                      : null,
+                  onChangeEnd: _duration.inMilliseconds > 0
+                      ? (value) {
+                          // Clamp before seeking
+                          final clampedValue = value.clamp(0.0, _duration.inMilliseconds.toDouble());
+                          _seek(clampedValue);
+                        }
                       : null,
                 ),
                 Row(

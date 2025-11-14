@@ -52,12 +52,14 @@ class LibraryVideoPlayerArgs {
     required this.videos,
     required this.initialIndex,
     this.folderTitle,
+    this.subtitles = const [],
   });
 
   final String section;
   final List<LibraryItemModel> videos;
   final int initialIndex;
   final String? folderTitle;
+  final List<LibraryItemModel> subtitles;
 }
 
 @immutable

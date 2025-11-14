@@ -398,6 +398,10 @@ export async function getLibraryItem(req: Request, res: Response) {
       return;
     }
 
+    const includeStreams =
+      (req.query['includeStreams'] as string | undefined)?.toLowerCase() ===
+      'true';
+
     const item = await prisma.libraryContent.findUnique({
       where: { id: itemId },
       select: {
@@ -418,8 +422,8 @@ export async function getLibraryItem(req: Request, res: Response) {
         mimeType: true,
         duration: true,
         metadata: true,
-          source: true,
-          ulozSlug: true,
+        source: true,
+        ulozSlug: true,
         createdAt: true,
         updatedAt: true,
       },
@@ -441,12 +445,14 @@ export async function getLibraryItem(req: Request, res: Response) {
       ? await resolveMediaUrl(item.coverUrl)
       : item.coverUrl;
 
-    const streamUrl = await resolveFileStreamUrl({
-      fileUrl: item.fileUrl,
-      source: item.source,
-      ulozSlug: item.ulozSlug ?? null,
-      metadata: item.metadata ?? undefined,
-    });
+    const streamUrl = includeStreams
+      ? await resolveFileStreamUrl({
+          fileUrl: item.fileUrl,
+          source: item.source,
+          ulozSlug: item.ulozSlug ?? null,
+          metadata: item.metadata ?? undefined,
+        })
+      : null;
 
     const breadcrumbs = await buildBreadcrumbs(item);
 

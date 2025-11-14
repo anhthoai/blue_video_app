@@ -343,6 +343,23 @@ class _LibraryItemsViewState extends ConsumerState<LibraryItemsView>
         );
   }
 
+  bool _isSubtitle(LibraryItemModel item) {
+    final content = item.contentType.toLowerCase();
+    final mime = item.mimeType?.toLowerCase() ?? '';
+    final extension = (item.extension ??
+            item.filePath?.split('/').last ??
+            item.fileUrl ??
+            '')
+        .split('.')
+        .last
+        .toLowerCase();
+    return content.contains('subtitle') ||
+        content.contains('caption') ||
+        mime.startsWith('text/') ||
+        ['srt', 'vtt', 'ass', 'ssa', 'sub', 'sbv', 'dfxp']
+            .contains(extension);
+  }
+
   Future<void> _openImages(
     BuildContext context,
     String section,
@@ -421,9 +438,25 @@ class _LibraryItemsViewState extends ConsumerState<LibraryItemsView>
     List<LibraryItemModel> siblings,
   ) async {
     final videos = siblings.where(_isVideo).toList();
+    final subtitleCandidates = siblings.where(_isSubtitle).toList();
     try {
-      final detailedVideos = await _loadItemsWithProgress(videos);
+      final combined = <LibraryItemModel>[
+        ...videos,
+        ...subtitleCandidates,
+      ];
+      final detailedCombined = await _loadItemsWithProgress(combined);
       if (!mounted) return;
+
+      final detailedMap = {
+        for (final item in detailedCombined) item.id: item,
+      };
+
+      final detailedVideos = videos
+          .map((video) => detailedMap[video.id] ?? video)
+          .toList(growable: false);
+      final detailedSubtitles = subtitleCandidates
+          .map((subtitle) => detailedMap[subtitle.id] ?? subtitle)
+          .toList(growable: false);
 
       final initialId = tapped.id;
       final initialIndex =
@@ -434,6 +467,7 @@ class _LibraryItemsViewState extends ConsumerState<LibraryItemsView>
         extra: LibraryVideoPlayerArgs(
           section: section,
           videos: detailedVideos,
+          subtitles: detailedSubtitles,
           initialIndex: initialIndex < 0 ? 0 : initialIndex,
           folderTitle: folderTitle,
         ),
@@ -493,21 +527,21 @@ class _LibraryItemsViewState extends ConsumerState<LibraryItemsView>
     );
 
     try {
-    final service = LibraryService();
-    final List<LibraryItemModel> detailedItems = [];
+      final service = LibraryService();
+      final List<LibraryItemModel> detailedItems = [];
 
-    for (final item in items) {
-      final detailed =
-          await service.fetchItemById(item.id, includeStreams: true);
-      detailedItems.add(detailed ?? item);
-    }
+      for (final item in items) {
+        final detailed =
+            await service.fetchItemById(item.id, includeStreams: true);
+        detailedItems.add(detailed ?? item);
+      }
 
-    return detailedItems;
-  } finally {
-    if (navigator.mounted && navigator.canPop()) {
-      navigator.pop();
+      return detailedItems;
+    } finally {
+      if (navigator.mounted && navigator.canPop()) {
+        navigator.pop();
+      }
     }
-  }
   }
 }
 
@@ -641,6 +675,7 @@ class LibraryContentCard extends StatelessWidget {
     if (content == 'image') return Icons.image;
     if (content == 'audio') return Icons.audiotrack;
     if (content == 'video') return Icons.play_circle_fill;
+    if (content == 'subtitle') return Icons.subtitles;
     if (content == 'document' || content == 'pdf') {
       return Icons.description;
     }
