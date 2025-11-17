@@ -10,6 +10,7 @@ import 'package:http/http.dart' as http;
 import '../../core/models/library_item_model.dart';
 import '../../core/models/library_navigation.dart';
 import '../../core/services/ebook_server.dart';
+import '../../core/services/txt_to_epub_converter.dart';
 
 class LibraryEbookReaderScreen extends StatefulWidget {
   const LibraryEbookReaderScreen({super.key, required this.args});
@@ -88,12 +89,25 @@ class _LibraryEbookReaderScreenState extends State<LibraryEbookReaderScreen> {
             'Failed to download ebook (HTTP ${response.statusCode}).');
       }
 
-      final bytes = response.bodyBytes;
+      var bytes = response.bodyBytes;
       if (bytes.isEmpty) {
         throw Exception('Downloaded ebook file is empty.');
       }
 
-      final extension = _deriveExtension(item);
+      var extension = _deriveExtension(item);
+      
+      // Convert TXT to EPUB if needed
+      if (extension == 'txt') {
+        final filename = item.filePath?.split('/').last ?? 
+                        item.fileUrl?.split('/').last ?? 
+                        'book.txt';
+        bytes = await TxtToEpubConverter.convertTxtToEpub(
+          txtBytes: Uint8List.fromList(bytes),
+          filename: filename,
+        );
+        extension = 'epub';
+      }
+
       final server = EbookServer.instance;
       final bookId = await server.registerBook(
         bytes: Uint8List.fromList(bytes),
