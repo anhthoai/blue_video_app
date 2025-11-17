@@ -177,26 +177,134 @@ class _LibraryItemsViewState extends ConsumerState<LibraryItemsView>
   @override
   bool get wantKeepAlive => true;
 
+  final ScrollController _scrollController = ScrollController();
+  List<LibraryItemModel> _items = [];
+  int _currentPage = 1;
+  bool _isLoading = false;
+  bool _isLoadingMore = false;
+  bool _hasMore = true;
+  bool _isInitialLoad = true;
+  Object? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_onScroll);
+    _loadItems();
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    // Trigger at 70% to prefetch before user reaches the end
+    if (_scrollController.position.pixels >=
+            _scrollController.position.maxScrollExtent * 0.7 &&
+        !_isLoading &&
+        !_isLoadingMore &&
+        _hasMore) {
+      _loadMoreItems();
+    }
+  }
+
+  Future<void> _loadItems() async {
+    if (_isLoading) return;
+
+    setState(() {
+      _isLoading = true;
+      _isInitialLoad = true;
+      _currentPage = 1;
+      _items = [];
+      _hasMore = true;
+      _error = null;
+    });
+
+    try {
+      final request = LibraryItemsRequest(
+        section: widget.section,
+        parentId: widget.parentId,
+        includeStreams: false,
+        page: 1,
+        limit: 40,
+      );
+      final items = await LibraryService().fetchItems(request);
+
+      if (mounted) {
+        setState(() {
+          _items = items;
+          _hasMore = items.length >= 40;
+          _isLoading = false;
+          _isInitialLoad = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _error = e;
+          _isLoading = false;
+          _isInitialLoad = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _loadMoreItems() async {
+    if (_isLoadingMore || !_hasMore) return;
+
+    setState(() {
+      _isLoadingMore = true;
+    });
+
+    try {
+      final request = LibraryItemsRequest(
+        section: widget.section,
+        parentId: widget.parentId,
+        includeStreams: false,
+        page: _currentPage + 1,
+        limit: 40,
+      );
+      final items = await LibraryService().fetchItems(request);
+
+      if (mounted) {
+        setState(() {
+          _currentPage++;
+          _items.addAll(items);
+          _hasMore = items.length >= 40;
+          _isLoadingMore = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoadingMore = false;
+        });
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    final request = LibraryItemsRequest(
-      section: widget.section,
-      parentId: widget.parentId,
-      includeStreams: false,
-    );
-    final itemsAsync = ref.watch(libraryItemsProvider(request));
 
-    return itemsAsync.when(
-      data: (items) {
-        return RefreshIndicator(
-          onRefresh: () async {
-            ref.invalidate(libraryItemsProvider(request));
-            await ref.read(libraryItemsProvider(request).future);
-          },
-          child: items.isEmpty
-              ? _buildEmptyState(context)
-              : GridView.builder(
+    if (_isInitialLoad) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_error != null) {
+      return _buildErrorState(context, _error!);
+    }
+
+    return RefreshIndicator(
+      onRefresh: _loadItems,
+      child: _items.isEmpty
+          ? _buildEmptyState(context)
+          : Stack(
+              children: [
+                GridView.builder(
+                  controller: _scrollController,
                   padding: const EdgeInsets.all(16),
                   physics: const AlwaysScrollableScrollPhysics(),
                   gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
@@ -205,24 +313,30 @@ class _LibraryItemsViewState extends ConsumerState<LibraryItemsView>
                     crossAxisSpacing: 16,
                     childAspectRatio: 0.68,
                   ),
-                  itemCount: items.length,
+                  itemCount: _items.length + (_isLoadingMore ? 1 : 0),
                   itemBuilder: (context, index) {
-                    final item = items[index];
+                    if (index >= _items.length) {
+                      return const Center(
+                        child: Padding(
+                          padding: EdgeInsets.all(16.0),
+                          child: CircularProgressIndicator(),
+                        ),
+                      );
+                    }
+                    final item = _items[index];
                     final showDownload =
                         !item.isFolder && (_isDocument(item) || _isEbook(item));
                     return LibraryContentCard(
                       item: item,
-                      onTap: () => _handleItemTap(context, item, items),
+                      onTap: () => _handleItemTap(context, item, _items),
                       onDownload: showDownload
                           ? () => _handleDownloadFromCard(context, item)
                           : null,
                     );
                   },
                 ),
-        );
-      },
-      loading: () => const Center(child: CircularProgressIndicator()),
-      error: (error, stack) => _buildErrorState(context, error, request),
+              ],
+            ),
     );
   }
 
@@ -254,8 +368,7 @@ class _LibraryItemsViewState extends ConsumerState<LibraryItemsView>
     );
   }
 
-  Widget _buildErrorState(
-      BuildContext context, Object error, LibraryItemsRequest request) {
+  Widget _buildErrorState(BuildContext context, Object error) {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -281,7 +394,7 @@ class _LibraryItemsViewState extends ConsumerState<LibraryItemsView>
           ),
           const SizedBox(height: 12),
           ElevatedButton(
-            onPressed: () => ref.invalidate(libraryItemsProvider(request)),
+            onPressed: _loadItems,
             child: const Text('Retry'),
           ),
         ],
