@@ -36,11 +36,17 @@ dependencies:
   video_player: ^2.8.2
   chewie: ^1.7.4
   webview_flutter: ^4.4.2
+  flutter_inappwebview:
+    git:
+      url: https://github.com/Anxcye/flutter_inappwebview.git
+      ref: 4a275c3
+      path: flutter_inappwebview
   image_picker: ^1.2.0
   file_picker: ^8.1.2
   mime: ^1.0.4
   audioplayers: ^5.2.1
   path_provider: ^2.1.1
+  shelf: ^1.4.1
   ffmpeg_kit_flutter_new: ^3.2.0
   # image_cropper: ^5.0.1  # Removed due to compatibility issues
 
@@ -105,6 +111,11 @@ flutter:
     - assets/icons/
     - assets/animations/
     - assets/fonts/
+    - assets/foliate-js/index.html
+    - assets/foliate-js/dist/
+    - assets/foliate-js/src/
+    - assets/foliate-js/src/vendor/
+    - assets/foliate-js/src/vendor/pdfjs/
 
   # fonts:
   #   - family: Roboto

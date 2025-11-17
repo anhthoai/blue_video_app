@@ -41,6 +41,7 @@ import '../../screens/library/library_image_viewer_screen.dart';
 import '../../screens/library/library_audio_player_screen.dart';
 import '../../screens/library/library_video_player_screen.dart';
 import '../../screens/library/library_document_screen.dart';
+import '../../screens/library/library_ebook_reader_screen.dart';
 import '../../models/category_model.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
@@ -280,6 +281,17 @@ final routerProvider = Provider<GoRouter>((ref) {
                     message: 'Video player requires video data.');
               }
               return LibraryVideoPlayerScreen(args: extra);
+            },
+          ),
+          GoRoute(
+            path: 'library/section/:section/ebook',
+            builder: (context, state) {
+              final extra = state.extra as LibraryEbookReaderArgs?;
+              if (extra == null) {
+                return const _LibraryRouteFallback(
+                    message: 'Ebook reader requires file data.');
+              }
+              return LibraryEbookReaderScreen(args: extra);
             },
           ),
           GoRoute(

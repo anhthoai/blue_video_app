@@ -75,3 +75,15 @@ class LibraryDocumentArgs {
   final String? folderTitle;
 }
 
+@immutable
+class LibraryEbookReaderArgs {
+  const LibraryEbookReaderArgs({
+    required this.section,
+    required this.item,
+    this.folderTitle,
+  });
+
+  final String section;
+  final LibraryItemModel item;
+  final String? folderTitle;
+}

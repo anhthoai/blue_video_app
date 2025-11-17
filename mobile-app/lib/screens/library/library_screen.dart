@@ -14,8 +14,9 @@ final librarySectionsProvider =
   return LibraryService().fetchSections();
 });
 
-final libraryItemsProvider = FutureProvider.family<List<LibraryItemModel>,
-    LibraryItemsRequest>((ref, request) async {
+final libraryItemsProvider =
+    FutureProvider.family<List<LibraryItemModel>, LibraryItemsRequest>(
+        (ref, request) async {
   return LibraryService().fetchItems(request);
 });
 
@@ -103,7 +104,8 @@ class LibraryScreen extends ConsumerWidget {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(Icons.error_outline, size: 48, color: Colors.redAccent),
+                const Icon(Icons.error_outline,
+                    size: 48, color: Colors.redAccent),
                 const SizedBox(height: 16),
                 Text(
                   'Failed to load library sections',
@@ -310,6 +312,11 @@ class _LibraryItemsViewState extends ConsumerState<LibraryItemsView>
       return;
     }
 
+    if (_isEbook(item)) {
+      _openEbook(context, section, folderTitle, item);
+      return;
+    }
+
     _openDocument(context, section, folderTitle, item);
   }
 
@@ -343,21 +350,45 @@ class _LibraryItemsViewState extends ConsumerState<LibraryItemsView>
         );
   }
 
-  bool _isSubtitle(LibraryItemModel item) {
+  bool _isEbook(LibraryItemModel item) {
     final content = item.contentType.toLowerCase();
     final mime = item.mimeType?.toLowerCase() ?? '';
-    final extension = (item.extension ??
-            item.filePath?.split('/').last ??
-            item.fileUrl ??
-            '')
+    final extension = (item.extension ?? item.filePath ?? item.fileUrl ?? '')
         .split('.')
         .last
         .toLowerCase();
+
+    const ebookExtensions = {
+      'epub',
+      'mobi',
+      'azw',
+      'azw3',
+      'fb2',
+      'txt',
+      'pdf',
+    };
+
+    return content == 'ebook' ||
+        ebookExtensions.contains(extension) ||
+        mime.contains('epub') ||
+        mime.contains('mobi') ||
+        mime.contains('fb2') ||
+        mime.contains('pdf') ||
+        mime.contains('text/plain');
+  }
+
+  bool _isSubtitle(LibraryItemModel item) {
+    final content = item.contentType.toLowerCase();
+    final mime = item.mimeType?.toLowerCase() ?? '';
+    final extension =
+        (item.extension ?? item.filePath?.split('/').last ?? item.fileUrl ?? '')
+            .split('.')
+            .last
+            .toLowerCase();
     return content.contains('subtitle') ||
         content.contains('caption') ||
         mime.startsWith('text/') ||
-        ['srt', 'vtt', 'ass', 'ssa', 'sub', 'sbv', 'dfxp']
-            .contains(extension);
+        ['srt', 'vtt', 'ass', 'ssa', 'sub', 'sbv', 'dfxp'].contains(extension);
   }
 
   Future<void> _openImages(
@@ -482,6 +513,35 @@ class _LibraryItemsViewState extends ConsumerState<LibraryItemsView>
     }
   }
 
+  Future<void> _openEbook(
+    BuildContext context,
+    String section,
+    String? folderTitle,
+    LibraryItemModel tapped,
+  ) async {
+    try {
+      final detailed = await _loadItemsWithProgress([tapped]);
+      if (!mounted) return;
+      final item = detailed.isNotEmpty ? detailed.first : tapped;
+
+      context.push(
+        '/main/library/section/${Uri.encodeComponent(section)}/ebook',
+        extra: LibraryEbookReaderArgs(
+          section: section,
+          item: item,
+          folderTitle: folderTitle,
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to load ebook: $error'),
+        ),
+      );
+    }
+  }
+
   Future<void> _openDocument(
     BuildContext context,
     String section,
@@ -584,8 +644,8 @@ class LibraryContentCard extends StatelessWidget {
                     top: 8,
                     left: 8,
                     child: Container(
-                      padding:
-                          const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
                         color: Colors.black.withOpacity(0.55),
                         borderRadius: BorderRadius.circular(8),
@@ -621,8 +681,7 @@ class LibraryContentCard extends StatelessWidget {
               ),
             ),
             Padding(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,

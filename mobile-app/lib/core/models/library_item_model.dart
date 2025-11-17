@@ -151,28 +151,38 @@ class LibraryItemModel {
     final combined = '$name $path';
 
     // Check for language patterns
-    if (combined.contains('.eng.') || combined.endsWith('.eng') ||
-        combined.contains('_eng.') || combined.endsWith('_eng') ||
+    if (combined.contains('.eng.') ||
+        combined.endsWith('.eng') ||
+        combined.contains('_eng.') ||
+        combined.endsWith('_eng') ||
         combined.contains('english')) {
       return 'English';
     }
-    if (combined.contains('.chi.') || combined.endsWith('.chi') ||
-        combined.contains('_chi.') || combined.endsWith('_chi') ||
+    if (combined.contains('.chi.') ||
+        combined.endsWith('.chi') ||
+        combined.contains('_chi.') ||
+        combined.endsWith('_chi') ||
         combined.contains('chinese')) {
       return 'Chinese';
     }
-    if (combined.contains('.spa.') || combined.endsWith('.spa') ||
-        combined.contains('_spa.') || combined.endsWith('_spa') ||
+    if (combined.contains('.spa.') ||
+        combined.endsWith('.spa') ||
+        combined.contains('_spa.') ||
+        combined.endsWith('_spa') ||
         combined.contains('spanish')) {
       return 'Spanish';
     }
-    if (combined.contains('.ind.') || combined.endsWith('.ind') ||
-        combined.contains('_ind.') || combined.endsWith('_ind') ||
+    if (combined.contains('.ind.') ||
+        combined.endsWith('.ind') ||
+        combined.contains('_ind.') ||
+        combined.endsWith('_ind') ||
         combined.contains('indonesian')) {
       return 'Indonesian';
     }
-    if (combined.contains('.tha.') || combined.endsWith('.tha') ||
-        combined.contains('_tha.') || combined.endsWith('_tha') ||
+    if (combined.contains('.tha.') ||
+        combined.endsWith('.tha') ||
+        combined.contains('_tha.') ||
+        combined.endsWith('_tha') ||
         combined.contains('thai')) {
       return 'Thai';
     }
@@ -181,7 +191,8 @@ class LibraryItemModel {
     final parts = displayTitle.split('.');
     if (parts.length >= 2) {
       final potentialLang = parts[parts.length - 2];
-      if (potentialLang.length >= 2 && potentialLang.length <= 4 &&
+      if (potentialLang.length >= 2 &&
+          potentialLang.length <= 4 &&
           !RegExp(r'^\d+$').hasMatch(potentialLang)) {
         return _languageCodeToLabel(potentialLang);
       }
@@ -193,35 +204,64 @@ class LibraryItemModel {
   String get flagEmoji {
     final lang = languageLabel.toLowerCase();
     switch (lang) {
-      case 'english': return '🇬🇧';
-      case 'chinese': return '🇨🇳';
-      case 'spanish': return '🇪🇸';
-      case 'indonesian': return '🇮🇩';
-      case 'thai': return '🇹🇭';
-      case 'vietnamese': return '🇻🇳';
-      case 'japanese': return '🇯🇵';
-      case 'korean': return '🇰🇷';
-      case 'french': return '🇫🇷';
-      case 'german': return '🇩🇪';
-      case 'italian': return '🇮🇹';
-      case 'portuguese': return '🇵🇹';
-      case 'russian': return '🇷🇺';
-      case 'arabic': return '🇸🇦';
-      case 'hindi': return '🇮🇳';
-      case 'turkish': return '🇹🇷';
-      case 'dutch': return '🇳🇱';
-      case 'polish': return '🇵🇱';
-      case 'swedish': return '🇸🇪';
-      case 'norwegian': return '🇳🇴';
-      case 'danish': return '🇩🇰';
-      case 'finnish': return '🇫🇮';
-      case 'greek': return '🇬🇷';
-      case 'hebrew': return '🇮🇱';
-      case 'czech': return '🇨🇿';
-      case 'hungarian': return '🇭🇺';
-      case 'romanian': return '🇷🇴';
-      case 'ukrainian': return '🇺🇦';
-      default: return '🌐';
+      case 'english':
+        return '🇬🇧';
+      case 'chinese':
+        return '🇨🇳';
+      case 'spanish':
+        return '🇪🇸';
+      case 'indonesian':
+        return '🇮🇩';
+      case 'thai':
+        return '🇹🇭';
+      case 'vietnamese':
+        return '🇻🇳';
+      case 'japanese':
+        return '🇯🇵';
+      case 'korean':
+        return '🇰🇷';
+      case 'french':
+        return '🇫🇷';
+      case 'german':
+        return '🇩🇪';
+      case 'italian':
+        return '🇮🇹';
+      case 'portuguese':
+        return '🇵🇹';
+      case 'russian':
+        return '🇷🇺';
+      case 'arabic':
+        return '🇸🇦';
+      case 'hindi':
+        return '🇮🇳';
+      case 'turkish':
+        return '🇹🇷';
+      case 'dutch':
+        return '🇳🇱';
+      case 'polish':
+        return '🇵🇱';
+      case 'swedish':
+        return '🇸🇪';
+      case 'norwegian':
+        return '🇳🇴';
+      case 'danish':
+        return '🇩🇰';
+      case 'finnish':
+        return '🇫🇮';
+      case 'greek':
+        return '🇬🇷';
+      case 'hebrew':
+        return '🇮🇱';
+      case 'czech':
+        return '🇨🇿';
+      case 'hungarian':
+        return '🇭🇺';
+      case 'romanian':
+        return '🇷🇴';
+      case 'ukrainian':
+        return '🇺🇦';
+      default:
+        return '🌐';
     }
   }
 
@@ -233,69 +273,161 @@ class LibraryItemModel {
 
     final lang = languageLabel.toLowerCase();
     switch (lang) {
-      case 'english': return 'ENG';
-      case 'chinese': return 'CHI';
-      case 'spanish': return 'SPA';
-      case 'indonesian': return 'IND';
-      case 'thai': return 'THA';
-      case 'vietnamese': return 'VIE';
-      case 'japanese': return 'JPN';
-      case 'korean': return 'KOR';
-      case 'french': return 'FRA';
-      case 'german': return 'GER';
-      case 'italian': return 'ITA';
-      case 'portuguese': return 'POR';
-      case 'russian': return 'RUS';
-      case 'arabic': return 'ARA';
-      case 'hindi': return 'HIN';
-      case 'turkish': return 'TUR';
-      case 'dutch': return 'DUT';
-      case 'polish': return 'POL';
-      case 'swedish': return 'SWE';
-      case 'norwegian': return 'NOR';
-      case 'danish': return 'DAN';
-      case 'finnish': return 'FIN';
-      case 'greek': return 'GRE';
-      case 'hebrew': return 'HEB';
-      case 'czech': return 'CZE';
-      case 'hungarian': return 'HUN';
-      case 'romanian': return 'ROM';
-      case 'ukrainian': return 'UKR';
-      default: return 'SUB';
+      case 'english':
+        return 'ENG';
+      case 'chinese':
+        return 'CHI';
+      case 'spanish':
+        return 'SPA';
+      case 'indonesian':
+        return 'IND';
+      case 'thai':
+        return 'THA';
+      case 'vietnamese':
+        return 'VIE';
+      case 'japanese':
+        return 'JPN';
+      case 'korean':
+        return 'KOR';
+      case 'french':
+        return 'FRA';
+      case 'german':
+        return 'GER';
+      case 'italian':
+        return 'ITA';
+      case 'portuguese':
+        return 'POR';
+      case 'russian':
+        return 'RUS';
+      case 'arabic':
+        return 'ARA';
+      case 'hindi':
+        return 'HIN';
+      case 'turkish':
+        return 'TUR';
+      case 'dutch':
+        return 'DUT';
+      case 'polish':
+        return 'POL';
+      case 'swedish':
+        return 'SWE';
+      case 'norwegian':
+        return 'NOR';
+      case 'danish':
+        return 'DAN';
+      case 'finnish':
+        return 'FIN';
+      case 'greek':
+        return 'GRE';
+      case 'hebrew':
+        return 'HEB';
+      case 'czech':
+        return 'CZE';
+      case 'hungarian':
+        return 'HUN';
+      case 'romanian':
+        return 'ROM';
+      case 'ukrainian':
+        return 'UKR';
+      default:
+        return 'SUB';
     }
   }
 
   static String _languageCodeToLabel(String code) {
     final c = code.toLowerCase();
     switch (c) {
-      case 'eng': case 'en': return 'English';
-      case 'chi': case 'zh': case 'zho': return 'Chinese';
-      case 'spa': case 'es': return 'Spanish';
-      case 'ind': case 'id': return 'Indonesian';
-      case 'tha': case 'th': return 'Thai';
-      case 'vie': case 'vi': return 'Vietnamese';
-      case 'jpn': case 'ja': return 'Japanese';
-      case 'kor': case 'ko': return 'Korean';
-      case 'fra': case 'fre': case 'fr': return 'French';
-      case 'ger': case 'deu': case 'de': return 'German';
-      case 'ita': case 'it': return 'Italian';
-      case 'por': case 'pt': return 'Portuguese';
-      case 'rus': case 'ru': return 'Russian';
-      case 'ara': case 'ar': return 'Arabic';
-      case 'hin': case 'hi': return 'Hindi';
-      case 'tur': case 'tr': return 'Turkish';
-      case 'dut': case 'nld': case 'nl': return 'Dutch';
-      case 'pol': case 'pl': return 'Polish';
-      case 'swe': case 'sv': return 'Swedish';
-      case 'nor': case 'no': return 'Norwegian';
-      case 'dan': case 'da': return 'Danish';
-      case 'fin': case 'fi': return 'Finnish';
-      case 'gre': case 'ell': case 'el': return 'Greek';
-      case 'heb': case 'he': return 'Hebrew';
-      case 'cze': case 'ces': case 'cs': return 'Czech';
-      case 'hun': case 'hu': return 'Hungarian';
-      case 'rom': case 'ron': case 'ro': return 'Romanian';
-      case 'ukr': case 'uk': return 'Ukrainian';
+      case 'eng':
+      case 'en':
+        return 'English';
+      case 'chi':
+      case 'zh':
+      case 'zho':
+        return 'Chinese';
+      case 'spa':
+      case 'es':
+        return 'Spanish';
+      case 'ind':
+      case 'id':
+        return 'Indonesian';
+      case 'tha':
+      case 'th':
+        return 'Thai';
+      case 'vie':
+      case 'vi':
+        return 'Vietnamese';
+      case 'jpn':
+      case 'ja':
+        return 'Japanese';
+      case 'kor':
+      case 'ko':
+        return 'Korean';
+      case 'fra':
+      case 'fre':
+      case 'fr':
+        return 'French';
+      case 'ger':
+      case 'deu':
+      case 'de':
+        return 'German';
+      case 'ita':
+      case 'it':
+        return 'Italian';
+      case 'por':
+      case 'pt':
+        return 'Portuguese';
+      case 'rus':
+      case 'ru':
+        return 'Russian';
+      case 'ara':
+      case 'ar':
+        return 'Arabic';
+      case 'hin':
+      case 'hi':
+        return 'Hindi';
+      case 'tur':
+      case 'tr':
+        return 'Turkish';
+      case 'dut':
+      case 'nld':
+      case 'nl':
+        return 'Dutch';
+      case 'pol':
+      case 'pl':
+        return 'Polish';
+      case 'swe':
+      case 'sv':
+        return 'Swedish';
+      case 'nor':
+      case 'no':
+        return 'Norwegian';
+      case 'dan':
+      case 'da':
+        return 'Danish';
+      case 'fin':
+      case 'fi':
+        return 'Finnish';
+      case 'gre':
+      case 'ell':
+      case 'el':
+        return 'Greek';
+      case 'heb':
+      case 'he':
+        return 'Hebrew';
+      case 'cze':
+      case 'ces':
+      case 'cs':
+        return 'Czech';
+      case 'hun':
+      case 'hu':
+        return 'Hungarian';
+      case 'rom':
+      case 'ron':
+      case 'ro':
+        return 'Romanian';
+      case 'ukr':
+      case 'uk':
+        return 'Ukrainian';
       default:
         // If it's a short code we don't recognize, just capitalize it
         if (c.length <= 4) return c.toUpperCase();
@@ -303,4 +435,3 @@ class LibraryItemModel {
     }
   }
 }
-
