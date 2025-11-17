@@ -171,18 +171,35 @@ class EbookServer {
     Map<String, dynamic>? readingRules,
     bool importing = false,
   }) {
+    final styleToUse = style ?? _defaultStyle;
+    final readingRulesToUse = readingRules ?? _defaultReadingRules;
+
+    // Build query string exactly like simples3browser (jsonEncode each param, then Uri.encodeComponent)
+    String queryString = '';
+    final params = {
+      'importing': importing,
+      'url': _buildBookUrl(bookId),
+      'initialCfi': initialCfi,
+      'style': styleToUse,
+      'readingRules': readingRulesToUse,
+    };
+
+    for (var key in params.keys) {
+      queryString +=
+          '$key=${Uri.encodeComponent(jsonEncode(params[key]))}&';
+    }
+
+    // Remove last &
+    if (queryString.isNotEmpty) {
+      queryString = queryString.substring(0, queryString.length - 1);
+    }
+
     final foliateUrl = Uri(
       scheme: 'http',
       host: InternetAddress.loopbackIPv4.address,
       port: port,
       path: '/foliate/index.html',
-      queryParameters: {
-        'importing': jsonEncode(importing),
-        'url': jsonEncode(_buildBookUrl(bookId)),
-        'initialCfi': jsonEncode(initialCfi),
-        'style': jsonEncode(style ?? _defaultStyle),
-        'readingRules': jsonEncode(readingRules ?? _defaultReadingRules),
-      },
+      query: queryString,
     );
     return foliateUrl.toString();
   }
@@ -203,27 +220,27 @@ class EbookServer {
   }
 
   static const Map<String, dynamic> _defaultStyle = {
-    'fontSize': 18,
-    'fontName': 'system',
-    'fontPath': '',
-    'fontWeight': 400,
-    'letterSpacing': 0,
-    'spacing': 1.5,
-    'paragraphSpacing': 12,
-    'textIndent': 0,
-    'fontColor': '#333333',
-    'backgroundColor': '#FFFFFF',
-    'topMargin': 24,
-    'bottomMargin': 24,
-    'sideMargin': 8,
+    'fontSize': 1.4,
+    'fontName': 'book',
+    'fontPath': 'book',
+    'fontWeight': 400.0,
+    'letterSpacing': 0.0,
+    'spacing': 1.8,
+    'paragraphSpacing': 1.0,
+    'textIndent': 0.0,
+    'fontColor': '#343434FF',
+    'backgroundColor': '#FBFBF3FF',
+    'topMargin': 90.0,
+    'bottomMargin': 50.0,
+    'sideMargin': 6.0,
     'justify': true,
     'hyphenate': false,
-    'pageTurnStyle': 'scroll',
-    'maxColumnCount': 1,
-    'writingMode': 'horizontal-tb',
-    'textAlign': 'justify',
-    'backgroundImage': '',
-    'allowScript': true,
+    'pageTurnStyle': 'slide',
+    'maxColumnCount': 0,
+    'writingMode': 'auto',
+    'textAlign': 'auto',
+    'backgroundImage': 'none',
+    'allowScript': false,
     'customCSS': '',
     'customCSSEnabled': false,
   };

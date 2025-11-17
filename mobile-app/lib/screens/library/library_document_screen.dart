@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:open_file/open_file.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -161,6 +162,28 @@ class LibraryDocumentScreen extends StatelessWidget {
       messenger.showSnackBar(
         SnackBar(
           content: Text('Saved to ${p.basename(targetPath)}'),
+          action: SnackBarAction(
+            label: 'Open',
+            onPressed: () async {
+              try {
+                final result = await OpenFile.open(targetPath);
+                if (result.type != ResultType.done) {
+                  messenger.showSnackBar(
+                    SnackBar(
+                      content: Text('Failed to open file: ${result.message}'),
+                    ),
+                  );
+                }
+              } catch (error) {
+                messenger.showSnackBar(
+                  SnackBar(
+                    content: Text('Failed to open file: $error'),
+                  ),
+                );
+              }
+            },
+          ),
+          duration: const Duration(seconds: 5),
         ),
       );
     } on DioException catch (error) {

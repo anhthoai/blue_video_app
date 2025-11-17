@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:http/http.dart' as http;
@@ -29,21 +30,34 @@ class _LibraryEbookReaderScreenState extends State<LibraryEbookReaderScreen> {
   double _percentage = 0;
   String? _chapterTitle;
   List<_EbookChapter> _chapterTree = const <_EbookChapter>[];
+  bool _hasReceivedInitialRelocated = false;
+  int _relocatedCount = 0;
+  late ContextMenu _contextMenu;
 
   InAppWebViewSettings get _webViewSettings => InAppWebViewSettings(
         supportZoom: false,
-        transparentBackground: true,
-        useHybridComposition: true,
+        isInspectable: kDebugMode,
       );
 
   @override
   void initState() {
     super.initState();
+    _contextMenu = ContextMenu(
+      settings: ContextMenuSettings(hideDefaultSystemContextMenuItems: true),
+      onCreateContextMenu: (hitTestResult) async {
+        // Context menu handling can be added later if needed
+      },
+      onHideContextMenu: () {
+        // Handle context menu hide if needed
+      },
+    );
     _prepareReader();
   }
 
   @override
   void dispose() {
+    _relocatedCount = 0;
+    _hasReceivedInitialRelocated = false;
     final entryId = _bookEntryId;
     if (entryId != null) {
       unawaited(EbookServer.instance.unregisterBook(entryId));
@@ -107,27 +121,56 @@ class _LibraryEbookReaderScreenState extends State<LibraryEbookReaderScreen> {
     }
   }
 
-  void _registerHandlers(InAppWebViewController controller) {
+  void _onConsoleMessage(
+      InAppWebViewController controller, ConsoleMessage message) {
+    const ignoreMessages = [
+      'An iframe which has both allow-scripts and allow-same-origin for its sandbox attribute can escape its sandboxing',
+      'JavaScript execution returned a result of an unsupported type',
+    ];
+
+    if (ignoreMessages.contains(message.message)) {
+      return;
+    }
+
+    if (message.messageLevel == ConsoleMessageLevel.ERROR) {
+      debugPrint('JS Console [ERROR]: ${message.message}');
+    }
+  }
+
+  Future<void> _registerHandlers(InAppWebViewController controller) async {
     controller.addJavaScriptHandler(
-      handlerName: 'onSetToc',
+      handlerName: 'onLoadEnd',
       callback: (args) {
-        if (args.isEmpty) return null;
-        try {
-          final tree = _parseChapterTree(args.first, depth: 0);
-          if (mounted) {
-            setState(() => _chapterTree = tree);
-          }
-        } catch (error) {
-          debugPrint('Failed to parse TOC: $error');
-        }
-        return null;
+        // Don't navigate here - wait for onRelocated to ensure layout is calculated
       },
     );
 
     controller.addJavaScriptHandler(
       handlerName: 'onRelocated',
       callback: (args) {
-        if (args.isEmpty) return null;
+        _relocatedCount++;
+        debugPrint('onRelocated received (count: $_relocatedCount)');
+
+        if (!_hasReceivedInitialRelocated) {
+          _hasReceivedInitialRelocated = true;
+          debugPrint('Initial onRelocated received - viewer layout is ready');
+
+          Future.delayed(const Duration(milliseconds: 300), () async {
+            if (!mounted || _controller == null) return;
+
+            await _controller!.evaluateJavascript(source: '''
+              (function() {
+                if (window.globalThis.reader && window.globalThis.reader.toc) {
+                  window.flutter_inappwebview.callHandler('onSetToc', window.globalThis.reader.toc);
+                }
+                if (typeof window.refreshLayout === 'function') {
+                  try { window.refreshLayout(); } catch (e) { /* ignore */ }
+                }
+              })();
+            ''');
+          });
+        }
+
         try {
           final data = Map<String, dynamic>.from(args.first as Map);
           if (!mounted) return null;
@@ -144,6 +187,36 @@ class _LibraryEbookReaderScreenState extends State<LibraryEbookReaderScreen> {
         return null;
       },
     );
+
+    controller.addJavaScriptHandler(
+      handlerName: 'onSetToc',
+      callback: (args) {
+        if (args.isEmpty) return null;
+        try {
+          final tree = _parseChapterTree(args.first, depth: 0);
+          if (mounted) {
+            setState(() => _chapterTree = tree);
+          }
+        } catch (error) {
+          debugPrint('Failed to parse TOC: $error');
+        }
+        return null;
+      },
+    );
+
+    // Ensure window.flutter_inappwebview exists immediately (before foliate-js loads)
+    await controller.evaluateJavascript(source: '''
+      (function() {
+        if (typeof window.flutter_inappwebview === 'undefined') {
+          window.flutter_inappwebview = {
+            callHandler: function(name, data) {
+              console.log('callHandler called (stub, handlers not ready yet):', name);
+              return Promise.resolve();
+            }
+          };
+        }
+      })();
+    ''');
   }
 
   @override
@@ -186,15 +259,19 @@ class _LibraryEbookReaderScreenState extends State<LibraryEbookReaderScreen> {
       child: InAppWebView(
         initialUrlRequest: URLRequest(url: WebUri(_readerUrl!)),
         initialSettings: _webViewSettings,
+        contextMenu: _contextMenu,
         onWebViewCreated: (controller) {
           _controller = controller;
-          _registerHandlers(controller);
+          _hasReceivedInitialRelocated = false;
+          _relocatedCount = 0;
         },
-        onLoadStop: (controller, uri) {
+        onLoadStop: (controller, uri) async {
+          await _registerHandlers(controller);
           if (mounted) {
             setState(() => _isLoading = false);
           }
         },
+        onConsoleMessage: _onConsoleMessage,
         onReceivedError: (controller, request, error) {
           if (mounted) {
             setState(() {
