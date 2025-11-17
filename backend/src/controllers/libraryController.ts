@@ -256,11 +256,26 @@ export async function listLibraryItems(req: Request, res: Response) {
     const skip = (page - 1) * limit;
     const includeStreams =
       (req.query['includeStreams'] as string | undefined)?.toLowerCase() === 'true';
+    const search = (req.query['search'] as string) || null;
 
     const whereClause: Record<string, any> = {
       section,
-      parentId,
     };
+
+    // If searching, don't filter by parentId (search across all items in section)
+    // Otherwise, filter by parentId to show items in the current folder
+    if (!search || !search.trim()) {
+      whereClause.parentId = parentId;
+    }
+
+    // Add search filter if provided
+    if (search && search.trim()) {
+      const searchTerm = search.trim();
+      whereClause.OR = [
+        { title: { contains: searchTerm, mode: 'insensitive' } },
+        { filePath: { contains: searchTerm, mode: 'insensitive' } },
+      ];
+    }
 
     const [items, total] = await Promise.all([
       prisma.libraryContent.findMany({

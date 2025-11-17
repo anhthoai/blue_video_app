@@ -26,9 +26,6 @@ class _SearchTabsState extends ConsumerState<SearchTabs>
     'Library',
     'Posts',
     'User',
-    'Comics',
-    'Gallery',
-    'Novel',
   ];
 
   @override

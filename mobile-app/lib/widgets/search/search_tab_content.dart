@@ -2,8 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/models/library_item_model.dart';
+import '../../core/models/library_navigation.dart';
 import '../../core/services/api_service.dart';
 import '../../core/services/auth_service.dart';
+import '../../core/services/library_service.dart';
 import '../../core/services/movie_service.dart';
 import '../../models/movie_model.dart';
 import '../../widgets/video_card.dart';
@@ -24,7 +27,9 @@ class SearchTabContent extends ConsumerStatefulWidget {
 
 class _SearchTabContentState extends ConsumerState<SearchTabContent> {
   final ApiService _apiService = ApiService();
+  final LibraryService _libraryService = LibraryService();
   List<MovieModel> _libraryResults = [];
+  List<LibraryItemModel> _libraryItemResults = [];
   List<dynamic> _results = [];
   bool _isLoading = false;
   String? _error;
@@ -61,7 +66,7 @@ class _SearchTabContentState extends ConsumerState<SearchTabContent> {
           results = await _searchVideos();
           break;
         case 'Library':
-          results = await _searchLibrary();
+          await _searchLibrary();
           break;
         case 'Posts':
           results = await _searchPosts();
@@ -69,21 +74,12 @@ class _SearchTabContentState extends ConsumerState<SearchTabContent> {
         case 'User':
           results = await _searchUsers();
           break;
-        case 'Comics':
-          results = await _searchComics();
-          break;
-        case 'Gallery':
-          results = await _searchGallery();
-          break;
-        case 'Novel':
-          results = await _searchNovels();
-          break;
       }
 
       setState(() {
         _results = results;
         if (widget.contentType == 'Library') {
-          _libraryResults = List<MovieModel>.from(results);
+          _libraryResults = [];
         } else {
           _libraryResults = [];
         }
@@ -102,13 +98,38 @@ class _SearchTabContentState extends ConsumerState<SearchTabContent> {
     return response['data'] ?? [];
   }
 
-  Future<List<dynamic>> _searchLibrary() async {
-    final movieService = ref.read(movieServiceProvider);
-    final movies = await movieService.getMovies(
-      limit: 24,
-      search: widget.query,
-    );
-    return movies;
+  Future<void> _searchLibrary() async {
+    try {
+      // Get all library sections
+      final sections = await _libraryService.fetchSections();
+      
+      // Search across all sections
+      final allResults = <LibraryItemModel>[];
+      for (final section in sections) {
+        try {
+          final request = LibraryItemsRequest(
+            section: section.section,
+            search: widget.query,
+            limit: 100, // Get more results per section
+            includeStreams: false,
+          );
+          final items = await _libraryService.fetchItems(request);
+          allResults.addAll(items);
+        } catch (e) {
+          // Continue searching other sections if one fails
+          debugPrint('Error searching section ${section.section}: $e');
+        }
+      }
+      
+      setState(() {
+        _libraryItemResults = allResults;
+      });
+    } catch (e) {
+      setState(() {
+        _error = e.toString();
+        _libraryItemResults = [];
+      });
+    }
   }
 
   Future<List<dynamic>> _searchPosts() async {
@@ -131,26 +152,11 @@ class _SearchTabContentState extends ConsumerState<SearchTabContent> {
     return response['data'] ?? [];
   }
 
-  Future<List<dynamic>> _searchComics() async {
-    // For now, return empty - implement when comics feature is ready
-    return [];
-  }
-
-  Future<List<dynamic>> _searchGallery() async {
-    // For now, return empty - implement when gallery feature is ready
-    return [];
-  }
-
   int? _parseInt(dynamic value) {
     if (value == null) return null;
     if (value is int) return value;
     if (value is String) return int.tryParse(value);
     return null;
-  }
-
-  Future<List<dynamic>> _searchNovels() async {
-    // For now, return empty - implement when novels feature is ready
-    return [];
   }
 
   @override
@@ -186,7 +192,30 @@ class _SearchTabContentState extends ConsumerState<SearchTabContent> {
       );
     }
 
-    if (_results.isEmpty) {
+    if (widget.contentType == 'Library') {
+      if (_libraryItemResults.isEmpty) {
+        return Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.search_off,
+                size: 64,
+                color: Colors.grey[400],
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'No library items found for "${widget.query}"',
+                style: TextStyle(
+                  fontSize: 16,
+                  color: Colors.grey[600],
+                ),
+              ),
+            ],
+          ),
+        );
+      }
+    } else if (_results.isEmpty) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -261,20 +290,20 @@ class _SearchTabContentState extends ConsumerState<SearchTabContent> {
   }
 
   Widget _buildLibraryResults() {
-    final movies = _libraryResults;
+    final items = _libraryItemResults;
 
     return GridView.builder(
       padding: const EdgeInsets.all(16),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 2,
-        childAspectRatio: 0.62,
-        crossAxisSpacing: 12,
-        mainAxisSpacing: 12,
+        childAspectRatio: 0.68,
+        crossAxisSpacing: 16,
+        mainAxisSpacing: 16,
       ),
-      itemCount: movies.length,
+      itemCount: items.length,
       itemBuilder: (context, index) {
-        final movie = movies[index];
-        return _LibrarySearchCard(movie: movie);
+        final item = items[index];
+        return _LibraryItemSearchCard(item: item);
       },
     );
   }
@@ -679,19 +708,173 @@ class _SearchTabContentState extends ConsumerState<SearchTabContent> {
   }
 }
 
-class _LibrarySearchCard extends StatelessWidget {
-  final MovieModel movie;
+class _LibraryItemSearchCard extends ConsumerStatefulWidget {
+  final LibraryItemModel item;
 
-  const _LibrarySearchCard({
-    required this.movie,
+  const _LibraryItemSearchCard({
+    required this.item,
   });
 
   @override
+  ConsumerState<_LibraryItemSearchCard> createState() =>
+      _LibraryItemSearchCardState();
+}
+
+class _LibraryItemSearchCardState
+    extends ConsumerState<_LibraryItemSearchCard> {
+  bool _isImage(LibraryItemModel item) {
+    final content = item.contentType.toLowerCase();
+    final mime = item.mimeType?.toLowerCase() ?? '';
+    return content == 'image' ||
+        mime.startsWith('image/') ||
+        ['jpg', 'jpeg', 'png', 'gif', 'webp'].any(
+          (ext) => item.filePath?.toLowerCase().endsWith(ext) ?? false,
+        );
+  }
+
+  bool _isAudio(LibraryItemModel item) {
+    final content = item.contentType.toLowerCase();
+    final mime = item.mimeType?.toLowerCase() ?? '';
+    return content == 'audio' ||
+        mime.startsWith('audio/') ||
+        ['mp3', 'aac', 'wav', 'm4a', 'flac'].any(
+          (ext) => item.filePath?.toLowerCase().endsWith(ext) ?? false,
+        );
+  }
+
+  bool _isVideo(LibraryItemModel item) {
+    final content = item.contentType.toLowerCase();
+    final mime = item.mimeType?.toLowerCase() ?? '';
+    return content == 'video' ||
+        mime.startsWith('video/') ||
+        ['mp4', 'mkv', 'mov', 'webm'].any(
+          (ext) => item.filePath?.toLowerCase().endsWith(ext) ?? false,
+        );
+  }
+
+  bool _isEbook(LibraryItemModel item) {
+    final extension = item.filePath?.split('.').last.toLowerCase() ??
+        item.fileUrl?.split('.').last.toLowerCase() ??
+        '';
+    final mime = item.mimeType ?? '';
+    return extension == 'epub' ||
+        extension == 'mobi' ||
+        extension == 'azw3' ||
+        extension == 'fb2' ||
+        extension == 'txt' ||
+        extension == 'pdf' ||
+        mime.contains('epub') ||
+        mime.contains('mobi') ||
+        mime.contains('azw') ||
+        mime.contains('kindle') ||
+        mime.contains('fb2') ||
+        mime.contains('pdf') ||
+        mime.contains('text/plain');
+  }
+
+  IconData _getIconForItem(LibraryItemModel item) {
+    if (item.isFolder) return Icons.folder;
+    if (_isVideo(item)) return Icons.video_library;
+    if (_isAudio(item)) return Icons.audiotrack;
+    if (_isImage(item)) return Icons.image;
+    if (_isEbook(item)) return Icons.menu_book;
+    return Icons.insert_drive_file;
+  }
+
+  Color _getIconColorForItem(LibraryItemModel item) {
+    if (item.isFolder) return Colors.blue;
+    if (_isVideo(item)) return Colors.red;
+    if (_isAudio(item)) return Colors.purple;
+    if (_isImage(item)) return Colors.green;
+    if (_isEbook(item)) return Colors.orange;
+    return Colors.grey;
+  }
+
+  Future<void> _handleTap() async {
+    final item = widget.item;
+    final section = item.section ?? '';
+
+    if (item.isFolder) {
+      context.push(
+        '/main/library/section/${Uri.encodeComponent(section)}/folder',
+        extra: LibraryFolderArgs(
+          section: section,
+          parentId: item.id,
+          title: item.displayTitle,
+        ),
+      );
+      return;
+    }
+
+    final libraryService = LibraryService();
+    try {
+      final detailed = await libraryService.fetchItemById(
+        item.id,
+        includeStreams: true,
+      );
+      if (!mounted) return;
+      final finalItem = detailed ?? item;
+
+      if (_isImage(item)) {
+        // For images, navigate to section root - user can find the file there
+        context.push(
+          '/main/library/section/${Uri.encodeComponent(section)}',
+        );
+        return;
+      }
+
+      if (_isAudio(item)) {
+        // For audio, navigate to section root - user can find the file there
+        context.push(
+          '/main/library/section/${Uri.encodeComponent(section)}',
+        );
+        return;
+      }
+
+      if (_isVideo(item)) {
+        // For video, navigate to section root - user can find the file there
+        context.push(
+          '/main/library/section/${Uri.encodeComponent(section)}',
+        );
+        return;
+      }
+
+      if (_isEbook(item)) {
+        context.push(
+          '/main/library/section/${Uri.encodeComponent(section)}/ebook',
+          extra: LibraryEbookReaderArgs(
+            section: section,
+            item: finalItem,
+            folderTitle: null,
+          ),
+        );
+        return;
+      }
+
+      // Document
+      context.push(
+        '/main/library/section/${Uri.encodeComponent(section)}/document',
+        extra: LibraryDocumentArgs(
+          section: section,
+          item: finalItem,
+          folderTitle: null,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to open: $e')),
+      );
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final item = widget.item;
+    final thumbnailUrl = item.thumbnailUrl ?? item.coverUrl;
+
     return GestureDetector(
-      onTap: () {
-        context.push('/main/library/movie/${movie.id}');
-      },
+      onTap: _handleTap,
       child: Card(
         clipBehavior: Clip.antiAlias,
         shape: RoundedRectangleBorder(
@@ -704,17 +887,17 @@ class _LibrarySearchCard extends StatelessWidget {
               child: Stack(
                 fit: StackFit.expand,
                 children: [
-                  if (movie.posterUrl != null && movie.posterUrl!.isNotEmpty)
+                  if (thumbnailUrl != null && thumbnailUrl.isNotEmpty)
                     Image.network(
-                      movie.posterUrl!,
+                      thumbnailUrl,
                       fit: BoxFit.cover,
                       errorBuilder: (context, error, stackTrace) {
                         return Container(
                           color: Colors.grey[300],
-                          child: const Icon(
-                            Icons.movie,
+                          child: Icon(
+                            _getIconForItem(item),
                             size: 48,
-                            color: Colors.grey,
+                            color: _getIconColorForItem(item),
                           ),
                         );
                       },
@@ -722,37 +905,15 @@ class _LibrarySearchCard extends StatelessWidget {
                   else
                     Container(
                       color: Colors.grey[300],
-                      child: const Icon(
-                        Icons.movie,
+                      child: Icon(
+                        _getIconForItem(item),
                         size: 48,
-                        color: Colors.grey,
+                        color: _getIconColorForItem(item),
                       ),
                     ),
-                  Positioned(
-                    top: 8,
-                    left: 8,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.black.withOpacity(0.55),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        movie.displayType,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ),
-                  if (movie.voteAverage != null)
+                  if (item.isFolder && item.hasChildren)
                     Positioned(
-                      top: 8,
+                      bottom: 8,
                       right: 8,
                       child: Container(
                         padding: const EdgeInsets.symmetric(
@@ -763,24 +924,33 @@ class _LibrarySearchCard extends StatelessWidget {
                           color: Colors.black.withOpacity(0.7),
                           borderRadius: BorderRadius.circular(6),
                         ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(
-                              Icons.star_rounded,
-                              color: Colors.amber,
-                              size: 14,
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              movie.voteAverage!.toStringAsFixed(1),
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
+                        child: const Icon(
+                          Icons.folder_open,
+                          size: 16,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  if (!item.isFolder && item.duration != null)
+                    Positioned(
+                      bottom: 8,
+                      right: 8,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 3,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withOpacity(0.7),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          _formatDuration(item.duration!),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
                     ),
@@ -793,7 +963,7 @@ class _LibrarySearchCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    movie.title,
+                    item.displayTitle,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
@@ -801,37 +971,16 @@ class _LibrarySearchCard extends StatelessWidget {
                       fontSize: 14,
                     ),
                   ),
-                  const SizedBox(height: 6),
-                  Row(
-                    children: [
-                      Text(
-                        movie.releaseYear,
-                        style: TextStyle(
-                          color: Colors.grey[600],
-                          fontSize: 12,
-                        ),
+                  if (item.section != null) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      item.section!,
+                      style: TextStyle(
+                        color: Colors.grey[600],
+                        fontSize: 11,
                       ),
-                      if (movie.formattedRuntime.isNotEmpty) ...[
-                        const SizedBox(width: 6),
-                        Container(
-                          width: 4,
-                          height: 4,
-                          decoration: BoxDecoration(
-                            color: Colors.grey[500],
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          movie.formattedRuntime,
-                          style: TextStyle(
-                            color: Colors.grey[600],
-                            fontSize: 12,
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -839,5 +988,16 @@ class _LibrarySearchCard extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  String _formatDuration(int seconds) {
+    final hours = seconds ~/ 3600;
+    final minutes = (seconds % 3600) ~/ 60;
+    final secs = seconds % 60;
+
+    if (hours > 0) {
+      return '${hours}:${minutes.toString().padLeft(2, '0')}:${secs.toString().padLeft(2, '0')}';
+    }
+    return '${minutes}:${secs.toString().padLeft(2, '0')}';
   }
 }

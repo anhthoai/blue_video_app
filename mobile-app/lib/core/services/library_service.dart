@@ -9,6 +9,7 @@ class LibraryItemsRequest {
     this.path,
     this.page = 1,
     this.limit = 40,
+    this.search,
     this.includeStreams = false,
   });
 
@@ -17,6 +18,7 @@ class LibraryItemsRequest {
   final String? path;
   final int page;
   final int limit;
+  final String? search;
   final bool includeStreams;
 
   String get normalizedSection => section.toLowerCase();
@@ -30,6 +32,7 @@ class LibraryItemsRequest {
         other.path == path &&
         other.page == page &&
         other.limit == limit &&
+        other.search == search &&
         other.includeStreams == includeStreams;
   }
 
@@ -40,6 +43,7 @@ class LibraryItemsRequest {
         path,
         page,
         limit,
+        search,
         includeStreams,
       );
 }
@@ -71,6 +75,7 @@ class LibraryService {
       limit: request.limit,
       parentId: request.parentId,
       path: request.path,
+      search: request.search,
       includeStreams: request.includeStreams,
     );
     final data = response['data'] as Map<String, dynamic>? ?? {};

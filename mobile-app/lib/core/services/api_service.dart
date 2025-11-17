@@ -1993,6 +1993,7 @@ class ApiService {
     int limit = 40,
     String? parentId,
     String? path,
+    String? search,
     bool includeStreams = false,
   }) async {
     final Map<String, String> queryParams = {
@@ -2005,6 +2006,9 @@ class ApiService {
     }
     if (path != null && path.isNotEmpty) {
       queryParams['path'] = path;
+    }
+    if (search != null && search.isNotEmpty) {
+      queryParams['search'] = search;
     }
     if (includeStreams) {
       queryParams['includeStreams'] = 'true';
