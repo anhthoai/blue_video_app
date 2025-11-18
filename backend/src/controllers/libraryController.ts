@@ -6,13 +6,17 @@ import ulozService from '../services/ulozService';
 
 const MAX_PAGE_SIZE = 200;
 
-function normalizeSection(sectionParam: string | undefined): string | null {
-  if (!sectionParam) {
+function normalizeSection(sectionParam: string | undefined | null): string | null {
+  if (!sectionParam || typeof sectionParam !== 'string') {
     return null;
   }
 
-  const normalized = sectionParam.trim().toLowerCase();
-  return normalized.length > 0 ? normalized : null;
+  const trimmed = sectionParam.trim();
+  if (trimmed.length === 0) {
+    return null;
+  }
+
+  return trimmed.toLowerCase();
 }
 
 async function resolveMediaUrl(url?: string | null): Promise<string | null> {
@@ -265,13 +269,13 @@ export async function listLibraryItems(req: Request, res: Response) {
     // If searching, don't filter by parentId (search across all items in section)
     // Otherwise, filter by parentId to show items in the current folder
     if (!search || !search.trim()) {
-      whereClause.parentId = parentId;
-    }
-
-    // Add search filter if provided
-    if (search && search.trim()) {
+      // Only add parentId filter if it's not null
+      // If parentId is null, we want items with parentId = null (root level)
+      whereClause['parentId'] = parentId;
+    } else {
+      // When searching, add search filter
       const searchTerm = search.trim();
-      whereClause.OR = [
+      whereClause['OR'] = [
         { title: { contains: searchTerm, mode: 'insensitive' } },
         { filePath: { contains: searchTerm, mode: 'insensitive' } },
       ];
