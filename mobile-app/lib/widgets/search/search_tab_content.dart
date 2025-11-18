@@ -816,25 +816,44 @@ class _LibraryItemSearchCardState
       final finalItem = detailed ?? item;
 
       if (_isImage(item)) {
-        // For images, navigate to section root - user can find the file there
+        // Open single image in viewer (no swipe support)
         context.push(
-          '/main/library/section/${Uri.encodeComponent(section)}',
+          '/main/library/section/${Uri.encodeComponent(section)}/image-viewer',
+          extra: LibraryImageViewerArgs(
+            section: section,
+            images: [finalItem],
+            initialIndex: 0,
+            folderTitle: null,
+          ),
         );
         return;
       }
 
       if (_isAudio(item)) {
-        // For audio, navigate to section root - user can find the file there
+        // Open single audio file in player (no playlist)
         context.push(
-          '/main/library/section/${Uri.encodeComponent(section)}',
+          '/main/library/section/${Uri.encodeComponent(section)}/audio-player',
+          extra: LibraryAudioPlayerArgs(
+            section: section,
+            tracks: [finalItem],
+            initialIndex: 0,
+            folderTitle: null,
+          ),
         );
         return;
       }
 
       if (_isVideo(item)) {
-        // For video, navigate to section root - user can find the file there
+        // Open single video in player (no playlist)
         context.push(
-          '/main/library/section/${Uri.encodeComponent(section)}',
+          '/main/library/section/${Uri.encodeComponent(section)}/video-player',
+          extra: LibraryVideoPlayerArgs(
+            section: section,
+            videos: [finalItem],
+            subtitles: [],
+            initialIndex: 0,
+            folderTitle: null,
+          ),
         );
         return;
       }

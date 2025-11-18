@@ -48,6 +48,9 @@ class _LibraryImageViewerScreenState extends State<LibraryImageViewerScreen> {
             child: PageView.builder(
               controller: _pageController,
               itemCount: images.length,
+              physics: images.length > 1
+                  ? const PageScrollPhysics()
+                  : const NeverScrollableScrollPhysics(),
               onPageChanged: (index) {
                 setState(() {
                   _currentIndex = index;
