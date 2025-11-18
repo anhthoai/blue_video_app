@@ -97,16 +97,58 @@ export class StorageService {
     url: string,
     folder: string = 'uploads',
     filename?: string,
-    maxRetries: number = 3
+    maxRetries: number = 3,
+    skipIfExists: boolean = true
   ): Promise<{ url: string; key: string; size: number } | null> {
+    // Check if file already exists in S3 before uploading
+    // Note: Images are converted to webp, so we check for webp extension
+    if (skipIfExists && filename) {
+      // For images, check webp extension (since they're converted)
+      // For videos, check the original extension from URL
+      const urlExtension = url.split('.').pop()?.split('?')[0]?.toLowerCase() || '';
+      const isImageUrl = ['jpg', 'jpeg', 'png', 'webp', 'gif'].includes(urlExtension);
+      const isVideoUrl = ['webm', 'mp4'].includes(urlExtension);
+      
+      // Check webp for images (since they're converted), original extension for videos
+      const extensionsToCheck = isImageUrl ? ['webp'] : isVideoUrl ? [urlExtension] : ['webp', urlExtension];
+      
+      for (const ext of extensionsToCheck) {
+        if (!ext) continue;
+        const key = `${folder}/${filename}.${ext}`;
+        const exists = await this.fileExists(key);
+        if (exists) {
+          console.log(`⏭️  File already exists in S3: ${key}`);
+          const fileUrl = s3Config.cdnUrl
+            ? `${s3Config.cdnUrl}/${key}`
+            : `${s3Config.endpoint}/${s3Config.bucketName}/${key}`;
+          return {
+            url: fileUrl,
+            key: key,
+            size: 0, // Size unknown without fetching metadata
+          };
+        }
+      }
+    }
+    
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
         return await this._uploadFromUrlAttempt(url, folder, filename);
       } catch (error: any) {
-        console.error(`❌ Upload attempt ${attempt}/${maxRetries} failed:`, error.message);
+        const errorMsg = error.message || String(error);
+        // Only suppress errors that are clearly from ulozService folder resolution
+        // S3 upload errors should always be logged
+        const isUlozFolderError = errorMsg.includes('failed to get folder slug') || 
+                                   errorMsg.includes('failed to list folders') ||
+                                   (errorMsg.includes('Folder') && errorMsg.includes('not found') && errorMsg.includes('8M9inf4dOh5e'));
+        
+        if (!isUlozFolderError) {
+          console.error(`❌ Upload attempt ${attempt}/${maxRetries} failed:`, errorMsg);
+        }
         
         if (attempt === maxRetries) {
-          console.error(`❌ All ${maxRetries} attempts failed for: ${url}`);
+          if (!isUlozFolderError) {
+            console.error(`❌ All ${maxRetries} attempts failed for: ${url}`);
+          }
           return null;
         }
         
@@ -209,7 +251,18 @@ export class StorageService {
         // ACL: 'public-read',
       });
 
-      await s3Client.send(uploadCommand);
+      try {
+        await s3Client.send(uploadCommand);
+      } catch (uploadError: any) {
+        // Log S3 upload errors immediately with full details
+        console.error(`❌ S3 upload failed for ${key}:`, {
+          message: uploadError.message,
+          code: uploadError.Code || uploadError.code,
+          name: uploadError.name,
+          stack: uploadError.stack,
+        });
+        throw uploadError; // Re-throw to be caught by outer catch
+      }
 
       const fileUrl = s3Config.cdnUrl
         ? `${s3Config.cdnUrl}/${key}`
@@ -223,7 +276,16 @@ export class StorageService {
         size: buffer.length,
       };
     } catch (error: any) {
-      console.error(`❌ Error uploading from URL:`, error.message);
+      const errorMsg = error.message || String(error);
+      const errorCode = error.Code || error.code || 'UNKNOWN';
+      const errorName = error.name || 'Error';
+      
+      // Always log S3 upload errors - don't suppress any errors
+      console.error(`❌ Error uploading from URL (${errorName}/${errorCode}):`, errorMsg);
+      // Log full error details for debugging
+      if (error.stack) {
+        console.error(`   Stack:`, error.stack);
+      }
       return null;
     }
   }
@@ -233,7 +295,8 @@ export class StorageService {
    */
   static async uploadFromUrlBatch(
     urls: Array<{ url: string; folder: string; filename?: string }>,
-    concurrency: number = 3
+    concurrency: number = 3,
+    skipIfExists: boolean = true
   ): Promise<Array<{ url: string; key: string; size: number } | null>> {
     const results: Array<{ url: string; key: string; size: number } | null> = [];
     
@@ -244,7 +307,7 @@ export class StorageService {
       
       const batchResults = await Promise.all(
         batch.map(({ url, folder, filename }) =>
-          this.uploadFromUrl(url, folder, filename)
+          this.uploadFromUrl(url, folder, filename, 3, skipIfExists)
         )
       );
       
@@ -382,7 +445,15 @@ export class StorageService {
       });
       await s3Client.send(command);
       return true;
-    } catch (error) {
+    } catch (error: any) {
+      // If error is about folder resolution, treat as file not existing
+      // This prevents folder slug errors from blocking uploads
+      const errorMsg = error.message || String(error);
+      if (errorMsg.includes('failed to get folder slug') || 
+          errorMsg.includes('failed to list folders') ||
+          errorMsg.includes('Folder') && errorMsg.includes('not found')) {
+        return false; // File doesn't exist, proceed with upload
+      }
       return false;
     }
   }

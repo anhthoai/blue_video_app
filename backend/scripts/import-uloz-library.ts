@@ -5,6 +5,7 @@ import { PrismaClient, ContentSource } from '@prisma/client';
 import type { Prisma } from '@prisma/client';
 
 import { UlozService } from '../src/services/ulozService';
+import { StorageService } from '../src/config/storage';
 
 interface SectionConfig {
   section: string;
@@ -18,6 +19,15 @@ interface SyncStats {
   filesCreated: number;
   filesUpdated: number;
   skipped: number;
+}
+
+interface UploadJob {
+  slug: string;
+  name: string;
+  thumbnailUrl?: string;
+  videoPreviewUrl?: string;
+  datePath: string;
+  filenameId: string;
 }
 
 const prisma = new PrismaClient();
@@ -542,6 +552,7 @@ async function upsertFile(params: {
   slugPath: string;
   size: number;
   description?: string;
+  uploadQueue?: UploadJob[];
 }): Promise<'created' | 'updated' | 'skipped'> {
   try {
     const fileInfo = await ulozService.getFileInfo(params.slug);
@@ -566,6 +577,93 @@ async function upsertFile(params: {
 
     const metadataPayload: Prisma.JsonObject | undefined =
       Object.keys(metadata).length > 0 ? (metadata as Prisma.JsonObject) : undefined;
+
+    // Build date-based storage prefix using current date
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const datePath = `${year}/${month}/${day}`;
+
+    // Use file slug as filenameid (same for thumbnail and video preview)
+    const filenameId = params.slug;
+
+    // If upload queue is provided, add to queue instead of uploading immediately
+    let thumbnailUrl: string | null = null;
+    let videoPreviewUrl: string | null = null;
+
+    if (params.uploadQueue) {
+      // Queue uploads for batch processing
+      if (fileInfo.thumbnail && !fileInfo.thumbnail.startsWith('s3://')) {
+        params.uploadQueue.push({
+          slug: params.slug,
+          name: params.name,
+          thumbnailUrl: fileInfo.thumbnail,
+          datePath,
+          filenameId,
+        });
+        // Set temporary URL - will be updated after batch upload
+        thumbnailUrl = fileInfo.thumbnail;
+      } else if (fileInfo.thumbnail?.startsWith('s3://')) {
+        thumbnailUrl = fileInfo.thumbnail;
+      }
+
+      if (fileInfo.videoPreview && !fileInfo.videoPreview.startsWith('s3://')) {
+        const existingJob = params.uploadQueue.find(job => job.slug === params.slug);
+        if (existingJob) {
+          existingJob.videoPreviewUrl = fileInfo.videoPreview;
+        } else {
+          params.uploadQueue.push({
+            slug: params.slug,
+            name: params.name,
+            videoPreviewUrl: fileInfo.videoPreview,
+            datePath,
+            filenameId,
+          });
+        }
+        // Set temporary URL - will be updated after batch upload
+        videoPreviewUrl = fileInfo.videoPreview;
+      } else if (fileInfo.videoPreview?.startsWith('s3://')) {
+        videoPreviewUrl = fileInfo.videoPreview;
+      }
+    } else {
+      // Upload immediately (backward compatibility)
+      if (fileInfo.thumbnail && !fileInfo.thumbnail.startsWith('s3://')) {
+        console.log(`   📥 Uploading thumbnail to S3 for ${params.name}...`);
+        const thumbnailResult = await StorageService.uploadFromUrl(
+          fileInfo.thumbnail,
+          `thumbnails/${datePath}`,
+          filenameId
+        );
+        
+        if (thumbnailResult) {
+          thumbnailUrl = `s3://${thumbnailResult.key}`;
+          console.log(`   ✅ Thumbnail uploaded: ${thumbnailResult.key}`);
+        } else {
+          console.warn(`   ⚠️  Failed to upload thumbnail for ${params.name}`);
+        }
+      } else if (fileInfo.thumbnail?.startsWith('s3://')) {
+        thumbnailUrl = fileInfo.thumbnail;
+      }
+
+      if (fileInfo.videoPreview && !fileInfo.videoPreview.startsWith('s3://')) {
+        console.log(`   📥 Uploading video preview to S3 for ${params.name}...`);
+        const videoPreviewResult = await StorageService.uploadFromUrl(
+          fileInfo.videoPreview,
+          `previews/${datePath}`,
+          filenameId
+        );
+        
+        if (videoPreviewResult) {
+          videoPreviewUrl = `s3://${videoPreviewResult.key}`;
+          console.log(`   ✅ Video preview uploaded: ${videoPreviewResult.key}`);
+        } else {
+          console.warn(`   ⚠️  Failed to upload video preview for ${params.name}`);
+        }
+      } else if (fileInfo.videoPreview?.startsWith('s3://')) {
+        videoPreviewUrl = fileInfo.videoPreview;
+      }
+    }
 
     const sectionValue = params.section.toLowerCase();
     const contentTypeValue = fileContentType.toLowerCase();
@@ -592,8 +690,9 @@ async function upsertFile(params: {
       fileUrl: fileInfo.url,
       ulozSlug: fileInfo.slug,
       ulozFolderSlug: fileInfo.folderSlug || params.parentFolderSlug || null,
-      thumbnailUrl: fileInfo.thumbnail || null,
-      coverUrl: fileInfo.thumbnail || null,
+      thumbnailUrl: thumbnailUrl,
+      videoPreviewUrl: videoPreviewUrl,
+      coverUrl: null, // Remove coverUrl as requested
       mimeType: fileInfo.contentType || null,
       duration: durationSeconds,
       metadata: metadataPayload,
@@ -621,8 +720,9 @@ async function upsertFile(params: {
       fileUrl: fileInfo.url,
       ulozSlug: fileInfo.slug,
       ulozFolderSlug: fileInfo.folderSlug || params.parentFolderSlug || null,
-      thumbnailUrl: fileInfo.thumbnail || null,
-      coverUrl: fileInfo.thumbnail || null,
+      thumbnailUrl: thumbnailUrl,
+      videoPreviewUrl: videoPreviewUrl,
+      coverUrl: null, // Remove coverUrl as requested
       mimeType: fileInfo.contentType || null,
       duration: durationSeconds,
       metadata: metadataPayload,
@@ -642,6 +742,138 @@ async function upsertFile(params: {
   }
 }
 
+async function processUploadQueue(uploadQueue: UploadJob[], concurrency: number = 5): Promise<void> {
+  if (uploadQueue.length === 0) {
+    return;
+  }
+
+  console.log(`\n📦 Processing ${uploadQueue.length} upload job(s) in batches of ${concurrency}...`);
+
+  // Deduplicate jobs by slug (keep the most recent one)
+  const uniqueJobs = new Map<string, UploadJob>();
+  for (const job of uploadQueue) {
+    const existing = uniqueJobs.get(job.slug);
+    if (!existing) {
+      uniqueJobs.set(job.slug, job);
+    } else {
+      // Merge URLs if both have them
+      if (job.thumbnailUrl && !existing.thumbnailUrl) {
+        existing.thumbnailUrl = job.thumbnailUrl;
+      }
+      if (job.videoPreviewUrl && !existing.videoPreviewUrl) {
+        existing.videoPreviewUrl = job.videoPreviewUrl;
+      }
+      // Use the most recent datePath
+      if (job.datePath > existing.datePath) {
+        existing.datePath = job.datePath;
+      }
+    }
+  }
+
+  const deduplicatedQueue = Array.from(uniqueJobs.values());
+  if (deduplicatedQueue.length !== uploadQueue.length) {
+    console.log(`   🔄 Deduplicated: ${uploadQueue.length} → ${deduplicatedQueue.length} unique job(s)`);
+  }
+
+  // Prepare batch upload jobs
+  const thumbnailJobs: Array<{ url: string; folder: string; filename: string; slug: string }> = [];
+  const previewJobs: Array<{ url: string; folder: string; filename: string; slug: string }> = [];
+  const jobMap = new Map<string, UploadJob>();
+
+  for (const job of deduplicatedQueue) {
+    jobMap.set(job.slug, job);
+    
+    if (job.thumbnailUrl) {
+      thumbnailJobs.push({
+        url: job.thumbnailUrl,
+        folder: `thumbnails/${job.datePath}`,
+        filename: job.filenameId,
+        slug: job.slug,
+      });
+    }
+    
+    if (job.videoPreviewUrl) {
+      previewJobs.push({
+        url: job.videoPreviewUrl,
+        folder: `previews/${job.datePath}`,
+        filename: job.filenameId,
+        slug: job.slug,
+      });
+    }
+  }
+
+  // Process thumbnail uploads in batches
+  // Use exact same method as previews
+  if (thumbnailJobs.length > 0) {
+    console.log(`   📸 Uploading ${thumbnailJobs.length} thumbnail(s)...`);
+    const thumbnailResults = await StorageService.uploadFromUrlBatch(
+      thumbnailJobs.map(job => ({ url: job.url, folder: job.folder, filename: job.filename })),
+      concurrency,
+      true // Skip if already exists in S3 - same as previews
+    );
+
+    // Update database with S3 keys
+    for (let i = 0; i < thumbnailJobs.length; i++) {
+      const job = thumbnailJobs[i];
+      const result = thumbnailResults[i];
+      
+      if (!job) {
+        console.warn(`   ⚠️  No job found at index ${i}`);
+        continue;
+      }
+      
+      if (!result) {
+        console.warn(`   ⚠️  Thumbnail upload failed for ${job.slug} (${jobMap.get(job.slug)?.name || 'unknown'})`);
+        continue;
+      }
+      
+      const s3Key = `s3://${result.key}`;
+      try {
+        await prisma.libraryContent.update({
+          where: { slug: job.slug },
+          data: { thumbnailUrl: s3Key },
+        });
+        console.log(`   ✅ Updated thumbnail for ${jobMap.get(job.slug)?.name || job.slug}`);
+      } catch (error: any) {
+        console.warn(`   ⚠️  Failed to update thumbnail for ${job.slug}: ${error.message}`);
+      }
+    }
+  }
+
+  // Process video preview uploads in batches
+  if (previewJobs.length > 0) {
+    console.log(`   🎬 Uploading ${previewJobs.length} video preview(s)...`);
+    const previewResults = await StorageService.uploadFromUrlBatch(
+      previewJobs.map(job => ({ url: job.url, folder: job.folder, filename: job.filename })),
+      concurrency,
+      true // Skip if already exists in S3
+    );
+
+    // Update database with S3 keys
+    for (let i = 0; i < previewJobs.length; i++) {
+      const job = previewJobs[i];
+      const result = previewResults[i];
+      
+      if (!job) continue;
+      
+      if (result) {
+        const s3Key = `s3://${result.key}`;
+        try {
+          await prisma.libraryContent.update({
+            where: { slug: job.slug },
+            data: { videoPreviewUrl: s3Key } as any,
+          });
+          console.log(`   ✅ Updated video preview for ${jobMap.get(job.slug)?.name || job.slug}`);
+        } catch (error: any) {
+          console.warn(`   ⚠️  Failed to update video preview for ${job.slug}: ${error.message}`);
+        }
+      }
+    }
+  }
+
+  console.log(`✅ Completed batch upload processing\n`);
+}
+
 async function syncFolder(options: {
   section: string;
   folderSlug: string;
@@ -649,6 +881,7 @@ async function syncFolder(options: {
   parentFolderSlug: string | null;
   pathSegments: string[];
   stats: SyncStats;
+  uploadQueue?: UploadJob[];
 }): Promise<void> {
   console.log(`📁 Syncing folder: ${options.folderSlug} (section: ${options.section})`);
 
@@ -708,6 +941,7 @@ async function syncFolder(options: {
         parentFolderSlug: entry.slug,
         pathSegments: childPathSegments,
         stats: options.stats,
+        ...(options.uploadQueue ? { uploadQueue: options.uploadQueue } : {}),
       });
     } else {
       const fileParams: {
@@ -735,7 +969,10 @@ async function syncFolder(options: {
         fileParams.description = entry.description;
       }
 
-      const status = await upsertFile(fileParams);
+      const status = await upsertFile({
+        ...fileParams,
+        ...(options.uploadQueue ? { uploadQueue: options.uploadQueue } : {}),
+      });
 
       if (status === 'created') {
         options.stats.filesCreated += 1;
@@ -746,6 +983,191 @@ async function syncFolder(options: {
       }
     }
   }
+}
+
+async function addExistingFilesToUploadQueue(
+  section: string,
+  uploadQueue: UploadJob[]
+): Promise<void> {
+  console.log(`\n🔍 Checking existing files in section "${section}" for missing S3 uploads...`);
+
+  // Build date-based storage prefix using current date
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  const datePath = `${year}/${month}/${day}`;
+
+  // Find all files in this section that have thumbnail or video preview URLs
+  // Note: Using 'as any' because Prisma client needs to be regenerated after adding videoPreviewUrl
+  const allFiles = await (prisma.libraryContent.findMany as any)({
+    where: {
+      section: section.toLowerCase(),
+      isFolder: false,
+      OR: [
+        { thumbnailUrl: { not: null } },
+        { videoPreviewUrl: { not: null } },
+      ],
+    },
+    select: {
+      slug: true,
+      title: true,
+      thumbnailUrl: true,
+      videoPreviewUrl: true,
+    },
+  });
+
+  // Filter to only files with temporary URLs (not S3 keys)
+  const filesNeedingUpload = (allFiles as any[]).filter((file: any) => {
+    const hasTempThumbnail = file.thumbnailUrl && !file.thumbnailUrl.startsWith('s3://');
+    const hasTempPreview = file.videoPreviewUrl && !file.videoPreviewUrl.startsWith('s3://');
+    return hasTempThumbnail || hasTempPreview;
+  });
+
+  if (filesNeedingUpload.length === 0) {
+    console.log(`   ✅ All files already have S3 keys`);
+    return;
+  }
+
+  console.log(`   📋 Found ${filesNeedingUpload.length} file(s) with temporary URLs. Fetching fresh URLs from uloz.to...`);
+
+  // Fetch fresh URLs from uloz.to for each file
+  let successCount = 0;
+  let errorCount = 0;
+  
+  for (const file of filesNeedingUpload) {
+    const fileAny = file as any; // Type assertion for Prisma client compatibility
+    const filenameId = fileAny.slug;
+    
+    try {
+      // Fetch fresh file info from uloz.to to get new thumbnail/preview URLs
+      // Note: This may fail if the file's folder was deleted, but we'll handle it gracefully
+      const fileInfo = await ulozService.getFileInfo(fileAny.slug);
+      
+      // Update database with fresh URLs first
+      const updateData: any = {};
+      if (fileInfo.thumbnail && !fileInfo.thumbnail.startsWith('s3://')) {
+        updateData.thumbnailUrl = fileInfo.thumbnail;
+      }
+      if (fileInfo.videoPreview && !fileInfo.videoPreview.startsWith('s3://')) {
+        updateData.videoPreviewUrl = fileInfo.videoPreview;
+      }
+      
+      if (Object.keys(updateData).length > 0) {
+        await prisma.libraryContent.update({
+          where: { slug: fileAny.slug },
+          data: updateData,
+        });
+      }
+      
+      // Add to upload queue with fresh URLs (deduplicate by slug)
+      let existingJob = uploadQueue.find(job => job.slug === fileAny.slug);
+
+      if (fileInfo.thumbnail && !fileInfo.thumbnail.startsWith('s3://')) {
+        if (existingJob) {
+          existingJob.thumbnailUrl = fileInfo.thumbnail;
+          existingJob.datePath = datePath;
+          existingJob.filenameId = filenameId;
+        } else {
+          uploadQueue.push({
+            slug: fileAny.slug,
+            name: fileAny.title,
+            thumbnailUrl: fileInfo.thumbnail,
+            datePath,
+            filenameId,
+          });
+        }
+      }
+
+      if (fileInfo.videoPreview && !fileInfo.videoPreview.startsWith('s3://')) {
+        if (!existingJob) {
+          existingJob = uploadQueue.find(job => job.slug === fileAny.slug);
+        }
+        if (existingJob) {
+          existingJob.videoPreviewUrl = fileInfo.videoPreview;
+          existingJob.datePath = datePath;
+          existingJob.filenameId = filenameId;
+        } else {
+          uploadQueue.push({
+            slug: fileAny.slug,
+            name: fileAny.title,
+            videoPreviewUrl: fileInfo.videoPreview,
+            datePath,
+            filenameId,
+          });
+        }
+      }
+      
+      successCount++;
+    } catch (error: any) {
+      errorCount++;
+      const errorMsg = error.message || String(error);
+      const fullError = error.stack || errorMsg;
+      
+      // Check if this is a folder-related error (expected for files in deleted folders)
+      const isFolderError = 
+        errorMsg.includes('folder') || 
+        errorMsg.includes('Folder') ||
+        errorMsg.includes('failed to get folder slug') ||
+        errorMsg.includes('failed to list folders') ||
+        fullError.includes('folder') ||
+        fullError.includes('Folder');
+      
+      // Only log if it's not a folder-related error
+      if (!isFolderError) {
+        console.warn(`   ⚠️  Failed to fetch fresh URLs for ${fileAny.title} (${fileAny.slug}): ${errorMsg}`);
+      }
+      
+      // For files in deleted folders, skip them entirely (can't get fresh URLs)
+      if (isFolderError) {
+        // Don't add to upload queue - the file's folder is gone, so we can't get fresh URLs
+        continue;
+      }
+      
+      // For other errors, still try to use existing URLs if available (they might still work)
+      let existingJob = uploadQueue.find(job => job.slug === fileAny.slug);
+      
+      if (fileAny.thumbnailUrl && typeof fileAny.thumbnailUrl === 'string' && !fileAny.thumbnailUrl.startsWith('s3://')) {
+        if (existingJob) {
+          existingJob.thumbnailUrl = fileAny.thumbnailUrl;
+          existingJob.datePath = datePath;
+          existingJob.filenameId = filenameId;
+        } else {
+          uploadQueue.push({
+            slug: fileAny.slug,
+            name: fileAny.title,
+            thumbnailUrl: fileAny.thumbnailUrl,
+            datePath,
+            filenameId,
+          });
+        }
+      }
+      if (fileAny.videoPreviewUrl && typeof fileAny.videoPreviewUrl === 'string' && !fileAny.videoPreviewUrl.startsWith('s3://')) {
+        if (!existingJob) {
+          existingJob = uploadQueue.find(job => job.slug === fileAny.slug);
+        }
+        if (existingJob) {
+          existingJob.videoPreviewUrl = fileAny.videoPreviewUrl;
+          existingJob.datePath = datePath;
+          existingJob.filenameId = filenameId;
+        } else {
+          uploadQueue.push({
+            slug: fileAny.slug,
+            name: fileAny.title,
+            videoPreviewUrl: fileAny.videoPreviewUrl,
+            datePath,
+            filenameId,
+          });
+        }
+      }
+    }
+  }
+  
+  if (errorCount > 0) {
+    console.log(`   ⚠️  ${errorCount} file(s) had errors fetching fresh URLs (may be in deleted folders)`);
+  }
+
+  console.log(`   ✅ Added ${filesNeedingUpload.length} file(s) to upload queue with fresh URLs`);
 }
 
 async function syncSection(config: SectionConfig): Promise<SyncStats> {
@@ -793,6 +1215,13 @@ async function syncSection(config: SectionConfig): Promise<SyncStats> {
     stats.foldersUpdated += 1;
   }
 
+  // Create upload queue for batch processing
+  const uploadQueue: UploadJob[] = [];
+
+  // First, add existing files with temporary URLs to the queue
+  await addExistingFilesToUploadQueue(sectionLower, uploadQueue);
+
+  // Then sync folder (which will add new/updated files to the queue)
   await syncFolder({
     section: sectionLower,
     folderSlug: resolvedTarget.slug,
@@ -800,7 +1229,11 @@ async function syncSection(config: SectionConfig): Promise<SyncStats> {
     parentFolderSlug: resolvedTarget.slug,
     pathSegments: rootPathSegments,
     stats,
+    uploadQueue,
   });
+
+  // Process all uploads in batches after syncing is complete
+  await processUploadQueue(uploadQueue, 5); // Process 5 uploads at a time
 
   console.log(`\n✅ Finished section ${sectionLower}`);
   console.log(`   Folders created: ${stats.foldersCreated}`);

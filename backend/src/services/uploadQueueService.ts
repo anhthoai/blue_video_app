@@ -95,6 +95,19 @@ class UploadQueueService {
     console.log(`⚙️  Processing upload job: ${job.id} (Episode ${job.episodeNumber})`);
 
     try {
+      // Fetch episode to get slug for filenameId
+      const episode = await prisma.movieEpisode.findUnique({
+        where: { id: job.episodeId },
+        select: { slug: true },
+      });
+
+      if (!episode) {
+        throw new Error(`Episode ${job.episodeId} not found`);
+      }
+
+      // Use episode slug as filenameId (same for both thumbnail and video preview)
+      const filenameId = episode.slug;
+
       let thumbnailKey: string | null = null;
       let videoPreviewKey: string | null = null;
 
@@ -110,8 +123,8 @@ class UploadQueueService {
         console.log(`📥 Uploading thumbnail for episode ${job.episodeNumber}...`);
         const result = await StorageService.uploadFromUrl(
           job.thumbnailUrl,
-          `episode-thumbnails/${datePath}/${job.movieId}`,
-          `ep${job.episodeNumber}_thumb`
+          `thumbnails/${datePath}`,
+          filenameId
         );
         
         if (result) {
@@ -125,8 +138,8 @@ class UploadQueueService {
         console.log(`📥 Uploading video preview for episode ${job.episodeNumber}...`);
         const result = await StorageService.uploadFromUrl(
           job.videoPreviewUrl,
-          `episode-previews/${datePath}/${job.movieId}`,
-          `ep${job.episodeNumber}_preview`
+          `previews/${datePath}`,
+          filenameId
         );
         
         if (result) {

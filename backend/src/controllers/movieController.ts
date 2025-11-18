@@ -707,12 +707,15 @@ export async function importEpisodesFromUloz(req: Request, res: Response): Promi
           let thumbnailUrl = file.thumbnail || null;
           let videoPreviewUrl = file.videoPreview || null;
 
+          // Use episode slug as filenameid (same for both thumbnail and video preview)
+          const filenameId = file.slug;
+
           if (file.thumbnail) {
             console.log(`   📥 Uploading episode thumbnail to S3...`);
             const result = await StorageService.uploadFromUrl(
               file.thumbnail,
-              `episode-thumbnails/${datePath}/${movieId}`,
-              `ep${epNum}_thumb`
+              `thumbnails/${datePath}`,
+              filenameId
             );
             if (result) {
               // Store S3 key prefixed with 's3://' to indicate it needs presigned URL
@@ -725,8 +728,8 @@ export async function importEpisodesFromUloz(req: Request, res: Response): Promi
             console.log(`   📥 Uploading video preview to S3...`);
             const result = await StorageService.uploadFromUrl(
               file.videoPreview,
-              `episode-previews/${datePath}/${movieId}`,
-              `ep${epNum}_preview`
+              `previews/${datePath}`,
+              filenameId
             );
             if (result) {
               // Store S3 key prefixed with 's3://' to indicate it needs presigned URL
@@ -853,12 +856,15 @@ export async function importEpisodesFromUloz(req: Request, res: Response): Promi
           let thumbnailUrl = fileInfo.thumbnail || null;
           let videoPreviewUrl = fileInfo.videoPreview || null;
 
+          // Use episode slug as filenameid (same for both thumbnail and video preview)
+          const filenameId = fileInfo.slug;
+
           if (fileInfo.thumbnail) {
             console.log(`   📥 Uploading episode thumbnail to S3...`);
             const result = await StorageService.uploadFromUrl(
               fileInfo.thumbnail,
-              `episode-thumbnails/${datePath}/${movieId}`,
-              `ep${epNum}_thumb`
+              `thumbnails/${datePath}`,
+              filenameId
             );
             if (result) {
               // Store S3 key prefixed with 's3://' to indicate it needs presigned URL
@@ -871,8 +877,8 @@ export async function importEpisodesFromUloz(req: Request, res: Response): Promi
             console.log(`   📥 Uploading video preview to S3...`);
             const result = await StorageService.uploadFromUrl(
               fileInfo.videoPreview,
-              `episode-previews/${datePath}/${movieId}`,
-              `ep${epNum}_preview`
+              `previews/${datePath}`,
+              filenameId
             );
             if (result) {
               // Store S3 key prefixed with 's3://' to indicate it needs presigned URL

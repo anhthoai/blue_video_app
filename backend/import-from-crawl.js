@@ -15,7 +15,7 @@
 const axios = require('axios');
 const fs = require('fs');
 
-const API_BASE_URL = process.env.BASE_URL || process.env.API_URL || 'http://192.168.1.100:3000';
+const API_BASE_URL = process.env.API_URL || 'http://127.0.0.1:3000';
 const LOGIN_EMAIL = process.env.ADMIN_EMAIL || 'admin@example.com';
 const LOGIN_PASSWORD = process.env.ADMIN_PASSWORD || '123456';
 

@@ -305,6 +305,7 @@ export async function listLibraryItems(req: Request, res: Response) {
           parentId: true,
           thumbnailUrl: true,
           coverUrl: true,
+          videoPreviewUrl: true,
           mimeType: true,
           duration: true,
           metadata: true,
@@ -334,6 +335,10 @@ export async function listLibraryItems(req: Request, res: Response) {
           ? await resolveMediaUrl(item.coverUrl)
           : item.coverUrl;
 
+        const videoPreviewUrl = item.videoPreviewUrl?.startsWith('s3://')
+          ? await resolveMediaUrl(item.videoPreviewUrl)
+          : item.videoPreviewUrl;
+
         const streamUrl = includeStreams
           ? await resolveFileStreamUrl({
               fileUrl: item.fileUrl,
@@ -361,6 +366,7 @@ export async function listLibraryItems(req: Request, res: Response) {
           metadata: item.metadata,
           thumbnailUrl,
           coverUrl,
+          videoPreviewUrl,
           source: item.source,
           ulozSlug: item.ulozSlug,
           hasChildren: item._count.children > 0,
@@ -438,6 +444,7 @@ export async function getLibraryItem(req: Request, res: Response) {
         parentId: true,
         thumbnailUrl: true,
         coverUrl: true,
+        videoPreviewUrl: true,
         mimeType: true,
         duration: true,
         metadata: true,
@@ -464,6 +471,10 @@ export async function getLibraryItem(req: Request, res: Response) {
       ? await resolveMediaUrl(item.coverUrl)
       : item.coverUrl;
 
+    const videoPreviewUrl = item.videoPreviewUrl?.startsWith('s3://')
+      ? await resolveMediaUrl(item.videoPreviewUrl)
+      : item.videoPreviewUrl;
+
     const streamUrl = includeStreams
       ? await resolveFileStreamUrl({
           fileUrl: item.fileUrl,
@@ -482,6 +493,7 @@ export async function getLibraryItem(req: Request, res: Response) {
         fileSize: item.fileSize ? Number(item.fileSize) : null,
         thumbnailUrl,
         coverUrl,
+        videoPreviewUrl,
         streamUrl,
         breadcrumbs,
       },

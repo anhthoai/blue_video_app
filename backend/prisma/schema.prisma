@@ -819,8 +819,9 @@ model LibraryContent {
   description String?  @db.Text
   
   // Media
-  coverUrl     String? @map("cover_url") @db.Text
-  thumbnailUrl String? @map("thumbnail_url") @db.Text
+  coverUrl       String? @map("cover_url") @db.Text
+  thumbnailUrl   String? @map("thumbnail_url") @db.Text
+  videoPreviewUrl String? @map("video_preview_url") @db.Text
   
   // Classification
   contentType  String?            @map("content_type") @db.VarChar(50)
