@@ -893,7 +893,17 @@ async function syncFolder(options: {
     return;
   }
 
-  for (const entry of entries) {
+  // Rate limiting: add delay between file processing to avoid overwhelming Uloz.to
+  const delayBetweenFiles = 100; // 100ms delay between files (reduced for faster processing)
+  
+  for (let i = 0; i < entries.length; i++) {
+    const entry = entries[i];
+    
+    // Add delay between files (except for the first one)
+    if (i > 0) {
+      await new Promise(resolve => setTimeout(resolve, delayBetweenFiles));
+    }
+    
     const childPathSegments = [...options.pathSegments, entry.name];
     const filePath = childPathSegments.join('/');
     const slugPath = buildSlugPath(childPathSegments);
@@ -1030,19 +1040,39 @@ async function addExistingFilesToUploadQueue(
   }
 
   console.log(`   📋 Found ${filesNeedingUpload.length} file(s) with temporary URLs. Fetching fresh URLs from uloz.to...`);
+  console.log(`   ⚡ Processing in batches of 20 with 200ms delay between requests...`);
 
-  // Fetch fresh URLs from uloz.to for each file
+  // Fetch fresh URLs from uloz.to for each file with rate limiting
   let successCount = 0;
   let errorCount = 0;
   
-  for (const file of filesNeedingUpload) {
-    const fileAny = file as any; // Type assertion for Prisma client compatibility
-    const filenameId = fileAny.slug;
+  // Process in batches to avoid overwhelming Uloz.to
+  // Optimized for faster processing while still being safe
+  const batchSize = 20; // Larger batches for faster processing
+  const delayBetweenRequests = 200; // 200ms delay between requests
+  const delayBetweenBatches = 1000; // 1 second delay between batches
+  
+  for (let i = 0; i < filesNeedingUpload.length; i += batchSize) {
+    const batch = filesNeedingUpload.slice(i, i + batchSize);
+    const batchNumber = Math.floor(i / batchSize) + 1;
+    const totalBatches = Math.ceil(filesNeedingUpload.length / batchSize);
     
-    try {
-      // Fetch fresh file info from uloz.to to get new thumbnail/preview URLs
-      // Note: This may fail if the file's folder was deleted, but we'll handle it gracefully
-      const fileInfo = await ulozService.getFileInfo(fileAny.slug);
+    console.log(`   📦 Processing batch ${batchNumber}/${totalBatches} (${batch.length} files)...`);
+    
+    // Process batch with controlled concurrency
+    const batchPromises = batch.map(async (file, index) => {
+      // Add delay between requests within batch
+      if (index > 0) {
+        await new Promise(resolve => setTimeout(resolve, delayBetweenRequests));
+      }
+      
+      const fileAny = file as any; // Type assertion for Prisma client compatibility
+      const filenameId = fileAny.slug;
+      
+      try {
+        // Fetch fresh file info from uloz.to to get new thumbnail/preview URLs
+        // Note: This may fail if the file's folder was deleted, but we'll handle it gracefully
+        const fileInfo = await ulozService.getFileInfo(fileAny.slug);
       
       // Update database with fresh URLs first
       const updateData: any = {};
@@ -1098,9 +1128,8 @@ async function addExistingFilesToUploadQueue(
         }
       }
       
-      successCount++;
+      return { success: true };
     } catch (error: any) {
-      errorCount++;
       const errorMsg = error.message || String(error);
       const fullError = error.stack || errorMsg;
       
@@ -1121,7 +1150,7 @@ async function addExistingFilesToUploadQueue(
       // For files in deleted folders, skip them entirely (can't get fresh URLs)
       if (isFolderError) {
         // Don't add to upload queue - the file's folder is gone, so we can't get fresh URLs
-        continue;
+        return { success: false, isFolderError: true };
       }
       
       // For other errors, still try to use existing URLs if available (they might still work)
@@ -1160,6 +1189,26 @@ async function addExistingFilesToUploadQueue(
           });
         }
       }
+      
+      return { success: false, isFolderError: false };
+    }
+    });
+    
+    // Wait for all requests in batch to complete
+    const batchResults = await Promise.all(batchPromises);
+    
+    // Count successes and errors
+    for (const result of batchResults) {
+      if (result.success) {
+        successCount++;
+      } else if (!result.isFolderError) {
+        errorCount++;
+      }
+    }
+    
+    // Add delay between batches to avoid overwhelming Uloz.to
+    if (i + batchSize < filesNeedingUpload.length) {
+      await new Promise(resolve => setTimeout(resolve, delayBetweenBatches));
     }
   }
   
@@ -1167,7 +1216,7 @@ async function addExistingFilesToUploadQueue(
     console.log(`   ⚠️  ${errorCount} file(s) had errors fetching fresh URLs (may be in deleted folders)`);
   }
 
-  console.log(`   ✅ Added ${filesNeedingUpload.length} file(s) to upload queue with fresh URLs`);
+  console.log(`   ✅ Successfully processed ${successCount} file(s), added to upload queue with fresh URLs`);
 }
 
 async function syncSection(config: SectionConfig): Promise<SyncStats> {
