@@ -8,6 +8,27 @@ const prisma = new PrismaClient();
 
 const regionDisplay = new Intl.DisplayNames(['en'], { type: 'region' });
 
+/**
+ * Resolve media URL - converts S3 URLs to presigned URLs
+ */
+async function resolveMediaUrl(url?: string | null): Promise<string | null> {
+  if (!url) {
+    return null;
+  }
+
+  if (url.startsWith('s3://')) {
+    const key = url.substring(5); // Remove 's3://' prefix
+    try {
+      return await StorageService.getSignedUrl(key, 3600); // 1 hour expiry
+    } catch (error) {
+      console.warn(`⚠️  Failed to generate signed URL for ${key}:`, (error as Error).message);
+      return null;
+    }
+  }
+
+  return url;
+}
+
 async function generateUniqueSlug(title: string): Promise<string> {
   const baseSlug = generateSlug(title);
   let candidate = baseSlug;
@@ -1060,13 +1081,25 @@ export async function getMovies(req: Request, res: Response) {
     const total = movies.length;
     const paginatedMovies = movies.slice(offset, offset + Number(limit));
 
+    // Resolve S3 URLs for poster and backdrop images
+    const moviesWithResolvedUrls = await Promise.all(
+      paginatedMovies.map(async (movie) => {
+        const posterUrl = await resolveMediaUrl(movie.posterUrl);
+        const backdropUrl = await resolveMediaUrl(movie.backdropUrl);
+
+        return {
+          ...movie,
+          posterUrl,
+          backdropUrl,
+          voteAverage: movie.voteAverage ? parseFloat(movie.voteAverage.toString()) : null,
+          popularity: movie.popularity ? parseFloat(movie.popularity.toString()) : null,
+        };
+      })
+    );
+
     res.json({
       success: true,
-      data: paginatedMovies.map(movie => ({
-        ...movie,
-        voteAverage: movie.voteAverage ? parseFloat(movie.voteAverage.toString()) : null,
-        popularity: movie.popularity ? parseFloat(movie.popularity.toString()) : null,
-      })),
+      data: moviesWithResolvedUrls,
       pagination: {
         page: Number(page),
         limit: Number(limit),
@@ -1122,9 +1155,23 @@ export async function findMoviesByIdentifiers(req: Request, res: Response): Prom
       },
     });
 
+    // Resolve S3 URLs for poster and backdrop images
+    const moviesWithResolvedUrls = await Promise.all(
+      movies.map(async (movie) => {
+        const posterUrl = await resolveMediaUrl(movie.posterUrl);
+        const backdropUrl = await resolveMediaUrl(movie.backdropUrl);
+
+        return {
+          ...movie,
+          posterUrl,
+          backdropUrl,
+        };
+      })
+    );
+
     res.json({
       success: true,
-      data: movies,
+      data: moviesWithResolvedUrls,
     });
   } catch (error: any) {
     console.error('Error finding movies by identifiers:', error);
@@ -1221,6 +1268,10 @@ export async function getMovieById(req: Request, res: Response): Promise<void> {
       return;
     }
 
+    // Generate presigned URLs for movie poster and backdrop if stored as S3 keys
+    const posterUrl = await resolveMediaUrl(movie.posterUrl);
+    const backdropUrl = await resolveMediaUrl(movie.backdropUrl);
+
     // Generate presigned URLs for episode previews if stored as S3 keys
     const episodesWithUrls = await Promise.all(
       movie.episodes.map(async (ep: any) => {
@@ -1259,6 +1310,8 @@ export async function getMovieById(req: Request, res: Response): Promise<void> {
       success: true,
       data: {
         ...movie,
+        posterUrl,
+        backdropUrl,
         voteAverage: movie.voteAverage ? parseFloat(movie.voteAverage.toString()) : null,
         popularity: movie.popularity ? parseFloat(movie.popularity.toString()) : null,
         episodes: episodesWithUrls,

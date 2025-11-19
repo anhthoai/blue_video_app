@@ -1,6 +1,7 @@
 import 'dotenv/config';
 
 import path from 'node:path';
+import crypto from 'node:crypto';
 import { PrismaClient, ContentSource } from '@prisma/client';
 import type { Prisma } from '@prisma/client';
 
@@ -416,6 +417,27 @@ function buildSlugPath(segments: string[]): string {
   return segments.map(segment => sanitizeSlugSegment(segment)).join('/');
 }
 
+/**
+ * Generate a hash-based subfolder path to distribute files across multiple folders.
+ * This prevents hitting S3's 10,000 files per folder limit.
+ * Uses first 2 characters of MD5 hash to create 256 subfolders (00-ff).
+ */
+function getHashSubfolder(filename: string): string {
+  const hash = crypto.createHash('md5').update(filename).digest('hex');
+  // Use first 2 characters to create 256 subfolders (00-ff)
+  return hash.substring(0, 2);
+}
+
+/**
+ * Build a storage path with date and hash-based subfolder partitioning.
+ * Format: {baseFolder}/{year}/{month}/{day}/{hashSubfolder}
+ * This ensures files are distributed across multiple folders to avoid S3's 10,000 file limit.
+ */
+function buildStoragePath(baseFolder: string, datePath: string, filename: string): string {
+  const hashSubfolder = getHashSubfolder(filename);
+  return `${baseFolder}/${datePath}/${hashSubfolder}`;
+}
+
 function resolveContentType(extension?: string | null, section?: string): string {
   const ext = (extension || '').toLowerCase();
   const sectionLower = section?.toLowerCase();
@@ -630,9 +652,10 @@ async function upsertFile(params: {
       // Upload immediately (backward compatibility)
       if (fileInfo.thumbnail && !fileInfo.thumbnail.startsWith('s3://')) {
         console.log(`   📥 Uploading thumbnail to S3 for ${params.name}...`);
+        const thumbnailPath = buildStoragePath('thumbnails', datePath, filenameId);
         const thumbnailResult = await StorageService.uploadFromUrl(
           fileInfo.thumbnail,
-          `thumbnails/${datePath}`,
+          thumbnailPath,
           filenameId
         );
         
@@ -648,9 +671,10 @@ async function upsertFile(params: {
 
       if (fileInfo.videoPreview && !fileInfo.videoPreview.startsWith('s3://')) {
         console.log(`   📥 Uploading video preview to S3 for ${params.name}...`);
+        const previewPath = buildStoragePath('previews', datePath, filenameId);
         const videoPreviewResult = await StorageService.uploadFromUrl(
           fileInfo.videoPreview,
-          `previews/${datePath}`,
+          previewPath,
           filenameId
         );
         
@@ -784,18 +808,20 @@ async function processUploadQueue(uploadQueue: UploadJob[], concurrency: number 
     jobMap.set(job.slug, job);
     
     if (job.thumbnailUrl) {
+      const thumbnailPath = buildStoragePath('thumbnails', job.datePath, job.filenameId);
       thumbnailJobs.push({
         url: job.thumbnailUrl,
-        folder: `thumbnails/${job.datePath}`,
+        folder: thumbnailPath,
         filename: job.filenameId,
         slug: job.slug,
       });
     }
     
     if (job.videoPreviewUrl) {
+      const previewPath = buildStoragePath('previews', job.datePath, job.filenameId);
       previewJobs.push({
         url: job.videoPreviewUrl,
-        folder: `previews/${job.datePath}`,
+        folder: previewPath,
         filename: job.filenameId,
         slug: job.slug,
       });

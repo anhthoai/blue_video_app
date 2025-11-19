@@ -4,7 +4,7 @@ This guide explains how to import movies from crawled JSON data (e.g., from `b4w
 
 ## Overview
 
-The `import-from-crawl.js` script imports movies from a JSON file by:
+The `scripts/import-from-crawl.ts` script imports movies from a JSON file by:
 1. Checking if the movie already exists (by `sourceUrl`)
 2. Searching TMDb by title
 3. If found on TMDb → imports full data from TMDb
@@ -39,17 +39,17 @@ The `import-from-crawl.js` script imports movies from a JSON file by:
 
 ```bash
 # Import all movies from a JSON file
-node import-from-crawl.js movies-full.json
+npx ts-node scripts/import-from-crawl.ts movies-full.json
 ```
 
 ### Import with Limits
 
 ```bash
 # Import only first 100 movies
-node import-from-crawl.js movies-full.json --limit=100
+npx ts-node scripts/import-from-crawl.ts movies-full.json --limit=100
 
 # Skip first 100, import next 100 movies
-node import-from-crawl.js movies-full.json --skip=100 --limit=100
+npx ts-node scripts/import-from-crawl.ts movies-full.json --skip=100 --limit=100
 ```
 
 ### Batch Import Strategy
@@ -58,13 +58,13 @@ For large files (e.g., 7000+ movies), it's recommended to import in batches:
 
 ```bash
 # Batch 1: First 1000 movies
-node import-from-crawl.js movies-full.json --skip=0 --limit=1000
+npx ts-node scripts/import-from-crawl.ts movies-full.json --skip=0 --limit=1000
 
 # Batch 2: Next 1000 movies
-node import-from-crawl.js movies-full.json --skip=1000 --limit=1000
+npx ts-node scripts/import-from-crawl.ts movies-full.json --skip=1000 --limit=1000
 
 # Batch 3: Next 1000 movies
-node import-from-crawl.js movies-full.json --skip=2000 --limit=1000
+npx ts-node scripts/import-from-crawl.ts movies-full.json --skip=2000 --limit=1000
 
 # Continue until all movies are imported...
 ```
@@ -80,13 +80,18 @@ node import-from-crawl.js movies-full.json --skip=2000 --limit=1000
 
 ### Step 1: Duplicate Check
 - Checks if movie already exists by `sourceUrl`
+- Checks if movie already exists by normalized `title`
 - If exists → skips
 
-### Step 2: TMDb Search
+### Step 2: TMDb ID Check
+- If TMDb result found, checks if TMDb ID already exists
+- If exists → skips
+
+### Step 3: TMDb Search
 - Searches TMDb by title
 - If found → imports from TMDb (with full metadata)
 
-### Step 3: Manual Entry
+### Step 4: Manual Entry
 - If not found on TMDb → creates manual entry with:
   - `title` (from crawled data)
   - `posterUrl` (from `thumbnailUrl`)
@@ -187,25 +192,25 @@ ADMIN_PASSWORD=123456
 ### Example 1: Import First 50 Movies
 
 ```bash
-node import-from-crawl.js movies-full.json --limit=50
+npx ts-node scripts/import-from-crawl.ts movies-full.json --limit=50
 ```
 
 ### Example 2: Resume from Page 5 (skip 100)
 
 ```bash
-node import-from-crawl.js movies-full.json --skip=100 --limit=100
+npx ts-node scripts/import-from-crawl.ts movies-full.json --skip=100 --limit=100
 ```
 
 ### Example 3: Import All Movies (7025 total)
 
 ```bash
 # Option A: All at once (takes ~3 hours)
-node import-from-crawl.js movies-full.json
+npx ts-node scripts/import-from-crawl.ts movies-full.json
 
 # Option B: In batches (safer)
-node import-from-crawl.js movies-full.json --limit=1000
-node import-from-crawl.js movies-full.json --skip=1000 --limit=1000
-node import-from-crawl.js movies-full.json --skip=2000 --limit=1000
+npx ts-node scripts/import-from-crawl.ts movies-full.json --limit=1000
+npx ts-node scripts/import-from-crawl.ts movies-full.json --skip=1000 --limit=1000
+npx ts-node scripts/import-from-crawl.ts movies-full.json --skip=2000 --limit=1000
 # ... continue until complete
 ```
 
@@ -231,7 +236,7 @@ This allows:
 1. **Start small**: Test with `--limit=10` first
 2. **Use batches**: For large imports, use batches of 500-1000 movies
 3. **Monitor logs**: Watch for patterns in failures
-4. **Check duplicates**: The script automatically handles duplicates by `sourceUrl`
+4. **Check duplicates**: The script automatically handles duplicates by `sourceUrl`, normalized title, and TMDb ID
 5. **TMDb matches**: Movies found on TMDb will have complete metadata (genres, cast, etc.)
 6. **Manual entries**: Movies not on TMDb will have basic info only (title, poster, release date)
 
@@ -240,7 +245,7 @@ This allows:
 After importing:
 1. **Verify in database**: Check that movies were imported correctly
 2. **Refresh mobile app**: Pull to refresh the library screen
-3. **Add episodes**: Use `import-episodes.js` to add video files
+3. **Add episodes**: Use episode import scripts to add video files
 4. **Update metadata**: Edit manual entries to add genres, cast, etc.
 
 ## Support
