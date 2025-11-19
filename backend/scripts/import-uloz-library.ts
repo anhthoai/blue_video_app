@@ -899,6 +899,11 @@ async function syncFolder(options: {
   for (let i = 0; i < entries.length; i++) {
     const entry = entries[i];
     
+    // Skip if entry is undefined (shouldn't happen, but TypeScript safety check)
+    if (!entry) {
+      continue;
+    }
+    
     // Add delay between files (except for the first one)
     if (i > 0) {
       await new Promise(resolve => setTimeout(resolve, delayBetweenFiles));
