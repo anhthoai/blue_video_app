@@ -17,8 +17,13 @@ import 'l10n/app_localizations.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Load environment variables
-  await dotenv.load(fileName: ".env");
+  // Load environment variables (optional - will use defaults if .env is missing)
+  try {
+    await dotenv.load(fileName: ".env");
+  } catch (e) {
+    // .env file not found - will use default values from ApiService
+    debugPrint('⚠️ .env file not found, using default API URLs');
+  }
 
   // Initialize Firebase (disabled for testing with mock data)
   // await Firebase.initializeApp();
