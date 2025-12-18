@@ -40,16 +40,8 @@ post_install do |installer|
       config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '14.0'
       
       # Critical: Allow non-modular includes for Firebase
+      # This allows Firebase's non-modular headers to be included in framework modules
       config.build_settings['CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES'] = 'YES'
-      
-      # Disable DEFINES_MODULE for Firebase-related pods to prevent framework module conflicts
-      # This prevents them from being built as framework modules, avoiding the non-modular header issue
-      firebase_related = ['Firebase', 'firebase', 'Crashlytics', 'Messaging', 'FLTFirebase', 
-                          'firebase_crashlytics', 'firebase_messaging', 'firebase_auth', 
-                          'firebase_analytics', 'firebase_core']
-      if firebase_related.any? { |pod| target.name.include?(pod) }
-        config.build_settings['DEFINES_MODULE'] = 'NO'
-      end
     end
   end
   
