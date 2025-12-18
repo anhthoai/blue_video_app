@@ -20,9 +20,13 @@ void main() async {
   // Load environment variables (optional - will use defaults if .env is missing)
   try {
     await dotenv.load(fileName: ".env");
+    debugPrint('✅ .env file loaded successfully');
+    debugPrint('   API_BASE_URL: ${dotenv.env['API_BASE_URL'] ?? 'not set'}');
   } catch (e) {
     // .env file not found - will use default values from ApiService
-    debugPrint('⚠️ .env file not found, using default API URLs');
+    // ApiService handles NotInitializedError gracefully
+    debugPrint('⚠️ .env file not found or failed to load: $e');
+    debugPrint('   Using default API URLs from ApiService');
   }
 
   // Initialize Firebase (disabled for testing with mock data)

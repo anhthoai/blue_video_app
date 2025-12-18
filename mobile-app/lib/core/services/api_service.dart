@@ -7,8 +7,14 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class ApiService {
-  static String get baseUrl =>
-      dotenv.env['API_BASE_URL'] ?? 'http://192.168.1.100:3000/api/v1';
+  static String get baseUrl {
+    try {
+      return dotenv.env['API_BASE_URL'] ?? 'http://192.168.1.100:3000/api/v1';
+    } catch (e) {
+      // dotenv not initialized, use default
+      return 'http://192.168.1.100:3000/api/v1';
+    }
+  }
 
   // Singleton pattern
   static final ApiService _instance = ApiService._internal();
