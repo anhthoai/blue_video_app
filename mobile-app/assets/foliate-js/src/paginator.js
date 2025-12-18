@@ -1,12 +1,13 @@
 const wait = ms => new Promise(resolve => setTimeout(resolve, ms))
 
 const lerp = (min, max, x) => x * (max - min) + min
-// const easeOutSine = x => Math.sin((x * Math.PI) / 2)
-const easeOutSine = x => 1 - (1 - x) * (1 - x);
-const animate = (a, b, duration, ease, render) => new Promise(resolve => {
+const easeOutSine = x => Math.sin((x * Math.PI) / 2)
+// const easeOutSine = x => 1 - (1 - x) * (1 - x);
+const animate = (a, b, duration, ease, render, { initialProgress = 0 } = {}) => new Promise(resolve => {
   let start
+  const clampedInitial = Math.max(0, Math.min(initialProgress, 0.95))
   const step = now => {
-    start ??= now
+    start ??= now - clampedInitial * duration
     const fraction = Math.min(1, (now - start) / duration)
     render(lerp(a, b, ease(fraction)))
     if (fraction < 1) requestAnimationFrame(step)
@@ -151,16 +152,6 @@ const setStylesImportant = (el, styles) => {
   const { style } = el
   for (const [k, v] of Object.entries(styles)) style.setProperty(k, v, 'important')
 }
-
-const preferNativeSmoothScroll = (() => {
-  // Safari struggles with JS-driven scroll animations, so prefer native smooth scrolling there.
-  if (typeof navigator === 'undefined') return false
-  const ua = navigator.userAgent ?? ''
-  const vendor = navigator.vendor ?? ''
-  const isSafariFamily = /Safari/i.test(ua)
-    && !/(Chrome|CriOS|OPR|Edg|FxiOS|YaBrowser)/i.test(ua)
-  return vendor.includes('Apple') && isSafariFamily
-})()
 
 class View {
   #observer = new ResizeObserver(() => this.expand())
@@ -417,6 +408,9 @@ export class Paginator extends HTMLElement {
   #pendingScrollFrame = null
   #touchState
   #touchScrolled
+  #wheelState = null
+  #wheelScrolling = false
+  #wheelEndTimer = null
   #loadingNext = false
   #loadingPrev = false
   #momentumDisabled = false
@@ -587,6 +581,7 @@ export class Paginator extends HTMLElement {
     this.addEventListener('touchstart', this.#onTouchStart.bind(this), opts)
     this.addEventListener('touchmove', this.#onTouchMove.bind(this), opts)
     this.addEventListener('touchend', this.#onTouchEnd.bind(this), opts)
+    this.#container.addEventListener('wheel', this.#onWheel.bind(this), opts)
     this.addEventListener('load', ({ detail: { doc } }) => {
       doc.addEventListener('touchstart', this.#onTouchStart.bind(this), opts)
       doc.addEventListener('touchmove', this.#onTouchMove.bind(this), opts)
@@ -800,13 +795,13 @@ export class Paginator extends HTMLElement {
     page = Math.max(0, Math.min(pages - 1, page))
     const targetOffset = page * size
     const distance = Math.abs(targetOffset - signedOffset)
-    const baseDuration = 280
-    const duration = Math.max(180, Math.min(380,
+    const baseDuration = 450
+    const duration = Math.max(260, Math.min(380,
       baseDuration * (distance / (size || 1) + 0.2)))
 
     const pageArg = this.#rtl ? -page : page
     this.#disableMomentum()
-    return this.#scrollToPage(pageArg, 'snap', { animate: true, duration, restoreMomentum: true, momentumDelay: 20 }).then(() => {
+    return this.#scrollToPage(pageArg, 'snap', { animate: true, duration, restoreMomentum: true, momentumDelay: 20, initialVelocity: velocity }).then(() => {
       const dir = page <= 0 ? -1 : page >= pages - 1 ? 1 : null
       if (dir) return this.#goTo({
         index: this.#adjacentIndex(dir),
@@ -915,7 +910,12 @@ export class Paginator extends HTMLElement {
     state.vx = stepX / dt
     state.vy = stepY / dt
 
-    if (this.scrolled) return
+    // Disable touchpad/scroll-wheel paging in paginated mode.
+    if (!this.scrolled) {
+      e.preventDefault()
+      return
+    }
+    return
 
     if (verticalDrag && horizontalAxis) {
       e.preventDefault()
@@ -981,6 +981,13 @@ export class Paginator extends HTMLElement {
       else this.#touchState = null
     })
   }
+  #onWheel(e) {
+    if (!this.scrolled) {
+      // Block wheel/touchpad navigation when paginated.
+      e.preventDefault()
+      return
+    }
+  }
   // allows one to process rects as if they were LTR and horizontal
   #getRectMapper() {
     if (this.scrolled) {
@@ -1024,7 +1031,7 @@ export class Paginator extends HTMLElement {
       this.#afterScroll(reason)
       this.#ignoreNativeScroll = false
       if (reason === 'snap' || opts.restoreMomentum) {
-        const delay = opts.momentumDelay ?? 120
+        const delay = opts.momentumDelay ?? 20
         this.#cancelMomentumTimer()
         this.#momentumTimer = setTimeout(() => {
           this.#restoreMomentum()
@@ -1034,6 +1041,7 @@ export class Paginator extends HTMLElement {
     if (reason === 'snap' || opts.disableMomentum) this.#disableMomentum()
 
     const previousBehavior = element.style.scrollBehavior
+    if (shouldAnimate) element.style.scrollBehavior = 'auto'
 
     if (Math.abs(element[scrollProp] - offset) < 1) {
       finish()
@@ -1044,53 +1052,52 @@ export class Paginator extends HTMLElement {
     // FIXME: vertical-rl only, not -lr
     if (this.scrolled && this.#vertical) offset = -offset
 
-    const distance = Math.abs(element[scrollProp] - offset)
-    const baseDuration = 300
-    const adaptiveDuration = opts.duration ?? Math.min(
-      400,
-      Math.max(200, baseDuration * (distance / (size || 1)))
-    )
-
     const useAnimation = shouldAnimate && this.hasAttribute('animated')
-    const useNativeSmoothScroll = useAnimation && preferNativeSmoothScroll
-
-    if (shouldAnimate && !useNativeSmoothScroll) element.style.scrollBehavior = 'auto'
-
-    if (useNativeSmoothScroll) {
-      this.#justAnchored = true
-      const scrollOptions = {
-        left: scrollProp === 'scrollLeft' ? offset : element.scrollLeft,
-        top: scrollProp === 'scrollTop' ? offset : element.scrollTop,
-        behavior: 'smooth',
-      }
-      element.style.scrollBehavior = 'smooth'
-      element.scrollTo(scrollOptions)
-      return new Promise(resolve => {
-        let rafId = null
-        let timeoutId = null
-        let done = false
-        const complete = () => {
-          if (done) return
-          done = true
-          if (rafId != null) cancelAnimationFrame(rafId)
-          if (timeoutId != null) clearTimeout(timeoutId)
-          finish()
-          element.style.scrollBehavior = previousBehavior
-          resolve()
-        }
-        const tick = () => {
-          if (Math.abs(element[scrollProp] - offset) <= 0.5) {
-            complete()
-            return
-          }
-          rafId = requestAnimationFrame(tick)
-        }
-        timeoutId = setTimeout(complete, adaptiveDuration + 120)
-        rafId = requestAnimationFrame(tick)
-      })
-    }
+    const propKey = scrollProp === 'scrollLeft' ? 'left' : 'top'
 
     if (useAnimation) {
+      const distance = Math.abs(element[scrollProp] - offset)
+      const baseDuration = 300
+      const adaptiveDuration = opts.duration ?? Math.min(
+        400,
+        Math.max(200, baseDuration * (distance / (size || 1)))
+      )
+
+      // Give the snap animation an initial kick based on release velocity so it
+      // doesn't start from a standstill and then accelerate.
+      const averageSpeed = adaptiveDuration ? distance / adaptiveDuration : 0
+      const initialSpeed = Math.abs(opts.initialVelocity ?? 0) * 0.3
+      const initialProgress = averageSpeed > 0
+        ? Math.min(0.45, (initialSpeed / averageSpeed) * 0.2)
+        : 0
+
+      // Prefer native smooth scroll (runs on compositor and can keep 120Hz on Safari)
+      const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+      const supportsSmooth = 'scrollBehavior' in document.documentElement.style && isSafari
+      if (supportsSmooth && !opts.forceJsAnimation) {
+        this.#justAnchored = true
+        element.style.scrollBehavior = 'smooth'
+        element.scrollTo({ [propKey]: offset, behavior: 'smooth' })
+
+        // Resolve when we get close to target or after the expected duration.
+        return new Promise(resolve => {
+          const start = performance.now()
+          const check = now => {
+            const done = Math.abs(element[scrollProp] - offset) < 0.5
+              || now - start > adaptiveDuration + 120
+            if (done) resolve()
+            else requestAnimationFrame(check)
+          }
+          requestAnimationFrame(check)
+        }).then(() => {
+          element[scrollProp] = offset
+          return wait(10)
+        }).then(() => {
+          finish()
+          element.style.scrollBehavior = previousBehavior
+        })
+      }
+
       this.#justAnchored = true
 
       return animate(
@@ -1099,6 +1106,7 @@ export class Paginator extends HTMLElement {
         adaptiveDuration,
         easing,
         x => element[scrollProp] = x,
+        { initialProgress },
       ).then(() => {
         element[scrollProp] = offset
         return wait(10)
@@ -1177,7 +1185,7 @@ export class Paginator extends HTMLElement {
       detail.fraction = (page - 1) / (pages - 2)
       detail.size = 1 / (pages - 2)
     }
-    if (!this.scrolled && reason === 'scroll' && (this.#touchState || this.#touchScrolled)) {
+    if (!this.scrolled && reason === 'scroll' && (this.#touchState || this.#touchScrolled || this.#wheelScrolling)) {
       this.#pendingRelocate = detail
       return
     }
@@ -1388,6 +1396,7 @@ export class Paginator extends HTMLElement {
     }
     this.#restoreMomentum()
     this.#pendingRelocate = null
+    if (this.#wheelEndTimer) clearTimeout(this.#wheelEndTimer)
   }
 }
 

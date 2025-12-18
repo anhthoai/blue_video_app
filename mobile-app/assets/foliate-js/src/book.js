@@ -655,17 +655,32 @@ const readingFeaturesDocHandler = (doc) => {
   }
 
   // handle vertical writing mode, replace “”‘’ with 『』「」
-  if (style.writingMode.startsWith('vertical') || reader.view.renderer.writingMode.startsWith('vertical')) {
+  // Be defensive here because style or renderer might not be fully initialized yet
+  const writingMode = style && typeof style.writingMode === 'string'
+    ? style.writingMode
+    : ''
+  const rendererWritingMode =
+    reader &&
+    reader.view &&
+    reader.view.renderer &&
+    typeof reader.view.renderer.writingMode === 'string'
+      ? reader.view.renderer.writingMode
+      : ''
+
+  if (
+    writingMode.startsWith('vertical') ||
+    rendererWritingMode.startsWith('vertical')
+  ) {
     const replaceQuotes = (node) => {
-        if (node.nodeType === Node.TEXT_NODE) {
-          node.textContent = node.textContent
-            .replace(/“/g, '『')
-            .replace(/”/g, '』')
-            .replace(/‘/g, '「')
-            .replace(/’/g, '」');
-        } else {
-          node.childNodes.forEach(child => replaceQuotes(child));
-        }
+      if (node.nodeType === Node.TEXT_NODE) {
+        node.textContent = node.textContent
+          .replace(/“/g, '『')
+          .replace(/”/g, '』')
+          .replace(/‘/g, '「')
+          .replace(/’/g, '」');
+      } else {
+        node.childNodes.forEach(child => replaceQuotes(child));
+      }
     };
     doc.body.childNodes.forEach(node => {
       replaceQuotes(node);
@@ -792,7 +807,10 @@ class Reader {
     this.view.addEventListener('doctouchend', this.#onTouchEnd.bind(this))
 
     setStyle()
-    if (!cfi)
+    // For reflowable books foliate jumps to the first text page when there's no CFI.
+    // For PDFs we want to stay on the very first page, so skip the automatic "next"
+    // behavior when isPdf is true.
+    if (!cfi && !isPdf)
       this.view.renderer.next()
     this.setView(this.view)
     await this.view.init({ lastLocation: cfi })

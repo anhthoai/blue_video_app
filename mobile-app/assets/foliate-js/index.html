@@ -50,15 +50,6 @@
   <main></main>
 </div>
 <script>
-  if (!window.flutter_inappwebview) {
-    window.flutter_inappwebview = {
-      callHandler: function () {
-        console.debug('flutter_inappwebview bridge not available; call ignored.', arguments);
-      },
-    };
-  }
-</script>
-<script>
   (function () {
     const ua = navigator.userAgent || '';
     const platform = navigator.platform || '';
