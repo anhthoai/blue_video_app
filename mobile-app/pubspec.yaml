@@ -115,10 +115,36 @@ flutter:
     - assets/animations/
     - assets/fonts/
     - assets/foliate-js/index.html
-    - assets/foliate-js/dist/
-    - assets/foliate-js/src/
-    - assets/foliate-js/src/vendor/
-    - assets/foliate-js/src/vendor/pdfjs/
+    - assets/foliate-js/dist/bundle.js
+    - assets/foliate-js/dist/bundle.js.LICENSE.txt
+    - assets/foliate-js/dist/pdf-legacy.js
+    - assets/foliate-js/dist/pdf-legacy.js.LICENSE.txt
+    - assets/foliate-js/dist/pdf-legacy.worker.js
+    - assets/foliate-js/dist/pdf-legacy.worker.js.LICENSE.txt
+    - assets/foliate-js/src/book.js
+    - assets/foliate-js/src/comic-book.js
+    - assets/foliate-js/src/dict.js
+    - assets/foliate-js/src/epub.js
+    - assets/foliate-js/src/epubcfi.js
+    - assets/foliate-js/src/fb2.js
+    - assets/foliate-js/src/fixed-layout.js
+    - assets/foliate-js/src/footnotes.js
+    - assets/foliate-js/src/mobi.js
+    - assets/foliate-js/src/opds.js
+    - assets/foliate-js/src/overlayer.js
+    - assets/foliate-js/src/paginator.js
+    - assets/foliate-js/src/pdf.js
+    - assets/foliate-js/src/progress.js
+    - assets/foliate-js/src/search.js
+    - assets/foliate-js/src/text-walker.js
+    - assets/foliate-js/src/translator.js
+    - assets/foliate-js/src/tts.js
+    - assets/foliate-js/src/uri-template.js
+    - assets/foliate-js/src/view.js
+    - assets/foliate-js/src/vendor/fflate.js
+    - assets/foliate-js/src/vendor/zip.js
+    - assets/foliate-js/src/vendor/pdfjs/pdf.js
+    - assets/foliate-js/src/vendor/pdfjs/pdf.worker.js
 
   # fonts:
   #   - family: Roboto
