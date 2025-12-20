@@ -178,42 +178,30 @@ jobs:
             # Navigate to deployment directory
             cd "$DEPLOY_PATH"
             
-            # Backup current deployment
-            if [ -d "current" ]; then
-              echo "📦 Creating backup..."
-              BACKUP_DIR="backup-$(date +%Y%m%d-%H%M%S)"
-              mkdir -p backups
-              mv current backups/$BACKUP_DIR
-              echo "✅ Backup created: backups/$BACKUP_DIR"
+            # Preserve .env file from previous deployment
+            if [ -f ".env" ]; then
+              echo "🔧 Preserving existing .env file..."
+              cp .env /tmp/.env.backup
             fi
             
-            # Extract new deployment
+            # Extract new deployment directly to deployment directory
             echo "📂 Extracting new deployment..."
-            mkdir -p current
-            tar -xzf /tmp/backend-deploy.tar.gz -C current/
+            tar -xzf /tmp/backend-deploy.tar.gz
             rm /tmp/backend-deploy.tar.gz
             
-            # Navigate to current deployment
-            cd current
-            
-            # Preserve .env file from previous deployment or create from example
-            if [ -d "../backups" ] && [ "$(ls -A ../backups 2>/dev/null)" ]; then
-              LATEST_BACKUP=$(ls -t ../backups | head -1)
-              if [ -f "../backups/$LATEST_BACKUP/.env" ]; then
-                echo "🔧 Copying .env from backup..."
-                cp "../backups/$LATEST_BACKUP/.env" .env
-              fi
-            fi
-            
-            # If no .env exists, create from example
-            if [ ! -f ".env" ]; then
+            # Restore .env file if it existed
+            if [ -f "/tmp/.env.backup" ]; then
+              echo "✅ Restoring .env file..."
+              mv /tmp/.env.backup .env
+            elif [ ! -f ".env" ]; then
+              # If no .env exists, create from example
               echo "⚠️  .env file not found. Please create one manually!"
               if [ -f ".env.example" ]; then
                 cp .env.example .env
                 echo "📝 Created .env from .env.example - UPDATE WITH REAL VALUES!"
                 echo ""
                 echo "⚠️  IMPORTANT: Update .env file with real database credentials!"
-                echo "   Edit: $DEPLOY_PATH/current/.env"
+                echo "   Edit: $DEPLOY_PATH/.env"
                 echo ""
               fi
             else
@@ -233,7 +221,7 @@ jobs:
             if npx prisma db push --skip-generate 2>&1 | tee /tmp/prisma-push.log | grep -q "P1000\|P1001\|P1002"; then
               echo "⚠️  Database connection failed - skipping schema push"
               echo "   Configure database credentials in .env and run manually:"
-              echo "   cd $DEPLOY_PATH/current && npx prisma db push"
+              echo "   cd $DEPLOY_PATH && npx prisma db push"
             else
               if grep -q "Your database is now in sync with your Prisma schema\|Database schema was successfully updated" /tmp/prisma-push.log; then
                 echo "✅ Database schema updated successfully"
@@ -271,13 +259,6 @@ jobs:
             echo "✅ Deployment completed!"
             pm2 status
             pm2 logs ${{ env.PM2_APP_NAME }} --lines 50 --nostream
-            
-            # Keep only last 5 backups
-            echo "🧹 Cleaning old backups..."
-            if [ -d "../backups" ]; then
-              cd ../backups
-              ls -t | tail -n +6 | xargs -r rm -rf
-            fi
             
             echo "🎉 Deployment successful!"
 
