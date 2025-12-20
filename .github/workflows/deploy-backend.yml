@@ -12,9 +12,9 @@ on:
 
 env:
   NODE_VERSION: '18.x'
-  DEPLOY_PATH: '/home/onlybl-api/htdocs/api.onlybl.com'
   PM2_APP_NAME: 'blue-video-backend'
   # Updated: 2025-10-26 - Prisma seed fixes included
+  # DEPLOY_PATH will be calculated dynamically in the workflow
 
 jobs:
   deploy:
@@ -48,6 +48,37 @@ jobs:
         run: |
           cd backend
           npm run build:deploy
+
+      - name: Calculate deployment path
+        id: deploy_path
+        run: |
+          # Use BACKEND_DEPLOY_PATH if set, otherwise construct from VPS_USERNAME and API_URL
+          if [ -n "${{ secrets.BACKEND_DEPLOY_PATH }}" ]; then
+            DEPLOY_PATH="${{ secrets.BACKEND_DEPLOY_PATH }}"
+            echo "✅ Using BACKEND_DEPLOY_PATH: $DEPLOY_PATH"
+          else
+            # Get VPS_USERNAME and API_URL/BACKEND_URL
+            VPS_USERNAME="${{ secrets.VPS_USERNAME }}"
+            API_URL="${{ secrets.BACKEND_URL || secrets.API_URL }}"
+            
+            if [ -z "$VPS_USERNAME" ]; then
+              echo "❌ Error: VPS_USERNAME secret is required when BACKEND_DEPLOY_PATH is not set"
+              exit 1
+            fi
+            
+            if [ -z "$API_URL" ]; then
+              echo "❌ Error: BACKEND_URL or API_URL secret is required when BACKEND_DEPLOY_PATH is not set"
+              exit 1
+            fi
+            
+            # Extract domain from URL (remove protocol and path)
+            DOMAIN=$(echo "$API_URL" | sed -E 's|^https?://||' | sed -E 's|/.*||')
+            DEPLOY_PATH="/home/$VPS_USERNAME/htdocs/$DOMAIN"
+            echo "✅ Constructed DEPLOY_PATH from VPS_USERNAME and API_URL: $DEPLOY_PATH"
+          fi
+          
+          echo "DEPLOY_PATH=$DEPLOY_PATH" >> $GITHUB_OUTPUT
+          echo "📍 Final deployment path: $DEPLOY_PATH"
 
       - name: Create deployment package
         run: |
@@ -140,8 +171,12 @@ jobs:
             echo "📍 Node version: $(node -v)"
             echo "📍 npm version: $(npm -v)"
             
+            # Set deployment path from workflow output
+            export DEPLOY_PATH="${{ steps.deploy_path.outputs.DEPLOY_PATH }}"
+            echo "📍 Deployment path: $DEPLOY_PATH"
+            
             # Navigate to deployment directory
-            cd ${{ env.DEPLOY_PATH }}
+            cd "$DEPLOY_PATH"
             
             # Backup current deployment
             if [ -d "current" ]; then
@@ -178,7 +213,7 @@ jobs:
                 echo "📝 Created .env from .env.example - UPDATE WITH REAL VALUES!"
                 echo ""
                 echo "⚠️  IMPORTANT: Update .env file with real database credentials!"
-                echo "   Edit: ${{ env.DEPLOY_PATH }}/current/.env"
+                echo "   Edit: $DEPLOY_PATH/current/.env"
                 echo ""
               fi
             else
@@ -198,7 +233,7 @@ jobs:
             if npx prisma db push --skip-generate 2>&1 | tee /tmp/prisma-push.log | grep -q "P1000\|P1001\|P1002"; then
               echo "⚠️  Database connection failed - skipping schema push"
               echo "   Configure database credentials in .env and run manually:"
-              echo "   cd ${{ env.DEPLOY_PATH }}/current && npx prisma db push"
+              echo "   cd $DEPLOY_PATH/current && npx prisma db push"
             else
               if grep -q "Your database is now in sync with your Prisma schema\|Database schema was successfully updated" /tmp/prisma-push.log; then
                 echo "✅ Database schema updated successfully"
@@ -251,8 +286,13 @@ jobs:
           echo "🏥 Performing health check..."
           sleep 10
           
-          # Replace with your actual API URL
-          HEALTH_URL="${{ secrets.API_URL }}/health"
+          # Use BACKEND_URL if set, otherwise fall back to API_URL
+          API_URL="${{ secrets.BACKEND_URL || secrets.API_URL }}"
+          if [ -z "$API_URL" ]; then
+            echo "⚠️  No API URL configured for health check"
+            exit 0
+          fi
+          HEALTH_URL="$API_URL/health"
           
           MAX_RETRIES=5
           RETRY_COUNT=0
