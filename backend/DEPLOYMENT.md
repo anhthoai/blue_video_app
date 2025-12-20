@@ -152,7 +152,7 @@ npm install -g pm2
 Start the application:
 ```bash
 cd /home/cloudpanel/htdocs/api.example.com/current
-pm2 start dist/server-local.js --name blue-video-backend \
+pm2 start dist/server.js --name blue-video-backend \
   --time \
   --instances 2 \
   --exec-mode cluster \
@@ -342,7 +342,7 @@ Test S3 connection manually from the VPS.
 Restart PM2 with lower memory limit:
 ```bash
 pm2 delete blue-video-backend
-pm2 start dist/server-local.js --name blue-video-backend \
+pm2 start dist/server.js --name blue-video-backend \
   --instances 1 \
   --max-memory-restart 300M
 pm2 save

@@ -2,7 +2,7 @@ module.exports = {
   apps: [
     {
       name: 'blue-video-backend',
-      script: './dist/server-local.js',
+      script: './dist/server.js',
       instances: 2, // Use cluster mode with 2 instances
       exec_mode: 'cluster',
       

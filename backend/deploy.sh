@@ -192,7 +192,7 @@ deploy_on_vps() {
                 pm2 start ecosystem.config.js --env production
             else
                 echo "🚀 Starting new PM2 process..."
-                pm2 start dist/server-local.js --name "$PM2_APP_NAME" \
+                pm2 start dist/server.js --name "$PM2_APP_NAME" \
                     --time \
                     --instances 2 \
                     --exec-mode cluster \

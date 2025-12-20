@@ -11,7 +11,7 @@
     "noEmitOnError": false
   },
   "include": [
-    "src/server-local.ts",
+    "src/server.ts",
     "src/lib/**/*",
     "src/services/**/*",
     "src/utils/**/*",

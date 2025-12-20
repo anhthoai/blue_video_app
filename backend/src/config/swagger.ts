@@ -383,7 +383,7 @@ const swaggerOptions: swaggerJsdoc.Options = {
       },
     ],
   },
-  apis: ['./src/server-local.ts', './src/routes/*.ts'], // Path to files with JSDoc comments
+  apis: ['./src/server.ts', './src/routes/*.ts'], // Path to files with JSDoc comments
 };
 
 export const swaggerSpec = swaggerJsdoc(swaggerOptions);

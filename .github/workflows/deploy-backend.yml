@@ -257,7 +257,7 @@ jobs:
               pm2 reload ${{ env.PM2_APP_NAME }} --update-env
             else
               echo "🚀 Starting new PM2 process..."
-              pm2 start dist/server-local.js \
+              pm2 start dist/server.js \
                 --name ${{ env.PM2_APP_NAME }} \
                 --time \
                 -i 2 \

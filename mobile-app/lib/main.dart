@@ -19,7 +19,7 @@ void main() async {
 
   // Load environment variables (optional - will use defaults if .env is missing)
   try {
-    await dotenv.load(fileName: ".env");
+  await dotenv.load(fileName: ".env");
     debugPrint('✅ .env file loaded successfully');
     debugPrint('   API_BASE_URL: ${dotenv.env['API_BASE_URL'] ?? 'not set'}');
   } catch (e) {
