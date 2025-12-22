@@ -6,7 +6,7 @@ import axios, { AxiosError } from 'axios';
 
 import { StorageService } from '../src/config/storage';
 
-const API_BASE_URL = process.env['API_URL'] || 'http://127.0.0.1:3000';
+const API_BASE_URL = process.env['API_URL'] || 'http://127.0.0.1:8000';
 const LOGIN_EMAIL = process.env['ADMIN_EMAIL'] || 'admin@example.com';
 const LOGIN_PASSWORD = process.env['ADMIN_PASSWORD'] || '123456';
 
@@ -83,13 +83,16 @@ function getHashSubfolder(filename: string): string {
 }
 
 /**
- * Build a storage path with date and hash-based subfolder partitioning.
- * Format: {baseFolder}/{year}/{month}/{day}/{hashSubfolder}
+ * Build a storage path with optional date and hash-based subfolder partitioning.
+ * Format: {baseFolder}/{datePath}/{hashSubfolder} or {baseFolder}/{hashSubfolder} if datePath is not provided
  * This ensures files are distributed across multiple folders to avoid S3's 10,000 file limit.
  */
-function buildStoragePath(baseFolder: string, datePath: string, filename: string): string {
+function buildStoragePath(baseFolder: string, filename: string, datePath?: string): string {
   const hashSubfolder = getHashSubfolder(filename);
-  return `${baseFolder}/${datePath}/${hashSubfolder}`;
+  if (datePath) {
+    return `${baseFolder}/${datePath}/${hashSubfolder}`;
+  }
+  return `${baseFolder}/${hashSubfolder}`;
 }
 
 /**
@@ -201,11 +204,11 @@ async function createManualEntry(token: string, crawledMovie: CrawledMovie): Pro
         log(`   📥 Uploading thumbnail to S3...`, colors.blue);
         
         // Build date-based storage prefix using current date
-        const now = new Date();
-        const year = now.getFullYear();
-        const month = String(now.getMonth() + 1).padStart(2, '0');
-        const day = String(now.getDate()).padStart(2, '0');
-        const datePath = `${year}/${month}/${day}`;
+        //const now = new Date();
+        //const year = now.getFullYear();
+        //const month = String(now.getMonth() + 1).padStart(2, '0');
+        //const day = String(now.getDate()).padStart(2, '0');
+        //const datePath = `${year}/${month}/${day}`;
 
         // Use movie title as filename (sanitized)
         const filenameId = crawledMovie.title
@@ -215,7 +218,7 @@ async function createManualEntry(token: string, crawledMovie: CrawledMovie): Pro
           .replace(/^-+|-+$/g, '')
           .toLowerCase() || 'poster';
 
-        const thumbnailPath = buildStoragePath('posters', datePath, filenameId);
+        const thumbnailPath = buildStoragePath('posters', filenameId);
         
         const thumbnailResult = await StorageService.uploadFromUrl(
           crawledMovie.thumbnailUrl,
@@ -586,7 +589,7 @@ async function importBatch(
 
     // Delay between imports to avoid rate limiting
     if (i < moviesToImport.length - 1) {
-      await sleep(1000); // 1 second delay
+      await sleep(10); // 1 second delay
     }
   }
 
