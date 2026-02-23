@@ -274,8 +274,8 @@ All guides available in project:
 
 1. **LIBRARY_FEATURE.md** - Complete feature specification
 2. **LIBRARY_SETUP_INSTRUCTIONS.md** - Initial setup
-3. **LIBRARY_BACKEND_COMPLETE.md** - Backend API docs
-4. **LIBRARY_PHASE2_COMPLETE.md** - Mobile app implementation
+3. **LIBRARY_BACKEND_COMPLETE.md** - Archived stub (previous content in git history)
+4. **LIBRARY_PHASE2_COMPLETE.md** - Archived stub (previous content in git history)
 5. **LIBRARY_TESTING_GUIDE.md** - Testing procedures
 6. **DYNAMIC_FILTERS_UPDATE.md** - Dynamic filter system
 7. **LGBTQ_TAGGING_GUIDE.md** - How to tag content
@@ -283,7 +283,7 @@ All guides available in project:
 9. **LIBRARY_COMPLETE_GUIDE.md** - This file
 10. **IMPORT_SCRIPT_USAGE.md** - Import script docs
 11. **FIXES_APPLIED.md** - Recent fixes
-12. **COMPLETE_SETUP_SUMMARY.md** - Setup summary
+12. **COMPLETE_SETUP_SUMMARY.md** - Archived stub (use this guide + docs/getting-started)
 
 ---
 

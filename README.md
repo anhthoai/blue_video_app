@@ -44,7 +44,7 @@ blue_video_app/
 │
 ├── backend/                       # Node.js backend API
 │   ├── src/
-│   │   ├── server-local.ts       # Main server file with all endpoints
+│   │   ├── server.ts             # Main server file with all endpoints
 │   │   ├── services/             # Email, S3, Payment, Video processing
 │   │   ├── config/               # Swagger, Database config
 │   │   ├── middleware/           # Auth, Rate limiting

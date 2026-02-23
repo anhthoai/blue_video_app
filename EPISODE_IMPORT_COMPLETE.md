@@ -1,5 +1,10 @@
 # Episode Import - Complete ✅
 
+**Doc status:** Canonical (current source of truth)
+
+Older write-up (now archived stub to reduce duplication):
+- [EPISODE_IMPORT_FIXED.md](./EPISODE_IMPORT_FIXED.md)
+
 ## Authentication Fixed
 
 Successfully implemented uloz.to API authentication based on the working Cloudflare Workers code:
@@ -107,20 +112,18 @@ node import-episodes.js <movieId> <slug> <episodeNumber> <seasonNumber>
 node import-episodes.js <movieId> https://uloz.to/file/YINK3siyuOvV
 ```
 
-## Movie Detail Screen
+## Additional Improvements
 
-The movie detail screen shows "Movie not found" - this needs investigation:
+- ✅ Supports `MOVIE` and `SHORT` types (not just `TV_SERIES`)
+- ✅ Accepts either a full uloz.to URL or just a slug (auto-detects file vs folder)
+- ✅ Preserves/uses full filename for display when no title is available
 
-### Possible Issues:
-1. **Cache**: Mobile app might be caching old state
-2. **Refresh**: Need to pull-to-refresh to reload data
-3. **Route**: Check if navigation path is correct
+## Mobile App Notes
 
-### Next Steps:
-1. **Delete the existing episode** (if any) to test re-import
-2. **Re-import the episode** with fixed field mapping
-3. **Force refresh** the mobile app (pull-to-refresh or restart)
-4. **Check backend logs** to see if the detail endpoint is being called
+If the UI doesn't reflect newly imported episodes/files immediately:
+1. Pull-to-refresh on the movie detail screen
+2. Restart the mobile app
+3. Check backend logs to confirm the detail endpoint is being called
 
 ## Testing Checklist:
 

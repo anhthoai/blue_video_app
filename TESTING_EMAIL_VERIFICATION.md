@@ -214,7 +214,7 @@ LIMIT 5;
 
 **Enable debug logging:**
 ```typescript
-// In server-local.ts, registration endpoint
+// In backend/src/server.ts, registration endpoint
 console.log('📧 Token:', verificationToken.substring(0, 20) + '...');
 console.log('📧 Expiry:', verificationTokenExpiry);
 console.log('📧 Email service configured:', emailService.isEmailConfigured());
@@ -255,7 +255,7 @@ bluevideoapp://verify-email?token=<token>
 
 **Measure:**
 ```typescript
-// In server-local.ts
+// In backend/src/server.ts
 const startTime = Date.now();
 await emailService.sendVerificationEmail(...);
 const endTime = Date.now();

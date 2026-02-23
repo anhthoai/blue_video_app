@@ -1,5 +1,11 @@
 # ✅ Multi-Language Translation - COMPLETE
 
+**Doc status:** Canonical (current source of truth)
+
+If you are looking for older progress notes, see:
+- [TRANSLATION_STATUS.md](./TRANSLATION_STATUS.md) (archived stub; previous content in git history)
+- [TRANSLATION_PROGRESS.md](./TRANSLATION_PROGRESS.md) (archived stub; previous content in git history)
+
 ## 🎉 Summary
 
 Successfully implemented comprehensive multi-language support for the Blue Video app with **English**, **Chinese (Simplified)**, and **Japanese** translations across all major screens!

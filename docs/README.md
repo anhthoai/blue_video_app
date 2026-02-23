@@ -1,6 +1,15 @@
 # Blue Video App - Documentation
 
-Comprehensive documentation for the Blue Video App project.
+This folder is the **documentation hub** for the Blue Video App project.
+
+Quick links:
+- Getting started: [getting-started.md](./getting-started.md)
+- Repo map: [repo-structure.md](./repo-structure.md)
+- Configuration/secrets: [configuration.md](./configuration.md)
+- Existing feature guides index: [reference-guides.md](./reference-guides.md)
+- Maintenance checklist: [maintenance-checklist.md](./maintenance-checklist.md)
+- Project status / TODO: [master-checklist.md](./master-checklist.md)
+- Consolidation map: [consolidation-map.md](./consolidation-map.md)
 
 ## 📚 Documentation Structure
 
@@ -32,6 +41,11 @@ Comprehensive documentation for the Blue Video App project.
 - [Backup Strategy](./operations/backup-strategy.md)
 
 ## 🚀 Quick Start
+
+### For Full-Stack Development (recommended)
+1. Start here: [Getting Started](./getting-started.md)
+2. Configure endpoints/secrets: [Configuration](./configuration.md)
+3. Use feature guides as needed: [Reference Guides](./reference-guides.md)
 
 ### For Mobile App Development
 1. See [Flutter Setup Guide](./mobile-app/flutter-setup.md)

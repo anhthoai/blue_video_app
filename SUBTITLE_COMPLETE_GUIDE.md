@@ -1,5 +1,10 @@
 # Subtitle Support - Complete Implementation Guide
 
+**Doc status:** Canonical (current source of truth)
+
+Older backend-only summary (may contain outdated TODOs):
+- [SUBTITLE_FEATURE_SUMMARY.md](./SUBTITLE_FEATURE_SUMMARY.md) (archived stub; previous content in git history)
+
 ## ✅ Implementation Complete!
 
 ### **Backend** ✅
@@ -18,6 +23,11 @@
 - Real-time subtitle display during playback
 - SRT/VTT parser
 - Subtitle sync with video position
+
+### Fixes Included
+- ✅ Subtitle selector bottom sheet overflow resolved
+- ✅ Subtitle loading via backend stream URL (avoids direct `fileUrl` 404s)
+- ✅ Auto-loads English subtitles when available
 
 ---
 
@@ -461,7 +471,7 @@ $ node import-episodes.js <movie-id> <folder-slug>
 
 ### Documentation
 - ✅ `backend/SUBTITLE_SUPPORT.md`
-- ✅ `SUBTITLE_FEATURE_SUMMARY.md`
+- ⚠️ `SUBTITLE_FEATURE_SUMMARY.md` (archived stub; previous content in git history)
 - ✅ `backend/SUBTITLE_IMPORT_FIXES.md`
 - ✅ `SUBTITLE_COMPLETE_GUIDE.md`
 

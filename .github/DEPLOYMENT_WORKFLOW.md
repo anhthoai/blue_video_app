@@ -112,7 +112,7 @@
 ```
 backend-deploy.tar.gz
 ├── dist/                       # Compiled JavaScript files
-│   ├── server-local.js
+│   ├── server.js
 │   ├── config/
 │   ├── controllers/
 │   ├── middleware/

@@ -1,5 +1,10 @@
 # 🧪 Blue Video App - Testing Guide
 
+**Doc status:** Canonical (current source of truth)
+
+Older “ready for testing” note (now archived stub):
+- [README_TESTING.md](./README_TESTING.md)
+
 ## 📱 How to Test the App
 
 Since we don't have real API connections yet, the app is set up with **comprehensive mock data** for testing all features. Here's how to test everything:

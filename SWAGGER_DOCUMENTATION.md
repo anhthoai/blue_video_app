@@ -41,7 +41,7 @@ The Blue Video API now includes comprehensive OpenAPI 3.0 documentation powered 
   - Files
   - VIP
 
-### 3. **Swagger UI Integration** (`src/server-local.ts`)
+### 3. **Swagger UI Integration** (`src/server.ts`)
 - Added Swagger UI at `/api-docs`
 - Added OpenAPI JSON endpoint at `/api-docs.json`
 - Removed mock test endpoint (`/api/v1/test`)
@@ -252,7 +252,7 @@ Start with the most important endpoints (auth, videos, posts) and add more over 
 ## Configuration Files Modified
 
 1. `backend/src/config/swagger.ts` - New file with OpenAPI configuration
-2. `backend/src/server-local.ts` - Integrated Swagger UI middleware
+2. `backend/src/server.ts` - Integrated Swagger UI middleware
 3. `backend/package.json` - Added Swagger dependencies
 
 ## Deployment

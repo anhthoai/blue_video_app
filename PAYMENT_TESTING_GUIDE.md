@@ -153,7 +153,7 @@ POST /api/v1/payment/mock-ipn/:orderId
 4. The backend logs `🎭 Simulating IPN for local development…` and the payment becomes `COMPLETED` immediately.
 5. The app polling loop detects the status change and runs the normal success flow.
 
-> **Reminder:** Mock IPN only exists in the development server (`server-local.ts`). Do not enable it in production.
+> **Reminder:** Mock IPN is intended for local development and is implemented in the backend server (`backend/src/server.ts`). Do not expose or rely on it in production.
 
 ---
 

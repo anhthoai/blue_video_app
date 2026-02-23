@@ -1,5 +1,10 @@
 # Movie Player with Episode Selection - Complete ✅
 
+**Doc status:** Canonical (current source of truth)
+
+If you are looking for the older external-player approach, see:
+- [MOVIE_PLAYBACK_COMPLETE.md](./MOVIE_PLAYBACK_COMPLETE.md) (archived stub; previous content in git history)
+
 ## Overview
 
 Implemented a dedicated movie player screen that allows users to watch movies/TV series with seamless episode switching without closing the player.

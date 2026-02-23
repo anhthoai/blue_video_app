@@ -42,7 +42,7 @@ User now has full access
 
 ### 2. Token Generation
 
-**Backend (`server-local.ts`):**
+**Backend (`backend/src/server.ts`):**
 ```typescript
 const verificationToken = jwt.sign(
   { email, type: 'email_verification' },
@@ -503,7 +503,7 @@ ALTER TABLE users ADD COLUMN verification_token_expiry TIMESTAMP;
    - Beautiful HTML email template
    - Plain text fallback
 
-3. **`src/server-local.ts`**
+3. **`src/server.ts`**
    - Modified `/api/v1/auth/register` endpoint:
      - Generate verification token
      - Save token to database

@@ -183,7 +183,7 @@ Already using v3 (no changes needed):
 - `backend/src/services/s3Service.ts`
 - `backend/src/services/videoProcessingService.ts`
 - `backend/src/utils/fileUrl.ts`
-- `backend/src/server-local.ts`
+- `backend/src/server.ts`
 
 ## Next Steps (Optional)
 
