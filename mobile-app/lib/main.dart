@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:media_kit/media_kit.dart';
 
 import 'core/theme/app_theme.dart';
 import 'core/router/app_router.dart';
@@ -16,6 +17,9 @@ import 'l10n/app_localizations.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize media_kit (required before creating any Player instances).
+  MediaKit.ensureInitialized();
 
   // Load environment variables (optional - will use defaults if .env is missing)
   try {

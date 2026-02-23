@@ -35,6 +35,9 @@ dependencies:
   # Video & Media
   video_player: ^2.8.2
   chewie: ^1.7.4
+  media_kit: ^1.2.6
+  media_kit_video: ^2.0.1
+  media_kit_libs_video: ^1.0.7
   webview_flutter: ^4.4.2
   flutter_inappwebview:
     git:
@@ -46,6 +49,7 @@ dependencies:
   mime: ^1.0.4
   audioplayers: ^5.2.1
   path_provider: ^2.1.1
+  path: ^1.9.0
   shelf: ^1.4.1
   ffmpeg_kit_flutter_new: ^3.2.0
   # image_cropper: ^5.0.1  # Removed due to compatibility issues
@@ -72,12 +76,12 @@ dependencies:
   firebase_crashlytics: ^3.4.9
 
   # Utilities
-  intl: ^0.19.0
+  intl: ^0.20.2
   url_launcher: ^6.2.2
   open_file: ^3.3.2
   permission_handler: ^11.2.0
   device_info_plus: ^9.1.1
-  package_info_plus: ^4.2.0
+  package_info_plus: ^9.0.0
   connectivity_plus: ^5.0.2
   archive: ^3.4.9
   charset: ^1.1.0

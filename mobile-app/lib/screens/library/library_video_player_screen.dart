@@ -5,11 +5,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:html_unescape/html_unescape.dart';
 import 'package:http/http.dart' as http;
-import 'package:video_player/video_player.dart';
+import 'package:media_kit/media_kit.dart';
+import 'package:media_kit_video/media_kit_video.dart';
 
 import '../../core/models/library_navigation.dart';
 import '../../core/models/library_item_model.dart';
 import '../../utils/subtitle_parser.dart';
+import '../../utils/language_labels.dart' as lang;
 
 class LibraryVideoPlayerScreen extends StatefulWidget {
   const LibraryVideoPlayerScreen({super.key, required this.args});
@@ -25,7 +27,12 @@ class _LibraryVideoPlayerScreenState extends State<LibraryVideoPlayerScreen>
     with WidgetsBindingObserver {
   final ScrollController _scrollController = ScrollController();
   final HtmlUnescape _htmlUnescape = HtmlUnescape();
-  VideoPlayerController? _videoController;
+  Player? _player;
+  VideoController? _videoController;
+  StreamSubscription<Duration>? _positionSub;
+  StreamSubscription<Duration>? _durationSub;
+  StreamSubscription<bool>? _playingSub;
+  StreamSubscription<bool>? _completedSub;
   bool _isPlaying = false;
   bool _showControls = true;
   Duration _currentPosition = Duration.zero;
@@ -44,6 +51,130 @@ class _LibraryVideoPlayerScreenState extends State<LibraryVideoPlayerScreen>
   List<SubtitleItem>? _subtitleItems;
   String _currentSubtitleText = '';
 
+  Future<void> _showTracksSheet() async {
+    final player = _player;
+    if (player == null) return;
+
+    final tracks = player.state.tracks;
+    final currentAudio = player.state.track.audio;
+    final currentSubtitle = player.state.track.subtitle;
+
+    List<AudioTrack> _dedupeAudio(Iterable<AudioTrack> list) {
+      final seen = <String>{};
+      final out = <AudioTrack>[];
+      for (final t in list) {
+        final id = lang.trackId(t.id);
+        if (!seen.add(id)) continue;
+        out.add(t);
+      }
+      return out;
+    }
+
+    List<SubtitleTrack> _dedupeSubtitle(Iterable<SubtitleTrack> list) {
+      final seen = <String>{};
+      final out = <SubtitleTrack>[];
+      for (final t in list) {
+        final id = lang.trackId(t.id);
+        if (!seen.add(id)) continue;
+        out.add(t);
+      }
+      return out;
+    }
+
+    final audioTracks = _dedupeAudio(
+      <AudioTrack>[AudioTrack.auto(), AudioTrack.no(), ...tracks.audio],
+    );
+    final subtitleTracks = _dedupeSubtitle(
+      <SubtitleTrack>[
+        SubtitleTrack.auto(),
+        SubtitleTrack.no(),
+        ...tracks.subtitle,
+      ],
+    );
+
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.white,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) {
+        return DraggableScrollableSheet(
+          initialChildSize: 0.55,
+          minChildSize: 0.35,
+          maxChildSize: 0.9,
+          expand: false,
+          builder: (context, scrollController) {
+            return ListView(
+              controller: scrollController,
+              children: [
+                const SizedBox(height: 8),
+                const ListTile(
+                  title: Text('Tracks'),
+                  subtitle: Text('Select audio & subtitle tracks'),
+                ),
+                const Divider(height: 1),
+                const Padding(
+                  padding: EdgeInsets.fromLTRB(16, 12, 16, 6),
+                  child: Text(
+                    'Audio',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                ),
+                ...audioTracks.asMap().entries.map((entry) {
+                  final idx = entry.key;
+                  final t = entry.value;
+                  final selected =
+                      lang.trackId(currentAudio.id) == lang.trackId(t.id);
+                  return ListTile(
+                    title: Text(lang.audioTrackLabel(t, index: idx)),
+                    trailing: selected ? const Icon(Icons.check) : null,
+                    onTap: () async {
+                      await player.setAudioTrack(t);
+                      if (context.mounted) Navigator.of(context).pop();
+                    },
+                  );
+                }),
+                const Divider(height: 1),
+                const Padding(
+                  padding: EdgeInsets.fromLTRB(16, 12, 16, 6),
+                  child: Text(
+                    'Subtitles',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                ),
+                ...subtitleTracks.asMap().entries.map((entry) {
+                  final idx = entry.key;
+                  final t = entry.value;
+                  final selected =
+                      lang.trackId(currentSubtitle.id) == lang.trackId(t.id);
+                  return ListTile(
+                    title: Text(lang.subtitleTrackLabel(t, index: idx)),
+                    trailing: selected ? const Icon(Icons.check) : null,
+                    onTap: () async {
+                      // If user selects embedded subtitles, hide external overlay.
+                      if (_subtitleItems != null) {
+                        setState(() {
+                          _selectedSubtitle = null;
+                          _subtitleItems = null;
+                          _currentSubtitleText = '';
+                        });
+                      }
+                      await player.setSubtitleTrack(t);
+                      if (context.mounted) Navigator.of(context).pop();
+                    },
+                  );
+                }),
+                const SizedBox(height: 16),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
   List<LibraryItemModel> get videos => widget.args.videos;
   List<LibraryItemModel> get subtitles => widget.args.subtitles;
 
@@ -60,7 +191,16 @@ class _LibraryVideoPlayerScreenState extends State<LibraryVideoPlayerScreen>
   @override
   void dispose() {
     _scrollController.dispose();
-    _videoController?.dispose();
+    _positionSub?.cancel();
+    _durationSub?.cancel();
+    _playingSub?.cancel();
+    _completedSub?.cancel();
+    final player = _player;
+    _player = null;
+    _videoController = null;
+    if (player != null) {
+      unawaited(player.dispose());
+    }
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -68,7 +208,7 @@ class _LibraryVideoPlayerScreenState extends State<LibraryVideoPlayerScreen>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.paused) {
-      _videoController?.pause();
+      _player?.pause();
       setState(() {
         _isPlaying = false;
       });
@@ -78,11 +218,51 @@ class _LibraryVideoPlayerScreenState extends State<LibraryVideoPlayerScreen>
   void _onScroll() {
     // Auto-pause video when scrolling down
     if (_scrollController.offset > 50 && _isPlaying) {
-      _videoController?.pause();
+      _player?.pause();
       setState(() {
         _isPlaying = false;
       });
     }
+  }
+
+  void _attachPlayerListeners() {
+    final player = _player;
+    if (player == null) return;
+
+    _positionSub?.cancel();
+    _durationSub?.cancel();
+    _playingSub?.cancel();
+    _completedSub?.cancel();
+
+    _positionSub = player.stream.position.listen((position) {
+      if (!mounted) return;
+      setState(() {
+        _currentPosition = position;
+      });
+      _updateSubtitleText();
+    });
+
+    _durationSub = player.stream.duration.listen((duration) {
+      if (!mounted) return;
+      setState(() {
+        _totalDuration = duration;
+      });
+    });
+
+    _playingSub = player.stream.playing.listen((playing) {
+      if (!mounted) return;
+      setState(() {
+        _isPlaying = playing;
+      });
+    });
+
+    _completedSub = player.stream.completed.listen((completed) {
+      if (!mounted) return;
+      if (completed && !_hasPlayedNext) {
+        _hasPlayedNext = true;
+        _playNextVideo();
+      }
+    });
   }
 
   Future<void> _loadVideo(LibraryItemModel video) async {
@@ -97,10 +277,16 @@ class _LibraryVideoPlayerScreenState extends State<LibraryVideoPlayerScreen>
     });
 
     try {
-      // Dispose previous controller
-      if (_videoController != null) {
-        await _videoController!.dispose();
-        _videoController = null;
+      // Dispose previous player
+      _positionSub?.cancel();
+      _durationSub?.cancel();
+      _playingSub?.cancel();
+      _completedSub?.cancel();
+      final oldPlayer = _player;
+      _player = null;
+      _videoController = null;
+      if (oldPlayer != null) {
+        await oldPlayer.dispose();
       }
 
       setState(() {
@@ -116,58 +302,25 @@ class _LibraryVideoPlayerScreenState extends State<LibraryVideoPlayerScreen>
 
       print('🔗 Stream URL: $streamUrl');
 
-      // Initialize video player
-      _videoController = VideoPlayerController.networkUrl(
-        Uri.parse(streamUrl),
-      );
+      // Initialize media_kit player
+      _player = Player();
+      _videoController = VideoController(_player!);
+      _attachPlayerListeners();
+      await _player!.open(Media(streamUrl));
 
-      // Add listener for position updates, subtitles, and auto-play next
-      _videoController!.addListener(() {
-        if (mounted && _videoController != null) {
-          setState(() {
-            _currentPosition = _videoController!.value.position;
-            _totalDuration = _videoController!.value.duration;
-          });
-
-          // Update subtitle text based on current position
-          _updateSubtitleText();
-
-          // Check if video has finished and auto-play next
-          if (!_hasPlayedNext &&
-              _videoController!.value.position >=
-                  _videoController!.value.duration &&
-              _videoController!.value.duration.inSeconds > 0) {
-            _hasPlayedNext = true;
-            _playNextVideo();
-          }
-        }
-      });
-
-      await _videoController!.initialize();
-
-      print('✅ Video player initialized successfully');
+      print('✅ media_kit player opened successfully');
 
       setState(() {
         _isVideoInitialized = true;
         _isInitializing = false;
-        _isPlaying = true;
-        _totalDuration = _videoController!.value.duration;
         _hasPlayedNext = false;
       });
 
-      _videoController!.play();
+      await _player!.play();
 
       // Auto-load English subtitle if available
       _autoLoadEnglishSubtitle(video);
 
-      // Auto-hide controls
-      Future.delayed(const Duration(seconds: 3), () {
-        if (mounted && _isPlaying) {
-          setState(() {
-            _showControls = false;
-          });
-        }
-      });
     } catch (e) {
       print('❌ Error loading video: ${e.toString()}');
 
@@ -200,12 +353,11 @@ class _LibraryVideoPlayerScreenState extends State<LibraryVideoPlayerScreen>
   }
 
   void _updateSubtitleText() {
-    if (_subtitleItems == null || _videoController == null) {
+    if (_subtitleItems == null) {
       return;
     }
 
-    final position = _videoController!.value.position;
-    final currentMillis = position.inMilliseconds;
+    final currentMillis = _currentPosition.inMilliseconds;
 
     // Find subtitle for current time
     for (final item in _subtitleItems!) {
@@ -568,28 +720,13 @@ class _LibraryVideoPlayerScreenState extends State<LibraryVideoPlayerScreen>
   }
 
   void _togglePlayPause() {
-    if (_videoController == null || !_isVideoInitialized) return;
-
-    setState(() {
-      if (_isPlaying) {
-        _videoController!.pause();
-        _isPlaying = false;
-        _showControls = true;
-      } else {
-        _videoController!.play();
-        _isPlaying = true;
-        _showControls = true;
-
-        // Auto-hide controls
-        Future.delayed(const Duration(seconds: 3), () {
-          if (mounted && _isPlaying) {
-            setState(() {
-              _showControls = false;
-            });
-          }
-        });
-      }
-    });
+    final player = _player;
+    if (player == null || !_isVideoInitialized) return;
+    if (_isPlaying) {
+      player.pause();
+    } else {
+      player.play();
+    }
   }
 
   void _toggleControls() {
@@ -692,301 +829,115 @@ class _LibraryVideoPlayerScreenState extends State<LibraryVideoPlayerScreen>
     final screenSize = mediaQuery.size;
     final orientation = mediaQuery.orientation;
     final isLandscape = orientation == Orientation.landscape;
-    final bool controlsVisible = _showControls && !_isInitializing;
     final bool subtitleActive =
         _isVideoInitialized && _currentSubtitleText.isNotEmpty;
-    final double baseSubtitleBottom = _isFullscreen ? 20 : 16;
-    final double controlOffset =
-        controlsVisible ? (_isFullscreen ? 75 : 60) : 0;
-    final double subtitleBottom = baseSubtitleBottom + controlOffset;
+    final double subtitleBottom = _isFullscreen ? 20 : 16;
 
-    return GestureDetector(
-      onTap: _toggleControls,
-      child: SizedBox(
-        height: _isFullscreen
-            ? screenSize.height
-            : isLandscape
-                ? screenSize.height
-                : screenSize.width * 9 / 16,
-        width: double.infinity,
-        child: Container(
-          color: Colors.black,
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              // Video Player or Thumbnail
-              if (_isVideoInitialized && _videoController != null)
-                SizedBox.expand(
-                  child: FittedBox(
-                    fit: BoxFit.contain,
-                    child: SizedBox(
-                      width: _videoController!.value.size.width,
-                      height: _videoController!.value.size.height,
-                      child: VideoPlayer(_videoController!),
-                    ),
-                  ),
-                )
-              else if (_isInitializing)
-                Container(
-                  color: Colors.black,
-                  child: const Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        CircularProgressIndicator(color: Colors.white),
-                        SizedBox(height: 16),
-                        Text(
-                          'Loading video...',
-                          style: TextStyle(color: Colors.white, fontSize: 16),
-                        ),
-                      ],
-                    ),
-                  ),
-                )
-              else
-                const Center(
-                  child: Icon(
-                    Icons.movie,
-                    size: 64,
-                    color: Colors.white54,
+    return SizedBox(
+      height: _isFullscreen
+          ? screenSize.height
+          : isLandscape
+              ? screenSize.height
+              : screenSize.width * 9 / 16,
+      width: double.infinity,
+      child: Container(
+        color: Colors.black,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            if (_isVideoInitialized && _player != null && _videoController != null)
+              SizedBox.expand(
+                child: Video(
+                  controller: _videoController!,
+                  controls: AdaptiveVideoControls,
+                ),
+              )
+            else if (_isInitializing)
+              Container(
+                color: Colors.black,
+                child: const Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      CircularProgressIndicator(color: Colors.white),
+                      SizedBox(height: 16),
+                      Text(
+                        'Loading video...',
+                        style: TextStyle(color: Colors.white, fontSize: 16),
+                      ),
+                    ],
                   ),
                 ),
-
-              // Controls overlay
-              if (_showControls && !_isInitializing) ...[
-                // Gradient background
-                Positioned.fill(
-                  child: IgnorePointer(
-                    child: Container(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [
-                            Colors.black.withOpacity(0.7),
-                            Colors.transparent,
-                            Colors.transparent,
-                            Colors.black.withOpacity(0.7),
-                          ],
-                          stops: const [0.0, 0.3, 0.7, 1.0],
-                        ),
-                      ),
-                    ),
-                  ),
+              )
+            else
+              const Center(
+                child: Icon(
+                  Icons.movie,
+                  size: 64,
+                  color: Colors.white54,
                 ),
+              ),
 
-                // Top bar
-                Positioned(
-                  top: 0,
-                  left: 0,
-                  right: 0,
-                  child: SafeArea(
-                    bottom: false,
-                    child: Row(
-                      children: [
-                        IconButton(
-                          icon:
-                              const Icon(Icons.arrow_back, color: Colors.white),
-                          onPressed: () {
-                            if (_isFullscreen) {
-                              _toggleFullscreen();
-                            } else {
-                              Navigator.of(context).pop();
-                            }
-                          },
-                        ),
-                        Expanded(
-                          child: Text(
-                            widget.args.folderTitle ?? 'Video Player',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 15,
-                              fontWeight: FontWeight.bold,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-
-                // Center play/pause
-                if (_isVideoInitialized)
-                  Positioned.fill(
-                    child: Center(
-                      child: IconButton(
-                        icon: Icon(
-                          _isPlaying
-                              ? Icons.pause_circle_outline
-                              : Icons.play_circle_outline,
-                          size: 64,
-                          color: Colors.white,
-                        ),
-                        onPressed: _togglePlayPause,
-                      ),
-                    ),
-                  ),
-
-                // Bottom controls
-                if (_isVideoInitialized && _videoController != null)
-                  Positioned(
-                    bottom: 0,
-                    left: 0,
-                    right: 0,
-                    child: Container(
-                      padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.bottomCenter,
-                          end: Alignment.topCenter,
-                          colors: [
-                            Colors.black.withOpacity(0.7),
-                            Colors.transparent,
-                          ],
-                        ),
-                      ),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          // Progress bar
-                          VideoProgressIndicator(
-                            _videoController!,
-                            allowScrubbing: true,
-                            colors: const VideoProgressColors(
-                              playedColor: Colors.red,
-                              bufferedColor: Colors.white38,
-                              backgroundColor: Colors.white24,
-                            ),
-                            padding: const EdgeInsets.symmetric(
-                                vertical: 0, horizontal: 0),
-                          ),
-
-                          const SizedBox(height: 4),
-
-                          // Time and controls
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                '${_formatDuration(_currentPosition)} / ${_formatDuration(_totalDuration)}',
-                                style: const TextStyle(
-                                    color: Colors.white, fontSize: 11),
-                              ),
-                              Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  IconButton(
-                                    padding: EdgeInsets.zero,
-                                    constraints: const BoxConstraints(
-                                      minWidth: 40,
-                                      minHeight: 40,
-                                    ),
-                                    icon: Icon(
-                                      _isMuted
-                                          ? Icons.volume_off
-                                          : Icons.volume_up,
-                                      color: Colors.white,
-                                      size: 22,
-                                    ),
-                                    onPressed: () {
-                                      setState(() {
-                                        _isMuted = !_isMuted;
-                                        _videoController
-                                            ?.setVolume(_isMuted ? 0.0 : 1.0);
-                                      });
-                                    },
-                                  ),
-                                  const SizedBox(width: 4),
-                                  IconButton(
-                                    padding: EdgeInsets.zero,
-                                    constraints: const BoxConstraints(
-                                      minWidth: 40,
-                                      minHeight: 40,
-                                    ),
-                                    icon: Icon(
-                                      Icons.closed_caption,
-                                      color: _selectedSubtitle != null
-                                          ? Colors.yellow
-                                          : Colors.white,
-                                      size: 22,
-                                    ),
-                                    onPressed: _showSubtitleSelector,
-                                  ),
-                                  const SizedBox(width: 4),
-                                  IconButton(
-                                    padding: EdgeInsets.zero,
-                                    constraints: const BoxConstraints(
-                                      minWidth: 40,
-                                      minHeight: 40,
-                                    ),
-                                    icon: Icon(
-                                      _isFullscreen
-                                          ? Icons.fullscreen_exit
-                                          : Icons.fullscreen,
-                                      color: Colors.white,
-                                      size: 22,
-                                    ),
-                                    onPressed: _toggleFullscreen,
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-              ],
-
-              // Subtitle display overlay
+            // Tracks selector (explicit).
+            if (_isVideoInitialized && _player != null)
               Positioned(
-                left: 16,
-                right: 16,
-                bottom: subtitleBottom,
-                child: IgnorePointer(
-                  ignoring: true,
-                  child: AnimatedOpacity(
-                    duration: const Duration(milliseconds: 160),
-                    curve: Curves.easeInOut,
-                    opacity: subtitleActive ? 1.0 : 0.0,
-                    child: subtitleActive
-                        ? Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 14,
-                              vertical: 10,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.black.withOpacity(0.10),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: Text(
-                              _currentSubtitleText,
-                              textAlign: TextAlign.center,
-                              softWrap: true,
-                              maxLines: null,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 17,
-                                fontWeight: FontWeight.w500,
-                                height: 1.45,
-                                shadows: [
-                                  Shadow(
-                                    color: Colors.black,
-                                    blurRadius: 6,
-                                    offset: Offset(1, 1),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          )
-                        : const SizedBox.shrink(),
+                top: 0,
+                right: 0,
+                child: SafeArea(
+                  bottom: false,
+                  child: IconButton(
+                    icon: const Icon(Icons.audiotrack, color: Colors.white),
+                    onPressed: _showTracksSheet,
                   ),
                 ),
               ),
-            ],
-          ),
+
+            // Keep external subtitle overlay (if loaded via SubtitleParser).
+            Positioned(
+              left: 16,
+              right: 16,
+              bottom: subtitleBottom,
+              child: IgnorePointer(
+                ignoring: true,
+                child: AnimatedOpacity(
+                  duration: const Duration(milliseconds: 160),
+                  curve: Curves.easeInOut,
+                  opacity: subtitleActive ? 1.0 : 0.0,
+                  child: subtitleActive
+                      ? Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 10,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withOpacity(0.10),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            _currentSubtitleText,
+                            textAlign: TextAlign.center,
+                            softWrap: true,
+                            maxLines: null,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 17,
+                              fontWeight: FontWeight.w500,
+                              height: 1.45,
+                              shadows: [
+                                Shadow(
+                                  color: Colors.black,
+                                  blurRadius: 6,
+                                  offset: Offset(1, 1),
+                                ),
+                              ],
+                            ),
+                          ),
+                        )
+                      : const SizedBox.shrink(),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
