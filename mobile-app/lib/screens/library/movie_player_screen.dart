@@ -89,9 +89,11 @@ class _MoviePlayerScreenState extends ConsumerState<MoviePlayerScreen>
     _attachPlayerListeners();
   }
 
-  Future<void> _showTracksSheet() async {
+  Future<void> _showTracksSheet([BuildContext? sheetContext]) async {
     final player = _player;
     if (player == null) return;
+
+    final ctx = sheetContext ?? context;
 
     final tracks = player.state.tracks;
     final currentAudio = player.state.track.audio;
@@ -130,7 +132,7 @@ class _MoviePlayerScreenState extends ConsumerState<MoviePlayerScreen>
     final uniqueSubtitleTracks = _dedupeSubtitle(subtitleTracks);
 
     await showModalBottomSheet<void>(
-      context: context,
+      context: ctx,
       backgroundColor: Colors.white,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
@@ -1514,9 +1516,25 @@ class _MoviePlayerScreenState extends ConsumerState<MoviePlayerScreen>
           children: [
             if (_isVideoInitialized && _player != null && _videoController != null)
               SizedBox.expand(
-                child: Video(
-                  controller: _videoController!,
-                  controls: AdaptiveVideoControls,
+                child: MaterialVideoControlsTheme(
+                  normal: kDefaultMaterialVideoControlsThemeData,
+                  fullscreen: kDefaultMaterialVideoControlsThemeDataFullscreen.copyWith(
+                    bottomButtonBar: [
+                      const MaterialPositionIndicator(),
+                      const Spacer(),
+                      Builder(
+                        builder: (ctx) => MaterialCustomButton(
+                          icon: const Icon(Icons.audiotrack),
+                          onPressed: () => _showTracksSheet(ctx),
+                        ),
+                      ),
+                      const MaterialFullscreenButton(),
+                    ],
+                  ),
+                  child: Video(
+                    controller: _videoController!,
+                    controls: AdaptiveVideoControls,
+                  ),
                 ),
               )
             else if (_isInitializing)
@@ -1583,7 +1601,7 @@ class _MoviePlayerScreenState extends ConsumerState<MoviePlayerScreen>
                   bottom: false,
                   child: IconButton(
                     icon: const Icon(Icons.audiotrack, color: Colors.white),
-                    onPressed: _showTracksSheet,
+                    onPressed: () => _showTracksSheet(context),
                   ),
                 ),
               ),
