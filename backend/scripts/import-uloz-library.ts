@@ -78,7 +78,8 @@ function parseCliArgs(): CliOptions | null {
     }
   }
 
-  const folderSlug = options['folder'] || options['folderslug'];
+  const folderSlugRaw = options['folder'] || options['folderslug'];
+  const folderSlug = folderSlugRaw ? folderSlugRaw.trim() : undefined;
 
   const sectionValue = options['section'];
   const section = sectionValue ? sectionValue.trim().toLowerCase() : undefined;
@@ -89,10 +90,12 @@ function parseCliArgs(): CliOptions | null {
   const ulozStorageId = rawStorageId ? Number.parseInt(String(rawStorageId), 10) : undefined;
 
   return {
-    folderSlug,
+    ...(folderSlug ? { folderSlug } : {}),
     section: section ?? 'other',
     ...(displayName !== undefined ? { displayName } : {}),
-    ...(ulozStorageId && Number.isFinite(ulozStorageId) && ulozStorageId > 0 ? { ulozStorageId } : {}),
+    ...(ulozStorageId && Number.isFinite(ulozStorageId) && ulozStorageId > 0
+      ? { ulozStorageId }
+      : {}),
   };
 }
 
