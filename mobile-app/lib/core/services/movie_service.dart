@@ -2,8 +2,23 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/movie_model.dart';
 import 'api_service.dart';
 
+class _CachedUrl {
+  const _CachedUrl(this.url, this.expiresAt);
+
+  final String url;
+  final DateTime expiresAt;
+
+  bool get isValid => DateTime.now().isBefore(expiresAt);
+}
+
 class MovieService {
   final ApiService _apiService = ApiService();
+
+  // Stream URLs are often signed/ephemeral. Cache briefly to speed up retries
+  // and quick back/forward navigation without risking long-lived stale URLs.
+  static const Duration _streamUrlTtl = Duration(minutes: 2);
+  static final Map<String, _CachedUrl> _episodeStreamUrlCache = {};
+  static final Map<String, _CachedUrl> _subtitleStreamUrlCache = {};
 
   // Get movies with filters
   Future<List<MovieModel>> getMovies({
@@ -62,11 +77,24 @@ class MovieService {
   // Get episode stream URL
   Future<String?> getEpisodeStreamUrl(String movieId, String episodeId) async {
     try {
+      final key = '$movieId:$episodeId';
+      final cached = _episodeStreamUrlCache[key];
+      if (cached != null && cached.isValid) {
+        return cached.url;
+      }
+
       final response =
           await _apiService.getEpisodeStreamUrl(movieId, episodeId);
 
       if (response['success'] == true && response['data'] != null) {
-        return response['data']['streamUrl'] as String?;
+        final url = response['data']['streamUrl'] as String?;
+        if (url != null && url.isNotEmpty) {
+          _episodeStreamUrlCache[key] = _CachedUrl(
+            url,
+            DateTime.now().add(_streamUrlTtl),
+          );
+        }
+        return url;
       }
       return null;
     } catch (e) {
@@ -84,12 +112,24 @@ class MovieService {
       print('   Episode ID: $episodeId');
       print('   Subtitle ID: $subtitleId');
 
+      final key = '$movieId:$episodeId:$subtitleId';
+      final cached = _subtitleStreamUrlCache[key];
+      if (cached != null && cached.isValid) {
+        return cached.url;
+      }
+
       final response = await _apiService.getSubtitleStreamUrl(
           movieId, episodeId, subtitleId);
 
       if (response['success'] == true && response['data'] != null) {
         final streamUrl = response['data']['streamUrl'] as String?;
         print('✅ Subtitle stream URL: $streamUrl');
+        if (streamUrl != null && streamUrl.isNotEmpty) {
+          _subtitleStreamUrlCache[key] = _CachedUrl(
+            streamUrl,
+            DateTime.now().add(_streamUrlTtl),
+          );
+        }
         return streamUrl;
       }
       print('❌ No stream URL in response');

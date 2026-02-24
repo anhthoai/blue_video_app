@@ -2,6 +2,15 @@ import '../models/library_item_model.dart';
 import '../models/library_section_model.dart';
 import 'api_service.dart';
 
+class _CachedValue<T> {
+  const _CachedValue(this.value, this.expiresAt);
+
+  final T value;
+  final DateTime expiresAt;
+
+  bool get isValid => DateTime.now().isBefore(expiresAt);
+}
+
 class LibraryItemsRequest {
   const LibraryItemsRequest({
     required this.section,
@@ -56,19 +65,44 @@ class LibraryService {
 
   final ApiService _apiService = ApiService();
 
+  // Cache responses briefly to speed up repeat navigations.
+  // This mirrors the short-lived caching added to MovieService for stream URLs.
+  static const Duration _cacheTtl = Duration(minutes: 2);
+  static _CachedValue<List<LibrarySectionModel>>? _sectionsCache;
+  static final Map<LibraryItemsRequest, _CachedValue<List<LibraryItemModel>>>
+      _itemsCache = {};
+  static final Map<String, _CachedValue<LibraryItemModel?>> _itemByIdCache = {};
+
   Future<List<LibrarySectionModel>> fetchSections() async {
+    final cached = _sectionsCache;
+    if (cached != null && cached.isValid) {
+      return cached.value;
+    }
+
     final response = await _apiService.getLibrarySections();
     final data = response['data'];
     if (data is List) {
-      return data
+      final sections = data
           .map((section) =>
               LibrarySectionModel.fromJson((section as Map).cast<String, dynamic>()))
           .toList();
+
+      _sectionsCache = _CachedValue(
+        sections,
+        DateTime.now().add(_cacheTtl),
+      );
+
+      return sections;
     }
     return [];
   }
 
   Future<List<LibraryItemModel>> fetchItems(LibraryItemsRequest request) async {
+    final cached = _itemsCache[request];
+    if (cached != null && cached.isValid) {
+      return cached.value;
+    }
+
     final response = await _apiService.getLibraryItems(
       request.normalizedSection,
       page: request.page,
@@ -81,10 +115,17 @@ class LibraryService {
     final data = response['data'] as Map<String, dynamic>? ?? {};
     final items = data['items'];
     if (items is List) {
-      return items
+      final result = items
           .map((item) =>
               LibraryItemModel.fromJson((item as Map).cast<String, dynamic>()))
           .toList();
+
+      _itemsCache[request] = _CachedValue(
+        result,
+        DateTime.now().add(_cacheTtl),
+      );
+
+      return result;
     }
     return [];
   }
@@ -93,12 +134,23 @@ class LibraryService {
     String id, {
     bool includeStreams = true,
   }) async {
+    final key = '$id:$includeStreams';
+    final cached = _itemByIdCache[key];
+    if (cached != null && cached.isValid) {
+      return cached.value;
+    }
+
     final response =
         await _apiService.getLibraryItem(id, includeStreams: includeStreams);
     final data = response['data'] as Map<String, dynamic>?;
     if (data == null) {
       return null;
     }
-    return LibraryItemModel.fromJson(data);
+    final item = LibraryItemModel.fromJson(data);
+    _itemByIdCache[key] = _CachedValue(
+      item,
+      DateTime.now().add(_cacheTtl),
+    );
+    return item;
   }
 }

@@ -21,6 +21,10 @@ class ApiService {
   factory ApiService() => _instance;
   ApiService._internal();
 
+  // Cache the access token in memory to avoid hitting SharedPreferences
+  // (disk / platform channel) on every request.
+  static String? _cachedAccessToken;
+
   // Get headers with authentication (public method)
   Future<Map<String, String>> getHeaders() async {
     return await _getHeaders();
@@ -28,8 +32,12 @@ class ApiService {
 
   // Get headers with authentication (private method)
   Future<Map<String, String>> _getHeaders() async {
-    final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('access_token');
+    var token = _cachedAccessToken;
+    if (token == null) {
+      final prefs = await SharedPreferences.getInstance();
+      token = prefs.getString('access_token');
+      _cachedAccessToken = token;
+    }
 
     print(
         '🔍 API Service - Token from SharedPreferences: ${token != null ? 'Present' : 'Missing'}');
@@ -48,6 +56,7 @@ class ApiService {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('access_token', accessToken);
     await prefs.setString('refresh_token', refreshToken);
+    _cachedAccessToken = accessToken;
   }
 
   // Clear tokens
@@ -55,12 +64,16 @@ class ApiService {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('access_token');
     await prefs.remove('refresh_token');
+    _cachedAccessToken = null;
   }
 
   // Get stored access token
   Future<String?> getAccessToken() async {
+    final token = _cachedAccessToken;
+    if (token != null) return token;
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getString('access_token');
+    _cachedAccessToken = prefs.getString('access_token');
+    return _cachedAccessToken;
   }
 
   // Handle API response

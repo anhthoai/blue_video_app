@@ -82,6 +82,13 @@ class _MoviePlayerScreenState extends ConsumerState<MoviePlayerScreen>
   List<SubtitleItem>? _subtitleItems;
   String _currentSubtitleText = '';
 
+  void _ensurePlayerInitialized() {
+    if (_player != null && _videoController != null) return;
+    _player ??= Player();
+    _videoController ??= VideoController(_player!);
+    _attachPlayerListeners();
+  }
+
   Future<void> _showTracksSheet() async {
     final player = _player;
     if (player == null) return;
@@ -331,23 +338,16 @@ class _MoviePlayerScreenState extends ConsumerState<MoviePlayerScreen>
     });
 
     try {
-      // Dispose previous player
-      _positionSub?.cancel();
-      _durationSub?.cancel();
-      _playingSub?.cancel();
-      _completedSub?.cancel();
-      final oldPlayer = _player;
-      _player = null;
-      _videoController = null;
-      if (oldPlayer != null) {
-        await oldPlayer.dispose();
-      }
+      // Stop previous media but keep the player instance alive.
+      // Re-creating the underlying native player frequently can make startup feel slow.
+      await _player?.stop();
 
       setState(() {
         _isVideoInitialized = false;
         _isPlaying = false;
       });
 
+      final fetchStopwatch = Stopwatch()..start();
       print('📡 Fetching stream URL from backend...');
 
       // Get stream URL from backend
@@ -366,6 +366,8 @@ class _MoviePlayerScreenState extends ConsumerState<MoviePlayerScreen>
       );
 
       print('🔗 Stream URL received: ${streamUrl ?? "NULL"}');
+  fetchStopwatch.stop();
+  print('⏱️ Stream URL fetch took: ${fetchStopwatch.elapsedMilliseconds}ms');
 
       if (streamUrl == null || streamUrl.isEmpty) {
         throw Exception('No stream URL returned from backend');
@@ -373,10 +375,11 @@ class _MoviePlayerScreenState extends ConsumerState<MoviePlayerScreen>
 
       print('🎥 Initializing video player...');
 
-      _player = Player();
-      _videoController = VideoController(_player!);
-      _attachPlayerListeners();
-      await _player!.open(Media(streamUrl));
+      _ensurePlayerInitialized();
+      final openStopwatch = Stopwatch()..start();
+      await _player!.open(Media(streamUrl), play: true);
+      openStopwatch.stop();
+      print('⏱️ Player open took: ${openStopwatch.elapsedMilliseconds}ms');
 
       // Keep mute state consistent.
       await _player!.setVolume(_isMuted ? 0 : 100);
@@ -388,8 +391,6 @@ class _MoviePlayerScreenState extends ConsumerState<MoviePlayerScreen>
         _isInitializing = false;
         _hasPlayedNext = false; // Reset flag for next video
       });
-
-      await _player!.play();
 
       if (_isPreviewMode) {
         _setupPreviewMode();

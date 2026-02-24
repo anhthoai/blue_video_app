@@ -51,6 +51,13 @@ class _LibraryVideoPlayerScreenState extends State<LibraryVideoPlayerScreen>
   List<SubtitleItem>? _subtitleItems;
   String _currentSubtitleText = '';
 
+  void _ensurePlayerInitialized() {
+    if (_player != null && _videoController != null) return;
+    _player ??= Player();
+    _videoController ??= VideoController(_player!);
+    _attachPlayerListeners();
+  }
+
   Future<void> _showTracksSheet() async {
     final player = _player;
     if (player == null) return;
@@ -277,17 +284,8 @@ class _LibraryVideoPlayerScreenState extends State<LibraryVideoPlayerScreen>
     });
 
     try {
-      // Dispose previous player
-      _positionSub?.cancel();
-      _durationSub?.cancel();
-      _playingSub?.cancel();
-      _completedSub?.cancel();
-      final oldPlayer = _player;
-      _player = null;
-      _videoController = null;
-      if (oldPlayer != null) {
-        await oldPlayer.dispose();
-      }
+      // Stop previous media but keep the player instance alive.
+      await _player?.stop();
 
       setState(() {
         _isVideoInitialized = false;
@@ -303,10 +301,11 @@ class _LibraryVideoPlayerScreenState extends State<LibraryVideoPlayerScreen>
       print('🔗 Stream URL: $streamUrl');
 
       // Initialize media_kit player
-      _player = Player();
-      _videoController = VideoController(_player!);
-      _attachPlayerListeners();
-      await _player!.open(Media(streamUrl));
+      _ensurePlayerInitialized();
+      final openStopwatch = Stopwatch()..start();
+      await _player!.open(Media(streamUrl), play: true);
+      openStopwatch.stop();
+      print('⏱️ Player open took: ${openStopwatch.elapsedMilliseconds}ms');
 
       print('✅ media_kit player opened successfully');
 
@@ -315,8 +314,6 @@ class _LibraryVideoPlayerScreenState extends State<LibraryVideoPlayerScreen>
         _isInitializing = false;
         _hasPlayedNext = false;
       });
-
-      await _player!.play();
 
       // Auto-load English subtitle if available
       _autoLoadEnglishSubtitle(video);
