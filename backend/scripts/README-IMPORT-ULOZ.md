@@ -37,6 +37,13 @@ ULOZ_LIBRARY_THEMED_MOVIES_FOLDER=slugForThemes # → section "themed-movies"
 
 With env mappings, the importer runs without CLI arguments and will process each configured section sequentially.
 
+3. Optional: choose which uloz account to use by default:
+
+```dotenv
+# Uses ULOZ_2_USERNAME / ULOZ_2_PASSWORD / ULOZ_2_API_KEY / ULOZ_2_BASE_URL
+ULOZ_DEFAULT_STORAGE_ID=2
+```
+
 ## Usage
 
 ### Basic CLI invocation
@@ -52,6 +59,19 @@ npx ts-node scripts/import-uloz-library.ts \
   --folder M7cb5igDiQOA \
   --section "short movies" \
   --name "Short Movies"
+
+# Use uloz account #2 (requires ULOZ_2_USERNAME / ULOZ_2_PASSWORD / ULOZ_2_API_KEY in .env)
+npx ts-node scripts/import-uloz-library.ts \
+  --uloz-storage-id 2 \
+  --folder M7cb5igDiQOA \
+  --section shorts \
+  --name "Shorts"
+```
+
+If you run via npm script, remember the `--` separator:
+
+```bash
+npm run library:import -- --uloz-storage-id 2 --folder M7cb5igDiQOA --section shorts --name "Shorts"
 ```
 
 Parameters:
@@ -61,6 +81,7 @@ Parameters:
 | `--folder`  | Folder slug or path inside your uloz.to account (required)                                      |
 | `--section` | Section identifier stored in the database (defaults to `other` if omitted). The value is lower‑cased and can contain spaces—wrap it in quotes, e.g. `--section "short movies"`. |
 | `--name`    | Display label for the root folder (defaults to the section or slug)                             |
+| `--ulozStorageId` / `--uloz-storage-id` | Which uloz account to use (matches `ULOZ_<id>_*` in `.env`). Defaults to `ULOZ_DEFAULT_STORAGE_ID` / `ULOZ_STORAGE_ID` / `1`. |
 
 If CLI parameters are supplied they override any environment mappings.
 

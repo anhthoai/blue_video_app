@@ -137,7 +137,7 @@ After 30 min:   50ms (regenerate + cache)
 **Solution**: Automatic S3 cleanup when movie is deleted.
 
 **Features**:
-- Detects S3 keys (`s3://...` prefix)
+- Detects S3 refs (`s3://<key>` legacy or `s3://<id>/<key>` multi-storage)
 - Deletes both thumbnails and video previews
 - Background cleanup (doesn't slow down delete operation)
 - Error handling (continues even if some files fail)

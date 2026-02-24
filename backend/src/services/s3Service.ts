@@ -1,22 +1,25 @@
-import { S3Client, PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
+import { PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import multer from 'multer';
 import { v4 as uuidv4 } from 'uuid';
 
-// Validate S3 credentials
-const S3_ACCESS_KEY_ID = process.env['S3_ACCESS_KEY_ID'];
-const S3_SECRET_ACCESS_KEY = process.env['S3_SECRET_ACCESS_KEY'];
-const BUCKET_NAME = process.env['S3_BUCKET_NAME'] || 'blue-video-storage';
+import { getS3Client, getS3PublicBaseUrl, getS3StorageConfig, parseS3Ref, resolveS3WriteStorageId } from './s3Registry';
+
+// Validate S3 credentials (storage 1, backward compatible)
+const defaultCfg = getS3StorageConfig(1);
+const DEFAULT_ACCESS_KEY_ID = defaultCfg.accessKeyId;
+const DEFAULT_SECRET_ACCESS_KEY = defaultCfg.secretAccessKey;
+const DEFAULT_BUCKET_NAME = defaultCfg.bucketName;
 
 console.log('🔧 S3 Configuration:');
-console.log('   - Endpoint:', process.env['S3_ENDPOINT'] || 'default AWS');
-console.log('   - Region:', process.env['S3_REGION'] || 'us-east-1');
-console.log('   - Bucket:', BUCKET_NAME);
-console.log('   - Access Key:', S3_ACCESS_KEY_ID ? `${S3_ACCESS_KEY_ID.substring(0, 8)}...` : 'NOT SET');
-console.log('   - Secret Key:', S3_SECRET_ACCESS_KEY ? '***configured***' : 'NOT SET');
+console.log('   - Endpoint:', defaultCfg.endpoint || 'default AWS');
+console.log('   - Region:', defaultCfg.region || 'auto');
+console.log('   - Bucket:', DEFAULT_BUCKET_NAME);
+console.log('   - Access Key:', DEFAULT_ACCESS_KEY_ID ? `${DEFAULT_ACCESS_KEY_ID.substring(0, 8)}...` : 'NOT SET');
+console.log('   - Secret Key:', DEFAULT_SECRET_ACCESS_KEY ? '***configured***' : 'NOT SET');
 
-if (!S3_ACCESS_KEY_ID || !S3_SECRET_ACCESS_KEY || 
-    S3_ACCESS_KEY_ID === 'dummy' || S3_ACCESS_KEY_ID === 'YOUR_AWS_ACCESS_KEY_ID_HERE') {
+if (!DEFAULT_ACCESS_KEY_ID || !DEFAULT_SECRET_ACCESS_KEY || 
+  DEFAULT_ACCESS_KEY_ID === 'dummy' || DEFAULT_ACCESS_KEY_ID === 'YOUR_AWS_ACCESS_KEY_ID_HERE') {
   console.warn('⚠️  WARNING: S3 credentials not configured properly!');
   console.warn('📝 Please update the following in your .env file:');
   console.warn('   - S3_ACCESS_KEY_ID (your AWS access key)');
@@ -29,28 +32,22 @@ if (!S3_ACCESS_KEY_ID || !S3_SECRET_ACCESS_KEY ||
   console.log('✅ S3 credentials configured successfully!');
 }
 
-// Configure AWS S3 v3
-const s3Config: any = {
-  region: process.env['S3_REGION'] || 'auto',
-  credentials: {
-    accessKeyId: S3_ACCESS_KEY_ID || '',
-    secretAccessKey: S3_SECRET_ACCESS_KEY || '',
-  },
-};
+const s3Client = getS3Client(1);
 
-// Add custom endpoint if provided (for S3-compatible services like Cloudflare R2)
-if (process.env['S3_ENDPOINT']) {
-  s3Config.endpoint = process.env['S3_ENDPOINT'];
-  s3Config.forcePathStyle = true; // Required for custom endpoints
-  console.log('🌐 Using custom S3 endpoint (R2/compatible service)');
+function getWriteTarget(req?: any, explicitStorageId?: number) {
+  const storageId = explicitStorageId && explicitStorageId > 0 ? explicitStorageId : resolveS3WriteStorageId(req);
+  const cfg = getS3StorageConfig(storageId);
+  const client = getS3Client(storageId);
+  const baseUrl = getS3PublicBaseUrl(storageId);
+  return { storageId, cfg, client, baseUrl };
 }
-
-const s3Client = new S3Client(s3Config);
 
 // Custom multer storage for AWS SDK v3
 const s3Storage = {
   _handleFile: async (req: any, file: any, cb: any) => {
     try {
+      const { storageId, cfg, client } = getWriteTarget(req);
+
       // Get user info from request (should be set by auth middleware)
       const userId = req.userId;
       const userCreatedAt = req.userCreatedAt ? new Date(req.userCreatedAt) : new Date();
@@ -74,13 +71,13 @@ const s3Storage = {
           const buffer = Buffer.concat(chunks);
           
           const command = new PutObjectCommand({
-            Bucket: BUCKET_NAME,
+            Bucket: cfg.bucketName,
             Key: key,
             Body: buffer,
             ContentType: file.mimetype,
           });
           
-          await s3Client.send(command);
+          await client.send(command);
           
           console.log(`📤 File uploaded to R2: ${key}`);
           console.log(`   User: ${userId}`);
@@ -92,7 +89,8 @@ const s3Storage = {
             filename, // Just the filename
             fileDirectory, // The directory path
             folder, // avatars or banners
-            bucket: BUCKET_NAME,
+            bucket: cfg.bucketName,
+            storageId,
             size: buffer.length,
             mimetype: file.mimetype,
           });
@@ -139,9 +137,19 @@ export const upload = multer({
 });
 
 // Helper function to delete file from S3
-export const deleteFromS3 = async (fileInfo: string | { folder: string; fileDirectory: string; filename: string }): Promise<boolean> => {
+export const deleteFromS3 = async (
+  fileInfo:
+    | string
+    | {
+        folder: string;
+        fileDirectory: string;
+        filename: string;
+        storageId?: number;
+      }
+): Promise<boolean> => {
   try {
     let key: string;
+    let storageId = 1;
     
     if (typeof fileInfo === 'string') {
       // Old format: full URL or key
@@ -149,19 +157,26 @@ export const deleteFromS3 = async (fileInfo: string | { folder: string; fileDire
         const url = new URL(fileInfo);
         key = url.pathname.substring(1); // Remove leading slash
       } else {
-        key = fileInfo;
+        const parsed = parseS3Ref(fileInfo);
+        storageId = parsed.storageId;
+        key = parsed.key;
       }
     } else {
       // New format: { folder, fileDirectory, filename }
+      // Optional extension: allow callers to attach storageId
+      storageId = fileInfo.storageId && Number(fileInfo.storageId) > 0 ? Number(fileInfo.storageId) : 1;
       key = `${fileInfo.folder}/${fileInfo.fileDirectory}/${fileInfo.filename}`;
     }
+
+    const cfg = getS3StorageConfig(storageId);
+    const client = getS3Client(storageId);
     
     const command = new DeleteObjectCommand({
-      Bucket: BUCKET_NAME,
+      Bucket: cfg.bucketName,
       Key: key,
     });
     
-    await s3Client.send(command);
+    await client.send(command);
     
     console.log(`✅ File deleted from S3: ${key}`);
     return true;
@@ -174,16 +189,17 @@ export const deleteFromS3 = async (fileInfo: string | { folder: string; fileDire
 // Helper function to generate presigned URL for direct upload
 export const generatePresignedUrl = async (fileName: string, fileType: string, folder: string): Promise<string> => {
   try {
+    const { cfg, client } = getWriteTarget(undefined);
     const key = `${folder}/${uuidv4()}-${Date.now()}-${fileName}`;
     
     const command = new PutObjectCommand({
-      Bucket: BUCKET_NAME,
+      Bucket: cfg.bucketName,
       Key: key,
       ContentType: fileType,
       ACL: 'public-read',
     });
     
-    const presignedUrl = await getSignedUrl(s3Client, command, { expiresIn: 300 }); // 5 minutes
+    const presignedUrl = await getSignedUrl(client, command, { expiresIn: 300 }); // 5 minutes
     
     return presignedUrl;
   } catch (error) {
@@ -196,6 +212,7 @@ export const generatePresignedUrl = async (fileName: string, fileType: string, f
 export const chatFileStorage = {
   _handleFile: async (req: any, file: any, cb: any) => {
     try {
+      const { storageId, cfg, client, baseUrl } = getWriteTarget(req);
       const userCreatedAt = req.userCreatedAt ? new Date(req.userCreatedAt) : new Date();
       
       // Generate file directory based on user's creation date (yyyy/mm/dd)
@@ -226,27 +243,27 @@ export const chatFileStorage = {
           const buffer = Buffer.concat(chunks);
           
           const command = new PutObjectCommand({
-            Bucket: BUCKET_NAME,
+            Bucket: cfg.bucketName,
             Key: key,
             Body: buffer,
             ContentType: file.mimetype,
           });
           
-          await s3Client.send(command);
+          await client.send(command);
           
           // Generate file URL
-          const cdnUrl = process.env['CDN_URL'] || process.env['S3_ENDPOINT'];
-          const location = cdnUrl 
-            ? `${cdnUrl}/${key}`
-            : `https://${BUCKET_NAME}.s3.${process.env['S3_REGION'] || 'us-east-1'}.amazonaws.com/${key}`;
+          const location = (cfg.cdnUrl || '').trim()
+            ? `${baseUrl}/${key}`
+            : `${baseUrl}/${cfg.bucketName}/${key}`;
           
           cb(null, {
-            bucket: BUCKET_NAME,
+            bucket: cfg.bucketName,
             key: key,
             location: location,
             folder: `chat/${typeFolder}`,
             fileDirectory: fileDirectory,
             filename: filename,
+            storageId,
             size: buffer.length,
             mimetype: file.mimetype,
             originalname: file.originalname,
@@ -265,11 +282,14 @@ export const chatFileStorage = {
   },
   _removeFile: async (_req: any, file: any, cb: any) => {
     try {
+      const storageId = file?.storageId && Number(file.storageId) > 0 ? Number(file.storageId) : 1;
+      const cfg = getS3StorageConfig(storageId);
+      const client = getS3Client(storageId);
       const command = new DeleteObjectCommand({
-        Bucket: BUCKET_NAME,
+        Bucket: cfg.bucketName,
         Key: file.key,
       });
-      await s3Client.send(command);
+      await client.send(command);
       cb(null);
     } catch (error) {
       cb(error);
@@ -310,6 +330,7 @@ export const videoStorage: any = {
   _handleFile: async (req: any, file: any, cb: any) => {
     console.log('🎬 videoStorage._handleFile called for:', file.originalname);
     try {
+      const { storageId } = getWriteTarget(req);
       const userId = req.user?.id;
       console.log('👤 User ID in videoStorage:', userId);
       
@@ -347,7 +368,7 @@ export const videoStorage: any = {
         });
         
         // Continue with video upload
-        await uploadFileToS3(file, key, fileDirectory, filename, cb);
+        await uploadFileToS3(file, key, fileDirectory, filename, cb, storageId);
       } else if (file.fieldname === 'thumbnail') {
         // Use the same base filename as video but with image extension
         const baseFilename = req._videoBaseFilename || uuidv4();
@@ -366,7 +387,7 @@ export const videoStorage: any = {
         });
         
         // Continue with thumbnail upload
-        await uploadFileToS3(file, key, thumbnailFileDirectory, filename, cb);
+        await uploadFileToS3(file, key, thumbnailFileDirectory, filename, cb, storageId);
       } else if (file.fieldname.startsWith('subtitle_')) {
         // Extract language code from fieldname (subtitle_eng, subtitle_tha, etc.)
         const langCode = file.fieldname.replace('subtitle_', '');
@@ -394,7 +415,7 @@ export const videoStorage: any = {
         });
         
         // Continue with subtitle upload
-        await uploadFileToS3(file, key, subtitleFileDirectory, filename, cb);
+        await uploadFileToS3(file, key, subtitleFileDirectory, filename, cb, storageId);
       } else {
         return cb(new Error('Unknown field: ' + file.fieldname));
       }
@@ -404,11 +425,14 @@ export const videoStorage: any = {
   },
   _removeFile: async (_req: any, file: any, cb: any) => {
     try {
+      const storageId = file?.storageId && Number(file.storageId) > 0 ? Number(file.storageId) : 1;
+      const cfg = getS3StorageConfig(storageId);
+      const client = getS3Client(storageId);
       const command = new DeleteObjectCommand({
-        Bucket: BUCKET_NAME,
+        Bucket: cfg.bucketName,
         Key: file.key,
       });
-      await s3Client.send(command);
+      await client.send(command);
       cb(null);
     } catch (error) {
       cb(error);
@@ -417,8 +441,11 @@ export const videoStorage: any = {
 };
 
 // Helper function to upload file to S3
-async function uploadFileToS3(file: any, key: string, fileDirectory: string, filename: string, cb: any) {
+async function uploadFileToS3(file: any, key: string, fileDirectory: string, filename: string, cb: any, storageId: number = 1) {
   try {
+    const cfg = getS3StorageConfig(storageId);
+    const client = getS3Client(storageId);
+
     // Convert stream to buffer
     const chunks: Buffer[] = [];
     file.stream.on('data', (chunk: Buffer) => chunks.push(chunk));
@@ -428,14 +455,14 @@ async function uploadFileToS3(file: any, key: string, fileDirectory: string, fil
         console.log(`📦 Buffer size: ${buffer.length} bytes (${(buffer.length / 1024 / 1024).toFixed(2)} MB)`);
         
         const command = new PutObjectCommand({
-          Bucket: BUCKET_NAME,
+          Bucket: cfg.bucketName,
           Key: key,
           Body: buffer,
           ContentType: file.mimetype,
         });
         
         console.log('☁️  Uploading to S3/R2:', key);
-        await s3Client.send(command);
+        await client.send(command);
         console.log('✅ Upload to S3/R2 successful!');
         
         // Save buffer to temporary local file for ffmpeg processing (only if VIDEO_CONVERSION is enabled and it's a video)
@@ -453,10 +480,11 @@ async function uploadFileToS3(file: any, key: string, fileDirectory: string, fil
         }
         
         cb(null, {
-          bucket: BUCKET_NAME,
+          bucket: cfg.bucketName,
           key: key,
           fileDirectory: fileDirectory,
           filename: filename,
+          storageId,
           size: buffer.length,
           mimetype: file.mimetype,
           originalname: file.originalname,
@@ -582,13 +610,15 @@ export const communityPostUpload = multer({
 });
 
 // Upload community post files to S3
-export const uploadCommunityPostFiles = async (files: Express.Multer.File[], postId: string): Promise<{
+export const uploadCommunityPostFiles = async (files: Express.Multer.File[], postId: string, req?: any): Promise<{
   fileDirectory: string;
+  storageId: number;
   images: string[];
   videos: string[];
   videoThumbnails: string[];
   durations: string[];
 }> => {
+  const { storageId, cfg, client } = getWriteTarget(req);
   const today = new Date();
   const fileDirectory = `${today.getFullYear()}/${String(today.getMonth() + 1).padStart(2, '0')}/${String(today.getDate()).padStart(2, '0')}/${postId}`;
 
@@ -623,12 +653,12 @@ export const uploadCommunityPostFiles = async (files: Express.Multer.File[], pos
 
       try {
         const uploadCommand = new PutObjectCommand({
-          Bucket: BUCKET_NAME,
+          Bucket: cfg.bucketName,
           Key: s3Key,
           Body: require('fs').readFileSync(file.path),
           ContentType: file.mimetype,
         });
-        await s3Client.send(uploadCommand);
+        await client.send(uploadCommand);
         
         videos.push(fileName);
         durations.push('0'); // Placeholder, will be updated from mobile app data
@@ -670,12 +700,12 @@ export const uploadCommunityPostFiles = async (files: Express.Multer.File[], pos
         
         try {
           const uploadCommand = new PutObjectCommand({
-            Bucket: BUCKET_NAME,
+            Bucket: cfg.bucketName,
             Key: s3Key,
             Body: require('fs').readFileSync(file.path),
             ContentType: 'image/jpeg', // Force JPEG content type for thumbnails
           });
-          await s3Client.send(uploadCommand);
+          await client.send(uploadCommand);
           
           // Add thumbnail filename to videoThumbnails array
           videoThumbnails.push(fileName);
@@ -692,12 +722,12 @@ export const uploadCommunityPostFiles = async (files: Express.Multer.File[], pos
         
         try {
           const uploadCommand = new PutObjectCommand({
-            Bucket: BUCKET_NAME,
+            Bucket: cfg.bucketName,
             Key: s3Key,
             Body: require('fs').readFileSync(file.path),
             ContentType: file.mimetype,
           });
-          await s3Client.send(uploadCommand);
+          await client.send(uploadCommand);
           
           images.push(fileName);
           console.log(`✅ Uploaded image: ${fileName}`);
@@ -726,6 +756,7 @@ export const uploadCommunityPostFiles = async (files: Express.Multer.File[], pos
 
           return {
             fileDirectory, // Just yyyy/mm/dd/postId format
+            storageId,
             images,
             videos,
             videoThumbnails,

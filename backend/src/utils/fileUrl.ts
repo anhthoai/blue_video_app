@@ -4,11 +4,7 @@
 
 import { GetObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
-import s3Client from '../services/s3Service';
-
-const CDN_URL = process.env['CDN_URL'] || '';
-const S3_ENDPOINT = process.env['S3_ENDPOINT'] || '';
-const S3_BUCKET_NAME = process.env['S3_BUCKET_NAME'] || '';
+import { getS3Client, getS3PublicBaseUrl, getS3StorageConfig } from '../services/s3Registry';
 
 /**
  * Get file directory based on user's creation date
@@ -31,11 +27,15 @@ export function getUserFileDirectory(createdAt: Date): string {
 export async function buildFileUrl(
   fileDirectory: string | null | undefined,
   fileName: string | null | undefined,
-  folder?: string
+  folder?: string,
+  storageId: number = 1
 ): Promise<string | null> {
   if (!fileDirectory || !fileName) {
     return null;
   }
+
+  const cfg = getS3StorageConfig(storageId);
+  const baseUrl = getS3PublicBaseUrl(storageId);
 
   // Build object key
   const objectKey = folder
@@ -43,20 +43,19 @@ export async function buildFileUrl(
     : `${fileDirectory}/${fileName}`;
 
   // If CDN URL is configured, use it (public access)
-  if (CDN_URL && CDN_URL.trim() !== '') {
-    const cdnUrl = CDN_URL.replace(/\/$/, ''); // Remove trailing slash
-    return `${cdnUrl}/${objectKey}`;
+  if ((cfg.cdnUrl || '').trim() !== '') {
+    return `${baseUrl}/${objectKey}`;
   }
 
   // Otherwise, generate S3 presigned URL (works with any S3-compatible storage)
   try {
     const command = new GetObjectCommand({
-      Bucket: S3_BUCKET_NAME,
+      Bucket: cfg.bucketName,
       Key: objectKey,
     });
 
     // Generate presigned URL valid for 1 hour
-    const presignedUrl = await getSignedUrl(s3Client, command, {
+    const presignedUrl = await getSignedUrl(getS3Client(storageId), command, {
       expiresIn: 3600, // 1 hour
     });
 
@@ -64,7 +63,7 @@ export async function buildFileUrl(
   } catch (error) {
     console.error('Error generating presigned URL:', error);
     // Fallback to direct S3 URL (may not work if bucket is private)
-    return `${S3_ENDPOINT}/${S3_BUCKET_NAME}/${objectKey}`;
+    return `${baseUrl}/${cfg.bucketName}/${objectKey}`;
   }
 }
 
@@ -75,11 +74,15 @@ export async function buildFileUrl(
 export function buildFileUrlSync(
   fileDirectory: string | null | undefined,
   fileName: string | null | undefined,
-  folder?: string
+  folder?: string,
+  storageId: number = 1
 ): string | null {
   if (!fileDirectory || !fileName) {
     return null;
   }
+
+  const cfg = getS3StorageConfig(storageId);
+  const baseUrl = getS3PublicBaseUrl(storageId);
 
   // Build object key
   const objectKey = folder
@@ -87,14 +90,13 @@ export function buildFileUrlSync(
     : `${fileDirectory}/${fileName}`;
 
   // If CDN URL is configured, use it (public access)
-  if (CDN_URL && CDN_URL.trim() !== '') {
-    const cdnUrl = CDN_URL.replace(/\/$/, '');
-    return `${cdnUrl}/${objectKey}`;
+  if ((cfg.cdnUrl || '').trim() !== '') {
+    return `${baseUrl}/${objectKey}`;
   }
 
-  // If no CDN, return object key path
-  // Frontend will use this to request a presigned URL from the backend
-  return objectKey;
+  // If no CDN, return an S3 ref (includes storageId) so the presign endpoint
+  // can sign against the correct bucket/client.
+  return `s3://${storageId}/${objectKey}`;
 }
 
 /**
@@ -122,36 +124,22 @@ export function buildAvatarUrl(user: {
   avatar?: string | null;
   avatarUrl?: string | null;
   fileDirectory?: string | null;
+  s3StorageId?: number | null;
 }): string | null {
-  console.log(`🔍 buildAvatarUrl - user:`, {
-    avatar: user.avatar,
-    avatarUrl: user.avatarUrl,
-    fileDirectory: user.fileDirectory,
-    hasAvatar: !!user.avatar,
-    hasFileDirectory: !!user.fileDirectory,
-    hasAvatarUrl: !!user.avatarUrl
-  });
-  
+  const storageId = user.s3StorageId && Number(user.s3StorageId) > 0 ? Number(user.s3StorageId) : 1;
+
   // If storage-based avatar exists
   if (user.avatar && user.fileDirectory) {
-    const objectKey = getObjectKey(user.fileDirectory, user.avatar, 'avatars');
-    if (objectKey) {
-      console.log(`🖼️ Built avatar object key: ${objectKey}`);
-      // Return object key - frontend will use this to request presigned URL
-      return objectKey;
-    }
+    return buildFileUrlSync(user.fileDirectory, user.avatar, 'avatars', storageId);
   }
   
   // Check if avatarUrl is a storage URL that needs presigned URL generation
   if (user.avatarUrl && !user.avatarUrl.startsWith('http')) {
-    console.log(`🖼️ Avatar URL appears to be object key: ${user.avatarUrl}`);
     return user.avatarUrl;
   }
   
   // Fallback to external URL
-  const fallbackUrl = user.avatarUrl || null;
-  console.log(`🖼️ Using fallback avatar URL: ${fallbackUrl}`);
-  return fallbackUrl;
+  return user.avatarUrl || null;
 }
 
 /**
@@ -162,10 +150,13 @@ export function buildBannerUrl(user: {
   banner?: string | null;
   bannerUrl?: string | null;
   fileDirectory?: string | null;
+  s3StorageId?: number | null;
 }): string | null {
+  const storageId = user.s3StorageId && Number(user.s3StorageId) > 0 ? Number(user.s3StorageId) : 1;
+
   // If storage-based banner exists
   if (user.banner && user.fileDirectory) {
-    const result = buildFileUrlSync(user.fileDirectory, user.banner, 'banners');
+    const result = buildFileUrlSync(user.fileDirectory, user.banner, 'banners', storageId);
     // If buildFileUrlSync returns object key (no CDN), return it for presigned URL generation
     return result;
   }
@@ -196,43 +187,25 @@ export async function buildAvatarUrlAsync(user: {
   avatar?: string | null;
   avatarUrl?: string | null;
   fileDirectory?: string | null;
+  s3StorageId?: number | null;
 }): Promise<string | null> {
-  console.log(`🔍 buildAvatarUrlAsync - user:`, {
-    avatar: user.avatar,
-    avatarUrl: user.avatarUrl,
-    fileDirectory: user.fileDirectory,
-    hasAvatar: !!user.avatar,
-    hasFileDirectory: !!user.fileDirectory,
-    hasAvatarUrl: !!user.avatarUrl
-  });
+  const storageId = user.s3StorageId && Number(user.s3StorageId) > 0 ? Number(user.s3StorageId) : 1;
   
   // If storage-based avatar exists, generate presigned URL
   if (user.avatar && user.fileDirectory) {
-    const objectKey = getObjectKey(user.fileDirectory, user.avatar, 'avatars');
-    if (objectKey) {
-      console.log(`🖼️ Built avatar object key: ${objectKey}`);
-      // Generate presigned URL
-      const presignedUrl = await buildFileUrl(user.fileDirectory, user.avatar, 'avatars');
-      console.log(`🖼️ Generated presigned avatar URL: ${presignedUrl}`);
-      return presignedUrl;
-    }
+    return await buildFileUrl(user.fileDirectory, user.avatar, 'avatars', storageId);
   }
   
   // Check if avatarUrl is a storage URL that needs presigned URL generation
   if (user.avatarUrl && !user.avatarUrl.startsWith('http')) {
-    console.log(`🖼️ Avatar URL appears to be object key: ${user.avatarUrl}`);
     // This is an object key, generate presigned URL
     if (user.fileDirectory) {
-      const presignedUrl = await buildFileUrl(user.fileDirectory, user.avatarUrl, 'avatars');
-      console.log(`🖼️ Generated presigned URL from object key: ${presignedUrl}`);
-      return presignedUrl;
+      return await buildFileUrl(user.fileDirectory, user.avatarUrl, 'avatars', storageId);
     }
   }
   
   // Fallback to external URL
-  const fallbackUrl = user.avatarUrl || null;
-  console.log(`🖼️ Using fallback avatar URL: ${fallbackUrl}`);
-  return fallbackUrl;
+  return user.avatarUrl || null;
 }
 
 /**
@@ -258,29 +231,32 @@ export async function serializeUserWithUrlsAsync(user: any): Promise<any> {
  */
 export async function buildCommunityPostFileUrl(
   fileDirectory: string | null | undefined,
-  fileName: string | null | undefined
+  fileName: string | null | undefined,
+  storageId: number = 1
 ): Promise<string | null> {
   if (!fileDirectory || !fileName) {
     return null;
   }
 
+  const cfg = getS3StorageConfig(storageId);
+  const baseUrl = getS3PublicBaseUrl(storageId);
+
   // Build object key with "community-posts" prefix
   const objectKey = `community-posts/${fileDirectory}/${fileName}`;
 
   // If CDN URL is configured, use it (public access)
-  if (CDN_URL && CDN_URL.trim() !== '') {
-    const cdnUrl = CDN_URL.replace(/\/$/, ''); // Remove trailing slash
-    return `${cdnUrl}/${objectKey}`;
+  if ((cfg.cdnUrl || '').trim() !== '') {
+    return `${baseUrl}/${objectKey}`;
   }
 
   // Otherwise, generate S3 presigned URL
   try {
     const command = new GetObjectCommand({
-      Bucket: S3_BUCKET_NAME,
+      Bucket: cfg.bucketName,
       Key: objectKey,
     });
 
-    const presignedUrl = await getSignedUrl(s3Client, command, {
+    const presignedUrl = await getSignedUrl(getS3Client(storageId), command, {
       expiresIn: 3600, // 1 hour
     });
 

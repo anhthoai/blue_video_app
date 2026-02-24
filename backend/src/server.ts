@@ -1027,6 +1027,7 @@ app.get('/api/v1/users/:userId/videos', async (req, res) => {
             avatarUrl: true,
             avatar: true,
             fileDirectory: true,
+            s3StorageId: true,
             isVerified: true,
           },
         },
@@ -1331,6 +1332,7 @@ app.get('/api/v1/videos/trending', async (req, res) => {
             avatar: true,
             avatarUrl: true,
             fileDirectory: true,
+            s3StorageId: true,
             isVerified: true,
           },
         },
@@ -1480,6 +1482,7 @@ app.post('/api/v1/videos/upload', authenticateToken, videoUpload.any(), async (r
         categoryId: categoryId || null,
         fileName: (videoFile as any).filename,
         fileDirectory: (videoFile as any).fileDirectory,
+        s3StorageId: (videoFile as any).storageId && Number((videoFile as any).storageId) > 0 ? Number((videoFile as any).storageId) : 1,
         thumbnailUrl: null, // Leave empty - frontend will use thumbnails/{fileDirectory}/{fileName}
         duration: duration ? parseInt(duration) : null,
         fileSize: BigInt(videoFile.size),
@@ -1498,6 +1501,7 @@ app.post('/api/v1/videos/upload', authenticateToken, videoUpload.any(), async (r
             lastName: true,
             avatar: true,
             fileDirectory: true,
+            s3StorageId: true,
             isVerified: true,
           },
         },
@@ -1700,6 +1704,7 @@ app.get('/api/v1/videos/:id', async (req, res) => {
             avatarUrl: true,
             avatar: true,
             fileDirectory: true,
+            s3StorageId: true,
             isVerified: true,
           },
         },
@@ -1802,6 +1807,7 @@ app.get('/api/v1/videos', async (req, res) => {
             avatar: true,
             avatarUrl: true,
             fileDirectory: true,
+            s3StorageId: true,
             isVerified: true,
           },
         },
@@ -1904,6 +1910,7 @@ app.get('/api/v1/categories/:categoryId/videos', async (req, res) => {
             avatar: true,
             avatarUrl: true,
             fileDirectory: true,
+            s3StorageId: true,
             isVerified: true,
           },
         },
@@ -2026,6 +2033,7 @@ app.get('/api/v1/search/videos', async (req, res) => {
             avatar: true,
             avatarUrl: true,
             fileDirectory: true,
+            s3StorageId: true,
             isVerified: true,
           },
         },
@@ -2154,7 +2162,7 @@ app.get('/api/v1/search/posts', async (req, res) => {
           if (imageUrl.startsWith('http')) {
             return imageUrl;
           }
-          return await buildCommunityPostFileUrl(post.fileDirectory, imageUrl);
+          return await buildCommunityPostFileUrl(post.fileDirectory, imageUrl, (post as any).s3StorageId || 1);
         })
       );
 
@@ -2169,7 +2177,7 @@ app.get('/api/v1/search/posts', async (req, res) => {
             if (videoUrl.startsWith('http')) {
               return videoUrl;
             }
-            return await buildCommunityPostFileUrl(post.fileDirectory, videoUrl);
+            return await buildCommunityPostFileUrl(post.fileDirectory, videoUrl, (post as any).s3StorageId || 1);
           })
         ),
         videoThumbnailUrls: await Promise.all(
@@ -2177,7 +2185,7 @@ app.get('/api/v1/search/posts', async (req, res) => {
             if (thumbnailUrl.startsWith('http')) {
               return thumbnailUrl;
             }
-            return await buildCommunityPostFileUrl(post.fileDirectory, thumbnailUrl);
+            return await buildCommunityPostFileUrl(post.fileDirectory, thumbnailUrl, (post as any).s3StorageId || 1);
           })
         ),
         tags: post.tags || [],
@@ -2243,6 +2251,7 @@ app.get('/api/v1/search/users', async (req, res) => {
         avatar: true,
         avatarUrl: true,
         fileDirectory: true,
+        s3StorageId: true,
         bio: true,
         isVerified: true,
         createdAt: true,
@@ -2258,7 +2267,7 @@ app.get('/api/v1/search/users', async (req, res) => {
       let avatarUrl = user.avatarUrl;
       
       if (user.avatar && user.fileDirectory) {
-        avatarUrl = await buildFileUrl(user.fileDirectory, user.avatar, 'avatars');
+        avatarUrl = await buildFileUrl(user.fileDirectory, user.avatar, 'avatars', (user as any).s3StorageId || 1);
       }
       
       return {
@@ -2322,7 +2331,7 @@ app.get('/api/v1/categories', async (_req, res) => {
       categoryOrder: category.categoryOrder,
       categoryDesc: category.categoryDesc,
       categoryThumb: category.categoryThumb 
-        ? buildFileUrlSync(category.fileDirectory, category.categoryThumb, 'categories')
+        ? buildFileUrlSync(category.fileDirectory, category.categoryThumb, 'categories', (category as any).s3StorageId || 1)
         : null,
       isDefault: category.isDefault,
       createdAt: category.createdAt.toISOString(),
@@ -2334,7 +2343,7 @@ app.get('/api/v1/categories', async (_req, res) => {
         categoryOrder: child.categoryOrder,
         categoryDesc: child.categoryDesc,
         categoryThumb: child.categoryThumb
-          ? buildFileUrlSync(child.fileDirectory, child.categoryThumb, 'categories')
+          ? buildFileUrlSync(child.fileDirectory, child.categoryThumb, 'categories', (child as any).s3StorageId || 1)
           : null,
         isDefault: child.isDefault,
         createdAt: child.createdAt.toISOString(),
@@ -2369,6 +2378,7 @@ app.get('/api/v1/users', authenticateToken, async (req, res) => {
         avatar: true,
         avatarUrl: true,
         fileDirectory: true,
+        s3StorageId: true,
         isVerified: true,
         createdAt: true,
       },
@@ -2385,7 +2395,7 @@ app.get('/api/v1/users', authenticateToken, async (req, res) => {
       
       // Prioritize storage avatar over external URL
       if (user.avatar && user.fileDirectory) {
-        avatarUrl = await buildFileUrl(user.fileDirectory, user.avatar, 'avatars');
+        avatarUrl = await buildFileUrl(user.fileDirectory, user.avatar, 'avatars', (user as any).s3StorageId || 1);
         console.log(`🖼️ User ${user.username} - Storage avatar: ${avatarUrl}`);
       } else {
         console.log(`🖼️ User ${user.username} - External avatar: ${avatarUrl}`);
@@ -4717,6 +4727,7 @@ app.get('/api/v1/community/posts/tag/:tag', authenticateToken, async (req, res) 
             isVerified: true,
             avatar: true,
             fileDirectory: true,
+            s3StorageId: true,
           },
         },
       },
@@ -4734,27 +4745,27 @@ app.get('/api/v1/community/posts/tag/:tag', authenticateToken, async (req, res) 
         // Build image URLs
         const imageUrls = await Promise.all(
           post.images.map((fileName) =>
-            buildCommunityPostFileUrl(post.fileDirectory, fileName)
+            buildCommunityPostFileUrl(post.fileDirectory, fileName, (post as any).s3StorageId || 1)
           )
         );
 
         // Build video URLs
         const videoUrls = await Promise.all(
           post.videos.map((fileName) =>
-            buildCommunityPostFileUrl(post.fileDirectory, fileName)
+            buildCommunityPostFileUrl(post.fileDirectory, fileName, (post as any).s3StorageId || 1)
           )
         );
 
         // Build video thumbnail URLs from database
         const videoThumbnailUrls = await Promise.all(
           post.videoThumbnails.map((fileName) =>
-            buildCommunityPostFileUrl(post.fileDirectory, fileName)
+            buildCommunityPostFileUrl(post.fileDirectory, fileName, (post as any).s3StorageId || 1)
           )
         );
 
         // Build avatar URL (async)
         const avatarUrl = post.user.avatar && post.user.fileDirectory
-          ? await buildFileUrl(post.user.fileDirectory, post.user.avatar, 'avatars')
+          ? await buildFileUrl(post.user.fileDirectory, post.user.avatar, 'avatars', (post.user as any).s3StorageId || 1)
           : null;
 
         // Check if current user has liked this post
@@ -4850,27 +4861,27 @@ app.get('/api/v1/community/posts', authenticateToken, async (req, res) => {
         // Build image URLs
         const imageUrls = await Promise.all(
           post.images.map((fileName) =>
-            buildCommunityPostFileUrl(post.fileDirectory, fileName)
+            buildCommunityPostFileUrl(post.fileDirectory, fileName, (post as any).s3StorageId || 1)
           )
         );
 
         // Build video URLs
         const videoUrls = await Promise.all(
           post.videos.map((fileName) =>
-            buildCommunityPostFileUrl(post.fileDirectory, fileName)
+            buildCommunityPostFileUrl(post.fileDirectory, fileName, (post as any).s3StorageId || 1)
           )
         );
 
         // Build video thumbnail URLs from database
         const videoThumbnailUrls = await Promise.all(
           post.videoThumbnails.map((fileName) =>
-            buildCommunityPostFileUrl(post.fileDirectory, fileName)
+            buildCommunityPostFileUrl(post.fileDirectory, fileName, (post as any).s3StorageId || 1)
           )
         );
 
         // Build avatar URL (async)
         const avatarUrl = post.user.avatar && post.user.fileDirectory
-          ? await buildFileUrl(post.user.fileDirectory, post.user.avatar, 'avatars')
+          ? await buildFileUrl(post.user.fileDirectory, post.user.avatar, 'avatars', (post.user as any).s3StorageId || 1)
           : null;
 
         // Check if current user has liked this post
@@ -4967,27 +4978,27 @@ app.get('/api/v1/community/posts/trending', authenticateToken, async (req, res) 
         // Build image URLs
         const imageUrls = await Promise.all(
           post.images.map((fileName) =>
-            buildCommunityPostFileUrl(post.fileDirectory, fileName)
+            buildCommunityPostFileUrl(post.fileDirectory, fileName, (post as any).s3StorageId || 1)
           )
         );
 
         // Build video URLs
         const videoUrls = await Promise.all(
           post.videos.map((fileName) =>
-            buildCommunityPostFileUrl(post.fileDirectory, fileName)
+            buildCommunityPostFileUrl(post.fileDirectory, fileName, (post as any).s3StorageId || 1)
           )
         );
 
         // Build video thumbnail URLs from database
         const videoThumbnailUrls = await Promise.all(
           post.videoThumbnails.map((fileName) =>
-            buildCommunityPostFileUrl(post.fileDirectory, fileName)
+            buildCommunityPostFileUrl(post.fileDirectory, fileName, (post as any).s3StorageId || 1)
           )
         );
 
         // Build avatar URL (async)
         const avatarUrl = post.user.avatar && post.user.fileDirectory
-          ? await buildFileUrl(post.user.fileDirectory, post.user.avatar, 'avatars')
+          ? await buildFileUrl(post.user.fileDirectory, post.user.avatar, 'avatars', (post.user as any).s3StorageId || 1)
           : null;
 
         // Check if current user has liked this post
@@ -5115,27 +5126,27 @@ app.get('/api/v1/community/posts/search', authenticateToken, async (req, res) =>
         // Build image URLs
         const imageUrls = await Promise.all(
           post.images.map((fileName) =>
-            buildCommunityPostFileUrl(post.fileDirectory, fileName)
+            buildCommunityPostFileUrl(post.fileDirectory, fileName, (post as any).s3StorageId || 1)
           )
         );
 
         // Build video URLs
         const videoUrls = await Promise.all(
           post.videos.map((fileName) =>
-            buildCommunityPostFileUrl(post.fileDirectory, fileName)
+            buildCommunityPostFileUrl(post.fileDirectory, fileName, (post as any).s3StorageId || 1)
           )
         );
 
         // Build video thumbnail URLs from database
         const videoThumbnailUrls = await Promise.all(
           post.videoThumbnails.map((fileName) =>
-            buildCommunityPostFileUrl(post.fileDirectory, fileName)
+            buildCommunityPostFileUrl(post.fileDirectory, fileName, (post as any).s3StorageId || 1)
           )
         );
 
         // Build avatar URL (async)
         const avatarUrl = post.user.avatar && post.user.fileDirectory
-          ? await buildFileUrl(post.user.fileDirectory, post.user.avatar, 'avatars')
+          ? await buildFileUrl(post.user.fileDirectory, post.user.avatar, 'avatars', (post.user as any).s3StorageId || 1)
           : null;
 
         // Check if current user has liked this post
@@ -5272,8 +5283,9 @@ app.post('/api/v1/community/posts', authenticateToken, communityPostUpload.array
 
     if (uploadedFiles.length > 0) {
       try {
-        const uploadResult = await uploadCommunityPostFiles(uploadedFiles, newPost.id);
+        const uploadResult = await uploadCommunityPostFiles(uploadedFiles, newPost.id, req);
         fileDirectory = uploadResult.fileDirectory;
+        const s3StorageId = uploadResult.storageId;
         images = uploadResult.images;
         videos = uploadResult.videos;
         const videoThumbnails = uploadResult.videoThumbnails;
@@ -5300,6 +5312,7 @@ app.post('/api/v1/community/posts', authenticateToken, communityPostUpload.array
           where: { id: newPost.id },
           data: {
             fileDirectory,
+            s3StorageId,
             images,
             videos,
             videoThumbnails,
@@ -5332,6 +5345,7 @@ app.post('/api/v1/community/posts', authenticateToken, communityPostUpload.array
             avatar: true,
             avatarUrl: true,
             fileDirectory: true,
+            s3StorageId: true,
             isVerified: true,
           },
         },
@@ -5347,7 +5361,7 @@ app.post('/api/v1/community/posts', authenticateToken, communityPostUpload.array
 
     // Build avatar URL (async)
     const avatarUrl = finalPost.user.avatar && finalPost.user.fileDirectory
-      ? await buildFileUrl(finalPost.user.fileDirectory, finalPost.user.avatar, 'avatars')
+      ? await buildFileUrl(finalPost.user.fileDirectory, finalPost.user.avatar, 'avatars', (finalPost.user as any).s3StorageId || 1)
       : finalPost.user.avatarUrl;
 
     // Return the created post with user info
@@ -5821,6 +5835,7 @@ app.get('/api/v1/chat/rooms/:roomId/messages', async (req, res) => {
             avatarUrl: true,
             avatar: true,
             fileDirectory: true,
+            s3StorageId: true,
             isVerified: true,
           },
         },
@@ -5849,10 +5864,11 @@ app.get('/api/v1/chat/rooms/:roomId/messages', async (req, res) => {
         content: message.content,
         type: message.messageType,
         fileUrl: message.fileName && message.fileDirectory
-          ? (buildFileUrlSync(message.fileDirectory, message.fileName, fileFolder) || '')
+          ? (buildFileUrlSync(message.fileDirectory, message.fileName, fileFolder, (message as any).s3StorageId || 1) || '')
           : null,
         fileName: message.fileName,
         fileDirectory: message.fileDirectory,
+        s3StorageId: (message as any).s3StorageId || 1,
         fileSize: message.fileSize,
         mimeType: message.mimeType,
         createdAt: message.createdAt.toISOString(),
@@ -5898,7 +5914,7 @@ app.post('/api/v1/chat/rooms/:roomId/messages', async (req, res) => {
     }
 
     const { roomId } = req.params;
-    const { content, type = 'TEXT', fileName, fileDirectory, fileSize, mimeType } = req.body;
+    const { content, type = 'TEXT', fileName, fileDirectory, fileSize, mimeType, s3StorageId, storageId } = req.body;
 
     if (!content && !fileName) {
       res.status(400).json({
@@ -5935,6 +5951,7 @@ app.post('/api/v1/chat/rooms/:roomId/messages', async (req, res) => {
         messageType: type.toUpperCase() as any,
         fileName: fileName || null,
         fileDirectory: fileDirectory || null,
+        s3StorageId: (s3StorageId || storageId) && Number(s3StorageId || storageId) > 0 ? Number(s3StorageId || storageId) : 1,
         fileSize: fileSize ? parseInt(fileSize) : null,
         mimeType: mimeType || null,
         userId: currentUserId,
@@ -5950,6 +5967,7 @@ app.post('/api/v1/chat/rooms/:roomId/messages', async (req, res) => {
             avatarUrl: true,
             avatar: true,
             fileDirectory: true,
+            s3StorageId: true,
             isVerified: true,
           },
         },
@@ -5978,10 +5996,11 @@ app.post('/api/v1/chat/rooms/:roomId/messages', async (req, res) => {
       content: message.content,
       type: message.messageType,
       fileUrl: message.fileName && message.fileDirectory
-        ? (buildFileUrlSync(message.fileDirectory, message.fileName, fileFolder) || '')
+        ? (buildFileUrlSync(message.fileDirectory, message.fileName, fileFolder, (message as any).s3StorageId || 1) || '')
         : null,
       fileName: message.fileName,
       fileDirectory: message.fileDirectory,
+      s3StorageId: (message as any).s3StorageId || 1,
       fileSize: message.fileSize,
       mimeType: message.mimeType,
       createdAt: message.createdAt.toISOString(),
@@ -6432,7 +6451,7 @@ const attachUserInfoForUpload = async (req: any, res: any, next: any) => {
   // Get user info for file directory generation
   const user = await prisma.user.findUnique({
     where: { id: currentUserId },
-    select: { id: true, createdAt: true, fileDirectory: true, avatar: true, banner: true },
+    select: { id: true, createdAt: true, fileDirectory: true, s3StorageId: true, avatar: true, banner: true },
   });
   
   if (!user) {
@@ -6484,9 +6503,11 @@ app.post('/api/v1/chat/upload', attachUserInfoForUpload, chatUpload.single('file
       success: true,
       data: {
         fileUrl: file.location,
+        objectKey: file.key ? `s3://${file.storageId && Number(file.storageId) > 0 ? Number(file.storageId) : 1}/${file.key}` : null,
         fileName: file.filename,
         fileDirectory: file.fileDirectory,
         folder: file.folder,
+        s3StorageId: file.storageId && Number(file.storageId) > 0 ? Number(file.storageId) : 1,
         fileSize: file.size,
         mimeType: file.mimetype,
         originalName: file.originalname,
@@ -6514,20 +6535,22 @@ app.post('/api/v1/files/presigned-url', async (req, res) => {
       return;
     }
 
-    // Import S3 dependencies
+    // Import S3 dependencies (multi-storage aware)
     const { GetObjectCommand } = await import('@aws-sdk/client-s3');
     const { getSignedUrl } = await import('@aws-sdk/s3-request-presigner');
-    const s3Client = (await import('./services/s3Service')).default;
+    const { parseS3Ref, getS3Client, getS3StorageConfig } = await import('./services/s3Registry');
+
+    const parsed = parseS3Ref(String(objectKey));
+    const cfg = getS3StorageConfig(parsed.storageId);
+    const s3Client = getS3Client(parsed.storageId);
 
     const command = new GetObjectCommand({
-      Bucket: process.env['S3_BUCKET_NAME'] || '',
-      Key: objectKey,
+      Bucket: cfg.bucketName,
+      Key: parsed.key,
     });
 
     // Generate presigned URL valid for 1 hour
-    const presignedUrl = await getSignedUrl(s3Client, command, {
-      expiresIn: 3600, // 1 hour
-    });
+    const presignedUrl = await getSignedUrl(s3Client, command, { expiresIn: 3600 });
 
     res.json({
       success: true,
@@ -6568,6 +6591,7 @@ app.post('/api/v1/users/avatar', attachUserInfoForUpload, upload.single('avatar'
         folder: 'avatars',
         fileDirectory: currentUser.fileDirectory,
         filename: currentUser.avatar,
+        storageId: (currentUser as any).s3StorageId || 1,
       });
     }
     
@@ -6577,6 +6601,7 @@ app.post('/api/v1/users/avatar', attachUserInfoForUpload, upload.single('avatar'
       data: {
         avatar: fileInfo.filename,
         fileDirectory: fileInfo.fileDirectory,
+        s3StorageId: fileInfo.storageId && Number(fileInfo.storageId) > 0 ? Number(fileInfo.storageId) : 1,
         updatedAt: new Date(),
       },
       select: {
@@ -6591,6 +6616,7 @@ app.post('/api/v1/users/avatar', attachUserInfoForUpload, upload.single('avatar'
         avatarUrl: true,
         bannerUrl: true,
         fileDirectory: true,
+        s3StorageId: true,
         isVerified: true,
         role: true,
         createdAt: true,
@@ -6645,6 +6671,7 @@ app.post('/api/v1/users/banner', attachUserInfoForUpload, upload.single('banner'
         folder: 'banners',
         fileDirectory: currentUser.fileDirectory,
         filename: currentUser.banner,
+        storageId: (currentUser as any).s3StorageId || 1,
       });
     }
     
@@ -6654,6 +6681,7 @@ app.post('/api/v1/users/banner', attachUserInfoForUpload, upload.single('banner'
       data: {
         banner: fileInfo.filename,
         fileDirectory: fileInfo.fileDirectory,
+        s3StorageId: fileInfo.storageId && Number(fileInfo.storageId) > 0 ? Number(fileInfo.storageId) : 1,
         updatedAt: new Date(),
       },
       select: {
@@ -6668,6 +6696,7 @@ app.post('/api/v1/users/banner', attachUserInfoForUpload, upload.single('banner'
         avatarUrl: true,
         bannerUrl: true,
         fileDirectory: true,
+        s3StorageId: true,
         isVerified: true,
         role: true,
         createdAt: true,
@@ -7765,9 +7794,9 @@ app.get('/api/v1/community/posts/user/:userId', async (req, res) => {
       type: post.type,
       images: post.images,
       videos: post.videos,
-      imageUrls: await Promise.all(post.images.map(img => buildCommunityPostFileUrl(post.fileDirectory, img))),
-      videoUrls: await Promise.all(post.videos.map(vid => buildCommunityPostFileUrl(post.fileDirectory, vid))),
-      videoThumbnailUrls: await Promise.all(post.videoThumbnails.map(thumb => buildCommunityPostFileUrl(post.fileDirectory, thumb))),
+      imageUrls: await Promise.all(post.images.map(img => buildCommunityPostFileUrl(post.fileDirectory, img, (post as any).s3StorageId || 1))),
+      videoUrls: await Promise.all(post.videos.map(vid => buildCommunityPostFileUrl(post.fileDirectory, vid, (post as any).s3StorageId || 1))),
+      videoThumbnailUrls: await Promise.all(post.videoThumbnails.map(thumb => buildCommunityPostFileUrl(post.fileDirectory, thumb, (post as any).s3StorageId || 1))),
       duration: post.duration,
       linkUrl: post.linkUrl,
       linkTitle: post.linkTitle,

@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import { ContentSource } from '@prisma/client';
 import prisma from '../lib/prisma';
 import { StorageService } from '../config/storage';
-import ulozService from '../services/ulozService';
+import { getUlozService, resolveUlozStorageId } from '../services/ulozRegistry';
 
 const MAX_PAGE_SIZE = 200;
 
@@ -25,11 +25,10 @@ async function resolveMediaUrl(url?: string | null): Promise<string | null> {
   }
 
   if (url.startsWith('s3://')) {
-    const key = url.substring(5);
     try {
-      return await StorageService.getSignedUrl(key);
+      return await StorageService.getSignedUrl(url);
     } catch (error) {
-      console.warn(`⚠️  Failed to generate signed URL for ${key}:`, (error as Error).message);
+      console.warn(`⚠️  Failed to generate signed URL for ${url}:`, (error as Error).message);
       return null;
     }
   }
@@ -42,16 +41,15 @@ async function resolveFileStreamUrl(item: {
   source: ContentSource;
   ulozSlug?: string | null;
   metadata?: any;
-}): Promise<string | null> {
+}, req?: Request): Promise<string | null> {
   const { fileUrl, source, ulozSlug, metadata } = item;
 
   // Handle S3 stored content
   if (fileUrl?.startsWith('s3://')) {
-    const key = fileUrl.substring(5);
     try {
-      return await StorageService.getSignedUrl(key);
+      return await StorageService.getSignedUrl(fileUrl);
     } catch (error) {
-      console.warn(`⚠️  Failed to generate signed URL for ${key}:`, (error as Error).message);
+      console.warn(`⚠️  Failed to generate signed URL for ${fileUrl}:`, (error as Error).message);
       return null;
     }
   }
@@ -70,6 +68,7 @@ async function resolveFileStreamUrl(item: {
 
   // Handle uloz.to content
   if (source === ContentSource.ULOZ) {
+    const ulozService = getUlozService(resolveUlozStorageId(req));
     const candidate = ulozSlug || fileUrl || metadataUrl;
     if (candidate) {
       try {
@@ -345,7 +344,7 @@ export async function listLibraryItems(req: Request, res: Response) {
               source: item.source,
               ulozSlug: item.ulozSlug ?? null,
               metadata: item.metadata ?? undefined,
-            })
+            }, req)
           : null;
 
         return {
@@ -481,7 +480,7 @@ export async function getLibraryItem(req: Request, res: Response) {
           source: item.source,
           ulozSlug: item.ulozSlug ?? null,
           metadata: item.metadata ?? undefined,
-        })
+        }, req)
       : null;
 
     const breadcrumbs = await buildBreadcrumbs(item);

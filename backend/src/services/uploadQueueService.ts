@@ -1,5 +1,6 @@
 import { StorageService } from '../config/storage';
 import { PrismaClient } from '@prisma/client';
+import { makeS3Ref } from './s3Registry';
 
 const prisma = new PrismaClient();
 
@@ -128,7 +129,7 @@ class UploadQueueService {
         );
         
         if (result) {
-          thumbnailKey = `s3://${result.key}`;
+          thumbnailKey = makeS3Ref(result.storageId, result.key);
           console.log(`✅ Thumbnail uploaded: ${result.key}`);
         }
       }
@@ -143,7 +144,7 @@ class UploadQueueService {
         );
         
         if (result) {
-          videoPreviewKey = `s3://${result.key}`;
+          videoPreviewKey = makeS3Ref(result.storageId, result.key);
           console.log(`✅ Video preview uploaded: ${result.key}`);
         }
       }

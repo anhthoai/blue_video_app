@@ -1,8 +1,9 @@
 import { Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 import tmdbService from '../services/tmdbService';
-import ulozService from '../services/ulozService';
+import { getUlozService, resolveUlozStorageId } from '../services/ulozRegistry';
 import { StorageService } from '../config/storage';
+import { makeS3Ref } from '../services/s3Registry';
 
 const prisma = new PrismaClient();
 
@@ -17,11 +18,10 @@ async function resolveMediaUrl(url?: string | null): Promise<string | null> {
   }
 
   if (url.startsWith('s3://')) {
-    const key = url.substring(5); // Remove 's3://' prefix
     try {
-      return await StorageService.getSignedUrl(key, 3600); // 1 hour expiry
+      return await StorageService.getSignedUrl(url, 3600); // 1 hour expiry
     } catch (error) {
-      console.warn(`⚠️  Failed to generate signed URL for ${key}:`, (error as Error).message);
+      console.warn(`⚠️  Failed to generate signed URL for ${url}:`, (error as Error).message);
       return null;
     }
   }
@@ -601,6 +601,9 @@ export async function importEpisodesFromUloz(req: Request, res: Response): Promi
     const movieId = req.params['movieId'] as string;
     const { url, folderUrl, fileUrl, episodeNumber, seasonNumber = 1 } = req.body;
 
+    const ulozStorageId = resolveUlozStorageId(req);
+    const ulozService = getUlozService(ulozStorageId);
+
     // Verify movie exists
     const movie = await prisma.movie.findUnique({
       where: { id: movieId },
@@ -703,6 +706,7 @@ export async function importEpisodesFromUloz(req: Request, res: Response): Promi
                       slug: sub.slug,
                       fileUrl: sub.url,
                       source: 'ULOZ',
+                      ulozStorageId,
                     },
                   });
                   addedSubtitles++;
@@ -739,8 +743,8 @@ export async function importEpisodesFromUloz(req: Request, res: Response): Promi
               filenameId
             );
             if (result) {
-              // Store S3 key prefixed with 's3://' to indicate it needs presigned URL
-              thumbnailUrl = `s3://${result.key}`;
+              // Store s3://<id>/<key> so we can resolve the correct storage later
+              thumbnailUrl = makeS3Ref(result.storageId, result.key);
               console.log(`   ✅ Thumbnail uploaded: ${result.key}`);
             }
           }
@@ -753,8 +757,8 @@ export async function importEpisodesFromUloz(req: Request, res: Response): Promi
               filenameId
             );
             if (result) {
-              // Store S3 key prefixed with 's3://' to indicate it needs presigned URL
-              videoPreviewUrl = `s3://${result.key}`;
+              // Store s3://<id>/<key> so we can resolve the correct storage later
+              videoPreviewUrl = makeS3Ref(result.storageId, result.key);
               console.log(`   ✅ Video preview uploaded: ${result.key}`);
             }
           }
@@ -776,6 +780,7 @@ export async function importEpisodesFromUloz(req: Request, res: Response): Promi
               videoPreviewUrl: videoPreviewUrl,
               folderSlug: file.folderSlug || null,
               source: 'ULOZ',
+              ulozStorageId,
             },
           });
 
@@ -807,6 +812,7 @@ export async function importEpisodesFromUloz(req: Request, res: Response): Promi
                   slug: sub.slug,
                   fileUrl: sub.url,
                   source: 'ULOZ',
+                  ulozStorageId,
                 },
               });
 
@@ -888,8 +894,7 @@ export async function importEpisodesFromUloz(req: Request, res: Response): Promi
               filenameId
             );
             if (result) {
-              // Store S3 key prefixed with 's3://' to indicate it needs presigned URL
-              thumbnailUrl = `s3://${result.key}`;
+              thumbnailUrl = makeS3Ref(result.storageId, result.key);
               console.log(`   ✅ Thumbnail uploaded: ${result.key}`);
             }
           }
@@ -902,8 +907,7 @@ export async function importEpisodesFromUloz(req: Request, res: Response): Promi
               filenameId
             );
             if (result) {
-              // Store S3 key prefixed with 's3://' to indicate it needs presigned URL
-              videoPreviewUrl = `s3://${result.key}`;
+              videoPreviewUrl = makeS3Ref(result.storageId, result.key);
               console.log(`   ✅ Video preview uploaded: ${result.key}`);
             }
           }
@@ -924,6 +928,7 @@ export async function importEpisodesFromUloz(req: Request, res: Response): Promi
               videoPreviewUrl: videoPreviewUrl,
               folderSlug: fileInfo.folderSlug || null,
               source: 'ULOZ',
+              ulozStorageId,
             },
           });
 
@@ -1280,20 +1285,18 @@ export async function getMovieById(req: Request, res: Response): Promise<void> {
 
         // If URL starts with 's3://', generate presigned URL
         if (thumbnailUrl && thumbnailUrl.startsWith('s3://')) {
-          const key = thumbnailUrl.substring(5); // Remove 's3://' prefix
           try {
-            thumbnailUrl = await StorageService.getSignedUrl(key, 3600); // 1 hour expiry
+            thumbnailUrl = await StorageService.getSignedUrl(thumbnailUrl, 3600); // 1 hour expiry
           } catch (error) {
-            console.error(`Failed to generate presigned URL for thumbnail: ${key}`);
+            console.error(`Failed to generate presigned URL for thumbnail: ${thumbnailUrl}`);
           }
         }
 
         if (videoPreviewUrl && videoPreviewUrl.startsWith('s3://')) {
-          const key = videoPreviewUrl.substring(5); // Remove 's3://' prefix
           try {
-            videoPreviewUrl = await StorageService.getSignedUrl(key, 3600); // 1 hour expiry
+            videoPreviewUrl = await StorageService.getSignedUrl(videoPreviewUrl, 3600); // 1 hour expiry
           } catch (error) {
-            console.error(`Failed to generate presigned URL for video preview: ${key}`);
+            console.error(`Failed to generate presigned URL for video preview: ${videoPreviewUrl}`);
           }
         }
 
@@ -1335,6 +1338,8 @@ export async function getEpisodeStream(req: Request, res: Response): Promise<voi
   try {
     const movieId = req.params['movieId'] as string;
     const episodeId = req.params['episodeId'] as string;
+
+    const ulozService = getUlozService(resolveUlozStorageId(req));
 
     const episode = await prisma.movieEpisode.findFirst({
       where: {
@@ -1407,6 +1412,8 @@ export async function getEpisodeStream(req: Request, res: Response): Promise<voi
 export async function getSubtitleStream(req: Request, res: Response): Promise<void> {
   try {
     const subtitleId = req.params['subtitleId'] as string;
+
+    const ulozService = getUlozService(resolveUlozStorageId(req));
 
     console.log(`📝 Getting subtitle stream for ID: ${subtitleId}`);
 
@@ -1603,16 +1610,14 @@ export async function deleteMovie(req: Request, res: Response): Promise<void> {
           try {
             // Delete thumbnail if it's an S3 key
             if (episode.thumbnailUrl && episode.thumbnailUrl.startsWith('s3://')) {
-              const key = episode.thumbnailUrl.substring(5);
-              await StorageService.deleteFile(key);
-              console.log(`✅ Deleted thumbnail: ${key}`);
+              await StorageService.deleteFile(episode.thumbnailUrl);
+              console.log(`✅ Deleted thumbnail: ${episode.thumbnailUrl}`);
             }
             
             // Delete video preview if it's an S3 key
             if (episode.videoPreviewUrl && episode.videoPreviewUrl.startsWith('s3://')) {
-              const key = episode.videoPreviewUrl.substring(5);
-              await StorageService.deleteFile(key);
-              console.log(`✅ Deleted video preview: ${key}`);
+              await StorageService.deleteFile(episode.videoPreviewUrl);
+              console.log(`✅ Deleted video preview: ${episode.videoPreviewUrl}`);
             }
           } catch (error) {
             console.error(`⚠️  Failed to delete S3 files for episode ${episode.id}:`, error);

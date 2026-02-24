@@ -47,12 +47,12 @@ export class UlozService {
   private rootFolderSlug: string | null = null;
   private streamCache: Map<string, { url: string; expiresAt: number }> = new Map();
 
-  constructor() {
+  constructor(config?: Partial<UlozConfig>) {
     this.config = {
-      username: process.env['ULOZ_USERNAME'] || '',
-      password: process.env['ULOZ_PASSWORD'] || '',
-      apiKey: process.env['ULOZ_API_KEY'] || '',
-      baseUrl: process.env['ULOZ_BASE_URL'] || 'https://apis.uloz.to',
+      username: config?.username ?? process.env['ULOZ_USERNAME'] ?? '',
+      password: config?.password ?? process.env['ULOZ_PASSWORD'] ?? '',
+      apiKey: config?.apiKey ?? process.env['ULOZ_API_KEY'] ?? '',
+      baseUrl: config?.baseUrl ?? process.env['ULOZ_BASE_URL'] ?? 'https://apis.uloz.to',
     };
     
     this.baseUrl = this.config.baseUrl;

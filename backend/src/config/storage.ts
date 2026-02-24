@@ -1,4 +1,4 @@
-import { S3Client, PutObjectCommand, DeleteObjectCommand, HeadObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
+import { PutObjectCommand, DeleteObjectCommand, HeadObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import multer from 'multer';
 import multerS3 from 'multer-s3';
@@ -6,6 +6,7 @@ import { v4 as uuidv4 } from 'uuid';
 import sharp from 'sharp';
 import dotenv from 'dotenv';
 import { redisClient } from './database';
+import { getS3Client, getS3PublicBaseUrl, getS3StorageConfig, makeS3Ref, parseS3Ref, resolveS3WriteStorageId } from '../services/s3Registry';
 
 dotenv.config();
 
@@ -19,16 +20,8 @@ export const s3Config = {
   cdnUrl: process.env['CDN_URL'] || '',
 };
 
-// Initialize S3 client (AWS SDK v3)
-export const s3Client = new S3Client({
-  endpoint: s3Config.endpoint,
-  credentials: {
-    accessKeyId: s3Config.accessKeyId,
-    secretAccessKey: s3Config.secretAccessKey,
-  },
-  region: s3Config.region,
-  forcePathStyle: true, // For S3-compatible services
-});
+// Backward-compatible default client (storageId=1)
+export const s3Client = getS3Client(1);
 
 // File upload configuration
 export const uploadConfig = {
@@ -98,8 +91,12 @@ export class StorageService {
     folder: string = 'uploads',
     filename?: string,
     maxRetries: number = 3,
-    skipIfExists: boolean = true
-  ): Promise<{ url: string; key: string; size: number } | null> {
+    skipIfExists: boolean = true,
+    storageId?: number
+  ): Promise<{ url: string; key: string; size: number; storageId: number } | null> {
+    const effectiveStorageId = storageId && storageId > 0 ? storageId : resolveS3WriteStorageId(undefined);
+    const cfg = getS3StorageConfig(effectiveStorageId);
+
     // Check if file already exists in S3 before uploading
     // Note: Images are converted to webp, so we check for webp extension
     if (skipIfExists && filename) {
@@ -115,16 +112,18 @@ export class StorageService {
       for (const ext of extensionsToCheck) {
         if (!ext) continue;
         const key = `${folder}/${filename}.${ext}`;
-        const exists = await this.fileExists(key);
+        const exists = await this.fileExists(makeS3Ref(effectiveStorageId, key));
         if (exists) {
           console.log(`⏭️  File already exists in S3: ${key}`);
-          const fileUrl = s3Config.cdnUrl
-            ? `${s3Config.cdnUrl}/${key}`
-            : `${s3Config.endpoint}/${s3Config.bucketName}/${key}`;
+          const baseUrl = getS3PublicBaseUrl(effectiveStorageId);
+          const fileUrl = (cfg.cdnUrl || '').trim()
+            ? `${baseUrl}/${key}`
+            : `${baseUrl}/${cfg.bucketName}/${key}`;
           return {
             url: fileUrl,
             key: key,
             size: 0, // Size unknown without fetching metadata
+            storageId: effectiveStorageId,
           };
         }
       }
@@ -132,7 +131,7 @@ export class StorageService {
     
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
-        return await this._uploadFromUrlAttempt(url, folder, filename);
+        return await this._uploadFromUrlAttempt(url, folder, filename, effectiveStorageId);
       } catch (error: any) {
         const errorMsg = error.message || String(error);
         // Only suppress errors that are clearly from ulozService folder resolution
@@ -167,10 +166,14 @@ export class StorageService {
   private static async _uploadFromUrlAttempt(
     url: string,
     folder: string = 'uploads',
-    filename?: string
-  ): Promise<{ url: string; key: string; size: number } | null> {
+    filename?: string,
+    storageId: number = 1
+  ): Promise<{ url: string; key: string; size: number; storageId: number } | null> {
     try {
       console.log(`📥 Downloading from URL: ${url}`);
+
+      const cfg = getS3StorageConfig(storageId);
+      const client = getS3Client(storageId);
       
       // Download the file
       const response = await fetch(url);
@@ -243,7 +246,7 @@ export class StorageService {
       console.log(`📤 Uploading to S3: ${key}`);
       
       const uploadCommand = new PutObjectCommand({
-        Bucket: s3Config.bucketName,
+        Bucket: cfg.bucketName,
         Key: key,
         Body: buffer,
         ContentType: contentType,
@@ -252,7 +255,7 @@ export class StorageService {
       });
 
       try {
-        await s3Client.send(uploadCommand);
+        await client.send(uploadCommand);
       } catch (uploadError: any) {
         // Log S3 upload errors immediately with full details
         console.error(`❌ S3 upload failed for ${key}:`, {
@@ -264,9 +267,10 @@ export class StorageService {
         throw uploadError; // Re-throw to be caught by outer catch
       }
 
-      const fileUrl = s3Config.cdnUrl
-        ? `${s3Config.cdnUrl}/${key}`
-        : `${s3Config.endpoint}/${s3Config.bucketName}/${key}`;
+      const baseUrl = getS3PublicBaseUrl(storageId);
+      const fileUrl = (cfg.cdnUrl || '').trim()
+        ? `${baseUrl}/${key}`
+        : `${baseUrl}/${cfg.bucketName}/${key}`;
 
       console.log(`✅ Upload successful: ${fileUrl}`);
 
@@ -274,6 +278,7 @@ export class StorageService {
         url: fileUrl,
         key: key,
         size: buffer.length,
+        storageId,
       };
     } catch (error: any) {
       const errorMsg = error.message || String(error);
@@ -297,8 +302,8 @@ export class StorageService {
     urls: Array<{ url: string; folder: string; filename?: string }>,
     concurrency: number = 3,
     skipIfExists: boolean = true
-  ): Promise<Array<{ url: string; key: string; size: number } | null>> {
-    const results: Array<{ url: string; key: string; size: number } | null> = [];
+  ): Promise<Array<{ url: string; key: string; size: number; storageId: number } | null>> {
+    const results: Array<{ url: string; key: string; size: number; storageId: number } | null> = [];
     
     // Process in batches of `concurrency` at a time
     for (let i = 0; i < urls.length; i += concurrency) {
@@ -322,15 +327,20 @@ export class StorageService {
    */
   static async uploadFile(
     file: Express.Multer.File,
-    folder: string = 'uploads'
-  ): Promise<{ url: string; key: string; size: number }> {
+    folder: string = 'uploads',
+    storageId?: number
+  ): Promise<{ url: string; key: string; size: number; storageId: number }> {
     try {
+      const effectiveStorageId = storageId && storageId > 0 ? storageId : resolveS3WriteStorageId(undefined);
+      const cfg = getS3StorageConfig(effectiveStorageId);
+      const client = getS3Client(effectiveStorageId);
+
       const fileExtension = file.originalname.split('.').pop();
       const fileName = `${uuidv4()}.${fileExtension}`;
       const key = `${folder}/${fileName}`;
 
       const uploadCommand = new PutObjectCommand({
-        Bucket: s3Config.bucketName,
+        Bucket: cfg.bucketName,
         Key: key,
         Body: file.buffer,
         ContentType: file.mimetype,
@@ -340,16 +350,18 @@ export class StorageService {
         },
       });
 
-      await s3Client.send(uploadCommand);
+      await client.send(uploadCommand);
       
-      const fileUrl = s3Config.cdnUrl 
-        ? `${s3Config.cdnUrl}/${key}` 
-        : `${s3Config.endpoint}/${s3Config.bucketName}/${key}`;
+      const baseUrl = getS3PublicBaseUrl(effectiveStorageId);
+      const fileUrl = (cfg.cdnUrl || '').trim()
+        ? `${baseUrl}/${key}`
+        : `${baseUrl}/${cfg.bucketName}/${key}`;
       
       return {
         url: fileUrl,
         key: key,
         size: file.size,
+        storageId: effectiveStorageId,
       };
     } catch (error) {
       console.error('Upload error:', error);
@@ -362,11 +374,14 @@ export class StorageService {
    */
   static async deleteFile(key: string): Promise<void> {
     try {
+      const parsed = parseS3Ref(key);
+      const cfg = getS3StorageConfig(parsed.storageId);
+      const client = getS3Client(parsed.storageId);
       const deleteCommand = new DeleteObjectCommand({
-        Bucket: s3Config.bucketName,
-        Key: key,
+        Bucket: cfg.bucketName,
+        Key: parsed.key,
       });
-      await s3Client.send(deleteCommand);
+      await client.send(deleteCommand);
     } catch (error) {
       console.error('Delete error:', error);
       throw new Error('Failed to delete file');
@@ -377,10 +392,13 @@ export class StorageService {
    * Get file URL with CDN
    */
   static getFileUrl(key: string): string {
-    if (s3Config.cdnUrl) {
-      return `${s3Config.cdnUrl}/${key}`;
+    const parsed = parseS3Ref(key);
+    const cfg = getS3StorageConfig(parsed.storageId);
+    const baseUrl = getS3PublicBaseUrl(parsed.storageId);
+    if ((cfg.cdnUrl || '').trim()) {
+      return `${baseUrl}/${parsed.key}`;
     }
-    return `https://${s3Config.bucketName}.s3.${s3Config.region}.amazonaws.com/${key}`;
+    return `${baseUrl}/${cfg.bucketName}/${parsed.key}`;
   }
 
   /**
@@ -391,8 +409,12 @@ export class StorageService {
     expiresIn: number = 3600
   ): Promise<string> {
     try {
+      const parsed = parseS3Ref(key);
+      const cfg = getS3StorageConfig(parsed.storageId);
+      const client = getS3Client(parsed.storageId);
+
       // Try to get from cache first (if Redis is enabled)
-      const cacheKey = `presigned:${key}`;
+      const cacheKey = `presigned:${parsed.storageId}:${parsed.key}`;
       
       if (redisClient && redisClient.get) {
         try {
@@ -409,11 +431,11 @@ export class StorageService {
       
       // Generate new presigned URL
       const command = new GetObjectCommand({
-        Bucket: s3Config.bucketName,
-        Key: key,
+        Bucket: cfg.bucketName,
+        Key: parsed.key,
       });
       
-      const url = await getSignedUrl(s3Client, command, { expiresIn });
+      const url = await getSignedUrl(client, command, { expiresIn });
       
       // Cache the URL (cache for 30 minutes, less than actual expiry for safety)
       if (redisClient && redisClient.set) {
@@ -439,11 +461,14 @@ export class StorageService {
    */
   static async fileExists(key: string): Promise<boolean> {
     try {
+      const parsed = parseS3Ref(key);
+      const cfg = getS3StorageConfig(parsed.storageId);
+      const client = getS3Client(parsed.storageId);
       const command = new HeadObjectCommand({
-        Bucket: s3Config.bucketName,
-        Key: key,
+        Bucket: cfg.bucketName,
+        Key: parsed.key,
       });
-      await s3Client.send(command);
+      await client.send(command);
       return true;
     } catch (error: any) {
       // If error is about folder resolution, treat as file not existing
@@ -463,11 +488,14 @@ export class StorageService {
    */
   static async getFileMetadata(key: string): Promise<any> {
     try {
+      const parsed = parseS3Ref(key);
+      const cfg = getS3StorageConfig(parsed.storageId);
+      const client = getS3Client(parsed.storageId);
       const command = new HeadObjectCommand({
-        Bucket: s3Config.bucketName,
-        Key: key,
+        Bucket: cfg.bucketName,
+        Key: parsed.key,
       });
-      const result = await s3Client.send(command);
+      const result = await client.send(command);
       
       return {
         size: result.ContentLength,

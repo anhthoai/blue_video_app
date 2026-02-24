@@ -26,6 +26,7 @@ model User {
   
   // Storage-based files (stored in our CDN/R2)
   fileDirectory String?  @map("file_directory") // Format: yyyy/mm/dd based on createdAt
+  s3StorageId   Int      @default(1) @map("s3_storage_id")
   avatar        String?  // Filename only (e.g., "avatar-uuid.jpg")
   banner        String?  // Filename only (e.g., "banner-uuid.jpg")
   
@@ -97,6 +98,7 @@ model Video {
   description    String?
   fileName       String?      @map("file_name")
   fileDirectory  String?      @map("file_directory")
+  s3StorageId    Int          @default(1) @map("s3_storage_id")
   remotePlayUrl  String?      @map("remote_play_url")
   embedCode      String?      @map("embed_code") @db.Text
   videoUrl       String?      @map("video_url") // Deprecated, kept for backward compatibility
@@ -139,6 +141,7 @@ model CommunityPost {
   videos          String[]
   videoThumbnails String[] @default([]) @map("video_thumbnails") // Video thumbnail filenames, matching videos array order
   fileDirectory   String?  @map("file_directory") // Storage directory for uploaded files
+  s3StorageId     Int      @default(1) @map("s3_storage_id")
   linkUrl         String?  @map("link_url")
   linkTitle       String?  @map("link_title")
   linkDescription String?  @map("link_description")
@@ -344,6 +347,7 @@ model ChatMessage {
   messageType   MessageType @default(TEXT) @map("message_type")
   fileName      String?     @map("file_name")
   fileDirectory String?     @map("file_directory")
+  s3StorageId    Int         @default(1) @map("s3_storage_id")
   fileSize      Int?        @map("file_size")
   mimeType      String?     @map("mime_type")
   isEdited      Boolean     @default(false) @map("is_edited")
@@ -426,6 +430,7 @@ model Category {
   categoryDesc  String?   @map("category_desc")
   categoryThumb String?   @map("category_thumb") // Filename only (e.g., "category-uuid.jpg")
   fileDirectory String?   @map("file_directory") // Format: yyyy/mm/dd
+  s3StorageId   Int       @default(1) @map("s3_storage_id")
   isDefault     Boolean   @default(false) @map("is_default")
   createdAt     DateTime  @default(now()) @map("created_at")
   updatedAt     DateTime  @updatedAt @map("updated_at")
@@ -753,6 +758,7 @@ model MovieEpisode {
   
   // File Source (uloz.to)
   source           ContentSource @default(ULOZ)
+  ulozStorageId    Int           @default(1) @map("uloz_storage_id")
   slug             String?       @db.VarChar(500)
   folderSlug       String?       @map("folder_slug") @db.VarChar(500)
   parentFolderSlug String?       @map("parent_folder_slug") @db.VarChar(500)
@@ -797,6 +803,7 @@ model Subtitle {
   slug      String   @db.VarChar(500)
   fileUrl   String   @map("file_url") @db.Text
   source    ContentSource @default(ULOZ)
+  ulozStorageId Int        @default(1) @map("uloz_storage_id")
   
   // Metadata
   createdAt DateTime @default(now()) @map("created_at")
@@ -837,6 +844,7 @@ model LibraryContent {
   
   // File Source
   source           ContentSource @default(UPLOAD)
+  ulozStorageId    Int           @default(1) @map("uloz_storage_id")
   slugPath         String?       @map("slug_path") @db.VarChar(500)
   fileUrl          String?       @map("file_url") @db.Text
   parentFolderSlug String?       @map("parent_folder_slug") @db.VarChar(500)

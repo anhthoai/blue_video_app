@@ -5,7 +5,7 @@ import crypto from 'node:crypto';
 import { PrismaClient, ContentSource } from '@prisma/client';
 import type { Prisma } from '@prisma/client';
 
-import { UlozService } from '../src/services/ulozService';
+import { getUlozService, getUlozStorageConfig } from '../src/services/ulozRegistry';
 import { StorageService } from '../src/config/storage';
 
 interface SectionConfig {
@@ -32,7 +32,6 @@ interface UploadJob {
 }
 
 const prisma = new PrismaClient();
-const ulozService = new UlozService();
 
 type LibraryContentEntity = Awaited<ReturnType<typeof prisma.libraryContent.upsert>>;
 
@@ -40,6 +39,7 @@ interface CliOptions {
   folderSlug?: string;
   section?: string;
   displayName?: string;
+  ulozStorageId?: number;
 }
 
 function parseCliArgs(): CliOptions | null {
@@ -60,7 +60,8 @@ function parseCliArgs(): CliOptions | null {
     }
 
     const [rawKey, rawValue] = arg.includes('=') ? arg.substring(2).split('=') : [arg.substring(2), undefined];
-    const key = rawKey.trim().toLowerCase();
+    // Normalize so flags like --uloz-storage-id and --ulozStorageId both work
+    const key = rawKey.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
     if (!key) continue;
 
     if (rawValue !== undefined) {
@@ -78,57 +79,47 @@ function parseCliArgs(): CliOptions | null {
   }
 
   const folderSlug = options['folder'] || options['folderslug'];
-  if (!folderSlug) {
-    return null;
-  }
 
   const sectionValue = options['section'];
   const section = sectionValue ? sectionValue.trim().toLowerCase() : undefined;
 
   const displayName = options['name'] ?? options['display'] ?? options['label'];
 
+  const rawStorageId = options['ulozstorageid'] ?? options['storageid'] ?? options['uloz'];
+  const ulozStorageId = rawStorageId ? Number.parseInt(String(rawStorageId), 10) : undefined;
+
   return {
     folderSlug,
     section: section ?? 'other',
     ...(displayName !== undefined ? { displayName } : {}),
+    ...(ulozStorageId && Number.isFinite(ulozStorageId) && ulozStorageId > 0 ? { ulozStorageId } : {}),
   };
 }
 
-function buildEnvSections(): SectionConfig[] {
+function resolveUlozStorageId(cliOptions: CliOptions | null): number {
+  const fromCli = cliOptions?.ulozStorageId;
+  if (fromCli && Number.isFinite(fromCli) && fromCli > 0) return fromCli;
+
+  const fromEnv = Number.parseInt(process.env['ULOZ_DEFAULT_STORAGE_ID'] || process.env['ULOZ_STORAGE_ID'] || '', 10);
+  if (Number.isFinite(fromEnv) && fromEnv > 0) return fromEnv;
+
+  return 1;
+}
+
+function buildEnvSections(ulozStorageId: number): SectionConfig[] {
   const configs: SectionConfig[] = [];
-  const envEntries = Object.entries(process.env);
+  const cfg = getUlozStorageConfig(ulozStorageId);
 
-  for (const [key, value] of envEntries) {
-    if (!key || !value) {
-      continue;
-    }
-
-    const match = key.match(/^ULOZ_LIBRARY_(.+)_FOLDER$/i);
-    if (!match) {
-      continue;
-    }
-
-    const rawSection = match[1] || '';
-    const folderSlug = value.trim();
-    if (!folderSlug) {
-      continue;
-    }
-
-    const section = rawSection
-      .toLowerCase()
-      .replace(/__+/g, '_')
-      .replace(/_/g, '-');
+  for (const [section, folderSlugValue] of Object.entries(cfg.libraryFolders)) {
+    const folderSlug = String(folderSlugValue || '').trim();
+    if (!folderSlug) continue;
 
     const displayName = section
       .split('-')
       .map(part => part.charAt(0).toUpperCase() + part.slice(1))
       .join(' ');
 
-    configs.push({
-      section,
-      folderSlug,
-      displayName,
-    });
+    configs.push({ section, folderSlug, displayName });
   }
 
   return configs;
@@ -136,6 +127,7 @@ function buildEnvSections(): SectionConfig[] {
 
 function resolveSectionConfigs(): SectionConfig[] {
   const cliOptions = parseCliArgs();
+  const ulozStorageId = resolveUlozStorageId(cliOptions);
   if (cliOptions?.folderSlug) {
     console.log('⚙️  Using CLI arguments for library import');
     return [
@@ -148,10 +140,14 @@ function resolveSectionConfigs(): SectionConfig[] {
   }
 
   console.log('⚙️  Using environment variables for section configuration');
-  return buildEnvSections();
+  return buildEnvSections(ulozStorageId);
 }
 
 const SECTION_CONFIGS: SectionConfig[] = resolveSectionConfigs();
+
+const CLI_OPTIONS = parseCliArgs();
+const ULOZ_STORAGE_ID = resolveUlozStorageId(CLI_OPTIONS);
+const ulozService = getUlozService(ULOZ_STORAGE_ID);
 
 const VIDEO_EXTENSIONS = new Set(['mp4', 'mkv', 'avi', 'mov', 'm4v', 'webm', 'flv', 'wmv']);
 const AUDIO_EXTENSIONS = new Set(['mp3', 'flac', 'wav', 'aac', 'm4a', 'ogg', 'wma', 'm4b', 'opus']);
@@ -164,9 +160,13 @@ const DOCUMENT_EXTENSIONS = new Set(['pdf', 'doc', 'docx', 'ppt', 'pptx', 'xls',
 if (SECTION_CONFIGS.length === 0) {
   console.error('❌ No section configuration found.');
   console.error('   Provide CLI arguments, e.g.:');
-  console.error('     ts-node scripts/import-uloz-library.ts --folder <slug> --section videos --name "My Videos"');
+  console.error('     ts-node scripts/import-uloz-library.ts --folder <slug> --section videos --name "My Videos" --ulozStorageId 2');
+  console.error('   Supported aliases:');
+  console.error('     --ulozStorageId / --uloz-storage-id / --storageId / --storage-id');
   console.error('   or set environment variables:');
   console.error('     ULOZ_LIBRARY_VIDEOS_FOLDER, ULOZ_LIBRARY_AUDIO_FOLDER, etc.');
+  console.error('   Optional: set default uloz account via env:');
+  console.error('     ULOZ_DEFAULT_STORAGE_ID=2 (or legacy ULOZ_STORAGE_ID=2)');
   process.exit(1);
 }
 
@@ -526,6 +526,7 @@ async function upsertFolder(params: {
     section: sectionValue,
     isFolder: true,
     source: ContentSource.ULOZ,
+    ulozStorageId: ULOZ_STORAGE_ID,
     parentId: params.parentId,
     parentFolderSlug: params.parentFolderSlug,
     filePath: params.filePath,
@@ -542,6 +543,7 @@ async function upsertFolder(params: {
     contentType: 'folder',
     section: sectionValue,
     isFolder: true,
+    ulozStorageId: ULOZ_STORAGE_ID,
     parentId: params.parentId,
     parentFolderSlug: params.parentFolderSlug,
     filePath: params.filePath,
@@ -707,6 +709,7 @@ async function upsertFile(params: {
             ? BigInt(params.size)
             : null,
       source: ContentSource.ULOZ,
+      ulozStorageId: ULOZ_STORAGE_ID,
       parentId: params.parentId,
       parentFolderSlug: params.parentFolderSlug,
       filePath: params.filePath,
@@ -737,6 +740,7 @@ async function upsertFile(params: {
             ? BigInt(params.size)
             : null,
       source: ContentSource.ULOZ,
+      ulozStorageId: ULOZ_STORAGE_ID,
       parentId: params.parentId,
       parentFolderSlug: params.parentFolderSlug,
       filePath: params.filePath,
