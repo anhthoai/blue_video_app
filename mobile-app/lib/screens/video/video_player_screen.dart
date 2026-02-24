@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:video_player/video_player.dart';
 import 'package:webview_flutter/webview_flutter.dart';
+import 'dart:async';
+import 'package:flutter/services.dart';
+import 'package:media_kit/media_kit.dart';
+import 'package:media_kit_video/media_kit_video.dart';
 
 import '../../models/video_model.dart';
 import '../../core/services/video_service.dart';
@@ -34,7 +37,11 @@ class VideoPlayerScreen extends ConsumerStatefulWidget {
 class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
     with WidgetsBindingObserver {
   final ScrollController _scrollController = ScrollController();
-  VideoPlayerController? _videoController;
+  Player? _player;
+  VideoController? _videoController;
+  StreamSubscription<Duration>? _positionSubscription;
+  StreamSubscription<Duration?>? _durationSubscription;
+  StreamSubscription<bool>? _playingSubscription;
   WebViewController? _webViewController;
   bool _isPlaying = false;
   bool _showControls = true;
@@ -109,11 +116,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
     // Set initializing flag to prevent re-entry
     _isInitializing = true;
 
-    // Dispose current video controller
-    if (_videoController != null) {
-      _videoController!.dispose();
-      _videoController = null;
-    }
+    _disposePlayer();
 
     // Reset video state
     setState(() {
@@ -127,6 +130,19 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
 
     // Reset current video URL
     _currentVideoUrl = null;
+  }
+
+  void _disposePlayer() {
+    _positionSubscription?.cancel();
+    _positionSubscription = null;
+    _durationSubscription?.cancel();
+    _durationSubscription = null;
+    _playingSubscription?.cancel();
+    _playingSubscription = null;
+
+    _videoController = null;
+    _player?.dispose();
+    _player = null;
   }
 
   // Increment view count when video starts playing
@@ -327,7 +343,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
     WidgetsBinding.instance.removeObserver(this);
     _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
-    _videoController?.dispose();
+    _disposePlayer();
     super.dispose();
   }
 
@@ -375,7 +391,8 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
   // Load subtitle for the video
   Future<void> _loadSubtitle(String languageCode,
       {bool showNotification = true}) async {
-    if (_videoController == null) return;
+    final player = _player;
+    if (player == null) return;
     if (_currentVideoFileDirectory == null || _currentVideoFileName == null) {
       print('⚠️  Video file info not available yet');
       return;
@@ -384,15 +401,21 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
     try {
       print('📝 Loading subtitle: $languageCode');
 
-      final subtitleFile = await SubtitleUtils.loadSubtitle(
+      final subtitleUrl = await SubtitleUtils.getSubtitleUrl(
         _currentVideoFileDirectory,
         _currentVideoFileName,
         languageCode,
       );
 
-      if (subtitleFile != null) {
-        // setClosedCaptionFile expects Future<ClosedCaptionFile>, so wrap it
-        _videoController!.setClosedCaptionFile(Future.value(subtitleFile));
+      if (subtitleUrl != null) {
+        await player.setSubtitleTrack(
+          SubtitleTrack.uri(
+            subtitleUrl,
+            title: LanguageUtils.getLanguageName(languageCode),
+            language: LanguageUtils.normalizeLanguageCode(languageCode) ??
+                languageCode,
+          ),
+        );
         if (mounted) {
           setState(() {
             _currentSubtitleCode = languageCode;
@@ -522,7 +545,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
                             _currentSubtitleCode = null;
                           });
                         }
-                        _videoController?.setClosedCaptionFile(null);
+                        _player?.setSubtitleTrack(SubtitleTrack.no());
 
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
@@ -702,11 +725,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
     print('🎥 Actually initializing video');
     _isInitializing = true;
 
-    // Dispose current controller if it exists
-    if (_videoController != null) {
-      _videoController!.dispose();
-      _videoController = null;
-    }
+    _disposePlayer();
 
     // Priority 1: Embed Code
     if (video.embedCode != null && video.embedCode!.isNotEmpty) {
@@ -781,69 +800,84 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
         '📁 Cached video file info: $_currentVideoFileDirectory/$_currentVideoFileName');
 
     _currentVideoUrl = videoUrl;
-    _videoController = VideoPlayerController.networkUrl(Uri.parse(videoUrl))
-      ..initialize().then((_) {
-        print('✅ Video initialized successfully');
-        _isInitializing = false;
-        if (mounted) {
-          setState(() {
-            _isVideoInitialized = true;
-            _isEmbedVideo = false;
-            _totalDuration = _videoController!.value.duration;
-          });
+    final player = Player();
+    final controller = VideoController(player);
+    _player = player;
+    _videoController = controller;
 
-          // Setup preview mode if needed
-          if (_isPreviewMode) {
-            _setupPreviewMode();
-          }
-
-          // Auto-play
-          _videoController!.play();
-          setState(() {
-            _isPlaying = true;
-          });
-
-          // Load default English subtitle if available
-          _loadDefaultSubtitle();
-
-          // Increment view count when video is ready
-          _incrementViewCount(widget.videoId);
-        }
-      }).catchError((error) {
-        print('❌ Video initialization error: $error');
-        _isInitializing = false;
-        if (mounted) {
-          setState(() {
-            _isVideoInitialized = false;
-            _currentVideoUrl = null;
-          });
-        }
-      })
-      ..addListener(() {
-        if (mounted && _videoController != null) {
-          setState(() {
-            _currentPosition = _videoController!.value.position;
-          });
-
-          // Check preview limit (15 seconds for free users)
-          if (_isPreviewMode &&
-              !_hasShownPreviewWarning &&
-              _currentPosition.inSeconds >= 10) {
-            _hasShownPreviewWarning = true;
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text(
-                    '5 seconds remaining! Upgrade to VIP for full access.'),
-                duration: Duration(seconds: 2),
-              ),
-            );
-          }
-
-          if (_isPreviewMode && _currentPosition.inSeconds >= 15) {
-            _handlePreviewLimitReached();
-          }
-        }
+    _playingSubscription = player.stream.playing.listen((playing) {
+      if (!mounted) return;
+      setState(() {
+        _isPlaying = playing;
       });
+    });
+
+    _durationSubscription = player.stream.duration.listen((duration) {
+      if (!mounted || duration == null) return;
+      setState(() {
+        _totalDuration = duration;
+      });
+    });
+
+    _positionSubscription = player.stream.position.listen((position) {
+      if (!mounted) return;
+      setState(() {
+        _currentPosition = position;
+      });
+
+      // Check preview limit (15 seconds for free users)
+      if (_isPreviewMode && !_hasShownPreviewWarning && position.inSeconds >= 10) {
+        _hasShownPreviewWarning = true;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content:
+                Text('5 seconds remaining! Upgrade to VIP for full access.'),
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+
+      if (_isPreviewMode && position.inSeconds >= 15) {
+        _handlePreviewLimitReached();
+      }
+    });
+
+    player
+        .open(
+          Media(videoUrl),
+          play: true,
+        )
+        .then((_) {
+      print('✅ Video initialized successfully');
+      _isInitializing = false;
+      if (mounted) {
+        setState(() {
+          _isVideoInitialized = true;
+          _isEmbedVideo = false;
+        });
+
+        // Setup preview mode if needed
+        if (_isPreviewMode) {
+          _setupPreviewMode();
+        }
+
+        // Load default English subtitle if available
+        _loadDefaultSubtitle();
+
+        // Increment view count when video is ready
+        _incrementViewCount(widget.videoId);
+      }
+    }).catchError((error) {
+      print('❌ Video initialization error: $error');
+      _isInitializing = false;
+      if (mounted) {
+        setState(() {
+          _isVideoInitialized = false;
+          _currentVideoUrl = null;
+        });
+      }
+      _disposePlayer();
+    });
   }
 
   void _setupPreviewMode() {
@@ -861,8 +895,9 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
   }
 
   void _handlePreviewLimitReached() {
-    if (_videoController != null && _isPlaying && !_hasShownPreviewDialog) {
-      _videoController!.pause();
+    final player = _player;
+    if (player != null && _isPlaying && !_hasShownPreviewDialog) {
+      player.pause();
       setState(() {
         _isPlaying = false;
         _hasShownPreviewDialog = true; // Mark as shown
@@ -929,8 +964,8 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
 
                     _closePreviewDialogIfOpen();
 
-                    if (_videoController != null && !_isPlaying) {
-                      _videoController!.play();
+                    if (_player != null && !_isPlaying) {
+                      _player!.play();
                       setState(() {
                         _isPlaying = true;
                       });
@@ -1021,7 +1056,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
           // Initialize video player when video data is loaded (only if not already initialized or initializing)
           if (!_isVideoInitialized &&
               !_isInitializing &&
-              _videoController == null &&
+              _player == null &&
               _currentVideoUrl != video.videoUrl) {
             print(
                 '🎥 Build method triggering initialization for URL: ${video.videoUrl}');
@@ -1138,361 +1173,92 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
       );
     }
 
-    return GestureDetector(
-      onTap: () {
-        if (_isVideoInitialized && _videoController != null) {
-          if (_isPlaying) {
-            // If playing, just toggle controls
-            _toggleControls();
-          } else {
-            // If paused, play the video
-            setState(() {
-              _isPlaying = true;
-              _videoController!.play();
-              _showControls = true;
-            });
-            // Hide controls after 3 seconds
-            Future.delayed(const Duration(seconds: 3), () {
-              if (mounted && _isPlaying) {
-                setState(() {
-                  _showControls = false;
-                });
-              }
-            });
-          }
-        }
-      },
-      child: Container(
-        height: _isFullscreen
-            ? screenSize.height
-            : isLandscape
-                ? screenSize.height
-                : screenSize.width * 9 / 16,
-        width: double.infinity,
-        color: Colors.black,
-        child: Stack(
-          children: [
-            // Video Player or Thumbnail
-            if (_isVideoInitialized && _videoController != null)
-              SizedBox.expand(
-                child: FittedBox(
-                  fit: BoxFit.contain,
-                  child: SizedBox(
-                    width: _videoController!.value.size.width,
-                    height: _videoController!.value.size.height,
-                    child: Stack(
-                      alignment: Alignment.center,
-                      children: [
-                        // Video Player
-                        VideoPlayer(_videoController!),
-                        // Subtitle Display
-                        if (_subtitlesEnabled &&
-                            _videoController!.value.caption.text.isNotEmpty)
-                          Positioned(
-                            bottom:
-                                _getSubtitleBottomPosition(), // Position calculated by helper method
-                            left: 0,
-                            right: 0,
-                            child: Center(
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 16,
-                                  vertical: 10,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: Colors.black.withOpacity(
-                                      0.6), // More transparent background
-                                  borderRadius: BorderRadius.circular(6),
-                                ),
-                                child: Text(
-                                  _videoController!.value.caption.text,
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize:
-                                        _getSubtitleFontSize(), // Adaptive to orientation and fullscreen
-                                    fontWeight: FontWeight.w500,
-                                    shadows: [
-                                      Shadow(
-                                        color: Colors.black.withOpacity(
-                                            0.3), // Even more transparent shadow
-                                        offset: const Offset(1, 1),
-                                        blurRadius: 4,
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                ),
-              )
-            else
-              Container(
-                width: double.infinity,
-                height: double.infinity,
-                child: video.calculatedThumbnailUrl != null
-                    ? PresignedImage(
-                        imageUrl: video.calculatedThumbnailUrl!,
-                        fit: BoxFit.cover,
-                        placeholder: Container(
-                          color: Colors.grey[800],
-                          child: const Center(
-                            child:
-                                CircularProgressIndicator(color: Colors.white),
-                          ),
-                        ),
-                        errorWidget: Container(
-                          color: Colors.grey[800],
-                          child: const Center(
-                            child: Icon(Icons.error,
-                                color: Colors.white, size: 50),
-                          ),
-                        ),
-                      )
-                    : Container(
+    return Container(
+      height: _isFullscreen
+          ? screenSize.height
+          : isLandscape
+              ? screenSize.height
+              : screenSize.width * 9 / 16,
+      width: double.infinity,
+      color: Colors.black,
+      child: Stack(
+        children: [
+          if (_isVideoInitialized && _videoController != null)
+            Positioned.fill(
+              child: Video(
+                controller: _videoController!,
+                controls: AdaptiveVideoControls,
+                onEnterFullscreen: _enterFullscreen,
+                onExitFullscreen: _exitFullscreen,
+              ),
+            )
+          else
+            Positioned.fill(
+              child: video.calculatedThumbnailUrl != null
+                  ? PresignedImage(
+                      imageUrl: video.calculatedThumbnailUrl!,
+                      fit: BoxFit.cover,
+                      placeholder: Container(
                         color: Colors.grey[800],
                         child: const Center(
-                          child: Icon(Icons.video_library,
-                              color: Colors.white, size: 50),
+                          child: CircularProgressIndicator(color: Colors.white),
                         ),
                       ),
-              ),
-            // Play/Pause Button or Loading indicator
-            if (!_isPlaying)
-              Center(
-                child: Container(
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.7),
-                    shape: BoxShape.circle,
-                  ),
-                  child: _isVideoInitialized
-                      ? const Icon(
-                          Icons.play_arrow,
-                          color: Colors.white,
-                          size: 60,
-                        )
-                      : const CircularProgressIndicator(
-                          color: Colors.white,
+                      errorWidget: Container(
+                        color: Colors.grey[800],
+                        child: const Center(
+                          child:
+                              Icon(Icons.error, color: Colors.white, size: 50),
                         ),
-                ),
-              ),
-            Positioned(
-              top: _isFullscreen
-                  ? MediaQuery.of(context).padding.top
-                  : 0, // Account for status bar in fullscreen
-              left: 0,
-              right: 0,
-              child: Container(
-                padding: EdgeInsets.symmetric(
-                  horizontal: _getControlPadding(),
-                  vertical: _getControlVerticalPadding(),
-                ),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      Colors.black.withOpacity(0.7),
-                      Colors.transparent,
-                    ],
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.arrow_back, color: Colors.white),
-                      onPressed: () => Navigator.of(context).pop(),
+                      ),
+                    )
+                  : Container(
+                      color: Colors.grey[800],
+                      child: const Center(
+                        child: Icon(Icons.video_library,
+                            color: Colors.white, size: 50),
+                      ),
                     ),
-                    const Spacer(),
-                    IconButton(
-                      icon: const Icon(Icons.more_vert, color: Colors.white),
-                      onPressed: () {
-                        _showVideoOptions();
-                      },
-                    ),
-                  ],
-                ),
-              ),
             ),
-            if (_showControls)
-              Positioned(
-                bottom: 0,
-                left: 0,
-                right: 0,
-                child: Container(
-                  padding: EdgeInsets.all(
-                      _getBottomControlPadding()), // Adaptive padding
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.bottomCenter,
-                      end: Alignment.topCenter,
-                      colors: [
-                        Colors.black.withOpacity(0.7),
-                        Colors.transparent,
-                      ],
-                    ),
-                  ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      // Progress Bar Row
-                      Row(
-                        children: [
-                          // Current Time
-                          Text(
-                            _formatDuration(_currentPosition),
-                            style: const TextStyle(
-                                color: Colors.white, fontSize: 11),
-                          ),
-                          const SizedBox(width: 8),
-                          // Progress Bar
-                          Expanded(
-                            child: SliderTheme(
-                              data: SliderTheme.of(context).copyWith(
-                                activeTrackColor: Colors.red,
-                                inactiveTrackColor:
-                                    Colors.white.withOpacity(0.3),
-                                thumbColor: Colors.red,
-                                overlayColor: Colors.red.withOpacity(0.2),
-                                trackHeight: 3,
-                                thumbShape: const RoundSliderThumbShape(
-                                    enabledThumbRadius: 6),
-                              ),
-                              child: Slider(
-                                value: _currentPosition.inSeconds
-                                    .toDouble()
-                                    .clamp(0.0,
-                                        _totalDuration.inSeconds.toDouble()),
-                                max: _totalDuration.inSeconds.toDouble() > 0
-                                    ? _totalDuration.inSeconds.toDouble()
-                                    : 1.0,
-                                onChanged: (value) {
-                                  if (_videoController != null) {
-                                    final position =
-                                        Duration(seconds: value.toInt());
-                                    _videoController!.seekTo(position);
-                                    setState(() {
-                                      _currentPosition = position;
-                                    });
-                                  }
-                                },
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          // Total Time
-                          Text(
-                            _formatDuration(_totalDuration),
-                            style: const TextStyle(
-                                color: Colors.white, fontSize: 11),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 4),
-                      // Control Buttons Row
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          // Play/Pause Button
-                          IconButton(
-                            icon: Icon(
-                              _isPlaying ? Icons.pause : Icons.play_arrow,
-                              color: Colors.white,
-                              size:
-                                  _getButtonSize(), // Adaptive to orientation and fullscreen
-                            ),
-                            onPressed: () {
-                              if (_videoController != null) {
-                                setState(() {
-                                  if (_isPlaying) {
-                                    _isPlaying = false;
-                                    _videoController!.pause();
-                                  } else {
-                                    _isPlaying = true;
-                                    _videoController!.play();
-                                  }
-                                });
-                              }
-                            },
-                          ),
-                          SizedBox(
-                              width: _getButtonSpacing()), // Adaptive spacing
-                          // Volume Button
-                          IconButton(
-                            icon: Icon(
-                              _videoController?.value.volume == 0
-                                  ? Icons.volume_off
-                                  : Icons.volume_up,
-                              color: Colors.white,
-                              size: _getButtonSize(
-                                  small:
-                                      true), // Adaptive to orientation and fullscreen
-                            ),
-                            onPressed: () {
-                              if (_videoController != null) {
-                                setState(() {
-                                  if (_videoController!.value.volume == 0) {
-                                    _videoController!.setVolume(1.0);
-                                  } else {
-                                    _videoController!.setVolume(0.0);
-                                  }
-                                });
-                              }
-                            },
-                          ),
-                          SizedBox(
-                              width: _getButtonSpacing()), // Adaptive spacing
-                          // Subtitle Button
-                          if (_availableSubtitles.isNotEmpty)
-                            IconButton(
-                              icon: Icon(
-                                _subtitlesEnabled
-                                    ? Icons.subtitles
-                                    : Icons.subtitles_outlined,
-                                color: _subtitlesEnabled
-                                    ? Colors.blue
-                                    : Colors.white,
-                                size: _isFullscreen
-                                    ? 28
-                                    : 24, // Larger in fullscreen
-                              ),
-                              onPressed: _showSubtitleSelector,
-                              tooltip: 'Subtitles',
-                            ),
-                          if (_availableSubtitles.isNotEmpty)
-                            SizedBox(
-                                width: _getButtonSpacing()), // Adaptive spacing
-                          // Fullscreen Button
-                          IconButton(
-                            icon: Icon(
-                              _isFullscreen
-                                  ? Icons.fullscreen_exit
-                                  : Icons.fullscreen,
-                              color: Colors.white,
-                              size: _getButtonSize(
-                                  small:
-                                      true), // Adaptive to orientation and fullscreen
-                            ),
-                            onPressed: () {
-                              setState(() {
-                                _isFullscreen = !_isFullscreen;
-                              });
-                            },
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-          ],
-        ),
+
+          if (!_isVideoInitialized)
+            const Center(
+              child: CircularProgressIndicator(color: Colors.white),
+            ),
+        ],
       ),
+    );
+  }
+
+  Future<void> _enterFullscreen() async {
+    final player = _player;
+    final width = player?.state.width ?? 0;
+    final height = player?.state.height ?? 0;
+    final aspectRatio = (width > 0 && height > 0) ? (width / height) : 16 / 9;
+
+    await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+    if (aspectRatio >= 1.0) {
+      await SystemChrome.setPreferredOrientations(
+        [
+          DeviceOrientation.landscapeLeft,
+          DeviceOrientation.landscapeRight,
+        ],
+      );
+    } else {
+      await SystemChrome.setPreferredOrientations(
+        [
+          DeviceOrientation.portraitUp,
+        ],
+      );
+    }
+  }
+
+  Future<void> _exitFullscreen() async {
+    await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    await SystemChrome.setPreferredOrientations(
+      [
+        DeviceOrientation.portraitUp,
+      ],
     );
   }
 

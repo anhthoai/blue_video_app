@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:video_player/video_player.dart';
+import 'package:flutter/services.dart';
+import 'package:media_kit/media_kit.dart';
+import 'package:media_kit_video/media_kit_video.dart';
 
 // Media item class to hold both images and videos
 class MediaItem {
@@ -31,8 +33,9 @@ class FullscreenMediaGallery extends StatefulWidget {
 class _FullscreenMediaGalleryState extends State<FullscreenMediaGallery> {
   late PageController _pageController;
   late int _currentIndex;
-  final Map<int, VideoPlayerController> _videoControllers = {};
-  final Map<int, bool> _videoInitialized = {};
+  final Map<int, Player> _players = {};
+  final Map<int, VideoController> _videoControllers = {};
+  final Map<int, bool> _videoHasError = {};
 
   @override
   void initState() {
@@ -47,30 +50,24 @@ class _FullscreenMediaGalleryState extends State<FullscreenMediaGallery> {
   }
 
   Future<void> _initializeVideo(int index) async {
-    if (_videoControllers.containsKey(index)) return;
+    if (_players.containsKey(index)) return;
     if (!widget.mediaItems[index].isVideo) return;
 
     try {
-      final controller = VideoPlayerController.networkUrl(
-        Uri.parse(widget.mediaItems[index].url),
-      );
+      final player = Player();
+      final controller = VideoController(player);
+      _players[index] = player;
       _videoControllers[index] = controller;
+      _videoHasError[index] = false;
 
-      await controller.initialize();
-
-      if (mounted) {
-        setState(() {
-          _videoInitialized[index] = true;
-        });
-
-        if (index == _currentIndex) {
-          controller.play();
-        }
-      }
+      await player.open(
+        Media(widget.mediaItems[index].url),
+        play: index == _currentIndex,
+      );
     } catch (e) {
       if (mounted) {
         setState(() {
-          _videoInitialized[index] = false;
+          _videoHasError[index] = true;
         });
       }
     }
@@ -82,18 +79,18 @@ class _FullscreenMediaGalleryState extends State<FullscreenMediaGallery> {
     });
 
     // Pause all videos
-    _videoControllers.forEach((key, controller) {
+    _players.forEach((key, player) {
       if (key != index) {
-        controller.pause();
+        player.pause();
       }
     });
 
     // If current item is a video, initialize and play it
     if (widget.mediaItems[index].isVideo) {
-      if (!_videoControllers.containsKey(index)) {
+      if (!_players.containsKey(index)) {
         _initializeVideo(index);
       } else {
-        _videoControllers[index]?.play();
+        _players[index]?.play();
       }
     }
   }
@@ -101,22 +98,42 @@ class _FullscreenMediaGalleryState extends State<FullscreenMediaGallery> {
   @override
   void dispose() {
     _pageController.dispose();
-    _videoControllers.forEach((_, controller) {
-      controller.dispose();
+    _players.forEach((_, player) {
+      player.dispose();
     });
     super.dispose();
   }
 
-  String _formatDuration(Duration duration) {
-    String twoDigits(int n) => n.toString().padLeft(2, '0');
-    final hours = duration.inHours;
-    final minutes = duration.inMinutes.remainder(60);
-    final seconds = duration.inSeconds.remainder(60);
+  Future<void> _enterFullscreenForIndex(int index) async {
+    final player = _players[index];
+    final width = player?.state.width ?? 0;
+    final height = player?.state.height ?? 0;
+    final aspectRatio = (width > 0 && height > 0) ? (width / height) : 16 / 9;
 
-    if (hours > 0) {
-      return '${twoDigits(hours)}:${twoDigits(minutes)}:${twoDigits(seconds)}';
+    await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+    if (aspectRatio >= 1.0) {
+      await SystemChrome.setPreferredOrientations(
+        [
+          DeviceOrientation.landscapeLeft,
+          DeviceOrientation.landscapeRight,
+        ],
+      );
+    } else {
+      await SystemChrome.setPreferredOrientations(
+        [
+          DeviceOrientation.portraitUp,
+        ],
+      );
     }
-    return '${twoDigits(minutes)}:${twoDigits(seconds)}';
+  }
+
+  Future<void> _exitFullscreen() async {
+    await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    await SystemChrome.setPreferredOrientations(
+      [
+        DeviceOrientation.portraitUp,
+      ],
+    );
   }
 
   @override
@@ -236,8 +253,7 @@ class _FullscreenMediaGalleryState extends State<FullscreenMediaGallery> {
 
   Widget _buildVideoPage(int index) {
     final controller = _videoControllers[index];
-    final isInitialized = _videoInitialized[index] == true;
-    final hasError = _videoInitialized[index] == false;
+    final hasError = _videoHasError[index] == true;
 
     return Stack(
       children: [
@@ -255,105 +271,16 @@ class _FullscreenMediaGalleryState extends State<FullscreenMediaGallery> {
                     ),
                   ],
                 )
-              : isInitialized && controller != null
-                  ? AspectRatio(
-                      aspectRatio: controller.value.aspectRatio,
-                      child: VideoPlayer(controller),
+              : controller != null
+                  ? Video(
+                      controller: controller,
+                      onEnterFullscreen: () => _enterFullscreenForIndex(index),
+                      onExitFullscreen: _exitFullscreen,
+                      controls: AdaptiveVideoControls,
                     )
                   : const CircularProgressIndicator(color: Colors.white),
         ),
-
-        // Video controls
-        if (isInitialized && controller != null && !hasError)
-          _buildVideoControls(controller),
       ],
-    );
-  }
-
-  Widget _buildVideoControls(VideoPlayerController controller) {
-    return Positioned(
-      bottom: 0,
-      left: 0,
-      right: 0,
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              Colors.transparent,
-              Colors.black.withOpacity(0.7),
-            ],
-          ),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Progress bar
-            VideoProgressIndicator(
-              controller,
-              allowScrubbing: true,
-              colors: const VideoProgressColors(
-                playedColor: Colors.red,
-                bufferedColor: Colors.grey,
-                backgroundColor: Colors.white24,
-              ),
-            ),
-            const SizedBox(height: 12),
-            // Control buttons
-            Row(
-              children: [
-                // Play/Pause button
-                IconButton(
-                  icon: Icon(
-                    controller.value.isPlaying ? Icons.pause : Icons.play_arrow,
-                    color: Colors.white,
-                    size: 28,
-                  ),
-                  onPressed: () {
-                    setState(() {
-                      if (controller.value.isPlaying) {
-                        controller.pause();
-                      } else {
-                        controller.play();
-                      }
-                    });
-                  },
-                ),
-                const SizedBox(width: 8),
-                // Time display
-                Text(
-                  '${_formatDuration(controller.value.position)} / ${_formatDuration(controller.value.duration)}',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 14,
-                  ),
-                ),
-                const Spacer(),
-                // Fullscreen button
-                IconButton(
-                  icon: const Icon(
-                    Icons.fullscreen,
-                    color: Colors.white,
-                    size: 28,
-                  ),
-                  onPressed: () {
-                    // Toggle fullscreen (landscape/portrait)
-                    // This is a placeholder - you can implement actual fullscreen logic
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Video is already in fullscreen mode'),
-                        duration: Duration(seconds: 1),
-                      ),
-                    );
-                  },
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
     );
   }
 }

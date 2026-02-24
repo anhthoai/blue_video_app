@@ -4,11 +4,12 @@ import 'package:audioplayers/audioplayers.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:open_file/open_file.dart';
 import 'dart:io';
+import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:http/http.dart' as http;
-import 'package:video_player/video_player.dart';
-import 'package:chewie/chewie.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:media_kit/media_kit.dart' as mk;
+import 'package:media_kit_video/media_kit_video.dart';
 
 import '../../models/chat_message.dart';
 import '../../core/services/file_url_service.dart';
@@ -995,54 +996,30 @@ class _ChatVideoPlayer extends StatefulWidget {
 }
 
 class _ChatVideoPlayerState extends State<_ChatVideoPlayer> {
-  late VideoPlayerController _videoPlayerController;
-  ChewieController? _chewieController;
+  late final mk.Player _player;
+  late final VideoController _controller;
   bool _isLoading = true;
   String? _errorMessage;
 
   @override
   void initState() {
     super.initState();
+    _player = mk.Player();
+    _controller = VideoController(_player);
     _initializePlayer();
   }
 
   @override
   void dispose() {
-    _chewieController?.dispose();
-    _videoPlayerController.dispose();
+    _player.dispose();
     super.dispose();
   }
 
   Future<void> _initializePlayer() async {
     try {
-      _videoPlayerController = VideoPlayerController.networkUrl(
-        Uri.parse(widget.videoUrl),
-      );
-
-      await _videoPlayerController.initialize();
-
-      _chewieController = ChewieController(
-        videoPlayerController: _videoPlayerController,
-        autoPlay: true,
-        looping: false,
-        aspectRatio: _videoPlayerController.value.aspectRatio,
-        autoInitialize: true,
-        errorBuilder: (context, errorMessage) {
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(Icons.error, color: Colors.white, size: 48),
-                const SizedBox(height: 16),
-                Text(
-                  errorMessage,
-                  style: const TextStyle(color: Colors.white),
-                  textAlign: TextAlign.center,
-                ),
-              ],
-            ),
-          );
-        },
+      await _player.open(
+        mk.Media(widget.videoUrl),
+        play: true,
       );
 
       setState(() {
@@ -1054,6 +1031,37 @@ class _ChatVideoPlayerState extends State<_ChatVideoPlayer> {
         _errorMessage = e.toString();
       });
     }
+  }
+
+  Future<void> _enterFullscreen() async {
+    final width = _player.state.width ?? 0;
+    final height = _player.state.height ?? 0;
+    final aspectRatio = (width > 0 && height > 0) ? (width / height) : 16 / 9;
+
+    await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+    if (aspectRatio >= 1.0) {
+      await SystemChrome.setPreferredOrientations(
+        [
+          DeviceOrientation.landscapeLeft,
+          DeviceOrientation.landscapeRight,
+        ],
+      );
+    } else {
+      await SystemChrome.setPreferredOrientations(
+        [
+          DeviceOrientation.portraitUp,
+        ],
+      );
+    }
+  }
+
+  Future<void> _exitFullscreen() async {
+    await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    await SystemChrome.setPreferredOrientations(
+      [
+        DeviceOrientation.portraitUp,
+      ],
+    );
   }
 
   @override
@@ -1100,9 +1108,12 @@ class _ChatVideoPlayerState extends State<_ChatVideoPlayer> {
                       ),
                     ],
                   )
-                : _chewieController != null
-                    ? Chewie(controller: _chewieController!)
-                    : const SizedBox(),
+                : Video(
+                    controller: _controller,
+                    controls: AdaptiveVideoControls,
+                    onEnterFullscreen: _enterFullscreen,
+                    onExitFullscreen: _exitFullscreen,
+                  ),
       ),
     );
   }

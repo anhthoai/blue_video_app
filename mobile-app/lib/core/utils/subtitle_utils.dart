@@ -1,6 +1,4 @@
 import 'dart:convert';
-import 'package:http/http.dart' as http;
-import 'package:video_player/video_player.dart';
 import '../services/api_service.dart';
 import 'language_utils.dart';
 
@@ -33,8 +31,8 @@ class SubtitleUtils {
     return 'subtitles/$fileDirectory/$subtitleFileName';
   }
 
-  /// Load subtitle file from S3/R2 and create ClosedCaptionFile
-  static Future<ClosedCaptionFile?> loadSubtitle(
+  /// Get a presigned/accessible subtitle URL from S3/R2.
+  static Future<String?> getSubtitleUrl(
     String? fileDirectory,
     String? fileName,
     String languageCode,
@@ -52,28 +50,7 @@ class SubtitleUtils {
         return null;
       }
 
-      print('📝 Loading subtitle from: $subtitleUrl');
-
-      // Download subtitle file
-      final response = await http.get(Uri.parse(subtitleUrl));
-
-      if (response.statusCode == 200) {
-        // Get raw bytes to ensure proper UTF-8 decoding
-        final bytes = response.bodyBytes;
-        print('✅ Subtitle loaded: ${bytes.length} bytes');
-
-        // Try multiple encoding methods with intelligent detection
-        String subtitleContent = _detectAndDecodeEncoding(bytes);
-
-        print(
-            '📝 Content preview: ${subtitleContent.substring(0, subtitleContent.length > 100 ? 100 : subtitleContent.length)}...');
-
-        // Parse SRT format with HTML tag stripping
-        return _parseSubtitleContent(subtitleContent);
-      } else {
-        print('❌ Failed to load subtitle: ${response.statusCode}');
-        return null;
-      }
+      return subtitleUrl;
     } catch (e) {
       print('❌ Error loading subtitle: $e');
       return null;
@@ -93,61 +70,6 @@ class SubtitleUtils {
         displayName: LanguageUtils.getLanguageName(code),
       );
     }).toList();
-  }
-
-  /// Parse subtitle content and strip HTML tags
-  static ClosedCaptionFile _parseSubtitleContent(String content) {
-    // Strip HTML tags from the entire content first
-    final cleanedContent = _stripAllHtmlFromSrt(content);
-
-    // Use the built-in SubRipCaptionFile parser with cleaned content
-    final captionFile = SubRipCaptionFile(cleanedContent);
-
-    print('📝 Parsed subtitles successfully (HTML tags stripped)');
-    return captionFile;
-  }
-
-  /// Strip all HTML tags from SRT content
-  static String _stripAllHtmlFromSrt(String srtContent) {
-    final lines = srtContent.split('\n');
-    final cleanedLines = <String>[];
-
-    for (final line in lines) {
-      // Check if line is subtitle text (not number, not timestamp, not empty)
-      if (line.trim().isNotEmpty &&
-          !RegExp(r'^\d+$').hasMatch(line.trim()) &&
-          !RegExp(r'\d{2}:\d{2}:\d{2}[,.]?\d{3}\s*-->\s*\d{2}:\d{2}:\d{2}[,.]?\d{3}')
-              .hasMatch(line.trim())) {
-        // This is subtitle text, strip HTML tags
-        cleanedLines.add(_stripHtmlTags(line));
-      } else {
-        // Keep numbers, timestamps, and empty lines as-is
-        cleanedLines.add(line);
-      }
-    }
-
-    return cleanedLines.join('\n');
-  }
-
-  /// Strip HTML tags from subtitle text
-  static String _stripHtmlTags(String text) {
-    // Remove all HTML tags
-    String cleaned = text.replaceAll(RegExp(r'<[^>]*>'), '');
-
-    // Decode common HTML entities
-    cleaned = cleaned
-        .replaceAll('&amp;', '&')
-        .replaceAll('&lt;', '<')
-        .replaceAll('&gt;', '>')
-        .replaceAll('&quot;', '"')
-        .replaceAll('&apos;', "'")
-        .replaceAll('&#39;', "'")
-        .replaceAll('&nbsp;', ' ');
-
-    // Clean up extra whitespace
-    cleaned = cleaned.replaceAll(RegExp(r'\s+'), ' ').trim();
-
-    return cleaned;
   }
 
   /// Check if text appears to be corrupted (contains garbled characters)
