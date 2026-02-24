@@ -44,6 +44,20 @@ With env mappings, the importer runs without CLI arguments and will process each
 ULOZ_DEFAULT_STORAGE_ID=2
 ```
 
+4. Optional: configure a proxy CDN base URL for direct downloads (skips uloz stream API):
+
+```dotenv
+# If set, library endpoints will return:
+#   {ULOZ_<id>_CDN_URL}/{library_content.filePath}
+# Example: https://cdn.onlybl.com/:0/Shorts/ABC/file.mp4
+
+# Default (id=1)
+ULOZ_CDN_URL=https://cdn.onlybl.com/:0/
+
+# Per account (recommended when you use multiple ulozStorageId values)
+ULOZ_2_CDN_URL=https://cdn.onlybl.com/:1/
+```
+
 ## Usage
 
 ### Basic CLI invocation

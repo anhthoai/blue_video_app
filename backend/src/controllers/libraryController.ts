@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import { ContentSource } from '@prisma/client';
 import prisma from '../lib/prisma';
 import { StorageService } from '../config/storage';
-import { getUlozService, resolveUlozStorageId } from '../services/ulozRegistry';
+import { getUlozService, getUlozStorageConfig, resolveUlozStorageId } from '../services/ulozRegistry';
 
 const MAX_PAGE_SIZE = 200;
 
@@ -36,13 +36,32 @@ async function resolveMediaUrl(url?: string | null): Promise<string | null> {
   return url;
 }
 
+function buildProxyCdnUrl(baseUrl: string, filePath: string): string {
+  const base = String(baseUrl || '').trim().replace(/\/+$/g, '');
+  const rawPath = String(filePath || '')
+    .trim()
+    .replace(/\\/g, '/')
+    .replace(/^\/+/, '');
+
+  const encodedPath = rawPath
+    .split('/')
+    .filter(Boolean)
+    .map((segment) => encodeURIComponent(segment))
+    .join('/');
+
+  return `${base}/${encodedPath}`;
+}
+
 async function resolveFileStreamUrl(item: {
   fileUrl?: string | null;
+  filePath?: string | null;
+  isFolder?: boolean | null;
   source: ContentSource;
+  ulozStorageId?: number | null;
   ulozSlug?: string | null;
   metadata?: any;
 }, req?: Request): Promise<string | null> {
-  const { fileUrl, source, ulozSlug, metadata } = item;
+  const { fileUrl, filePath, isFolder, source, ulozStorageId, ulozSlug, metadata } = item;
 
   // Handle S3 stored content
   if (fileUrl?.startsWith('s3://')) {
@@ -51,6 +70,16 @@ async function resolveFileStreamUrl(item: {
     } catch (error) {
       console.warn(`⚠️  Failed to generate signed URL for ${fileUrl}:`, (error as Error).message);
       return null;
+    }
+  }
+
+  // Handle uloz.to proxy CDN content (skip uloz stream API entirely)
+  if (source === ContentSource.ULOZ && filePath && !isFolder) {
+    const resolvedUlozStorageId =
+      typeof ulozStorageId === 'number' && ulozStorageId > 0 ? ulozStorageId : resolveUlozStorageId(req);
+    const cfg = getUlozStorageConfig(resolvedUlozStorageId);
+    if (cfg.proxyCdnUrl) {
+      return buildProxyCdnUrl(cfg.proxyCdnUrl, filePath);
     }
   }
 
@@ -68,7 +97,9 @@ async function resolveFileStreamUrl(item: {
 
   // Handle uloz.to content
   if (source === ContentSource.ULOZ) {
-    const ulozService = getUlozService(resolveUlozStorageId(req));
+    const resolvedUlozStorageId =
+      typeof ulozStorageId === 'number' && ulozStorageId > 0 ? ulozStorageId : resolveUlozStorageId(req);
+    const ulozService = getUlozService(resolvedUlozStorageId);
     const candidate = ulozSlug || fileUrl || metadataUrl;
     if (candidate) {
       try {
@@ -299,6 +330,7 @@ export async function listLibraryItems(req: Request, res: Response) {
           extension: true,
           fileSize: true,
           fileUrl: true,
+          ulozStorageId: true,
           filePath: true,
           slugPath: true,
           parentId: true,
@@ -341,7 +373,10 @@ export async function listLibraryItems(req: Request, res: Response) {
         const streamUrl = includeStreams
           ? await resolveFileStreamUrl({
               fileUrl: item.fileUrl,
+              filePath: item.filePath,
+              isFolder: item.isFolder,
               source: item.source,
+              ulozStorageId: item.ulozStorageId,
               ulozSlug: item.ulozSlug ?? null,
               metadata: item.metadata ?? undefined,
             }, req)
@@ -438,6 +473,7 @@ export async function getLibraryItem(req: Request, res: Response) {
         extension: true,
         fileSize: true,
         fileUrl: true,
+        ulozStorageId: true,
         filePath: true,
         slugPath: true,
         parentId: true,
@@ -477,7 +513,10 @@ export async function getLibraryItem(req: Request, res: Response) {
     const streamUrl = includeStreams
       ? await resolveFileStreamUrl({
           fileUrl: item.fileUrl,
+          filePath: item.filePath,
+          isFolder: item.isFolder,
           source: item.source,
+          ulozStorageId: item.ulozStorageId,
           ulozSlug: item.ulozSlug ?? null,
           metadata: item.metadata ?? undefined,
         }, req)

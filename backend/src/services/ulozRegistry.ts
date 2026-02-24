@@ -6,6 +6,7 @@ export interface UlozStorageConfig {
   password: string;
   apiKey: string;
   baseUrl: string;
+  proxyCdnUrl?: string;
   libraryFolders: Record<string, string>;
 }
 
@@ -64,8 +65,13 @@ function readEnvUlozConfig(id: number, env: NodeJS.ProcessEnv): UlozStorageConfi
   const password = env[envKey(id, 'PASSWORD')] || (id === 1 ? env['ULOZ_PASSWORD'] : undefined);
   const apiKey = env[envKey(id, 'API_KEY')] || (id === 1 ? env['ULOZ_API_KEY'] : undefined);
   const baseUrl = env[envKey(id, 'BASE_URL')] || (id === 1 ? env['ULOZ_BASE_URL'] : undefined) || 'https://apis.uloz.to';
+  const proxyCdnUrlRaw =
+    env[envKey(id, 'PROXY_CDN_URL')] ||
+    env[envKey(id, 'CDN_URL')] ||
+    (id === 1 ? env['ULOZ_PROXY_CDN_URL'] || env['ULOZ_CDN_URL'] : undefined);
+  const proxyCdnUrl = proxyCdnUrlRaw ? String(proxyCdnUrlRaw).trim() : undefined;
 
-  const hasAny = Boolean(username || password || apiKey);
+  const hasAny = Boolean(username || password || apiKey || proxyCdnUrl);
   if (!hasAny) return null;
 
   return {
@@ -74,6 +80,7 @@ function readEnvUlozConfig(id: number, env: NodeJS.ProcessEnv): UlozStorageConfi
     password: password || '',
     apiKey: apiKey || '',
     baseUrl,
+    ...(proxyCdnUrl ? { proxyCdnUrl } : {}),
     libraryFolders: readLibraryFolderMap(id, env),
   };
 }
@@ -111,12 +118,15 @@ export function getUlozStorageConfig(id: number, env: NodeJS.ProcessEnv = proces
   const config = readEnvUlozConfig(id, env);
   if (!config) {
     if (id !== 1) return getUlozStorageConfig(1, env);
+    const proxyCdnUrlRaw = env['ULOZ_PROXY_CDN_URL'] || env['ULOZ_CDN_URL'];
+    const proxyCdnUrl = proxyCdnUrlRaw ? String(proxyCdnUrlRaw).trim() : undefined;
     const fallback: UlozStorageConfig = {
       id: 1,
       username: env['ULOZ_USERNAME'] || '',
       password: env['ULOZ_PASSWORD'] || '',
       apiKey: env['ULOZ_API_KEY'] || '',
       baseUrl: env['ULOZ_BASE_URL'] || 'https://apis.uloz.to',
+      ...(proxyCdnUrl ? { proxyCdnUrl } : {}),
       libraryFolders: readLibraryFolderMap(1, env),
     };
     ulozConfigCache.set(1, fallback);
