@@ -135,6 +135,16 @@ class _MoviePlayerScreenState extends ConsumerState<MoviePlayerScreen>
     // Tune networking & cache to improve reliability.
     try {
       final platform = _player?.platform;
+
+      // Audio quality (Android):
+      // - Prefer AudioTrack output (OpenSLES can produce static/noise on some devices).
+      // - Normalize downmix to avoid clipping on 5.1 -> stereo.
+      // NOTE: Avoid setting `af` audio filters here; some Android builds may not
+      // include certain FFmpeg filters (e.g. `alimiter`), which can break audio.
+      await (platform as dynamic).setProperty('ao', 'audiotrack,opensles');
+      await (platform as dynamic).setProperty('audio-normalize-downmix', 'yes');
+      await (platform as dynamic).setProperty('audio-channels', 'stereo');
+
       // Keep memory cache (helps with flaky networks) but disable disk cache.
       await (platform as dynamic).setProperty('cache', 'yes');
       await (platform as dynamic).setProperty('cache-on-disk', 'no');
@@ -158,7 +168,7 @@ class _MoviePlayerScreenState extends ConsumerState<MoviePlayerScreen>
     // Match media_kit_test behavior: open the direct URL without custom
     // headers / UA / referrer overrides or special retry logic.
     await _player!.open(Media(streamUrl), play: true);
-    await _player!.setVolume(_isMuted ? 0 : 200);
+    await _player!.setVolume(_isMuted ? 0 : 100);
   }
 
   Future<void> _showTracksSheet([BuildContext? sheetContext]) async {
