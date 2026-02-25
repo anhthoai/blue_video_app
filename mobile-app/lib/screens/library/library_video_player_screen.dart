@@ -114,6 +114,12 @@ class _LibraryVideoPlayerScreenState extends State<LibraryVideoPlayerScreen>
       await (platform as dynamic).setProperty('audio-normalize-downmix', 'yes');
       await (platform as dynamic).setProperty('audio-channels', 'stereo');
 
+      // Subtitle size (embedded subtitles rendered by mpv).
+      await (platform as dynamic).setProperty('sub-scale', '2.0');
+      await (platform as dynamic).setProperty('sub-font-size', '48');
+      await (platform as dynamic).setProperty('sub-outline-size', '3');
+      await (platform as dynamic).setProperty('sub-shadow-offset', '1');
+
       // Keep memory cache (helps with flaky networks) but disable disk cache.
       await (platform as dynamic).setProperty('cache', 'yes');
       await (platform as dynamic).setProperty('cache-on-disk', 'no');
@@ -138,6 +144,15 @@ class _LibraryVideoPlayerScreenState extends State<LibraryVideoPlayerScreen>
     // headers / UA / referrer overrides or special retry logic.
     await _player!.open(Media(streamUrl), play: true);
     await _player!.setVolume(_isMuted ? 0 : 100);
+
+    // Re-apply subtitle sizing after open (some builds reset properties on load).
+    try {
+      final platform = _player?.platform;
+      await (platform as dynamic).setProperty('sub-scale', '2.0');
+      await (platform as dynamic).setProperty('sub-font-size', '48');
+      await (platform as dynamic).setProperty('sub-outline-size', '3');
+      await (platform as dynamic).setProperty('sub-shadow-offset', '1');
+    } catch (_) {}
   }
 
   Future<void> _showTracksSheet([BuildContext? sheetContext]) async {
@@ -182,6 +197,8 @@ class _LibraryVideoPlayerScreenState extends State<LibraryVideoPlayerScreen>
         ...tracks.subtitle,
       ],
     );
+
+    final externalSubtitles = subtitles;
 
     await showModalBottomSheet<void>(
       context: ctx,
@@ -257,6 +274,42 @@ class _LibraryVideoPlayerScreenState extends State<LibraryVideoPlayerScreen>
                     },
                   );
                 }),
+
+                if (externalSubtitles.isNotEmpty) ...[
+                  const Divider(height: 1),
+                  const Padding(
+                    padding: EdgeInsets.fromLTRB(16, 12, 16, 6),
+                    child: Text(
+                      'External Subtitles (same folder)',
+                      style: TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                  ...externalSubtitles.asMap().entries.map((entry) {
+                    final idx = entry.key;
+                    final sub = entry.value;
+                    final selected = _selectedSubtitle?.id == sub.id;
+                    return ListTile(
+                      title: Text(
+                        sub.languageLabel.isNotEmpty
+                            ? sub.languageLabel
+                            : 'Subtitle ${idx + 1}',
+                      ),
+                      subtitle: Text(
+                        sub.displayTitle,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      trailing: selected ? const Icon(Icons.check) : null,
+                      onTap: () async {
+                        // Disable embedded subtitles when using external overlay.
+                        await player.setSubtitleTrack(SubtitleTrack.no());
+                        if (context.mounted) Navigator.of(context).pop();
+                        await Future<void>.delayed(Duration.zero);
+                        await _loadSubtitle(sub);
+                      },
+                    );
+                  }),
+                ],
                 const SizedBox(height: 16),
               ],
             );
@@ -965,7 +1018,28 @@ class _LibraryVideoPlayerScreenState extends State<LibraryVideoPlayerScreen>
             if (hasVideoOutput)
               SizedBox.expand(
                 child: MaterialVideoControlsTheme(
-                  normal: kDefaultMaterialVideoControlsThemeData,
+                  normal: kDefaultMaterialVideoControlsThemeData.copyWith(
+                    bottomButtonBar: [
+                      const MaterialPositionIndicator(),
+                      const Spacer(),
+                      Builder(
+                        builder: (ctx) => MaterialCustomButton(
+                          icon: const Icon(Icons.audiotrack),
+                          onPressed: () => _showTracksSheet(ctx),
+                        ),
+                      ),
+                      Builder(
+                        builder: (_) => MaterialCustomButton(
+                          icon: Icon(
+                            _isFullscreen
+                                ? Icons.fullscreen_exit
+                                : Icons.fullscreen,
+                          ),
+                          onPressed: _toggleFullscreen,
+                        ),
+                      ),
+                    ],
+                  ),
                   fullscreen: kDefaultMaterialVideoControlsThemeDataFullscreen.copyWith(
                     bottomButtonBar: [
                       const MaterialPositionIndicator(),
@@ -976,7 +1050,16 @@ class _LibraryVideoPlayerScreenState extends State<LibraryVideoPlayerScreen>
                           onPressed: () => _showTracksSheet(ctx),
                         ),
                       ),
-                      const MaterialFullscreenButton(),
+                      Builder(
+                        builder: (_) => MaterialCustomButton(
+                          icon: Icon(
+                            _isFullscreen
+                                ? Icons.fullscreen_exit
+                                : Icons.fullscreen,
+                          ),
+                          onPressed: _toggleFullscreen,
+                        ),
+                      ),
                     ],
                   ),
                   child: Video(
@@ -1055,7 +1138,7 @@ class _LibraryVideoPlayerScreenState extends State<LibraryVideoPlayerScreen>
                             maxLines: null,
                             style: const TextStyle(
                               color: Colors.white,
-                              fontSize: 17,
+                              fontSize: 21,
                               fontWeight: FontWeight.w500,
                               height: 1.45,
                               shadows: [
