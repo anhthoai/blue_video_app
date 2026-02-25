@@ -1529,27 +1529,30 @@ class _MoviePlayerScreenState extends ConsumerState<MoviePlayerScreen>
 
           return _isFullscreen
               ? _buildVideoPlayer(movie)
-              : Column(
-                  children: [
-                    _buildVideoPlayer(movie),
-                    Expanded(
-                      child: Container(
-                        color: Colors.white,
-                        child: SingleChildScrollView(
-                          controller: _scrollController,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              _buildMovieInfo(movie),
-                              if (movie.episodes != null &&
-                                  movie.episodes!.isNotEmpty)
-                                _buildEpisodesList(movie, isMovieType, l10n),
-                            ],
+              : SafeArea(
+                  bottom: false,
+                  child: Column(
+                    children: [
+                      _buildVideoPlayer(movie),
+                      Expanded(
+                        child: Container(
+                          color: Colors.white,
+                          child: SingleChildScrollView(
+                            controller: _scrollController,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                _buildMovieInfo(movie),
+                                if (movie.episodes != null &&
+                                    movie.episodes!.isNotEmpty)
+                                  _buildEpisodesList(movie, isMovieType, l10n),
+                              ],
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 );
         },
         loading: () => const Center(child: CircularProgressIndicator()),

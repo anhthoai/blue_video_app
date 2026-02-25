@@ -903,25 +903,28 @@ class _LibraryVideoPlayerScreenState extends State<LibraryVideoPlayerScreen>
       backgroundColor: Colors.black,
       body: _isFullscreen
           ? _buildVideoPlayer()
-          : Column(
-              children: [
-                _buildVideoPlayer(),
-                Expanded(
-                  child: Container(
-                    color: Colors.white,
-                    child: SingleChildScrollView(
-                      controller: _scrollController,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          if (_currentVideo != null) _buildVideoInfo(),
-                          _buildVideosList(),
-                        ],
+          : SafeArea(
+              bottom: false,
+              child: Column(
+                children: [
+                  _buildVideoPlayer(),
+                  Expanded(
+                    child: Container(
+                      color: Colors.white,
+                      child: SingleChildScrollView(
+                        controller: _scrollController,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            if (_currentVideo != null) _buildVideoInfo(),
+                            _buildVideosList(),
+                          ],
+                        ),
                       ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
     );
   }

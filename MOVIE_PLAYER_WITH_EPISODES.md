@@ -13,7 +13,7 @@ Implemented a dedicated movie player screen that allows users to watch movies/TV
 
 ### 1. **In-App Video Player**
 - Full-screen video playback
-- Built using `video_player` package
+- Built using `media_kit` / `media_kit_video` (libmpv)
 - Native video controls (play/pause, seek, progress bar)
 - Custom overlay UI
 
@@ -133,6 +133,32 @@ Response:
   }
 }
 ```
+
+## Android Playback Optimization (mpv)
+
+Some devices/networks would intermittently fail with errors like:
+- `tcp: ffurl_read returned 0xffffff92` (timeout)
+- `Failed to open <URL>`
+- `Failed to create file cache`
+
+### Root Causes
+- `media_kit` initializes mpv with a low `network-timeout` (default observed: `5` seconds), which can be too aggressive for CDN/Worker-backed URLs.
+- mpv disk cache may fail on some Android devices due to scoped storage / cache directory restrictions.
+
+### Fix / Tuning Applied
+Before opening network streams, the app now adjusts mpv settings through the underlying native backend:
+- **Increase timeout**: `network-timeout=30`
+- **Disable disk cache**: `cache-on-disk=no`
+- **Keep memory cache** (helps with flaky connections): `cache=yes`
+- **Enable reconnect** (FFmpeg demuxer): `demuxer-lavf-o+=reconnect=1,reconnect_streamed=1,reconnect_on_network_error=1,reconnect_delay_max=5`
+
+### Notes
+- If you see `ffurl_read ... 0xffffff92` again, it usually indicates the network timeout is still too low for the current connection.
+
+## Volume / Layout Notes
+
+- **Default volume** is set to `200%` on open (to better match perceived loudness of other players on some devices).
+- **Portrait player height** uses a YouTube-like `16:9` area (full width, `width * 9 / 16`).
 
 ## Video Controls
 
