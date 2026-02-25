@@ -57,6 +57,66 @@ class _LibraryVideoPlayerScreenState extends State<LibraryVideoPlayerScreen>
   List<SubtitleItem>? _subtitleItems;
   String _currentSubtitleText = '';
 
+  Future<void> _applyMpvSubtitleStyle() async {
+    try {
+      final platform = _player?.platform;
+      if (platform == null) return;
+
+      Future<void> setProp(String name, dynamic value, String fallback) async {
+        final keys = <String>[name, 'options/$name'];
+        for (final key in keys) {
+          try {
+            await (platform as dynamic).setProperty(key, value);
+            return;
+          } catch (_) {
+            try {
+              await (platform as dynamic).setProperty(key, fallback);
+              return;
+            } catch (_) {}
+          }
+        }
+
+        assert(() {
+          debugPrint('mpv: failed to set "$name"');
+          return true;
+        }());
+      }
+
+      // Make embedded subtitles significantly larger.
+      await setProp('sub-scale', 8.0, '8.0');
+      await setProp('sub-font-size', 140, '140');
+      await setProp('sub-border-size', 6, '6');
+      await setProp('sub-shadow-offset', 2, '2');
+      await setProp('sub-scale-by-window', true, 'yes');
+      await setProp('sub-scale-with-window', true, 'yes');
+      await setProp('sub-bold', true, 'yes');
+      await setProp('sub-margin-y', 24, '24');
+      await setProp('sub-pos', 95, '95');
+
+      // Many embedded subtitles are ASS/SSA with their own styling.
+      // Force our size so it matches the external overlay readability.
+      await setProp('sub-ass-override', 'force', 'force');
+      await setProp(
+        'sub-ass-force-style',
+        'Fontsize=140,Outline=6,Shadow=2,Bold=1',
+        'Fontsize=140,Outline=6,Shadow=2,Bold=1',
+      );
+
+      // Debug: read back what mpv thinks the values are.
+      assert(() {
+        Future<void>(() async {
+          try {
+            final fs = await (platform as dynamic).getProperty('sub-font-size');
+            final sc = await (platform as dynamic).getProperty('sub-scale');
+            final bd = await (platform as dynamic).getProperty('sub-border-size');
+            debugPrint('mpv subtitle props: fontSize=$fs scale=$sc border=$bd');
+          } catch (_) {}
+        });
+        return true;
+      }());
+    } catch (_) {}
+  }
+
   void _ensurePlayerInitialized() {
     if (_player != null && _videoController != null) return;
     _player ??= Player();
@@ -114,11 +174,7 @@ class _LibraryVideoPlayerScreenState extends State<LibraryVideoPlayerScreen>
       await (platform as dynamic).setProperty('audio-normalize-downmix', 'yes');
       await (platform as dynamic).setProperty('audio-channels', 'stereo');
 
-      // Subtitle size (embedded subtitles rendered by mpv).
-      await (platform as dynamic).setProperty('sub-scale', '2.0');
-      await (platform as dynamic).setProperty('sub-font-size', '48');
-      await (platform as dynamic).setProperty('sub-outline-size', '3');
-      await (platform as dynamic).setProperty('sub-shadow-offset', '1');
+      await _applyMpvSubtitleStyle();
 
       // Keep memory cache (helps with flaky networks) but disable disk cache.
       await (platform as dynamic).setProperty('cache', 'yes');
@@ -146,13 +202,9 @@ class _LibraryVideoPlayerScreenState extends State<LibraryVideoPlayerScreen>
     await _player!.setVolume(_isMuted ? 0 : 100);
 
     // Re-apply subtitle sizing after open (some builds reset properties on load).
-    try {
-      final platform = _player?.platform;
-      await (platform as dynamic).setProperty('sub-scale', '2.0');
-      await (platform as dynamic).setProperty('sub-font-size', '48');
-      await (platform as dynamic).setProperty('sub-outline-size', '3');
-      await (platform as dynamic).setProperty('sub-shadow-offset', '1');
-    } catch (_) {}
+    await _applyMpvSubtitleStyle();
+    await Future<void>.delayed(const Duration(milliseconds: 200));
+    await _applyMpvSubtitleStyle();
   }
 
   Future<void> _showTracksSheet([BuildContext? sheetContext]) async {
@@ -270,6 +322,11 @@ class _LibraryVideoPlayerScreenState extends State<LibraryVideoPlayerScreen>
                         });
                       }
                       await player.setSubtitleTrack(t);
+                      await _applyMpvSubtitleStyle();
+                      await Future<void>.delayed(
+                        const Duration(milliseconds: 200),
+                      );
+                      await _applyMpvSubtitleStyle();
                       if (context.mounted) Navigator.of(context).pop();
                     },
                   );
@@ -1097,18 +1154,7 @@ class _LibraryVideoPlayerScreenState extends State<LibraryVideoPlayerScreen>
               ),
 
             // Tracks selector (explicit).
-            if (_isVideoInitialized && _player != null)
-              Positioned(
-                top: 0,
-                right: 0,
-                child: SafeArea(
-                  bottom: false,
-                  child: IconButton(
-                    icon: const Icon(Icons.audiotrack, color: Colors.white),
-                    onPressed: () => _showTracksSheet(context),
-                  ),
-                ),
-              ),
+            // (Removed) top-right tracks button; controls bottom bar already has it.
 
             // Keep external subtitle overlay (if loaded via SubtitleParser).
             Positioned(
