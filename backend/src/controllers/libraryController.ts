@@ -1,10 +1,64 @@
 import { Request, Response } from 'express';
 import { ContentSource } from '@prisma/client';
+import axios from 'axios';
+import { pipeline } from 'stream';
+import http from 'http';
+import https from 'https';
 import prisma from '../lib/prisma';
 import { StorageService } from '../config/storage';
 import { getUlozService, getUlozStorageConfig, resolveUlozStorageId } from '../services/ulozRegistry';
 
 const MAX_PAGE_SIZE = 200;
+
+// Keep-alive agents for upstream CDN requests.
+// mpv/libmpv tends to issue many Range requests; reusing connections reduces TLS overhead.
+const upstreamHttpAgent = new http.Agent({
+  keepAlive: true,
+  maxSockets: 50,
+  keepAliveMsecs: 15_000,
+});
+const upstreamHttpsAgent = new https.Agent({
+  keepAlive: true,
+  maxSockets: 50,
+  keepAliveMsecs: 15_000,
+});
+
+function guessMimeTypeFromExtension(extension: string | null | undefined): string | null {
+  const ext = (extension || '').toString().trim().toLowerCase().replace(/^\./, '');
+  if (!ext) return null;
+  const map: Record<string, string> = {
+    mp4: 'video/mp4',
+    m4v: 'video/x-m4v',
+    mov: 'video/quicktime',
+    mkv: 'video/x-matroska',
+    webm: 'video/webm',
+    avi: 'video/x-msvideo',
+    mp3: 'audio/mpeg',
+    aac: 'audio/aac',
+    m4a: 'audio/mp4',
+    wav: 'audio/wav',
+    flac: 'audio/flac',
+    srt: 'application/x-subrip',
+    vtt: 'text/vtt',
+    pdf: 'application/pdf',
+    epub: 'application/epub+zip',
+    jpg: 'image/jpeg',
+    jpeg: 'image/jpeg',
+    png: 'image/png',
+    webp: 'image/webp',
+    gif: 'image/gif',
+  };
+  return map[ext] || null;
+}
+
+function pickBestMimeType(item: { mimeType?: string | null; extension?: string | null }): string {
+  const mt = (item.mimeType || '').toString().trim();
+  if (mt && mt.includes('/')) {
+    return mt;
+  }
+  const guessed = guessMimeTypeFromExtension(item.extension);
+  return guessed || 'application/octet-stream';
+}
 
 function normalizeSection(sectionParam: string | undefined | null): string | null {
   if (!sectionParam || typeof sectionParam !== 'string') {
@@ -52,7 +106,28 @@ function buildProxyCdnUrl(baseUrl: string, filePath: string): string {
   return `${base}/${encodedPath}`;
 }
 
+function wantsBackendProxy(req?: Request): boolean {
+  if (!req) return false;
+  const streamMode = String(req.query['streamMode'] ?? '').toLowerCase();
+  if (streamMode === 'proxy') return true;
+
+  const proxy = String(req.query['proxy'] ?? '').toLowerCase();
+  if (proxy === '1' || proxy === 'true' || proxy === 'yes') return true;
+
+  return false;
+}
+
+function buildPublicUrl(req: Request, path: string): string {
+  const host = req.get('host');
+  if (!host) {
+    return path;
+  }
+  const base = `${req.protocol}://${host}`;
+  return `${base}${path.startsWith('/') ? '' : '/'}${path}`;
+}
+
 async function resolveFileStreamUrl(item: {
+  id?: string | null;
   fileUrl?: string | null;
   filePath?: string | null;
   isFolder?: boolean | null;
@@ -61,7 +136,7 @@ async function resolveFileStreamUrl(item: {
   ulozSlug?: string | null;
   metadata?: any;
 }, req?: Request): Promise<string | null> {
-  const { fileUrl, filePath, isFolder, source, ulozStorageId, ulozSlug, metadata } = item;
+  const { id, fileUrl, filePath, isFolder, source, ulozStorageId, ulozSlug, metadata } = item;
 
   // Handle S3 stored content
   if (fileUrl?.startsWith('s3://')) {
@@ -79,6 +154,9 @@ async function resolveFileStreamUrl(item: {
       typeof ulozStorageId === 'number' && ulozStorageId > 0 ? ulozStorageId : resolveUlozStorageId(req);
     const cfg = getUlozStorageConfig(resolvedUlozStorageId);
     if (cfg.proxyCdnUrl) {
+      if (req && id && wantsBackendProxy(req)) {
+        return buildPublicUrl(req, `/api/v1/library/item/${encodeURIComponent(id)}/stream`);
+      }
       return buildProxyCdnUrl(cfg.proxyCdnUrl, filePath);
     }
   }
@@ -372,6 +450,7 @@ export async function listLibraryItems(req: Request, res: Response) {
 
         const streamUrl = includeStreams
           ? await resolveFileStreamUrl({
+              id: item.id,
               fileUrl: item.fileUrl,
               filePath: item.filePath,
               isFolder: item.isFolder,
@@ -512,6 +591,7 @@ export async function getLibraryItem(req: Request, res: Response) {
 
     const streamUrl = includeStreams
       ? await resolveFileStreamUrl({
+          id: item.id,
           fileUrl: item.fileUrl,
           filePath: item.filePath,
           isFolder: item.isFolder,
@@ -542,6 +622,313 @@ export async function getLibraryItem(req: Request, res: Response) {
       success: false,
       message: 'Failed to load library item',
       error: error.message,
+    });
+  }
+}
+
+export async function streamLibraryItem(req: Request, res: Response) {
+  try {
+    const itemId = req.params['id'];
+    if (!itemId) {
+      res.status(400).json({ success: false, message: 'Item id is required' });
+      return;
+    }
+
+    const item = await prisma.libraryContent.findUnique({
+      where: { id: itemId },
+      select: {
+        id: true,
+        source: true,
+        isFolder: true,
+        filePath: true,
+        ulozStorageId: true,
+        fileSize: true,
+        mimeType: true,
+        extension: true,
+      },
+    });
+
+    if (!item) {
+      res.status(404).json({ success: false, message: 'Library item not found' });
+      return;
+    }
+
+    if (item.isFolder) {
+      res.status(400).json({ success: false, message: 'Cannot stream a folder' });
+      return;
+    }
+
+    if (item.source !== ContentSource.ULOZ || !item.filePath) {
+      res.status(400).json({ success: false, message: 'Streaming proxy is only available for ULOZ items' });
+      return;
+    }
+
+    const resolvedUlozStorageId =
+      typeof item.ulozStorageId === 'number' && item.ulozStorageId > 0
+        ? item.ulozStorageId
+        : resolveUlozStorageId(req);
+    const cfg = getUlozStorageConfig(resolvedUlozStorageId);
+    if (!cfg.proxyCdnUrl) {
+      res.status(400).json({ success: false, message: 'ULOZ proxy CDN URL is not configured for this storage id' });
+      return;
+    }
+
+    const upstreamUrl = buildProxyCdnUrl(cfg.proxyCdnUrl, item.filePath);
+    const range = req.header('range');
+
+    const debug = String(process.env['STREAM_PROXY_DEBUG'] || '').toLowerCase();
+    const debugEnabledByEnv = debug === '1' || debug === 'true' || debug === 'yes';
+    const debugEnabledByQuery = ['1', 'true', 'yes'].includes(
+      String(req.query['streamDebug'] ?? '').toLowerCase()
+    );
+    const debugEnabled = debugEnabledByEnv || debugEnabledByQuery;
+    if (debugEnabled) {
+      const ua = req.header('user-agent') || '-';
+      const referer = req.header('referer') || '-';
+      console.log(
+        `➡️  stream proxy req method=${req.method} item=${itemId} range=${range || '-'} ua=${JSON.stringify(ua)} referer=${JSON.stringify(referer)}`
+      );
+    }
+
+    // Browser-like headers for Cloudflare-protected CDN.
+    const headers: Record<string, string> = {
+      'User-Agent':
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      'Referer': 'https://ulcdn.onlybl.com/',
+      'Accept': '*/*',
+      'Accept-Encoding': 'identity',
+    };
+
+    const ifRange = req.header('if-range');
+    if (ifRange) headers['If-Range'] = ifRange;
+    const ifNoneMatch = req.header('if-none-match');
+    if (ifNoneMatch) headers['If-None-Match'] = ifNoneMatch;
+    const ifModifiedSince = req.header('if-modified-since');
+    if (ifModifiedSince) headers['If-Modified-Since'] = ifModifiedSince;
+
+    const isHead = req.method === 'HEAD';
+
+    // Allow aborting upstream work if the client disconnects.
+    const upstreamAbort = new AbortController();
+    const abortUpstream = () => {
+      try {
+        upstreamAbort.abort();
+      } catch {
+        // ignore
+      }
+    };
+    res.on('close', abortUpstream);
+
+    // Fast-path HEAD: avoid calling upstream CDN (can hang or be rate-limited).
+    if (isHead) {
+      const sizeRaw: unknown = (item as any).fileSize;
+      const size =
+        typeof sizeRaw === 'bigint'
+          ? sizeRaw
+          : typeof sizeRaw === 'number'
+            ? BigInt(Math.max(0, Math.floor(sizeRaw)))
+            : typeof sizeRaw === 'string'
+              ? BigInt(parseInt(sizeRaw, 10) || 0)
+              : 0n;
+
+      res.setHeader('accept-ranges', 'bytes');
+      if (!res.getHeader('content-type')) {
+        res.setHeader('content-type', pickBestMimeType({ mimeType: item.mimeType, extension: item.extension }));
+      }
+
+      if (size > 0n) {
+        res.setHeader('content-length', size.toString());
+        res.status(200);
+        res.end();
+        return;
+      }
+
+      // If fileSize is unknown in DB, try a tiny upstream range request with a short timeout
+      // to infer total length without downloading the whole file.
+      try {
+        const headProbe = await axios.request({
+          url: upstreamUrl,
+          method: 'GET',
+          headers: {
+            ...headers,
+            Range: 'bytes=0-0',
+          },
+          responseType: 'stream',
+          maxRedirects: 5,
+          httpAgent: upstreamHttpAgent,
+          httpsAgent: upstreamHttpsAgent,
+          timeout: 8000,
+          signal: upstreamAbort.signal,
+          validateStatus: () => true,
+        });
+
+        const probeType = (headProbe.headers as any)?.['content-type'];
+        if (probeType && !res.getHeader('content-type')) {
+          res.setHeader('content-type', probeType);
+        }
+
+        const contentRange = (headProbe.headers as any)?.['content-range'];
+        const match = typeof contentRange === 'string' ? contentRange.match(/\/(\d+)$/) : null;
+        const totalSize = match ? Number(match[1]) : null;
+        if (Number.isFinite(totalSize) && totalSize != null && totalSize > 0) {
+          res.setHeader('content-length', String(totalSize));
+        } else {
+          const len = (headProbe.headers as any)?.['content-length'];
+          if (len) {
+            // If we didn't get Content-Range, best effort.
+            res.setHeader('content-length', String(len));
+          }
+        }
+
+        const probeStream: any = headProbe.data;
+        if (probeStream && typeof probeStream.destroy === 'function') {
+          probeStream.destroy();
+        }
+      } catch {
+        // ignore probe failures; just respond without Content-Length
+      }
+
+      res.status(200);
+      res.end();
+      return;
+    }
+    // Some CDNs don't properly support HEAD. Use a tiny ranged GET to fetch headers.
+    if (range) {
+      headers['Range'] = range;
+    }
+
+    const upstream = await axios.request({
+      url: upstreamUrl,
+      method: 'GET',
+      headers,
+      responseType: 'stream',
+      maxRedirects: 5,
+      httpAgent: upstreamHttpAgent,
+      httpsAgent: upstreamHttpsAgent,
+      // Don't hang forever if upstream stalls.
+      timeout: 60_000,
+      signal: upstreamAbort.signal,
+      validateStatus: () => true,
+    });
+
+    if (debugEnabled) {
+      const upstreamRange = (upstream.headers as any)?.['content-range'];
+      const upstreamLen = (upstream.headers as any)?.['content-length'];
+      console.log(
+        `📡 stream proxy ${req.method} item=${itemId} range=${range || '-'} -> ${upstream.status} content-range=${upstreamRange || '-'} content-length=${upstreamLen || '-'}`
+      );
+    }
+
+    // Always advertise Range support to clients.
+    res.setHeader('accept-ranges', 'bytes');
+
+    // For HEAD requests, respond 200 with the full Content-Length.
+    // Many players expect this behavior even if we use Range internally.
+    if (isHead) {
+      const contentRange = (upstream.headers as any)?.['content-range'];
+      const match = typeof contentRange === 'string' ? contentRange.match(/\/(\d+)$/) : null;
+      const totalSize = match ? Number(match[1]) : null;
+      if (Number.isFinite(totalSize) && totalSize != null && totalSize > 0) {
+        res.setHeader('content-length', String(totalSize));
+      }
+      // Avoid sending Content-Range on HEAD to keep semantics simple.
+      res.removeHeader('content-range');
+      res.status(200);
+    } else {
+      res.status(upstream.status);
+    }
+
+    const passthroughHeaderNames = [
+      'content-type',
+      'content-length',
+      'content-range',
+      'accept-ranges',
+      'etag',
+      'last-modified',
+      'cache-control',
+    ];
+
+    for (const name of passthroughHeaderNames) {
+      if (isHead && (name === 'content-length' || name === 'content-range')) {
+        continue;
+      }
+      const value = (upstream.headers as any)?.[name];
+      if (value != null) {
+        res.setHeader(name, value);
+      }
+    }
+
+    if (!res.getHeader('content-type')) {
+      const fallbackType = item.mimeType || 'application/octet-stream';
+      res.setHeader('content-type', fallbackType);
+    }
+
+    const data: any = upstream.data;
+
+    let bytesSent = 0;
+    if (debugEnabled) {
+      try {
+        data.on('data', (chunk: any) => {
+          if (chunk && typeof chunk.length === 'number') {
+            bytesSent += chunk.length;
+          }
+        });
+      } catch {
+        // ignore
+      }
+    }
+
+    const cleanup = () => {
+      try {
+        if (data && typeof data.destroy === 'function') {
+          data.destroy();
+        }
+      } catch {
+        // ignore
+      }
+    };
+
+    data.on('error', cleanup);
+    // Note: res 'close' already aborts upstream request.
+    res.on('close', cleanup);
+    res.on('finish', cleanup);
+
+    // HEAD responses should not include a body.
+    if (isHead) {
+      cleanup();
+      res.end();
+      return;
+    }
+
+    // If CDN returned an error, don't pipe its HTML/error body as media.
+    if (upstream.status >= 400) {
+      cleanup();
+      if (debugEnabled) {
+        console.warn(`⚠️  stream proxy upstream error item=${itemId} status=${upstream.status}`);
+      }
+      res.end();
+      return;
+    }
+
+    pipeline(data, res, (err) => {
+      if (err) {
+        if (debugEnabled) {
+          console.warn(`⚠️  stream proxy pipeline error item=${itemId}:`, err.message);
+        }
+        cleanup();
+        return;
+      }
+
+      if (debugEnabled) {
+        console.log(`✅ stream proxy done item=${itemId} bytesSent=${bytesSent}`);
+      }
+    });
+  } catch (error: any) {
+    console.error('Error proxy streaming library item:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to stream library item',
+      error: error?.message ?? String(error),
     });
   }
 }

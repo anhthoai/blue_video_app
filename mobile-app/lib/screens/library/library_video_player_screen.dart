@@ -33,6 +33,10 @@ class _LibraryVideoPlayerScreenState extends State<LibraryVideoPlayerScreen>
   StreamSubscription<Duration>? _durationSub;
   StreamSubscription<bool>? _playingSub;
   StreamSubscription<bool>? _completedSub;
+  StreamSubscription<String>? _errorSub;
+  StreamSubscription<PlayerLog>? _logSub;
+  StreamSubscription<bool>? _bufferingSub;
+  StreamSubscription<VideoParams>? _videoParamsSub;
   bool _isPlaying = false;
   bool _showControls = true;
   Duration _currentPosition = Duration.zero;
@@ -42,6 +46,8 @@ class _LibraryVideoPlayerScreenState extends State<LibraryVideoPlayerScreen>
   bool _isInitializing = false;
   bool _isMuted = false;
   bool _hasPlayedNext = false;
+
+  String? _currentStreamUrl;
 
   int _currentIndex = 0;
   LibraryItemModel? _currentVideo;
@@ -54,8 +60,74 @@ class _LibraryVideoPlayerScreenState extends State<LibraryVideoPlayerScreen>
   void _ensurePlayerInitialized() {
     if (_player != null && _videoController != null) return;
     _player ??= Player();
-    _videoController ??= VideoController(_player!);
+    _videoController ??= VideoController(
+      _player!,
+      configuration: const VideoControllerConfiguration(
+        androidAttachSurfaceAfterVideoParameters: false,
+      ),
+    );
     _attachPlayerListeners();
+  }
+
+  void _disposePlayerInternal() {
+    _positionSub?.cancel();
+    _positionSub = null;
+    _durationSub?.cancel();
+    _durationSub = null;
+    _playingSub?.cancel();
+    _playingSub = null;
+    _completedSub?.cancel();
+    _completedSub = null;
+    _errorSub?.cancel();
+    _errorSub = null;
+    _logSub?.cancel();
+    _logSub = null;
+    _bufferingSub?.cancel();
+    _bufferingSub = null;
+    _videoParamsSub?.cancel();
+    _videoParamsSub = null;
+
+    final player = _player;
+    _player = null;
+    _videoController = null;
+    if (player != null) {
+      unawaited(player.dispose());
+    }
+  }
+
+  Future<void> _openWithFallback(String streamUrl) async {
+    _ensurePlayerInitialized();
+
+    // mpv (Android):
+    // - media_kit defaults `network-timeout=5` which is often too aggressive for CDN/worker URLs.
+    // - disk cache may fail on some devices/scoped storage configurations.
+    // Tune networking & cache to improve reliability.
+    try {
+      final platform = _player?.platform;
+      // Keep memory cache (helps with flaky networks) but disable disk cache.
+      await (platform as dynamic).setProperty('cache', 'yes');
+      await (platform as dynamic).setProperty('cache-on-disk', 'no');
+
+      // Increase timeouts & enable reconnect for intermittent networks.
+      await (platform as dynamic).setProperty('network-timeout', '30');
+
+      final existing = await (platform as dynamic).getProperty('demuxer-lavf-o');
+      final extra = [
+        'reconnect=1',
+        'reconnect_streamed=1',
+        'reconnect_on_network_error=1',
+        'reconnect_delay_max=5',
+      ].join(',');
+      final combined = (existing is String && existing.isNotEmpty)
+          ? '$existing,$extra'
+          : extra;
+      await (platform as dynamic).setProperty('demuxer-lavf-o', combined);
+    } catch (_) {}
+
+    // Match media_kit_test behavior: open the direct URL without custom
+    // headers / UA / referrer overrides or special retry logic.
+    await _player!.open(Media(streamUrl), play: true);
+    await _player!.setVolume(_isMuted ? 0 : 200);
   }
 
   Future<void> _showTracksSheet([BuildContext? sheetContext]) async {
@@ -194,22 +266,22 @@ class _LibraryVideoPlayerScreenState extends State<LibraryVideoPlayerScreen>
     WidgetsBinding.instance.addObserver(this);
     _currentIndex =
         widget.args.initialIndex.clamp(0, videos.length - 1).toInt();
+    _ensurePlayerInitialized();
     // Auto-load will happen in build
+  }
+
+  @override
+  void deactivate() {
+    // Navigating away destroys the underlying SurfaceView/Texture.
+    // Pausing avoids the player continuing to render to a dead surface.
+    _player?.pause();
+    super.deactivate();
   }
 
   @override
   void dispose() {
     _scrollController.dispose();
-    _positionSub?.cancel();
-    _durationSub?.cancel();
-    _playingSub?.cancel();
-    _completedSub?.cancel();
-    final player = _player;
-    _player = null;
-    _videoController = null;
-    if (player != null) {
-      unawaited(player.dispose());
-    }
+    _disposePlayerInternal();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -242,6 +314,10 @@ class _LibraryVideoPlayerScreenState extends State<LibraryVideoPlayerScreen>
     _durationSub?.cancel();
     _playingSub?.cancel();
     _completedSub?.cancel();
+    _errorSub?.cancel();
+    _logSub?.cancel();
+    _bufferingSub?.cancel();
+    _videoParamsSub?.cancel();
 
     _positionSub = player.stream.position.listen((position) {
       if (!mounted) return;
@@ -272,6 +348,28 @@ class _LibraryVideoPlayerScreenState extends State<LibraryVideoPlayerScreen>
         _playNextVideo();
       }
     });
+
+    _bufferingSub = player.stream.buffering.listen((buffering) {
+      if (!mounted) return;
+      if (buffering) {
+        print('⏳ Buffering...');
+      }
+    });
+
+    _videoParamsSub = player.stream.videoParams.listen((params) {
+      // Helps confirm frames are actually arriving.
+      print('📐 VideoParams: ${params.w}x${params.h}');
+    });
+
+    _errorSub = player.stream.error.listen((message) {
+      print('❌ media_kit error: $message');
+    });
+
+    _logSub = player.stream.log.listen((log) {
+      // Useful for ExoPlayer / backend errors without being too noisy.
+      // You can comment this out if it gets chatty.
+      print('🧾 media_kit log: ${log.level}: ${log.text}');
+    });
   }
 
   Future<void> _loadVideo(LibraryItemModel video) async {
@@ -286,7 +384,7 @@ class _LibraryVideoPlayerScreenState extends State<LibraryVideoPlayerScreen>
     });
 
     try {
-      // Stop previous media but keep the player instance alive.
+      // Stop previous media.
       await _player?.stop();
 
       setState(() {
@@ -302,10 +400,15 @@ class _LibraryVideoPlayerScreenState extends State<LibraryVideoPlayerScreen>
 
       print('🔗 Stream URL: $streamUrl');
 
+      if (mounted) {
+        setState(() {
+          _currentStreamUrl = streamUrl;
+        });
+      }
+
       // Initialize media_kit player
-      _ensurePlayerInitialized();
       final openStopwatch = Stopwatch()..start();
-      await _player!.open(Media(streamUrl), play: true);
+      await _openWithFallback(streamUrl);
       openStopwatch.stop();
       print('⏱️ Player open took: ${openStopwatch.elapsedMilliseconds}ms');
 
@@ -832,6 +935,8 @@ class _LibraryVideoPlayerScreenState extends State<LibraryVideoPlayerScreen>
         _isVideoInitialized && _currentSubtitleText.isNotEmpty;
     final double subtitleBottom = _isFullscreen ? 20 : 16;
 
+    final bool hasVideoOutput = _player != null && _videoController != null;
+
     return SizedBox(
       height: _isFullscreen
           ? screenSize.height
@@ -844,7 +949,7 @@ class _LibraryVideoPlayerScreenState extends State<LibraryVideoPlayerScreen>
         child: Stack(
           fit: StackFit.expand,
           children: [
-            if (_isVideoInitialized && _player != null && _videoController != null)
+            if (hasVideoOutput)
               SizedBox.expand(
                 child: MaterialVideoControlsTheme(
                   normal: kDefaultMaterialVideoControlsThemeData,
@@ -862,12 +967,14 @@ class _LibraryVideoPlayerScreenState extends State<LibraryVideoPlayerScreen>
                     ],
                   ),
                   child: Video(
+                    key: ValueKey<String>(_currentStreamUrl ?? 'video'),
                     controller: _videoController!,
                     controls: AdaptiveVideoControls,
                   ),
                 ),
-              )
-            else if (_isInitializing)
+              ),
+
+            if (_isInitializing)
               Container(
                 color: Colors.black,
                 child: const Center(
@@ -884,7 +991,7 @@ class _LibraryVideoPlayerScreenState extends State<LibraryVideoPlayerScreen>
                   ),
                 ),
               )
-            else
+            else if (!_isVideoInitialized)
               const Center(
                 child: Icon(
                   Icons.movie,

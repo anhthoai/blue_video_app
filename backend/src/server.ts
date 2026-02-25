@@ -8387,8 +8387,17 @@ const startServer = async () => {
     console.log('🚀 Starting Blue Video API server in LOCAL DEVELOPMENT mode...');
     console.log('📊 Using real database data with Prisma');
     console.log('🔧 Redis disabled for local testing');
-    
-    server.listen(PORT, () => {
+
+    let listenAttempts = 0;
+    const maxListenAttempts = 10;
+    let retryTimer: NodeJS.Timeout | null = null;
+
+    const onListening = () => {
+      listenAttempts = 0;
+      if (retryTimer) {
+        clearTimeout(retryTimer);
+        retryTimer = null;
+      }
       console.log(`🚀 Blue Video API server running on port ${PORT}`);
       console.log(`📊 Health check: http://localhost:${PORT}/health`);
       console.log(`📚 API Documentation: http://localhost:${PORT}/api-docs`);
@@ -8405,7 +8414,52 @@ const startServer = async () => {
       console.log(`   GET  /api/v1/search/* - Search endpoints`);
       console.log(`\n🔌 WebSocket ready for real-time features`);
       console.log(`📖 Visit /api-docs for complete API documentation`);
-    });
+    };
+
+    const handleListenError = (err: any) => {
+      if (err?.code === 'EADDRINUSE') {
+        listenAttempts += 1;
+        const isBeyondMax = listenAttempts > maxListenAttempts;
+        // Cap backoff to avoid a tight loop on Windows.
+        const delayMs = isBeyondMax ? 5000 : Math.min(2000, 200 * listenAttempts);
+        const attemptLabel = isBeyondMax
+          ? `${listenAttempts}/${maxListenAttempts}+`
+          : `${listenAttempts}/${maxListenAttempts}`;
+
+        console.warn(
+          `⚠️  Port ${PORT} is in use (EADDRINUSE). Retrying in ${delayMs}ms (attempt ${attemptLabel})...`
+        );
+
+        if (retryTimer) {
+          clearTimeout(retryTimer);
+          retryTimer = null;
+        }
+
+        retryTimer = setTimeout(() => {
+          retryTimer = null;
+          startListening();
+        }, delayMs);
+        return;
+      }
+
+      console.error('Server listen error:', err);
+      process.exit(1);
+    };
+
+    const startListening = () => {
+      try {
+        // Prevent listener leaks across retries.
+        server.removeListener('listening', onListening);
+        server.once('listening', onListening);
+        server.listen(PORT);
+      } catch (err: any) {
+        handleListenError(err);
+      }
+    };
+
+    server.on('error', handleListenError);
+
+    startListening();
   } catch (error) {
     console.error('Failed to start server:', error);
     process.exit(1);

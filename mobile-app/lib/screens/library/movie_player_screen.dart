@@ -58,6 +58,10 @@ class _MoviePlayerScreenState extends ConsumerState<MoviePlayerScreen>
   StreamSubscription<Duration>? _durationSub;
   StreamSubscription<bool>? _playingSub;
   StreamSubscription<bool>? _completedSub;
+  StreamSubscription<String>? _errorSub;
+  StreamSubscription<PlayerLog>? _logSub;
+  StreamSubscription<bool>? _bufferingSub;
+  StreamSubscription<VideoParams>? _videoParamsSub;
   bool _isPlaying = false;
   bool _showControls = true;
   Duration _currentPosition = Duration.zero;
@@ -74,6 +78,8 @@ class _MoviePlayerScreenState extends ConsumerState<MoviePlayerScreen>
   BuildContext?
       _previewDialogContext; // Track preview dialog context for closing
 
+    String? _currentStreamUrl;
+
   String? _currentEpisodeId;
   MovieEpisode? _currentEpisode;
 
@@ -85,8 +91,74 @@ class _MoviePlayerScreenState extends ConsumerState<MoviePlayerScreen>
   void _ensurePlayerInitialized() {
     if (_player != null && _videoController != null) return;
     _player ??= Player();
-    _videoController ??= VideoController(_player!);
+    _videoController ??= VideoController(
+      _player!,
+      configuration: const VideoControllerConfiguration(
+        androidAttachSurfaceAfterVideoParameters: false,
+      ),
+    );
     _attachPlayerListeners();
+  }
+
+  void _disposePlayerInternal() {
+    _positionSub?.cancel();
+    _positionSub = null;
+    _durationSub?.cancel();
+    _durationSub = null;
+    _playingSub?.cancel();
+    _playingSub = null;
+    _completedSub?.cancel();
+    _completedSub = null;
+    _errorSub?.cancel();
+    _errorSub = null;
+    _logSub?.cancel();
+    _logSub = null;
+    _bufferingSub?.cancel();
+    _bufferingSub = null;
+    _videoParamsSub?.cancel();
+    _videoParamsSub = null;
+
+    final player = _player;
+    _player = null;
+    _videoController = null;
+    if (player != null) {
+      unawaited(player.dispose());
+    }
+  }
+
+  Future<void> _openWithFallback(String streamUrl) async {
+    _ensurePlayerInitialized();
+
+    // mpv (Android):
+    // - media_kit defaults `network-timeout=5` which is often too aggressive for CDN/worker URLs.
+    // - disk cache may fail on some devices/scoped storage configurations.
+    // Tune networking & cache to improve reliability.
+    try {
+      final platform = _player?.platform;
+      // Keep memory cache (helps with flaky networks) but disable disk cache.
+      await (platform as dynamic).setProperty('cache', 'yes');
+      await (platform as dynamic).setProperty('cache-on-disk', 'no');
+
+      // Increase timeouts & enable reconnect for intermittent networks.
+      await (platform as dynamic).setProperty('network-timeout', '30');
+
+      final existing = await (platform as dynamic).getProperty('demuxer-lavf-o');
+      final extra = [
+        'reconnect=1',
+        'reconnect_streamed=1',
+        'reconnect_on_network_error=1',
+        'reconnect_delay_max=5',
+      ].join(',');
+      final combined = (existing is String && existing.isNotEmpty)
+          ? '$existing,$extra'
+          : extra;
+      await (platform as dynamic).setProperty('demuxer-lavf-o', combined);
+    } catch (_) {}
+
+    // Match media_kit_test behavior: open the direct URL without custom
+    // headers / UA / referrer overrides or special retry logic.
+    await _player!.open(Media(streamUrl), play: true);
+    await _player!.setVolume(_isMuted ? 0 : 200);
   }
 
   Future<void> _showTracksSheet([BuildContext? sheetContext]) async {
@@ -224,22 +296,20 @@ class _MoviePlayerScreenState extends ConsumerState<MoviePlayerScreen>
       ..validateStatus = (status) => status != null && status < 500;
     _scrollController.addListener(_onScroll);
     WidgetsBinding.instance.addObserver(this);
+    _ensurePlayerInitialized();
     // Don't set _currentEpisodeId here - let it trigger auto-load
+  }
+
+  @override
+  void deactivate() {
+    _player?.pause();
+    super.deactivate();
   }
 
   @override
   void dispose() {
     _scrollController.dispose();
-    _positionSub?.cancel();
-    _durationSub?.cancel();
-    _playingSub?.cancel();
-    _completedSub?.cancel();
-    final player = _player;
-    _player = null;
-    _videoController = null;
-    if (player != null) {
-      unawaited(player.dispose());
-    }
+    _disposePlayerInternal();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -272,6 +342,10 @@ class _MoviePlayerScreenState extends ConsumerState<MoviePlayerScreen>
     _durationSub?.cancel();
     _playingSub?.cancel();
     _completedSub?.cancel();
+    _errorSub?.cancel();
+    _logSub?.cancel();
+    _bufferingSub?.cancel();
+    _videoParamsSub?.cancel();
 
     _positionSub = player.stream.position.listen((position) {
       if (!mounted) return;
@@ -319,6 +393,25 @@ class _MoviePlayerScreenState extends ConsumerState<MoviePlayerScreen>
         _hasPlayedNext = true;
         _playNextEpisode();
       }
+    });
+
+    _bufferingSub = player.stream.buffering.listen((buffering) {
+      if (!mounted) return;
+      if (buffering) {
+        print('⏳ Buffering...');
+      }
+    });
+
+    _videoParamsSub = player.stream.videoParams.listen((params) {
+      print('📐 VideoParams: ${params.w}x${params.h}');
+    });
+
+    _errorSub = player.stream.error.listen((message) {
+      print('❌ media_kit error: $message');
+    });
+
+    _logSub = player.stream.log.listen((log) {
+      print('🧾 media_kit log: ${log.level}: ${log.text}');
     });
   }
 
@@ -375,16 +468,18 @@ class _MoviePlayerScreenState extends ConsumerState<MoviePlayerScreen>
         throw Exception('No stream URL returned from backend');
       }
 
+      if (mounted) {
+        setState(() {
+          _currentStreamUrl = streamUrl;
+        });
+      }
+
       print('🎥 Initializing video player...');
 
-      _ensurePlayerInitialized();
       final openStopwatch = Stopwatch()..start();
-      await _player!.open(Media(streamUrl), play: true);
+      await _openWithFallback(streamUrl);
       openStopwatch.stop();
       print('⏱️ Player open took: ${openStopwatch.elapsedMilliseconds}ms');
-
-      // Keep mute state consistent.
-      await _player!.setVolume(_isMuted ? 0 : 100);
 
       print('✅ media_kit player opened successfully');
 
@@ -1502,6 +1597,8 @@ class _MoviePlayerScreenState extends ConsumerState<MoviePlayerScreen>
     final double baseSubtitleBottom = _isFullscreen ? 20 : 16;
     final double subtitleBottom = baseSubtitleBottom;
 
+    final bool hasVideoOutput = _player != null && _videoController != null;
+
     return SizedBox(
       height: _isFullscreen
           ? screenSize.height
@@ -1514,7 +1611,7 @@ class _MoviePlayerScreenState extends ConsumerState<MoviePlayerScreen>
         child: Stack(
           fit: StackFit.expand,
           children: [
-            if (_isVideoInitialized && _player != null && _videoController != null)
+            if (hasVideoOutput)
               SizedBox.expand(
                 child: MaterialVideoControlsTheme(
                   normal: kDefaultMaterialVideoControlsThemeData,
@@ -1532,12 +1629,14 @@ class _MoviePlayerScreenState extends ConsumerState<MoviePlayerScreen>
                     ],
                   ),
                   child: Video(
+                    key: ValueKey<String>(_currentStreamUrl ?? 'video'),
                     controller: _videoController!,
                     controls: AdaptiveVideoControls,
                   ),
                 ),
-              )
-            else if (_isInitializing)
+              ),
+
+            if (_isInitializing)
               Container(
                 color: Colors.black,
                 child: const Center(
@@ -1554,7 +1653,7 @@ class _MoviePlayerScreenState extends ConsumerState<MoviePlayerScreen>
                   ),
                 ),
               )
-            else
+            else if (!_isVideoInitialized)
               Center(
                 child: movie.posterUrl != null
                     ? Image.network(
