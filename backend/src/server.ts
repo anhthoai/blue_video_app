@@ -39,6 +39,18 @@ const io = new SocketIOServer(server, {
   },
 });
 
+type ActiveCallSession = {
+  callId: string;
+  roomId: string;
+  callerId: string;
+  participantIds: string[];
+  isVideoCall: boolean;
+  createdAt: Date;
+  acceptedAt?: Date;
+};
+
+const activeCallSessions = new Map<string, ActiveCallSession>();
+
 const PORT = process.env['PORT'] || 3000;
 
 // Trust proxy - required when behind Nginx/CloudPanel reverse proxy
@@ -6977,6 +6989,125 @@ app.get('/api/v1/community/tags', authenticateToken, async (_req, res) => {
 // Chat API Endpoints
 // ============================================
 
+function getChatFileFolder(messageType: string | undefined): string | undefined {
+  if (!messageType) {
+    return undefined;
+  }
+
+  const normalizedType = messageType.toLowerCase();
+  if (normalizedType === 'image') return 'chat/photo';
+  if (normalizedType === 'video') return 'chat/video';
+  if (normalizedType === 'audio') return 'chat/audio';
+  if (normalizedType === 'file') return 'chat/doc';
+  return undefined;
+}
+
+function serializeChatMessage(message: any) {
+  const fileFolder = getChatFileFolder(message.messageType);
+
+  return {
+    id: message.id,
+    content: message.content,
+    type: message.messageType,
+    messageType: message.messageType,
+    fileUrl: message.fileName && message.fileDirectory
+      ? (buildFileUrlSync(message.fileDirectory, message.fileName, fileFolder, (message as any).s3StorageId || 1) || '')
+      : null,
+    fileName: message.fileName,
+    fileDirectory: message.fileDirectory,
+    s3StorageId: (message as any).s3StorageId || 1,
+    fileSize: message.fileSize,
+    mimeType: message.mimeType,
+    createdAt: message.createdAt.toISOString(),
+    updatedAt: message.updatedAt.toISOString(),
+    userId: message.userId,
+    roomId: message.roomId,
+    username: message.user?.username || 'System',
+    userAvatar: message.user ? (buildAvatarUrl(message.user) || message.user.avatarUrl) : null,
+    isEdited: message.updatedAt > message.createdAt,
+    isDeleted: false,
+  };
+}
+
+async function isUserInChatRoom(roomId: string, userId: string) {
+  const participant = await prisma.chatRoomParticipant.findFirst({
+    where: {
+      roomId,
+      userId,
+    },
+    select: {
+      id: true,
+    },
+  });
+
+  return !!participant;
+}
+
+async function getChatRoomParticipantIds(roomId: string) {
+  const participants = await prisma.chatRoomParticipant.findMany({
+    where: {
+      roomId,
+    },
+    select: {
+      userId: true,
+    },
+  });
+
+  return participants.map(participant => participant.userId);
+}
+
+function getCallLabel(isVideoCall: boolean) {
+  return isVideoCall ? 'video call' : 'voice call';
+}
+
+function formatCallDuration(durationSeconds: number) {
+  const minutes = Math.floor(durationSeconds / 60).toString().padStart(2, '0');
+  const seconds = Math.floor(durationSeconds % 60).toString().padStart(2, '0');
+  const hours = Math.floor(durationSeconds / 3600);
+
+  if (hours > 0) {
+    return `${hours.toString().padStart(2, '0')}:${minutes}:${seconds}`;
+  }
+
+  return `${minutes}:${seconds}`;
+}
+
+async function createSystemChatMessage(roomId: string, userId: string, content: string) {
+  const message = await prisma.chatMessage.create({
+    data: {
+      content,
+      messageType: 'SYSTEM' as any,
+      userId,
+      roomId,
+    },
+    include: {
+      user: {
+        select: {
+          id: true,
+          username: true,
+          firstName: true,
+          lastName: true,
+          avatarUrl: true,
+          avatar: true,
+          fileDirectory: true,
+          s3StorageId: true,
+          isVerified: true,
+        },
+      },
+    },
+  });
+
+  await prisma.chatRoom.update({
+    where: { id: roomId },
+    data: { updatedAt: new Date() },
+  });
+
+  const serializedMessage = serializeChatMessage(message);
+  io.to(`chat-${roomId}`).emit('new-message', serializedMessage);
+
+  return serializedMessage;
+}
+
 // Get chat rooms for current user
 app.get('/api/v1/chat/rooms', async (req, res) => {
   try {
@@ -7392,39 +7523,7 @@ app.get('/api/v1/chat/rooms/:roomId/messages', async (req, res) => {
     });
 
     // Serialize messages with dynamic fileUrl
-    const serializedMessages = messages.map((message: any) => {
-      // Determine file folder based on message type
-      let fileFolder: string | undefined;
-      if (message.fileName && message.fileDirectory) {
-        const msgType = message.messageType.toLowerCase();
-        if (msgType === 'image') fileFolder = 'chat/photo';
-        else if (msgType === 'video') fileFolder = 'chat/video';
-        else if (msgType === 'audio') fileFolder = 'chat/audio';
-        else if (msgType === 'file') fileFolder = 'chat/doc';
-      }
-
-      return {
-        id: message.id,
-        content: message.content,
-        type: message.messageType,
-        fileUrl: message.fileName && message.fileDirectory
-          ? (buildFileUrlSync(message.fileDirectory, message.fileName, fileFolder, (message as any).s3StorageId || 1) || '')
-          : null,
-        fileName: message.fileName,
-        fileDirectory: message.fileDirectory,
-        s3StorageId: (message as any).s3StorageId || 1,
-        fileSize: message.fileSize,
-        mimeType: message.mimeType,
-        createdAt: message.createdAt.toISOString(),
-        updatedAt: message.updatedAt.toISOString(),
-        userId: message.userId,
-        roomId: message.roomId,
-        username: message.user.username,
-        userAvatar: buildAvatarUrl(message.user) || message.user.avatarUrl,
-        isEdited: message.updatedAt > message.createdAt,
-        isDeleted: false,
-      };
-    });
+    const serializedMessages = messages.map((message: any) => serializeChatMessage(message));
 
     res.json({
       success: true,
@@ -7524,38 +7623,7 @@ app.post('/api/v1/chat/rooms/:roomId/messages', async (req, res) => {
       data: { updatedAt: new Date() },
     });
 
-    // Determine file folder based on message type
-    let fileFolder: string | undefined;
-    if (message.fileName && message.fileDirectory) {
-      const msgType = message.messageType.toLowerCase();
-      if (msgType === 'image') fileFolder = 'chat/photo';
-      else if (msgType === 'video') fileFolder = 'chat/video';
-      else if (msgType === 'audio') fileFolder = 'chat/audio';
-      else if (msgType === 'file') fileFolder = 'chat/doc';
-    }
-
-    // Serialize message with dynamic fileUrl
-    const serializedMessage = {
-      id: message.id,
-      content: message.content,
-      type: message.messageType,
-      fileUrl: message.fileName && message.fileDirectory
-        ? (buildFileUrlSync(message.fileDirectory, message.fileName, fileFolder, (message as any).s3StorageId || 1) || '')
-        : null,
-      fileName: message.fileName,
-      fileDirectory: message.fileDirectory,
-      s3StorageId: (message as any).s3StorageId || 1,
-      fileSize: message.fileSize,
-      mimeType: message.mimeType,
-      createdAt: message.createdAt.toISOString(),
-      updatedAt: message.updatedAt.toISOString(),
-      userId: message.userId,
-      roomId: message.roomId,
-      username: message.user.username,
-      userAvatar: buildAvatarUrl(message.user) || message.user.avatarUrl,
-      isEdited: false,
-      isDeleted: false,
-    };
+    const serializedMessage = serializeChatMessage(message);
 
     // Emit to Socket.IO for real-time updates
     io.to(`chat-${roomId}`).emit('new-message', serializedMessage);
@@ -7573,14 +7641,56 @@ app.post('/api/v1/chat/rooms/:roomId/messages', async (req, res) => {
   }
 });
 
+io.use((socket, next) => {
+  try {
+    const auth = socket.handshake.auth;
+    const token = auth && typeof auth['token'] === 'string' ? auth['token'] : undefined;
+
+    if (!token) {
+      next(new Error('Authentication required'));
+      return;
+    }
+
+    const decoded = jwt.verify(
+      token,
+      process.env['JWT_SECRET'] || 'your-secret-key'
+    ) as { userId?: string; role?: string; email?: string };
+
+    if (!decoded.userId) {
+      next(new Error('Invalid authentication token'));
+      return;
+    }
+
+    socket.data.userId = decoded.userId;
+    socket.data.userRole = decoded.role;
+    socket.data.userEmail = decoded.email;
+    next();
+  } catch (error) {
+    next(new Error('Invalid authentication token'));
+  }
+});
+
 // Socket.io connection handling
 io.on('connection', (socket) => {
-  console.log(`User connected: ${socket.id}`);
+  const socketUserId = socket.data.userId as string | undefined;
+
+  console.log(`User connected: ${socket.id}${socketUserId ? ` (${socketUserId})` : ''}`);
+
+  if (socketUserId) {
+    socket.join(`user-${socketUserId}`);
+  }
 
   // Join user to their personal room
   socket.on('join-user-room', (userId) => {
-    socket.join(`user-${userId}`);
-    console.log(`User ${userId} joined their room`);
+    const effectiveUserId =
+      typeof userId === 'string' && userId === socketUserId ? userId : socketUserId;
+
+    if (!effectiveUserId) {
+      return;
+    }
+
+    socket.join(`user-${effectiveUserId}`);
+    console.log(`User ${effectiveUserId} joined their room`);
   });
 
   // Join chat room
@@ -7625,6 +7735,296 @@ io.on('connection', (socket) => {
     socket.to(`chat-${roomId}`).emit('user-typing', {
       userId,
       isTyping: false,
+    });
+  });
+
+  socket.on('call-invite', async (data) => {
+    try {
+      const callerId = socket.data.userId as string | undefined;
+      const {
+        callId,
+        roomId,
+        participantIds = [],
+        isVideoCall = false,
+        callerName,
+        callerAvatar,
+      } = data ?? {};
+
+      if (!callerId || !callId || !roomId || !Array.isArray(participantIds)) {
+        socket.emit('call-error', {
+          callId,
+          roomId,
+          message: 'Invalid call request',
+        });
+        return;
+      }
+
+      const hasAccess = await isUserInChatRoom(roomId, callerId);
+      if (!hasAccess) {
+        socket.emit('call-error', {
+          callId,
+          roomId,
+          message: 'Access denied to this chat room',
+        });
+        return;
+      }
+
+      const roomParticipantIds = await getChatRoomParticipantIds(roomId);
+      const targetParticipantIds = participantIds.filter(
+        (participantId: string) =>
+          typeof participantId === 'string' &&
+          participantId !== callerId &&
+          roomParticipantIds.includes(participantId)
+      );
+
+      if (targetParticipantIds.length === 0) {
+        socket.emit('call-error', {
+          callId,
+          roomId,
+          message: 'No valid participant available for this call',
+        });
+        return;
+      }
+
+      activeCallSessions.set(callId, {
+        callId,
+        roomId,
+        callerId,
+        participantIds: [callerId, ...targetParticipantIds],
+        isVideoCall: Boolean(isVideoCall),
+        createdAt: new Date(),
+      });
+
+      targetParticipantIds.forEach((participantId: string) => {
+        io.to(`user-${participantId}`).emit('incoming-call', {
+          callId,
+          roomId,
+          callerId,
+          callerName: callerName || 'Unknown caller',
+          callerAvatar: callerAvatar || null,
+          participantIds: [callerId, ...targetParticipantIds],
+          isVideoCall: Boolean(isVideoCall),
+          createdAt: new Date().toISOString(),
+        });
+      });
+
+      socket.emit('outgoing-call', {
+        callId,
+        roomId,
+        participantIds: targetParticipantIds,
+        isVideoCall: Boolean(isVideoCall),
+      });
+    } catch (error) {
+      console.error('Error handling call invite:', error);
+      socket.emit('call-error', {
+        message: 'Failed to start the call',
+      });
+    }
+  });
+
+  socket.on('call-accept', (data) => {
+    const userId = socket.data.userId as string | undefined;
+    const { callId } = data ?? {};
+
+    if (!userId || !callId) {
+      return;
+    }
+
+    const session = activeCallSessions.get(callId);
+    if (!session || !session.participantIds.includes(userId)) {
+      return;
+    }
+
+    session.acceptedAt = session.acceptedAt || new Date();
+    activeCallSessions.set(callId, session);
+
+    io.to(`user-${session.callerId}`).emit('call-accepted', {
+      callId,
+      roomId: session.roomId,
+      userId,
+      acceptedAt: session.acceptedAt.toISOString(),
+    });
+  });
+
+  socket.on('call-decline', async (data) => {
+    try {
+      const userId = socket.data.userId as string | undefined;
+      const { callId } = data ?? {};
+
+      if (!userId || !callId) {
+        return;
+      }
+
+      const session = activeCallSessions.get(callId);
+      if (!session || !session.participantIds.includes(userId)) {
+        return;
+      }
+
+      io.to(`user-${session.callerId}`).emit('call-declined', {
+        callId,
+        roomId: session.roomId,
+        userId,
+      });
+
+      await createSystemChatMessage(
+        session.roomId,
+        session.callerId,
+        `Missed ${getCallLabel(session.isVideoCall)}`
+      );
+
+      activeCallSessions.delete(callId);
+    } catch (error) {
+      console.error('Error handling call decline:', error);
+    }
+  });
+
+  socket.on('call-no-answer', async (data) => {
+    try {
+      const userId = socket.data.userId as string | undefined;
+      const { callId } = data ?? {};
+
+      if (!userId || !callId) {
+        return;
+      }
+
+      const session = activeCallSessions.get(callId);
+      if (!session || session.callerId !== userId) {
+        return;
+      }
+
+      session.participantIds
+        .filter(participantId => participantId !== userId)
+        .forEach(participantId => {
+          io.to(`user-${participantId}`).emit('call-missed', {
+            callId,
+            roomId: session.roomId,
+            userId,
+          });
+        });
+
+      await createSystemChatMessage(
+        session.roomId,
+        session.callerId,
+        `Missed ${getCallLabel(session.isVideoCall)}`
+      );
+
+      activeCallSessions.delete(callId);
+    } catch (error) {
+      console.error('Error handling missed call:', error);
+    }
+  });
+
+  socket.on('call-end', async (data) => {
+    try {
+      const userId = socket.data.userId as string | undefined;
+      const { callId, durationSeconds } = data ?? {};
+
+      if (!userId || !callId) {
+        return;
+      }
+
+      const session = activeCallSessions.get(callId);
+      if (!session || !session.participantIds.includes(userId)) {
+        return;
+      }
+
+      const resolvedDurationSeconds =
+        typeof durationSeconds === 'number' && Number.isFinite(durationSeconds)
+          ? Math.max(0, Math.floor(durationSeconds))
+          : session.acceptedAt
+              ? Math.max(
+                  0,
+                  Math.floor((Date.now() - session.acceptedAt.getTime()) / 1000)
+                )
+              : 0;
+      const durationSuffix =
+        resolvedDurationSeconds > 0
+          ? ` • ${formatCallDuration(resolvedDurationSeconds)}`
+          : '';
+
+      session.participantIds
+        .filter(participantId => participantId !== userId)
+        .forEach(participantId => {
+          io.to(`user-${participantId}`).emit('call-ended', {
+            callId,
+            roomId: session.roomId,
+            userId,
+            durationSeconds: resolvedDurationSeconds,
+          });
+        });
+
+      await createSystemChatMessage(
+        session.roomId,
+        userId,
+        `${session.isVideoCall ? 'Video' : 'Voice'} call ended${durationSuffix}`
+      );
+
+      activeCallSessions.delete(callId);
+    } catch (error) {
+      console.error('Error handling call end:', error);
+    }
+  });
+
+  socket.on('webrtc-offer', (data) => {
+    const userId = socket.data.userId as string | undefined;
+    const { callId, toUserId, offer } = data ?? {};
+
+    if (!userId || !callId || !toUserId || !offer) {
+      return;
+    }
+
+    const session = activeCallSessions.get(callId);
+    if (!session || !session.participantIds.includes(userId) || !session.participantIds.includes(toUserId)) {
+      return;
+    }
+
+    io.to(`user-${toUserId}`).emit('webrtc-offer', {
+      callId,
+      roomId: session.roomId,
+      fromUserId: userId,
+      offer,
+    });
+  });
+
+  socket.on('webrtc-answer', (data) => {
+    const userId = socket.data.userId as string | undefined;
+    const { callId, toUserId, answer } = data ?? {};
+
+    if (!userId || !callId || !toUserId || !answer) {
+      return;
+    }
+
+    const session = activeCallSessions.get(callId);
+    if (!session || !session.participantIds.includes(userId) || !session.participantIds.includes(toUserId)) {
+      return;
+    }
+
+    io.to(`user-${toUserId}`).emit('webrtc-answer', {
+      callId,
+      roomId: session.roomId,
+      fromUserId: userId,
+      answer,
+    });
+  });
+
+  socket.on('webrtc-ice-candidate', (data) => {
+    const userId = socket.data.userId as string | undefined;
+    const { callId, toUserId, candidate } = data ?? {};
+
+    if (!userId || !callId || !toUserId || !candidate) {
+      return;
+    }
+
+    const session = activeCallSessions.get(callId);
+    if (!session || !session.participantIds.includes(userId) || !session.participantIds.includes(toUserId)) {
+      return;
+    }
+
+    io.to(`user-${toUserId}`).emit('webrtc-ice-candidate', {
+      callId,
+      roomId: session.roomId,
+      fromUserId: userId,
+      candidate,
     });
   });
 

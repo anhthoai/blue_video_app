@@ -1,11 +1,19 @@
+import 'dart:async';
+
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/services/chat_call_service.dart';
 import '../../core/services/chat_service.dart';
 import '../../core/services/auth_service.dart';
+import '../../models/chat_call.dart';
+import '../../models/chat_participant.dart';
+import '../../models/chat_room.dart';
 import '../../widgets/chat/chat_room_tile.dart';
 import '../../widgets/chat/user_selection_dialog.dart';
 import '../../l10n/app_localizations.dart';
+import 'chat_call_screen.dart';
 import 'chat_screen.dart';
 
 class ChatListScreen extends ConsumerStatefulWidget {
@@ -17,10 +25,28 @@ class ChatListScreen extends ConsumerStatefulWidget {
 
 class _ChatListScreenState extends ConsumerState<ChatListScreen>
     with WidgetsBindingObserver {
+  ProviderSubscription<ChatCallState>? _callSubscription;
+  String? _activeIncomingDialogCallId;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _callSubscription = ref.listenManual<ChatCallState>(
+      chatCallControllerProvider,
+      (previous, next) {
+        final invite = next.incomingInvite;
+        if (!mounted || invite == null) {
+          return;
+        }
+        if (_activeIncomingDialogCallId == invite.callId) {
+          return;
+        }
+
+        _activeIncomingDialogCallId = invite.callId;
+        unawaited(_showIncomingCallDialog(invite));
+      },
+    );
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _initializeAndLoadChatRooms();
     });
@@ -28,6 +54,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
 
   @override
   void dispose() {
+    _callSubscription?.close();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -58,6 +85,129 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
   Future<void> _loadChatRooms() async {
     final chatService = ref.read(chatServiceStateProvider.notifier);
     await chatService.loadChatRooms();
+  }
+
+  ChatRoom? _findRoomById(String roomId) {
+    final chatState = ref.read(chatServiceStateProvider);
+    for (final room in chatState.rooms) {
+      if (room.id == roomId) {
+        return room;
+      }
+    }
+    return null;
+  }
+
+  ChatRoom _buildFallbackRoom(ChatCallInvite invite) {
+    return ChatRoom(
+      id: invite.roomId,
+      name: invite.callerName,
+      isGroup: false,
+      participants: [
+        ChatParticipant(
+          id: invite.callerId,
+          username: invite.callerName,
+          firstName: invite.callerName,
+          avatarUrl: invite.callerAvatar,
+        ),
+      ],
+      createdAt: invite.createdAt,
+      updatedAt: invite.createdAt,
+    );
+  }
+
+  Future<void> _showIncomingCallDialog(ChatCallInvite invite) async {
+    final accepted = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      useRootNavigator: true,
+      builder: (dialogContext) {
+        final isVideoCall = invite.isVideoCall;
+        final avatar = invite.callerAvatar;
+
+        return AlertDialog(
+          title:
+              Text(isVideoCall ? 'Incoming video call' : 'Incoming voice call'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              CircleAvatar(
+                radius: 30,
+                backgroundColor: Colors.grey[300],
+                backgroundImage: avatar != null && avatar.isNotEmpty
+                    ? CachedNetworkImageProvider(avatar)
+                    : null,
+                child: avatar == null || avatar.isEmpty
+                    ? Text(
+                        invite.callerName.isNotEmpty
+                            ? invite.callerName[0].toUpperCase()
+                            : 'C',
+                        style: const TextStyle(fontWeight: FontWeight.w700),
+                      )
+                    : null,
+              ),
+              const SizedBox(height: 16),
+              Text(
+                invite.callerName,
+                textAlign: TextAlign.center,
+                style:
+                    const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                isVideoCall
+                    ? 'Accept the video call to start live audio and video.'
+                    : 'Accept the voice call to start live audio.',
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('Decline'),
+            ),
+            FilledButton.icon(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              icon: Icon(isVideoCall ? Icons.videocam : Icons.phone),
+              label: const Text('Accept'),
+            ),
+          ],
+        );
+      },
+    );
+
+    _activeIncomingDialogCallId = null;
+
+    if (!mounted) {
+      return;
+    }
+
+    final callController = ref.read(chatCallControllerProvider.notifier);
+    if (accepted == true) {
+      final didAccept = await callController.acceptIncomingCall();
+      if (!didAccept || !mounted) {
+        return;
+      }
+
+      var room = _findRoomById(invite.roomId);
+      room ??= _buildFallbackRoom(invite);
+      final currentUser = ref.read(currentUserProvider);
+
+      await Navigator.of(context, rootNavigator: true).push(
+        MaterialPageRoute<void>(
+          builder: (context) => ChatCallScreen(
+            room: room!,
+            currentUser: currentUser,
+            currentUserId: currentUser?.id,
+            isVideoCall: invite.isVideoCall,
+            autoStartOutgoing: false,
+          ),
+        ),
+      );
+      return;
+    }
+
+    await callController.declineIncomingCall();
   }
 
   @override
@@ -154,8 +304,6 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
   }
 
   void _showOptions() {
-    final l10n = AppLocalizations.of(context);
-
     showModalBottomSheet(
       context: context,
       builder: (context) {
@@ -197,8 +345,6 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
   }
 
   void _showNewChatOptions() {
-    final l10n = AppLocalizations.of(context);
-
     showModalBottomSheet(
       context: context,
       builder: (context) {
@@ -246,7 +392,6 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
   }
 
   void _showChatSettings() {
-    final l10n = AppLocalizations.of(context);
     showDialog(
       context: context,
       builder: (context) {
@@ -315,12 +460,5 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
         );
       }
     }
-  }
-
-  void _showContacts() {
-    final l10n = AppLocalizations.of(context);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Contacts ${l10n.comingSoon}')),
-    );
   }
 }

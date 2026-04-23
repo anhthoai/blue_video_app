@@ -1,43 +1,48 @@
 import 'dart:async';
 import 'dart:io';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:socket_io_client/socket_io_client.dart' as IO;
 
+import 'package:flutter/foundation.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:socket_io_client/socket_io_client.dart' as socket_io;
+
+import '../../models/chat_call.dart';
 import '../../models/chat_message.dart';
 import '../../models/chat_room.dart';
 import 'api_service.dart';
 
 class ChatService {
-  IO.Socket? _socket;
-  StreamController<ChatMessage>? _messageController;
-  StreamController<ChatRoom>? _roomController;
+  socket_io.Socket? _socket;
+  final StreamController<ChatMessage> _messageController =
+      StreamController<ChatMessage>.broadcast();
+  final StreamController<ChatRoom> _roomController =
+      StreamController<ChatRoom>.broadcast();
+  final StreamController<ChatSocketEvent> _callEventController =
+      StreamController<ChatSocketEvent>.broadcast();
   String? _currentUserId;
   String? _authToken;
   bool _isConnected = false;
   Timer? _heartbeatTimer;
   final ApiService _apiService = ApiService();
 
-  // Getters
   bool get isConnected => _isConnected;
-  Stream<ChatMessage>? get messageStream => _messageController?.stream;
-  Stream<ChatRoom>? get roomStream => _roomController?.stream;
+  Stream<ChatMessage> get messageStream => _messageController.stream;
+  Stream<ChatRoom> get roomStream => _roomController.stream;
+  Stream<ChatSocketEvent> get callEventStream => _callEventController.stream;
 
-  // Initialize chat service
   void initialize(String userId, String authToken) {
     _currentUserId = userId;
     _authToken = authToken;
-    _messageController = StreamController<ChatMessage>.broadcast();
-    _roomController = StreamController<ChatRoom>.broadcast();
   }
 
-  // Connect to Socket.IO server
   Future<void> connect() async {
-    if (_isConnected) return;
+    if (_isConnected || _socket != null || _authToken == null) {
+      return;
+    }
 
     try {
-      _socket = IO.io(
+      _socket = socket_io.io(
         _apiService.socketUrl,
-        IO.OptionBuilder()
+        socket_io.OptionBuilder()
             .setTransports(['websocket'])
             .setAuth({'token': _authToken})
             .enableAutoConnect()
@@ -46,36 +51,49 @@ class ChatService {
 
       _socket!.onConnect((_) {
         _isConnected = true;
-        print('✅ Connected to chat server');
-        _socket!.emit('join-user-room', _currentUserId);
+        debugPrint('Connected to chat server');
+        if (_currentUserId != null) {
+          _socket!.emit('join-user-room', _currentUserId);
+        }
       });
 
       _socket!.onDisconnect((_) {
         _isConnected = false;
-        print('❌ Disconnected from chat server');
+        debugPrint('Disconnected from chat server');
       });
 
       _socket!.onConnectError((error) {
         _isConnected = false;
-        print('❌ Connection error: $error');
+        debugPrint('Chat connection error: $error');
       });
 
-      // Listen to incoming messages
-      _socket!.on('new-message', (data) {
-        _handleIncomingMessage(data);
-      });
-
+      _socket!.on('new-message', _handleIncomingMessage);
       _socket!.on('user-typing', (data) {
-        // Handle typing indicators
-        print('User typing: $data');
+        debugPrint('Typing update: $data');
       });
+
+      for (final eventName in const [
+        'incoming-call',
+        'outgoing-call',
+        'call-accepted',
+        'call-declined',
+        'call-missed',
+        'call-ended',
+        'call-error',
+        'webrtc-offer',
+        'webrtc-answer',
+        'webrtc-ice-candidate',
+      ]) {
+        _socket!.on(eventName, (data) {
+          _emitCallEvent(eventName, data);
+        });
+      }
     } catch (e) {
-      print('❌ Failed to connect to chat server: $e');
+      debugPrint('Failed to connect to chat server: $e');
       _isConnected = false;
     }
   }
 
-  // Disconnect from Socket.IO server
   Future<void> disconnect() async {
     _heartbeatTimer?.cancel();
     _heartbeatTimer = null;
@@ -85,7 +103,6 @@ class ChatService {
     _isConnected = false;
   }
 
-  // Load chat rooms from API
   Future<List<ChatRoom>> loadChatRooms({int page = 1, int limit = 20}) async {
     try {
       final response = await _apiService.getChatRooms(page: page, limit: limit);
@@ -98,12 +115,11 @@ class ChatService {
       }
       return [];
     } catch (e) {
-      print('Error loading chat rooms: $e');
+      debugPrint('Error loading chat rooms: $e');
       return [];
     }
   }
 
-  // Create a new chat room
   Future<ChatRoom?> createChatRoom({
     String? name,
     required String type,
@@ -121,12 +137,11 @@ class ChatService {
       }
       return null;
     } catch (e) {
-      print('Error creating chat room: $e');
+      debugPrint('Error creating chat room: $e');
       return null;
     }
   }
 
-  // Load messages for a chat room
   Future<List<ChatMessage>> loadMessages({
     required String roomId,
     int page = 1,
@@ -147,12 +162,11 @@ class ChatService {
       }
       return [];
     } catch (e) {
-      print('Error loading messages: $e');
+      debugPrint('Error loading messages: $e');
       return [];
     }
   }
 
-  // Upload chat attachment
   Future<Map<String, dynamic>?> uploadChatAttachment(File file) async {
     try {
       final response = await _apiService.uploadChatAttachment(file);
@@ -162,12 +176,11 @@ class ChatService {
       }
       return null;
     } catch (e) {
-      print('Error uploading chat attachment: $e');
+      debugPrint('Error uploading chat attachment: $e');
       return null;
     }
   }
 
-  // Send a message
   Future<ChatMessage?> sendMessage({
     required String roomId,
     required String content,
@@ -195,28 +208,33 @@ class ChatService {
       }
       return null;
     } catch (e) {
-      print('Error sending message: $e');
+      debugPrint('Error sending message: $e');
       return null;
     }
   }
 
-  // Join a chat room
+  Future<ChatMessage?> sendSystemMessage(String roomId, String content) {
+    return sendMessage(
+      roomId: roomId,
+      content: content,
+      messageType: 'SYSTEM',
+    );
+  }
+
   void joinChatRoom(String roomId) {
     _socket?.emit('join-chat-room', roomId);
   }
 
-  // Leave a chat room
   void leaveChatRoom(String roomId) {
     _socket?.emit('leave-chat-room', roomId);
   }
 
-  // Send typing indicator
   void sendTypingIndicator(String roomId, bool isTyping) {
     if (isTyping) {
       _socket?.emit('typing-start', {
         'roomId': roomId,
         'userId': _currentUserId,
-        'username': 'Current User', // TODO: Get actual username
+        'username': 'Current User',
       });
     } else {
       _socket?.emit('typing-stop', {
@@ -226,26 +244,125 @@ class ChatService {
     }
   }
 
-  // Handle incoming messages
+  void sendCallInvite({
+    required String callId,
+    required String roomId,
+    required List<String> participantIds,
+    required String callerName,
+    required bool isVideoCall,
+    String? callerAvatar,
+  }) {
+    _socket?.emit('call-invite', {
+      'callId': callId,
+      'roomId': roomId,
+      'participantIds': participantIds,
+      'callerName': callerName,
+      'callerAvatar': callerAvatar,
+      'isVideoCall': isVideoCall,
+    });
+  }
+
+  void acceptCall({required String callId}) {
+    _socket?.emit('call-accept', {
+      'callId': callId,
+    });
+  }
+
+  void declineCall({required String callId}) {
+    _socket?.emit('call-decline', {
+      'callId': callId,
+    });
+  }
+
+  void notifyMissedCall({required String callId}) {
+    _socket?.emit('call-no-answer', {
+      'callId': callId,
+    });
+  }
+
+  void endCall({
+    required String callId,
+    int? durationSeconds,
+  }) {
+    _socket?.emit('call-end', {
+      'callId': callId,
+      'durationSeconds': durationSeconds,
+    });
+  }
+
+  void sendWebRtcOffer({
+    required String callId,
+    required String toUserId,
+    required Map<String, dynamic> offer,
+  }) {
+    _socket?.emit('webrtc-offer', {
+      'callId': callId,
+      'toUserId': toUserId,
+      'offer': offer,
+    });
+  }
+
+  void sendWebRtcAnswer({
+    required String callId,
+    required String toUserId,
+    required Map<String, dynamic> answer,
+  }) {
+    _socket?.emit('webrtc-answer', {
+      'callId': callId,
+      'toUserId': toUserId,
+      'answer': answer,
+    });
+  }
+
+  void sendIceCandidate({
+    required String callId,
+    required String toUserId,
+    required Map<String, dynamic> candidate,
+  }) {
+    _socket?.emit('webrtc-ice-candidate', {
+      'callId': callId,
+      'toUserId': toUserId,
+      'candidate': candidate,
+    });
+  }
+
+  Map<String, dynamic> _normalizeSocketPayload(dynamic data) {
+    if (data is Map<String, dynamic>) {
+      return data;
+    }
+    if (data is Map) {
+      return Map<String, dynamic>.from(data);
+    }
+    return <String, dynamic>{};
+  }
+
+  void _emitCallEvent(String type, dynamic data) {
+    _callEventController.add(
+      ChatSocketEvent(
+        type: type,
+        payload: _normalizeSocketPayload(data),
+      ),
+    );
+  }
+
   void _handleIncomingMessage(dynamic data) {
     try {
-      final message = ChatMessage.fromJson(data);
-      _messageController?.add(message);
+      final message = ChatMessage.fromJson(_normalizeSocketPayload(data));
+      _messageController.add(message);
     } catch (e) {
-      print('Error handling incoming message: $e');
+      debugPrint('Error handling incoming message: $e');
     }
   }
 
-  // Cleanup
   void dispose() {
     _heartbeatTimer?.cancel();
-    _messageController?.close();
-    _roomController?.close();
+    _messageController.close();
+    _roomController.close();
+    _callEventController.close();
     _socket?.disconnect();
   }
 }
 
-// Chat Service State
 class ChatServiceState {
   final List<ChatRoom> rooms;
   final Map<String, List<ChatMessage>> messages;
@@ -278,7 +395,6 @@ class ChatServiceState {
   }
 }
 
-// Chat Service Notifier
 class ChatServiceNotifier extends StateNotifier<ChatServiceState> {
   final ChatService _chatService;
 
@@ -292,19 +408,46 @@ class ChatServiceNotifier extends StateNotifier<ChatServiceState> {
   }
 
   void _setupMessageListener() {
-    _chatService.messageStream?.listen((message) {
+    _chatService.messageStream.listen((message) {
       final currentMessages =
           Map<String, List<ChatMessage>>.from(state.messages);
-      final roomMessages = currentMessages[message.roomId] ?? [];
+      final roomMessages = [
+        ...(currentMessages[message.roomId] ?? const <ChatMessage>[])
+      ];
 
-      // Check if message already exists to avoid duplicates
-      if (!roomMessages.any((m) => m.id == message.id)) {
+      if (!roomMessages
+          .any((existingMessage) => existingMessage.id == message.id)) {
         roomMessages.add(message);
         currentMessages[message.roomId] = roomMessages;
 
-        state = state.copyWith(messages: currentMessages);
+        state = state.copyWith(
+          messages: currentMessages,
+          rooms: _applyLastMessageToRooms(state.rooms, message),
+        );
       }
     });
+  }
+
+  List<ChatRoom> _applyLastMessageToRooms(
+      List<ChatRoom> rooms, ChatMessage message) {
+    final updatedRooms = rooms.map((room) {
+      if (room.id != message.roomId) {
+        return room;
+      }
+
+      return room.copyWith(
+        lastMessage: message,
+        updatedAt: message.createdAt,
+      );
+    }).toList();
+
+    updatedRooms.sort((left, right) {
+      final leftUpdatedAt = left.updatedAt ?? left.createdAt;
+      final rightUpdatedAt = right.updatedAt ?? right.createdAt;
+      return rightUpdatedAt.compareTo(leftUpdatedAt);
+    });
+
+    return updatedRooms;
   }
 
   Future<void> loadChatRooms() async {
@@ -367,11 +510,16 @@ class ChatServiceNotifier extends StateNotifier<ChatServiceState> {
       if (message != null) {
         final currentMessages =
             Map<String, List<ChatMessage>>.from(state.messages);
-        final roomMessages = currentMessages[roomId] ?? [];
+        final roomMessages = [
+          ...(currentMessages[roomId] ?? const <ChatMessage>[])
+        ];
         roomMessages.add(message);
         currentMessages[roomId] = roomMessages;
 
-        state = state.copyWith(messages: currentMessages);
+        state = state.copyWith(
+          messages: currentMessages,
+          rooms: _applyLastMessageToRooms(state.rooms, message),
+        );
       }
     } catch (e) {
       state = state.copyWith(error: e.toString());
@@ -421,7 +569,6 @@ class ChatServiceNotifier extends StateNotifier<ChatServiceState> {
   }
 }
 
-// Providers
 final chatServiceProvider = Provider<ChatService>((ref) => ChatService());
 
 final chatServiceStateProvider =

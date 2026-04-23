@@ -5,11 +5,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../core/services/chat_service.dart';
 import '../../core/services/auth_service.dart';
 import '../../models/chat_message.dart';
+import '../../models/chat_participant.dart';
 import '../../models/chat_room.dart';
+import 'chat_call_screen.dart';
 import '../../widgets/chat/message_bubble.dart';
 import '../../widgets/chat/typing_indicator.dart';
 
@@ -26,6 +29,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   bool _isTyping = false;
+  bool? _isChatMutedOverride;
   Timer? _typingTimer;
 
   @override
@@ -99,14 +103,50 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   }
 
   void _sendTypingIndicator(bool isTyping) {
-    // In a real app, you would send typing indicators via WebSocket
-    print('Typing: $isTyping');
+    ref
+        .read(chatServiceStateProvider.notifier)
+        .sendTypingIndicator(widget.chatId, isTyping);
+  }
+
+  ChatRoom? _findCurrentRoom(List<ChatRoom> rooms) {
+    for (final room in rooms) {
+      if (room.id == widget.chatId) {
+        return room;
+      }
+    }
+    return null;
+  }
+
+  ChatRoom? _getCurrentRoom() {
+    final chatState = ref.read(chatServiceStateProvider);
+    return _findCurrentRoom(chatState.rooms);
+  }
+
+  ChatParticipant? _getProfileParticipant(ChatRoom room) {
+    final currentUser = ref.read(currentUserProvider);
+    final otherParticipants = room.getOtherParticipants(currentUser?.id);
+    if (otherParticipants.isNotEmpty) {
+      return otherParticipants.first;
+    }
+    if (room.participants.isNotEmpty) {
+      return room.participants.first;
+    }
+    return null;
+  }
+
+  bool _isRoomMuted(ChatRoom? room) {
+    return _isChatMutedOverride ?? room?.isMuted ?? false;
   }
 
   @override
   Widget build(BuildContext context) {
     final chatState = ref.watch(chatServiceStateProvider);
     final messages = chatState.messages[widget.chatId] ?? [];
+    final currentRoom = _findCurrentRoom(chatState.rooms);
+    final canViewProfile = currentRoom != null &&
+        !currentRoom.isGroup &&
+        _getProfileParticipant(currentRoom) != null;
+    final isMuted = _isRoomMuted(currentRoom);
 
     return Scaffold(
       appBar: AppBar(
@@ -127,18 +167,29 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           PopupMenuButton<String>(
             onSelected: (value) {
               switch (value) {
+                case 'profile':
+                  _openParticipantProfile();
+                  break;
                 case 'info':
                   _showChatInfo();
                   break;
                 case 'mute':
                   _toggleMute();
                   break;
-                case 'clear':
-                  _clearChatHistory();
-                  break;
               }
             },
             itemBuilder: (context) => [
+              if (canViewProfile)
+                const PopupMenuItem(
+                  value: 'profile',
+                  child: Row(
+                    children: [
+                      Icon(Icons.person_outline),
+                      SizedBox(width: 8),
+                      Text('View Profile'),
+                    ],
+                  ),
+                ),
               const PopupMenuItem(
                 value: 'info',
                 child: Row(
@@ -149,23 +200,19 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                   ],
                 ),
               ),
-              const PopupMenuItem(
+              PopupMenuItem(
                 value: 'mute',
                 child: Row(
                   children: [
-                    Icon(Icons.notifications_off),
-                    SizedBox(width: 8),
-                    Text('Mute Notifications'),
-                  ],
-                ),
-              ),
-              const PopupMenuItem(
-                value: 'clear',
-                child: Row(
-                  children: [
-                    Icon(Icons.clear_all),
-                    SizedBox(width: 8),
-                    Text('Clear Chat'),
+                    Icon(
+                      isMuted
+                          ? Icons.notifications_active_outlined
+                          : Icons.notifications_off_outlined,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      isMuted ? 'Unmute Notifications' : 'Mute Notifications',
+                    ),
                   ],
                 ),
               ),
@@ -215,14 +262,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     final currentUser = ref.watch(currentUserProvider);
 
     // Find the current chat room from the state
-    ChatRoom? currentRoom;
-    try {
-      currentRoom = chatState.rooms.firstWhere(
-        (room) => room.id == widget.chatId,
-      );
-    } catch (e) {
-      currentRoom = null;
-    }
+    final currentRoom = _findCurrentRoom(chatState.rooms);
 
     if (currentRoom == null) {
       return const Row(
@@ -640,64 +680,230 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   }
 
   void _startVideoCall() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Video call feature coming soon!')),
-    );
+    _openCall(isVideoCall: true);
   }
 
   void _startVoiceCall() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Voice call feature coming soon!')),
-    );
+    _openCall(isVideoCall: false);
   }
 
   void _showChatInfo() {
-    showDialog(
+    final currentRoom = _getCurrentRoom();
+    final currentUser = ref.read(currentUserProvider);
+
+    if (currentRoom == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Unable to load chat details right now.')),
+      );
+      return;
+    }
+
+    final participants = currentRoom.getOtherParticipants(currentUser?.id);
+    final profileParticipant = _getProfileParticipant(currentRoom);
+    final roomAvatar = currentRoom.getDisplayAvatar(currentUser?.id);
+    final roomMuted = _isRoomMuted(currentRoom);
+
+    showModalBottomSheet<void>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Chat Info'),
-        content:
-            const Text('Chat information and settings will be available here.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Close'),
+      showDragHandle: true,
+      builder: (context) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  CircleAvatar(
+                    radius: 26,
+                    backgroundColor: Colors.grey[300],
+                    backgroundImage: roomAvatar.isNotEmpty
+                        ? CachedNetworkImageProvider(roomAvatar)
+                        : null,
+                    child: roomAvatar.isEmpty
+                        ? Text(
+                            currentRoom
+                                    .getDisplayName(currentUser?.id)
+                                    .isNotEmpty
+                                ? currentRoom
+                                    .getDisplayName(currentUser?.id)[0]
+                                    .toUpperCase()
+                                : 'C',
+                            style: const TextStyle(fontWeight: FontWeight.w700),
+                          )
+                        : null,
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          currentRoom.getDisplayName(currentUser?.id),
+                          style: Theme.of(context)
+                              .textTheme
+                              .titleMedium
+                              ?.copyWith(fontWeight: FontWeight.w700),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          currentRoom.isGroup
+                              ? '${currentRoom.participantCount} members'
+                              : currentRoom.isOnline
+                                  ? 'Online now'
+                                  : 'Direct message',
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              if (!currentRoom.isGroup && profileParticipant != null)
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.person_outline),
+                  title: const Text('View Profile'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _openParticipantProfile();
+                  },
+                ),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: Icon(
+                  roomMuted
+                      ? Icons.notifications_active_outlined
+                      : Icons.notifications_off_outlined,
+                ),
+                title: Text(
+                  roomMuted ? 'Unmute notifications' : 'Mute notifications',
+                ),
+                onTap: () {
+                  Navigator.pop(context);
+                  _toggleMute();
+                },
+              ),
+              if (participants.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Text(
+                  currentRoom.isGroup ? 'Members' : 'Participant',
+                  style: Theme.of(context)
+                      .textTheme
+                      .titleSmall
+                      ?.copyWith(fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 8),
+                ...participants.map(
+                  (participant) => ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: CircleAvatar(
+                      backgroundColor: Colors.grey[300],
+                      backgroundImage: participant.avatarUrl != null &&
+                              participant.avatarUrl!.isNotEmpty
+                          ? CachedNetworkImageProvider(participant.avatarUrl!)
+                          : null,
+                      child: participant.avatarUrl == null ||
+                              participant.avatarUrl!.isEmpty
+                          ? Text(
+                              participant.displayName.isNotEmpty
+                                  ? participant.displayName[0].toUpperCase()
+                                  : 'U',
+                            )
+                          : null,
+                    ),
+                    title: Text(participant.displayName),
+                    subtitle: Text('@${participant.username}'),
+                  ),
+                ),
+              ],
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
 
   void _toggleMute() {
+    final currentRoom = _getCurrentRoom();
+    final nextValue = !_isRoomMuted(currentRoom);
+
+    setState(() {
+      _isChatMutedOverride = nextValue;
+    });
+
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Mute notifications feature coming soon!')),
+      SnackBar(
+        content: Text(
+          nextValue
+              ? 'Notifications muted for this chat.'
+              : 'Notifications unmuted for this chat.',
+        ),
+      ),
     );
   }
 
-  void _clearChatHistory() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Clear Chat History'),
-        content: const Text(
-            'Are you sure you want to clear all messages in this chat? This action cannot be undone.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                    content: Text('Clear chat history feature coming soon!')),
-              );
-            },
-            child: const Text('Clear'),
-          ),
-        ],
+  Future<void> _openCall({required bool isVideoCall}) async {
+    final currentRoom = _getCurrentRoom();
+    final currentUser = ref.read(currentUserProvider);
+
+    if (currentRoom == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Unable to start a call right now.')),
+      );
+      return;
+    }
+
+    if (currentRoom.isGroup) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Group voice and video calls are not supported yet.'),
+        ),
+      );
+      return;
+    }
+
+    if (currentUser == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please sign in again to place a call.')),
+      );
+      return;
+    }
+
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (context) => ChatCallScreen(
+          room: currentRoom,
+          currentUser: currentUser,
+          currentUserId: currentUser.id,
+          isVideoCall: isVideoCall,
+          autoStartOutgoing: true,
+        ),
       ),
     );
+  }
+
+  void _openParticipantProfile() {
+    final currentRoom = _getCurrentRoom();
+
+    if (currentRoom == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Profile is not available right now.')),
+      );
+      return;
+    }
+
+    final participant = _getProfileParticipant(currentRoom);
+    if (participant == null || participant.id.isEmpty || currentRoom.isGroup) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('This chat does not have a single profile to open.')),
+      );
+      return;
+    }
+
+    context.push('/main/profile/${participant.id}');
   }
 }

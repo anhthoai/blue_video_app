@@ -453,6 +453,7 @@ enum MessageType {
   VIDEO
   AUDIO
   FILE
+  SYSTEM
 
   @@map("message_type")
 }
