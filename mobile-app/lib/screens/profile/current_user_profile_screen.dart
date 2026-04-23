@@ -304,37 +304,40 @@ class _CurrentUserProfileScreenState
     return Scaffold(
       key: ValueKey(
           'profile_${currentUser.id}'), // Force rebuild when user changes
-      body: NestedScrollView(
-        headerSliverBuilder: (context, innerBoxScrolled) {
-          return [
-            SliverToBoxAdapter(
-              child: Column(
-                children: [
-                  _buildCurrentUserHeader(currentUser),
-                  _buildCurrentUserStats(),
-                  _buildWalletQuickActions(),
-                ],
+      body: SafeArea(
+        bottom: false,
+        child: NestedScrollView(
+          headerSliverBuilder: (context, innerBoxScrolled) {
+            return [
+              SliverToBoxAdapter(
+                child: Column(
+                  children: [
+                    _buildCurrentUserHeader(currentUser),
+                    _buildCurrentUserStats(),
+                    _buildWalletQuickActions(),
+                  ],
+                ),
               ),
-            ),
-            SliverPersistentHeader(
-              pinned: true,
-              delegate: _SliverAppBarDelegate(
-                tabBar: tabBar,
-                backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-                showShadow: innerBoxScrolled,
+              SliverPersistentHeader(
+                pinned: true,
+                delegate: _SliverAppBarDelegate(
+                  tabBar: tabBar,
+                  backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+                  showShadow: innerBoxScrolled,
+                ),
               ),
-            ),
-          ];
-        },
-        body: TabBarView(
-          controller: _tabController,
-          children: [
-            _buildVideosTab(),
-            _buildPostsTab(),
-            _buildLikedTab(),
-            _buildPlaylistsTab(),
-            _buildAnalyticsTab(),
-          ],
+            ];
+          },
+          body: TabBarView(
+            controller: _tabController,
+            children: [
+              _buildVideosTab(),
+              _buildPostsTab(),
+              _buildLikedTab(),
+              _buildPlaylistsTab(),
+              _buildAnalyticsTab(),
+            ],
+          ),
         ),
       ),
     );
@@ -463,6 +466,8 @@ class _CurrentUserProfileScreenState
         ),
       ),
       child: SafeArea(
+        top: false,
+        bottom: false,
         child: Column(
           children: [
             // App Bar
@@ -1755,7 +1760,8 @@ class _SliverAppBarDelegate extends SliverPersistentHeaderDelegate {
   double get maxExtent => tabBar.preferredSize.height;
 
   @override
-  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
+  Widget build(
+      BuildContext context, double shrinkOffset, bool overlapsContent) {
     return Material(
       color: backgroundColor,
       elevation: showShadow || overlapsContent ? 2 : 0,

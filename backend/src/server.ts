@@ -19,7 +19,7 @@ import { upload, deleteFromS3, chatFileStorage, chatFileFilter, videoUpload, com
 import { processVideo } from './services/videoProcessingService';
 import { promises as fs } from 'fs';
 import { serializeUserWithUrls, buildAvatarUrl, buildFileUrlSync, buildFileUrl, buildCommunityPostFileUrl, serializeUserWithUrlsAsync, buildAvatarUrlAsync } from './utils/fileUrl';
-import { PrismaClient, ReportStatus } from '@prisma/client';
+import { PrismaClient, ReportStatus, UserRole, VideoStatus } from '@prisma/client';
 import multer from 'multer';
 import { paymentService, IPNNotification } from './services/paymentService';
 import swaggerUi from 'swagger-ui-express';
@@ -4769,6 +4769,849 @@ app.get('/api/v1/admin/dashboard', authenticateToken, requireAdmin, async (_req,
   }
 });
 
+// Admin video listing
+app.get('/api/v1/admin/videos', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const page = Number(req.query['page'] || 1);
+    const limit = Number(req.query['limit'] || 20);
+    const offset = (page - 1) * limit;
+
+    const [videos, total] = await Promise.all([
+      prisma.video.findMany({
+        include: {
+          user: {
+            select: {
+              id: true,
+              username: true,
+              firstName: true,
+              lastName: true,
+              avatar: true,
+              avatarUrl: true,
+              fileDirectory: true,
+              s3StorageId: true,
+              isVerified: true,
+            },
+          },
+          category: {
+            select: {
+              id: true,
+              categoryName: true,
+            },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+        skip: offset,
+        take: limit,
+      }),
+      prisma.video.count(),
+    ]);
+
+    const serializedVideos = await Promise.all(videos.map(async (video) => {
+      let thumbnailUrl = video.thumbnailUrl;
+      if (!thumbnailUrl && video.fileName && video.fileDirectory) {
+        const thumbnailFileName = video.fileName.replace(/\.[^.]+$/, '.jpg');
+        thumbnailUrl = await buildFileUrl(video.fileDirectory, thumbnailFileName, 'thumbnails');
+      } else if (thumbnailUrl && !thumbnailUrl.startsWith('http') && video.fileDirectory) {
+        thumbnailUrl = await buildFileUrl(video.fileDirectory, thumbnailUrl, 'thumbnails');
+      }
+
+      return {
+        id: video.id,
+        userId: video.userId,
+        categoryId: video.categoryId,
+        title: video.title,
+        description: video.description,
+        thumbnailUrl,
+        views: video.views,
+        likes: video.likes,
+        shares: video.shares,
+        comments: video.comments,
+        downloads: video.downloads,
+        status: video.status,
+        isPublic: video.isPublic,
+        cost: video.cost,
+        createdAt: video.createdAt.toISOString(),
+        updatedAt: video.updatedAt.toISOString(),
+        user: video.user ? serializeUserWithUrls(video.user) : null,
+        category: video.category,
+      };
+    }));
+
+    return res.json({
+      success: true,
+      data: serializedVideos,
+      pagination: {
+        page,
+        limit,
+        total,
+      },
+    });
+  } catch (error) {
+    console.error('Error fetching admin videos:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to fetch admin videos',
+    });
+  }
+});
+
+// Admin video update
+app.patch('/api/v1/admin/videos/:videoId', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { videoId } = req.params;
+    const { title, description, status, categoryId } = req.body;
+    const updateData: Record<string, unknown> = {};
+
+    if (typeof title === 'string') {
+      const trimmedTitle = title.trim();
+      if (!trimmedTitle) {
+        return res.status(400).json({
+          success: false,
+          message: 'Video title cannot be empty',
+        });
+      }
+      updateData['title'] = trimmedTitle;
+    }
+
+    if (Object.prototype.hasOwnProperty.call(req.body, 'description')) {
+      updateData['description'] =
+        typeof description === 'string' && description.trim().length > 0
+            ? description.trim()
+            : null;
+    }
+
+    if (Object.prototype.hasOwnProperty.call(req.body, 'categoryId')) {
+      if (typeof categoryId === 'string' && categoryId.trim()) {
+        const category = await prisma.category.findUnique({
+          where: { id: categoryId.trim() },
+          select: { id: true },
+        });
+
+        if (!category) {
+          return res.status(404).json({
+            success: false,
+            message: 'Category not found',
+          });
+        }
+
+        updateData['categoryId'] = category.id;
+      } else {
+        updateData['categoryId'] = null;
+      }
+    }
+
+    if (typeof status === 'string') {
+      const normalizedStatus = status.trim().toUpperCase();
+      if (!Object.values(VideoStatus).includes(normalizedStatus as VideoStatus)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid video status',
+        });
+      }
+
+      updateData['status'] = normalizedStatus as VideoStatus;
+      updateData['isPublic'] =
+          normalizedStatus === VideoStatus.PUBLIC || normalizedStatus === VideoStatus.VIP;
+    }
+
+    if (Object.keys(updateData).length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'No video changes were provided',
+      });
+    }
+
+    const updatedVideo = await prisma.video.update({
+      where: { id: videoId },
+      data: updateData,
+      include: {
+        user: {
+          select: {
+            id: true,
+            username: true,
+            firstName: true,
+            lastName: true,
+            avatar: true,
+            avatarUrl: true,
+            fileDirectory: true,
+            s3StorageId: true,
+            isVerified: true,
+          },
+        },
+        category: {
+          select: {
+            id: true,
+            categoryName: true,
+          },
+        },
+      },
+    });
+
+    return res.json({
+      success: true,
+      message: 'Video updated successfully',
+      data: {
+        id: updatedVideo.id,
+        title: updatedVideo.title,
+        description: updatedVideo.description,
+        status: updatedVideo.status,
+        isPublic: updatedVideo.isPublic,
+        categoryId: updatedVideo.categoryId,
+        category: updatedVideo.category,
+        user: updatedVideo.user ? serializeUserWithUrls(updatedVideo.user) : null,
+      },
+    });
+  } catch (error) {
+    console.error('Error updating admin video:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to update video',
+    });
+  }
+});
+
+// Admin video delete
+app.delete('/api/v1/admin/videos/:videoId', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { videoId } = req.params;
+
+    await prisma.video.delete({
+      where: { id: videoId },
+    });
+
+    return res.json({
+      success: true,
+      message: 'Video deleted successfully',
+    });
+  } catch (error) {
+    console.error('Error deleting admin video:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to delete video',
+    });
+  }
+});
+
+// Admin user listing
+app.post('/api/v1/admin/users', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { username, email, password, firstName, lastName, bio, role, isVerified, isActive } = req.body;
+
+    if (!username || !email || !password) {
+      return res.status(400).json({
+        success: false,
+        message: 'Username, email, and password are required',
+      });
+    }
+
+    const normalizedUsername = String(username).trim();
+    const normalizedEmail = String(email).trim().toLowerCase();
+
+    if (!normalizedUsername || !normalizedEmail) {
+      return res.status(400).json({
+        success: false,
+        message: 'Username and email cannot be empty',
+      });
+    }
+
+    const normalizedRole = typeof role === 'string' && role.trim().length > 0
+        ? role.trim().toUpperCase()
+        : UserRole.USER;
+
+    if (!Object.values(UserRole).includes(normalizedRole as UserRole)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid user role',
+      });
+    }
+
+    const existingUser = await prisma.user.findFirst({
+      where: {
+        OR: [
+          { email: normalizedEmail },
+          { username: normalizedUsername },
+        ],
+      },
+      select: {
+        id: true,
+        email: true,
+      },
+    });
+
+    if (existingUser) {
+      return res.status(409).json({
+        success: false,
+        message: existingUser.email === normalizedEmail
+            ? 'Email already registered'
+            : 'Username already taken',
+      });
+    }
+
+    const passwordHash = await bcrypt.hash(String(password), 10);
+
+    const newUser = await prisma.user.create({
+      data: {
+        username: normalizedUsername,
+        email: normalizedEmail,
+        passwordHash,
+        firstName: typeof firstName === 'string' && firstName.trim().length > 0
+            ? firstName.trim()
+            : null,
+        lastName: typeof lastName === 'string' && lastName.trim().length > 0
+            ? lastName.trim()
+            : null,
+        bio: typeof bio === 'string' && bio.trim().length > 0 ? bio.trim() : null,
+        role: normalizedRole as UserRole,
+        isVerified: typeof isVerified === 'boolean' ? isVerified : true,
+        isActive: typeof isActive === 'boolean' ? isActive : true,
+        verificationToken: null,
+        verificationTokenExpiry: null,
+      },
+      select: {
+        id: true,
+        username: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        role: true,
+        isVerified: true,
+        isActive: true,
+        createdAt: true,
+      },
+    });
+
+    return res.status(201).json({
+      success: true,
+      message: 'User created successfully',
+      data: {
+        ...newUser,
+        createdAt: newUser.createdAt.toISOString(),
+      },
+    });
+  } catch (error) {
+    console.error('Error creating admin user:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to create user',
+    });
+  }
+});
+
+app.get('/api/v1/admin/users', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const page = Number(req.query['page'] || 1);
+    const limit = Number(req.query['limit'] || 20);
+    const offset = (page - 1) * limit;
+
+    const [users, total] = await Promise.all([
+      prisma.user.findMany({
+        select: {
+          id: true,
+          username: true,
+          email: true,
+          firstName: true,
+          lastName: true,
+          avatar: true,
+          avatarUrl: true,
+          fileDirectory: true,
+          s3StorageId: true,
+          isVerified: true,
+          isActive: true,
+          role: true,
+          createdAt: true,
+          _count: {
+            select: {
+              videos: true,
+              posts: true,
+            },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+        skip: offset,
+        take: limit,
+      }),
+      prisma.user.count(),
+    ]);
+
+    const serializedUsers = await Promise.all(users.map(async (user) => {
+      let avatarUrl = user.avatarUrl;
+
+      if (user.avatar && user.fileDirectory) {
+        avatarUrl = await buildFileUrl(user.fileDirectory, user.avatar, 'avatars', (user as any).s3StorageId || 1);
+      }
+
+      return {
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        avatarUrl,
+        isVerified: user.isVerified,
+        isActive: user.isActive,
+        role: user.role,
+        createdAt: user.createdAt.toISOString(),
+        videoCount: user._count.videos,
+        postCount: user._count.posts,
+      };
+    }));
+
+    return res.json({
+      success: true,
+      data: serializedUsers,
+      pagination: {
+        page,
+        limit,
+        total,
+      },
+    });
+  } catch (error) {
+    console.error('Error fetching admin users:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to fetch admin users',
+    });
+  }
+});
+
+// Admin user update
+app.patch('/api/v1/admin/users/:userId', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const actorId = req.user?.id;
+    const { username, firstName, lastName, isVerified, isActive, role } = req.body;
+
+    const existingUser = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        username: true,
+        role: true,
+        isActive: true,
+      },
+    });
+
+    if (!existingUser) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found',
+      });
+    }
+
+    const updateData: Record<string, unknown> = {};
+    let nextRole = existingUser.role;
+    let nextIsActive = existingUser.isActive;
+
+    if (typeof username === 'string') {
+      const trimmedUsername = username.trim();
+      if (!trimmedUsername) {
+        return res.status(400).json({
+          success: false,
+          message: 'Username cannot be empty',
+        });
+      }
+
+      if (trimmedUsername !== existingUser.username) {
+        const duplicate = await prisma.user.findFirst({
+          where: {
+            username: trimmedUsername,
+            NOT: { id: userId },
+          },
+          select: { id: true },
+        });
+
+        if (duplicate) {
+          return res.status(409).json({
+            success: false,
+            message: 'Username is already in use',
+          });
+        }
+      }
+
+      updateData['username'] = trimmedUsername;
+    }
+
+    if (Object.prototype.hasOwnProperty.call(req.body, 'firstName')) {
+      updateData['firstName'] =
+          typeof firstName === 'string' && firstName.trim().length > 0
+              ? firstName.trim()
+              : null;
+    }
+
+    if (Object.prototype.hasOwnProperty.call(req.body, 'lastName')) {
+      updateData['lastName'] =
+          typeof lastName === 'string' && lastName.trim().length > 0
+              ? lastName.trim()
+              : null;
+    }
+
+    if (typeof isVerified === 'boolean') {
+      updateData['isVerified'] = isVerified;
+    }
+
+    if (Object.prototype.hasOwnProperty.call(req.body, 'role')) {
+      if (typeof role !== 'string') {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid user role',
+        });
+      }
+
+      const normalizedRole = role.trim().toUpperCase();
+      if (!Object.values(UserRole).includes(normalizedRole as UserRole)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid user role',
+        });
+      }
+
+      nextRole = normalizedRole as UserRole;
+      updateData['role'] = nextRole;
+    }
+
+    if (typeof isActive === 'boolean') {
+      nextIsActive = isActive;
+      updateData['isActive'] = isActive;
+    }
+
+    if (existingUser.role === UserRole.ADMIN && (!nextIsActive || nextRole !== UserRole.ADMIN)) {
+      if (actorId === userId) {
+        return res.status(400).json({
+          success: false,
+          message: 'You cannot remove your own admin access from this screen',
+        });
+      }
+
+      const otherActiveAdmins = await prisma.user.count({
+        where: {
+          role: UserRole.ADMIN,
+          isActive: true,
+          NOT: { id: userId },
+        },
+      });
+
+      if (otherActiveAdmins === 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'At least one active admin account must remain',
+        });
+      }
+    }
+
+    if (Object.keys(updateData).length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'No user changes were provided',
+      });
+    }
+
+    const updatedUser = await prisma.user.update({
+      where: { id: userId },
+      data: updateData,
+      select: {
+        id: true,
+        username: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        isVerified: true,
+        isActive: true,
+        role: true,
+      },
+    });
+
+    return res.json({
+      success: true,
+      message: 'User updated successfully',
+      data: updatedUser,
+    });
+  } catch (error) {
+    console.error('Error updating admin user:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to update user',
+    });
+  }
+});
+
+// Admin user delete
+app.delete('/api/v1/admin/users/:userId', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const actorId = req.user?.id;
+
+    if (actorId === userId) {
+      return res.status(400).json({
+        success: false,
+        message: 'You cannot delete your own account from this screen',
+      });
+    }
+
+    const existingUser = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        role: true,
+        isActive: true,
+      },
+    });
+
+    if (!existingUser) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found',
+      });
+    }
+
+    if (existingUser.role === UserRole.ADMIN && existingUser.isActive) {
+      const otherActiveAdmins = await prisma.user.count({
+        where: {
+          role: UserRole.ADMIN,
+          isActive: true,
+          NOT: { id: userId },
+        },
+      });
+
+      if (otherActiveAdmins === 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'At least one active admin account must remain',
+        });
+      }
+    }
+
+    await prisma.user.delete({
+      where: { id: userId },
+    });
+
+    return res.json({
+      success: true,
+      message: 'User deleted successfully',
+    });
+  } catch (error) {
+    console.error('Error deleting admin user:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to delete user',
+    });
+  }
+});
+
+// Admin category update
+app.post('/api/v1/admin/categories', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { categoryName, categoryDesc, categoryOrder, parentId } = req.body;
+
+    if (!categoryName || typeof categoryName !== 'string' || !categoryName.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Category name is required',
+      });
+    }
+
+    let normalizedParentId: string | null = null;
+    if (typeof parentId === 'string' && parentId.trim()) {
+      const parentCategory = await prisma.category.findUnique({
+        where: { id: parentId.trim() },
+        select: { id: true },
+      });
+
+      if (!parentCategory) {
+        return res.status(404).json({
+          success: false,
+          message: 'Parent category not found',
+        });
+      }
+
+      normalizedParentId = parentCategory.id;
+    }
+
+    const normalizedOrder = Number.isInteger(Number(categoryOrder))
+        ? Number(categoryOrder)
+        : 0;
+
+    const category = await prisma.category.create({
+      data: {
+        parentId: normalizedParentId,
+        categoryName: categoryName.trim(),
+        categoryDesc: typeof categoryDesc === 'string' && categoryDesc.trim().length > 0
+            ? categoryDesc.trim()
+            : null,
+        categoryOrder: normalizedOrder,
+      },
+      include: {
+        _count: {
+          select: {
+            videos: true,
+            children: true,
+          },
+        },
+      },
+    });
+
+    return res.status(201).json({
+      success: true,
+      message: 'Category created successfully',
+      data: {
+        id: category.id,
+        parentId: category.parentId,
+        categoryName: category.categoryName,
+        categoryOrder: category.categoryOrder,
+        categoryDesc: category.categoryDesc,
+        categoryThumb: category.categoryThumb
+            ? buildFileUrlSync(category.fileDirectory, category.categoryThumb, 'categories', (category as any).s3StorageId || 1)
+            : null,
+        isDefault: category.isDefault,
+        createdAt: category.createdAt.toISOString(),
+        videoCount: category._count.videos,
+        childCount: category._count.children,
+      },
+    });
+  } catch (error) {
+    console.error('Error creating admin category:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to create category',
+    });
+  }
+});
+
+app.patch('/api/v1/admin/categories/:categoryId', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { categoryId } = req.params;
+    const { categoryName, categoryDesc, categoryOrder } = req.body;
+    const updateData: Record<string, unknown> = {};
+
+    if (typeof categoryName === 'string') {
+      const trimmedName = categoryName.trim();
+      if (!trimmedName) {
+        return res.status(400).json({
+          success: false,
+          message: 'Category name cannot be empty',
+        });
+      }
+      updateData['categoryName'] = trimmedName;
+    }
+
+    if (Object.prototype.hasOwnProperty.call(req.body, 'categoryDesc')) {
+      updateData['categoryDesc'] =
+          typeof categoryDesc === 'string' && categoryDesc.trim().length > 0
+              ? categoryDesc.trim()
+              : null;
+    }
+
+    if (Object.prototype.hasOwnProperty.call(req.body, 'categoryOrder')) {
+      const parsedOrder = Number(categoryOrder);
+      if (!Number.isInteger(parsedOrder)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Category order must be a whole number',
+        });
+      }
+      updateData['categoryOrder'] = parsedOrder;
+    }
+
+    if (Object.keys(updateData).length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'No category changes were provided',
+      });
+    }
+
+    const updatedCategory = await prisma.category.update({
+      where: { id: categoryId },
+      data: updateData,
+      include: {
+        _count: {
+          select: {
+            videos: true,
+            children: true,
+          },
+        },
+      },
+    });
+
+    return res.json({
+      success: true,
+      message: 'Category updated successfully',
+      data: {
+        id: updatedCategory.id,
+        parentId: updatedCategory.parentId,
+        categoryName: updatedCategory.categoryName,
+        categoryOrder: updatedCategory.categoryOrder,
+        categoryDesc: updatedCategory.categoryDesc,
+        categoryThumb: updatedCategory.categoryThumb
+            ? buildFileUrlSync(updatedCategory.fileDirectory, updatedCategory.categoryThumb, 'categories', (updatedCategory as any).s3StorageId || 1)
+            : null,
+        isDefault: updatedCategory.isDefault,
+        videoCount: updatedCategory._count.videos,
+        childCount: updatedCategory._count.children,
+      },
+    });
+  } catch (error) {
+    console.error('Error updating admin category:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to update category',
+    });
+  }
+});
+
+// Admin category delete
+app.delete('/api/v1/admin/categories/:categoryId', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { categoryId } = req.params;
+
+    const category = await prisma.category.findUnique({
+      where: { id: categoryId },
+      include: {
+        _count: {
+          select: {
+            videos: true,
+            children: true,
+          },
+        },
+      },
+    });
+
+    if (!category) {
+      return res.status(404).json({
+        success: false,
+        message: 'Category not found',
+      });
+    }
+
+    if (category.isDefault) {
+      return res.status(400).json({
+        success: false,
+        message: 'Default categories cannot be deleted',
+      });
+    }
+
+    if (category._count.children > 0 || category._count.videos > 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Remove subcategories and videos before deleting this category',
+      });
+    }
+
+    await prisma.category.delete({
+      where: { id: categoryId },
+    });
+
+    return res.json({
+      success: true,
+      message: 'Category deleted successfully',
+    });
+  } catch (error) {
+    console.error('Error deleting admin category:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to delete category',
+    });
+  }
+});
+
 // Admin report listing
 app.get('/api/v1/admin/reports', authenticateToken, requireAdmin, async (req, res) => {
   try {
@@ -5068,6 +5911,9 @@ app.patch('/api/v1/admin/reports/:type/:reportId', authenticateToken, requireAdm
       reviewedBy: reviewerId || null,
     };
 
+    const shouldDeactivateTarget = action === 'approve';
+    let targetHidden = false;
+
     switch (type) {
       case 'user':
         await prisma.userReport.update({
@@ -5076,16 +5922,43 @@ app.patch('/api/v1/admin/reports/:type/:reportId', authenticateToken, requireAdm
         });
         break;
       case 'post':
-        await prisma.communityPostReport.update({
+        const updatedPostReport = await prisma.communityPostReport.update({
           where: { id: reportId },
           data,
+          select: {
+            postId: true,
+          },
         });
+
+        if (shouldDeactivateTarget) {
+          await prisma.communityPost.update({
+            where: { id: updatedPostReport.postId },
+            data: {
+              isPublic: false,
+            },
+          });
+          targetHidden = true;
+        }
         break;
       case 'video':
-        await prisma.videoReport.update({
+        const updatedVideoReport = await prisma.videoReport.update({
           where: { id: reportId },
           data,
+          select: {
+            videoId: true,
+          },
         });
+
+        if (shouldDeactivateTarget) {
+          await prisma.video.update({
+            where: { id: updatedVideoReport.videoId },
+            data: {
+              status: 'PRIVATE',
+              isPublic: false,
+            },
+          });
+          targetHidden = true;
+        }
         break;
       default:
         return res.status(400).json({
@@ -5096,7 +5969,9 @@ app.patch('/api/v1/admin/reports/:type/:reportId', authenticateToken, requireAdm
 
     return res.json({
       success: true,
-      message: 'Report updated successfully',
+      message: targetHidden
+          ? 'Report approved and content hidden from public'
+          : 'Report updated successfully',
     });
   } catch (error) {
     console.error('Error updating admin report:', error);

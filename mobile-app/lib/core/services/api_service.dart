@@ -716,6 +716,186 @@ class ApiService {
     return await _handleResponse(response);
   }
 
+  Future<Map<String, dynamic>> createAdminUser({
+    required String username,
+    required String email,
+    required String password,
+    String? firstName,
+    String? lastName,
+    String? bio,
+    String? role,
+    bool? isVerified,
+    bool? isActive,
+  }) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/admin/users'),
+      headers: await _getHeaders(),
+      body: json.encode({
+        'username': username,
+        'email': email,
+        'password': password,
+        'firstName': firstName,
+        'lastName': lastName,
+        'bio': bio,
+        'role': role,
+        'isVerified': isVerified,
+        'isActive': isActive,
+      }),
+    );
+
+    return await _handleResponse(response);
+  }
+
+  Future<Map<String, dynamic>> createAdminCategory({
+    required String categoryName,
+    String? categoryDesc,
+    int? categoryOrder,
+    String? parentId,
+  }) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/admin/categories'),
+      headers: await _getHeaders(),
+      body: json.encode({
+        'categoryName': categoryName,
+        'categoryDesc': categoryDesc,
+        'categoryOrder': categoryOrder,
+        'parentId': parentId,
+      }),
+    );
+
+    return await _handleResponse(response);
+  }
+
+  Future<Map<String, dynamic>> getAdminVideos({
+    int page = 1,
+    int limit = 20,
+  }) async {
+    final uri = Uri.parse('$baseUrl/admin/videos').replace(
+      queryParameters: {
+        'page': page.toString(),
+        'limit': limit.toString(),
+      },
+    );
+
+    final response = await http.get(
+      uri,
+      headers: await _getHeaders(),
+    );
+
+    return await _handleResponse(response);
+  }
+
+  Future<Map<String, dynamic>> updateAdminVideo({
+    required String videoId,
+    String? title,
+    String? description,
+    String? status,
+    String? categoryId,
+  }) async {
+    final response = await http.patch(
+      Uri.parse('$baseUrl/admin/videos/$videoId'),
+      headers: await _getHeaders(),
+      body: json.encode({
+        if (title != null) 'title': title,
+        'description': description,
+        'status': status,
+        'categoryId': categoryId,
+      }),
+    );
+
+    return await _handleResponse(response);
+  }
+
+  Future<Map<String, dynamic>> deleteAdminVideo(String videoId) async {
+    final response = await http.delete(
+      Uri.parse('$baseUrl/admin/videos/$videoId'),
+      headers: await _getHeaders(),
+    );
+
+    return await _handleResponse(response);
+  }
+
+  Future<Map<String, dynamic>> getAdminUsers({
+    int page = 1,
+    int limit = 20,
+  }) async {
+    final uri = Uri.parse('$baseUrl/admin/users').replace(
+      queryParameters: {
+        'page': page.toString(),
+        'limit': limit.toString(),
+      },
+    );
+
+    final response = await http.get(
+      uri,
+      headers: await _getHeaders(),
+    );
+
+    return await _handleResponse(response);
+  }
+
+  Future<Map<String, dynamic>> updateAdminUser({
+    required String userId,
+    String? username,
+    String? firstName,
+    String? lastName,
+    bool? isVerified,
+    bool? isActive,
+    String? role,
+  }) async {
+    final response = await http.patch(
+      Uri.parse('$baseUrl/admin/users/$userId'),
+      headers: await _getHeaders(),
+      body: json.encode({
+        if (username != null) 'username': username,
+        'firstName': firstName,
+        'lastName': lastName,
+        'isVerified': isVerified,
+        'isActive': isActive,
+        'role': role,
+      }),
+    );
+
+    return await _handleResponse(response);
+  }
+
+  Future<Map<String, dynamic>> deleteAdminUser(String userId) async {
+    final response = await http.delete(
+      Uri.parse('$baseUrl/admin/users/$userId'),
+      headers: await _getHeaders(),
+    );
+
+    return await _handleResponse(response);
+  }
+
+  Future<Map<String, dynamic>> updateAdminCategory({
+    required String categoryId,
+    String? categoryName,
+    String? categoryDesc,
+    int? categoryOrder,
+  }) async {
+    final response = await http.patch(
+      Uri.parse('$baseUrl/admin/categories/$categoryId'),
+      headers: await _getHeaders(),
+      body: json.encode({
+        if (categoryName != null) 'categoryName': categoryName,
+        'categoryDesc': categoryDesc,
+        'categoryOrder': categoryOrder,
+      }),
+    );
+
+    return await _handleResponse(response);
+  }
+
+  Future<Map<String, dynamic>> deleteAdminCategory(String categoryId) async {
+    final response = await http.delete(
+      Uri.parse('$baseUrl/admin/categories/$categoryId'),
+      headers: await _getHeaders(),
+    );
+
+    return await _handleResponse(response);
+  }
+
   Future<Map<String, dynamic>> getAdminReports({
     String? type,
     String? status,

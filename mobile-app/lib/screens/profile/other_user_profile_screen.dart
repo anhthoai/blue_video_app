@@ -141,35 +141,38 @@ class _OtherUserProfileScreenState extends ConsumerState<OtherUserProfileScreen>
     final tabBar = _buildProfileTabBar();
 
     return Scaffold(
-      body: NestedScrollView(
-        headerSliverBuilder: (context, innerBoxScrolled) {
-          return [
-            SliverToBoxAdapter(
-              child: Column(
-                children: [
-                  _buildOtherUserHeader(),
-                  _buildOtherUserStats(),
-                ],
+      body: SafeArea(
+        bottom: false,
+        child: NestedScrollView(
+          headerSliverBuilder: (context, innerBoxScrolled) {
+            return [
+              SliverToBoxAdapter(
+                child: Column(
+                  children: [
+                    _buildOtherUserHeader(),
+                    _buildOtherUserStats(),
+                  ],
+                ),
               ),
-            ),
-            SliverPersistentHeader(
-              pinned: true,
-              delegate: _SliverAppBarDelegate(
-                tabBar: tabBar,
-                backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-                showShadow: innerBoxScrolled,
+              SliverPersistentHeader(
+                pinned: true,
+                delegate: _SliverAppBarDelegate(
+                  tabBar: tabBar,
+                  backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+                  showShadow: innerBoxScrolled,
+                ),
               ),
-            ),
-          ];
-        },
-        body: TabBarView(
-          controller: _tabController,
-          children: [
-            _buildVideosTab(),
-            _buildPostsTab(),
-            _buildLikedTab(),
-            _buildPlaylistsTab(),
-          ],
+            ];
+          },
+          body: TabBarView(
+            controller: _tabController,
+            children: [
+              _buildVideosTab(),
+              _buildPostsTab(),
+              _buildLikedTab(),
+              _buildPlaylistsTab(),
+            ],
+          ),
         ),
       ),
     );
@@ -234,6 +237,8 @@ class _OtherUserProfileScreenState extends ConsumerState<OtherUserProfileScreen>
         ),
       ),
       child: SafeArea(
+        top: false,
+        bottom: false,
         child: Column(
           children: [
             // App Bar
@@ -1056,7 +1061,8 @@ class _SliverAppBarDelegate extends SliverPersistentHeaderDelegate {
   double get maxExtent => tabBar.preferredSize.height;
 
   @override
-  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
+  Widget build(
+      BuildContext context, double shrinkOffset, bool overlapsContent) {
     return Material(
       color: backgroundColor,
       elevation: showShadow || overlapsContent ? 2 : 0,
