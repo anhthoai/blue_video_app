@@ -119,7 +119,7 @@ class _CurrentUserProfileScreenState
         });
       }
     } catch (e) {
-      print('Error loading user videos: $e');
+      debugPrint('Error loading user videos: $e');
     } finally {
       setState(() {
         _isLoadingVideos = false;
@@ -135,16 +135,16 @@ class _CurrentUserProfileScreenState
     try {
       final currentUser = ref.read(authServiceProvider).currentUser;
       if (currentUser != null) {
-        print('Loading posts for user: ${currentUser.id}');
+        debugPrint('Loading posts for user: ${currentUser.id}');
         final response = await _apiService.getUserCommunityPosts(
           userId: currentUser.id,
           page: 1,
           limit: 20,
         );
-        print('Posts API response: $response');
+        debugPrint('Posts API response: $response');
         if (response['success'] == true && response['data'] != null) {
           final items = response['data'] as List<dynamic>;
-          print('Found ${items.length} posts');
+          debugPrint('Found ${items.length} posts');
           final posts = items.map<CommunityPost>((json) {
             return CommunityPost(
               id: json['id'] ?? '',
@@ -205,11 +205,11 @@ class _CurrentUserProfileScreenState
             _userPosts = posts;
           });
         } else {
-          print('Posts API failed: ${response['message']}');
+          debugPrint('Posts API failed: ${response['message']}');
         }
       }
     } catch (e) {
-      print('Error loading user posts: $e');
+      debugPrint('Error loading user posts: $e');
     } finally {
       setState(() {
         _isLoadingPosts = false;
@@ -223,12 +223,12 @@ class _CurrentUserProfileScreenState
     });
 
     try {
-      print('Loading liked videos...');
+      debugPrint('Loading liked videos...');
       final response = await _apiService.getUserLikedVideos(page: 1, limit: 50);
-      print('Liked videos API response: $response');
+      debugPrint('Liked videos API response: $response');
       if (response['success'] == true && response['data'] != null) {
         final items = response['data'] as List<dynamic>;
-        print('Found ${items.length} liked videos');
+        debugPrint('Found ${items.length} liked videos');
         final videos = items
             .map<VideoModel>(
                 (v) => VideoModel.fromJson(v as Map<String, dynamic>))
@@ -237,10 +237,10 @@ class _CurrentUserProfileScreenState
           _likedVideos = videos;
         });
       } else {
-        print('Liked videos API failed: ${response['message']}');
+        debugPrint('Liked videos API failed: ${response['message']}');
       }
     } catch (e) {
-      print('Error loading liked videos: $e');
+      debugPrint('Error loading liked videos: $e');
     } finally {
       setState(() {
         _isLoadingLiked = false;
@@ -254,12 +254,12 @@ class _CurrentUserProfileScreenState
     });
 
     try {
-      print('Loading user playlists...');
+      debugPrint('Loading user playlists...');
       final response = await _apiService.getUserPlaylists(page: 1, limit: 50);
-      print('Playlists API response: $response');
+      debugPrint('Playlists API response: $response');
       if (response['success'] == true && response['data'] != null) {
         final items = response['data'] as List<dynamic>;
-        print('Found ${items.length} playlists');
+        debugPrint('Found ${items.length} playlists');
         final playlists = items
             .map<Map<String, dynamic>>((p) => p as Map<String, dynamic>)
             .toList();
@@ -267,10 +267,10 @@ class _CurrentUserProfileScreenState
           _userPlaylists = playlists;
         });
       } else {
-        print('Playlists API failed: ${response['message']}');
+        debugPrint('Playlists API failed: ${response['message']}');
       }
     } catch (e) {
-      print('Error loading user playlists: $e');
+      debugPrint('Error loading user playlists: $e');
     } finally {
       setState(() {
         _isLoadingPlaylists = false;
@@ -299,78 +299,91 @@ class _CurrentUserProfileScreenState
       );
     }
 
+    final tabBar = _buildCurrentUserTabBar(context);
+
     return Scaffold(
       key: ValueKey(
           'profile_${currentUser.id}'), // Force rebuild when user changes
-      body: Column(
-        children: [
-          // Header
-          _buildCurrentUserHeader(currentUser),
-          // Stats
-          _buildCurrentUserStats(),
-          // Wallet quick actions (Coin Recharge / History)
-          _buildWalletQuickActions(),
-          // Tab Bar
-          Builder(builder: (context) {
-            final l10n = AppLocalizations.of(context);
-            return TabBar(
-              controller: _tabController,
-              isScrollable: true,
-              tabAlignment: TabAlignment.start,
-              labelPadding: const EdgeInsets.symmetric(horizontal: 12),
-              indicatorPadding: const EdgeInsets.symmetric(horizontal: 8),
-              labelStyle: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
+      body: NestedScrollView(
+        headerSliverBuilder: (context, innerBoxScrolled) {
+          return [
+            SliverToBoxAdapter(
+              child: Column(
+                children: [
+                  _buildCurrentUserHeader(currentUser),
+                  _buildCurrentUserStats(),
+                  _buildWalletQuickActions(),
+                ],
               ),
-              unselectedLabelStyle: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-              ),
-              tabs: [
-                Tab(
-                  icon: const Icon(Icons.video_library, size: 24),
-                  text: l10n.videos,
-                  height: 60,
-                ),
-                Tab(
-                  icon: const Icon(Icons.post_add, size: 24),
-                  text: l10n.posts,
-                  height: 60,
-                ),
-                Tab(
-                  icon: const Icon(Icons.favorite, size: 24),
-                  text: l10n.liked,
-                  height: 60,
-                ),
-                Tab(
-                  icon: const Icon(Icons.playlist_play, size: 24),
-                  text: l10n.playlists,
-                  height: 60,
-                ),
-                Tab(
-                  icon: const Icon(Icons.analytics, size: 24),
-                  text: l10n.analytics,
-                  height: 60,
-                ),
-              ],
-            );
-          }),
-          // Tab Content
-          Expanded(
-            child: TabBarView(
-              controller: _tabController,
-              children: [
-                _buildVideosTab(),
-                _buildPostsTab(),
-                _buildLikedTab(),
-                _buildPlaylistsTab(),
-                _buildAnalyticsTab(),
-              ],
             ),
-          ),
-        ],
+            SliverPersistentHeader(
+              pinned: true,
+              delegate: _SliverAppBarDelegate(
+                tabBar: tabBar,
+                backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+                showShadow: innerBoxScrolled,
+              ),
+            ),
+          ];
+        },
+        body: TabBarView(
+          controller: _tabController,
+          children: [
+            _buildVideosTab(),
+            _buildPostsTab(),
+            _buildLikedTab(),
+            _buildPlaylistsTab(),
+            _buildAnalyticsTab(),
+          ],
+        ),
       ),
+    );
+  }
+
+  TabBar _buildCurrentUserTabBar(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+
+    return TabBar(
+      controller: _tabController,
+      isScrollable: true,
+      tabAlignment: TabAlignment.start,
+      labelPadding: const EdgeInsets.symmetric(horizontal: 12),
+      indicatorPadding: const EdgeInsets.symmetric(horizontal: 8),
+      labelStyle: const TextStyle(
+        fontSize: 14,
+        fontWeight: FontWeight.w600,
+      ),
+      unselectedLabelStyle: const TextStyle(
+        fontSize: 14,
+        fontWeight: FontWeight.w500,
+      ),
+      tabs: [
+        Tab(
+          icon: const Icon(Icons.video_library, size: 22),
+          text: l10n.videos,
+          height: 56,
+        ),
+        Tab(
+          icon: const Icon(Icons.post_add, size: 22),
+          text: l10n.posts,
+          height: 56,
+        ),
+        Tab(
+          icon: const Icon(Icons.favorite, size: 22),
+          text: l10n.liked,
+          height: 56,
+        ),
+        Tab(
+          icon: const Icon(Icons.playlist_play, size: 22),
+          text: l10n.playlists,
+          height: 56,
+        ),
+        Tab(
+          icon: const Icon(Icons.analytics, size: 22),
+          text: l10n.analytics,
+          height: 56,
+        ),
+      ],
     );
   }
 
@@ -392,7 +405,7 @@ class _CurrentUserProfileScreenState
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
             decoration: BoxDecoration(
-              color: const Color(0xFF8B5CF6).withOpacity(0.08),
+              color: const Color(0xFF8B5CF6).withValues(alpha: 0.08),
               borderRadius: BorderRadius.circular(10),
             ),
             child: Row(
@@ -417,13 +430,13 @@ class _CurrentUserProfileScreenState
             final l10n = AppLocalizations.of(context);
             return Row(
               children: [
-                _WalletActionButton(
+                _buildWalletActionButton(
                   icon: Icons.account_balance_wallet_outlined,
                   label: l10n.recharge,
                   onTap: () => context.push('/main/coin-recharge'),
                 ),
                 const SizedBox(width: 8),
-                _WalletActionButton(
+                _buildWalletActionButton(
                   icon: Icons.receipt_long_outlined,
                   label: l10n.history,
                   onTap: () => context.push('/main/coin-history'),
@@ -659,10 +672,12 @@ class _CurrentUserProfileScreenState
     }
 
     if (_userVideos.isEmpty) {
-      return Center(
+      return SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(32),
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
           children: [
+            const SizedBox(height: 64),
             Icon(Icons.video_library_outlined,
                 size: 64, color: Colors.grey[400]),
             const SizedBox(height: 16),
@@ -684,6 +699,7 @@ class _CurrentUserProfileScreenState
     }
 
     return GridView.builder(
+      key: const PageStorageKey<String>('current-user-videos-grid'),
       padding: const EdgeInsets.all(16),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 2,
@@ -861,6 +877,7 @@ class _CurrentUserProfileScreenState
         await _loadUserPosts();
       },
       child: ListView.builder(
+        key: const PageStorageKey<String>('current-user-posts-list'),
         padding: const EdgeInsets.symmetric(vertical: 8),
         itemCount: _userPosts.length,
         itemBuilder: (context, index) {
@@ -929,6 +946,7 @@ class _CurrentUserProfileScreenState
         await _loadLikedVideos();
       },
       child: GridView.builder(
+        key: const PageStorageKey<String>('current-user-liked-grid'),
         padding: const EdgeInsets.all(16),
         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
           crossAxisCount: 2,
@@ -1105,6 +1123,7 @@ class _CurrentUserProfileScreenState
             await _loadUserPlaylists();
           },
           child: GridView.builder(
+            key: const PageStorageKey<String>('current-user-playlists-grid'),
             padding: const EdgeInsets.all(16),
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: 2,
@@ -1124,8 +1143,8 @@ class _CurrentUserProfileScreenState
           right: 16,
           child: FloatingActionButton(
             onPressed: _showCreatePlaylistDialog,
-            child: const Icon(Icons.add),
             tooltip: 'Create Playlist',
+            child: const Icon(Icons.add),
           ),
         ),
       ],
@@ -1295,7 +1314,6 @@ class _CurrentUserProfileScreenState
     final nameController = TextEditingController();
     final descriptionController = TextEditingController();
     bool isPublic = true;
-    final l10n = AppLocalizations.of(context);
 
     showDialog(
       context: context,
@@ -1365,6 +1383,10 @@ class _CurrentUserProfileScreenState
                       isPublic: isPublic,
                     );
 
+                    if (!context.mounted) {
+                      return;
+                    }
+
                     if (response['success'] == true) {
                       Navigator.pop(context);
                       ScaffoldMessenger.of(context).showSnackBar(
@@ -1381,6 +1403,10 @@ class _CurrentUserProfileScreenState
                       );
                     }
                   } catch (e) {
+                    if (!context.mounted) {
+                      return;
+                    }
+
                     Navigator.pop(context);
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(content: Text('Error creating playlist: $e')),
@@ -1493,6 +1519,7 @@ class _CurrentUserProfileScreenState
         _userVideos.fold(0, (sum, video) => sum + video.commentCount);
 
     return ListView(
+      key: const PageStorageKey<String>('current-user-analytics-list'),
       padding: const EdgeInsets.all(16),
       children: [
         _buildAnalyticsCard('Total Views', totalViews.toString(),
@@ -1556,7 +1583,7 @@ class _CurrentUserProfileScreenState
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: color.withOpacity(0.1),
+                color: color.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Icon(icon, color: color, size: 28),
@@ -1599,7 +1626,7 @@ class _CurrentUserProfileScreenState
     );
   }
 
-  Widget _WalletActionButton({
+  Widget _buildWalletActionButton({
     required IconData icon,
     required String label,
     required VoidCallback onTap,
@@ -1696,9 +1723,12 @@ class _CurrentUserProfileScreenState
   }
 
   void _shareProfile(user) {
-    Share.share(
-      'Check out @${user.username} on Blue Video App!\n\nProfile: bluevideoapp://profile/${user.id}',
-      subject: 'Profile of ${user.username}',
+    SharePlus.instance.share(
+      ShareParams(
+        text:
+            'Check out @${user.username} on Blue Video App!\n\nProfile: bluevideoapp://profile/${user.id}',
+        subject: 'Profile of ${user.username}',
+      ),
     );
   }
 
@@ -1707,27 +1737,36 @@ class _CurrentUserProfileScreenState
   }
 }
 
-// class _SliverAppBarDelegate extends SliverPersistentHeaderDelegate {
-//   final TabBar _tabBar;
+class _SliverAppBarDelegate extends SliverPersistentHeaderDelegate {
+  final TabBar tabBar;
+  final Color backgroundColor;
+  final bool showShadow;
 
-//   _SliverAppBarDelegate(this._tabBar);
+  _SliverAppBarDelegate({
+    required this.tabBar,
+    required this.backgroundColor,
+    required this.showShadow,
+  });
 
-//   @override
-//   double get minExtent => _tabBar.preferredSize.height;
-//   @override
-//   double get maxExtent => _tabBar.preferredSize.height;
+  @override
+  double get minExtent => tabBar.preferredSize.height;
 
-//   @override
-//   Widget build(
-//       BuildContext context, double shrinkOffset, bool overlapsContent) {
-//     return Container(
-//       color: Theme.of(context).scaffoldBackgroundColor,
-//       child: _tabBar,
-//     );
-//   }
+  @override
+  double get maxExtent => tabBar.preferredSize.height;
 
-//   @override
-//   bool shouldRebuild(_SliverAppBarDelegate oldDelegate) {
-//     return false;
-//   }
-// }
+  @override
+  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
+    return Material(
+      color: backgroundColor,
+      elevation: showShadow || overlapsContent ? 2 : 0,
+      child: tabBar,
+    );
+  }
+
+  @override
+  bool shouldRebuild(covariant _SliverAppBarDelegate oldDelegate) {
+    return oldDelegate.tabBar != tabBar ||
+        oldDelegate.backgroundColor != backgroundColor ||
+        oldDelegate.showShadow != showShadow;
+  }
+}

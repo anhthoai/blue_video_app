@@ -118,6 +118,55 @@ class AppLocalizationsJa extends AppLocalizations {
   String get storageSubtitle => 'アプリストレージを管理';
 
   @override
+  String get clearCacheAction => 'キャッシュを削除';
+
+  @override
+  String get clearCacheMessage => 'この端末に保存されたプレビュー画像と一時画像を削除しますか？';
+
+  @override
+  String get cacheCleared => '画像キャッシュを削除しました';
+
+  @override
+  String get openSystemSettings => 'システム設定を開く';
+
+  @override
+  String get openSystemSettingsFailed => 'システム設定を開けませんでした';
+
+  @override
+  String get openPrivacyPolicyFailed => 'プライバシーポリシーを開けませんでした';
+
+  @override
+  String get notificationAccess => '通知アクセス';
+
+  @override
+  String get notificationsEnabled => '通知が有効です';
+
+  @override
+  String get notificationsDisabled => '通知が無効です';
+
+  @override
+  String get notificationsRestricted => '通知アクセスの確認が必要です';
+
+  @override
+  String get requestNotificationPermission => '通知を許可';
+
+  @override
+  String get privacyPolicySubtitle => 'OnlyBL がデータをどのように扱うかを確認';
+
+  @override
+  String get feedbackMessageLabel => 'フィードバック内容';
+
+  @override
+  String get feedbackMessageHint =>
+      '起きたこと、期待していた結果、利用している端末について教えてください。';
+
+  @override
+  String get feedbackEmptyMessage => '共有する前にメッセージを入力してください';
+
+  @override
+  String get feedbackShareFailed => '共有シートを開けませんでした';
+
+  @override
   String get support => 'サポート';
 
   @override

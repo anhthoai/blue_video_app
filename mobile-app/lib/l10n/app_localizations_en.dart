@@ -118,6 +118,58 @@ class AppLocalizationsEn extends AppLocalizations {
   String get storageSubtitle => 'Manage app storage';
 
   @override
+  String get clearCacheAction => 'Clear cache';
+
+  @override
+  String get clearCacheMessage =>
+      'Remove downloaded previews and temporary images from this device?';
+
+  @override
+  String get cacheCleared => 'Image cache cleared';
+
+  @override
+  String get openSystemSettings => 'Open system settings';
+
+  @override
+  String get openSystemSettingsFailed => 'Unable to open system settings';
+
+  @override
+  String get openPrivacyPolicyFailed => 'Unable to open privacy policy';
+
+  @override
+  String get notificationAccess => 'Notification access';
+
+  @override
+  String get notificationsEnabled => 'Notifications enabled';
+
+  @override
+  String get notificationsDisabled => 'Notifications disabled';
+
+  @override
+  String get notificationsRestricted =>
+      'Notification access needs attention';
+
+  @override
+  String get requestNotificationPermission => 'Allow notifications';
+
+  @override
+  String get privacyPolicySubtitle => 'Read how OnlyBL handles your data';
+
+  @override
+  String get feedbackMessageLabel => 'Your feedback';
+
+  @override
+  String get feedbackMessageHint =>
+      'Tell us what happened, what you expected, and which device you are using.';
+
+  @override
+  String get feedbackEmptyMessage =>
+      'Enter a message before sharing feedback';
+
+  @override
+  String get feedbackShareFailed => 'Unable to open the share sheet';
+
+  @override
   String get support => 'Support';
 
   @override

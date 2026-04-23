@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/services/auth_service.dart';
 import '../../l10n/app_localizations.dart';
+import '../../widgets/common/app_logo.dart';
 
 class RegisterScreen extends ConsumerStatefulWidget {
   const RegisterScreen({super.key});
@@ -48,19 +49,10 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 const SizedBox(height: 32),
 
                 // Logo
-                Center(
-                  child: Container(
-                    width: 100,
-                    height: 100,
-                    decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.primary,
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: const Icon(
-                      Icons.play_circle_filled,
-                      size: 50,
-                      color: Colors.white,
-                    ),
+                const Center(
+                  child: AppLogo(
+                    size: 100,
+                    borderRadius: 20,
                   ),
                 ),
 
@@ -302,7 +294,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Text(l10n.alreadyHaveAccount + ' '),
+                    Text('${l10n.alreadyHaveAccount} '),
                     TextButton(
                       onPressed: () {
                         context.go('/auth/login');

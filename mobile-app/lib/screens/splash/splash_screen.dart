@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/services/auth_service.dart';
+import '../../widgets/common/app_logo.dart';
 
 class SplashScreen extends ConsumerStatefulWidget {
   const SplashScreen({super.key});
@@ -78,25 +79,12 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     // App Logo
-                    Container(
-                      width: 120,
-                      height: 120,
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(20),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.2),
-                            blurRadius: 20,
-                            offset: const Offset(0, 10),
-                          ),
-                        ],
-                      ),
-                      child: const Icon(
-                        Icons.play_circle_filled,
-                        size: 60,
-                        color: Colors.blue,
-                      ),
+                    const AppLogo(
+                      size: 120,
+                      borderRadius: 20,
+                      padding: EdgeInsets.all(16),
+                      backgroundColor: Colors.white,
+                      showShadow: true,
                     ),
 
                     const SizedBox(height: 32),

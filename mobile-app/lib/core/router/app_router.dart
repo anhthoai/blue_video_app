@@ -18,6 +18,9 @@ import '../../screens/profile/edit_profile_screen.dart';
 import '../../screens/chat/chat_screen.dart';
 import '../../screens/chat/chat_list_screen.dart';
 import '../../screens/settings/settings_screen.dart';
+import '../../screens/settings/notification_settings_screen.dart';
+import '../../screens/settings/privacy_settings_screen.dart';
+import '../../screens/settings/feedback_screen.dart';
 import '../../screens/settings/language_selection_screen.dart';
 import '../../screens/settings/theme_selection_screen.dart';
 import '../../screens/search/search_screen.dart';
@@ -374,6 +377,19 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: 'settings',
             builder: (context, state) => const SettingsScreen(),
             routes: [
+              GoRoute(
+                path: 'notifications',
+                builder: (context, state) =>
+                    const NotificationSettingsScreen(),
+              ),
+              GoRoute(
+                path: 'privacy',
+                builder: (context, state) => const PrivacySettingsScreen(),
+              ),
+              GoRoute(
+                path: 'feedback',
+                builder: (context, state) => const FeedbackScreen(),
+              ),
               GoRoute(
                 path: 'language',
                 builder: (context, state) => const LanguageSelectionScreen(),

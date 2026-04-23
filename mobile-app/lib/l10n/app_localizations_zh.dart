@@ -118,6 +118,54 @@ class AppLocalizationsZh extends AppLocalizations {
   String get storageSubtitle => '管理应用存储';
 
   @override
+  String get clearCacheAction => '清除缓存';
+
+  @override
+  String get clearCacheMessage => '删除此设备上已下载的预览图和临时图像？';
+
+  @override
+  String get cacheCleared => '图像缓存已清除';
+
+  @override
+  String get openSystemSettings => '打开系统设置';
+
+  @override
+  String get openSystemSettingsFailed => '无法打开系统设置';
+
+  @override
+  String get openPrivacyPolicyFailed => '无法打开隐私政策';
+
+  @override
+  String get notificationAccess => '通知权限';
+
+  @override
+  String get notificationsEnabled => '通知已开启';
+
+  @override
+  String get notificationsDisabled => '通知已关闭';
+
+  @override
+  String get notificationsRestricted => '通知权限需要处理';
+
+  @override
+  String get requestNotificationPermission => '允许通知';
+
+  @override
+  String get privacyPolicySubtitle => '了解 OnlyBL 如何处理您的数据';
+
+  @override
+  String get feedbackMessageLabel => '您的反馈';
+
+  @override
+  String get feedbackMessageHint => '请告诉我们发生了什么、您的预期结果，以及您正在使用的设备。';
+
+  @override
+  String get feedbackEmptyMessage => '请先输入反馈内容';
+
+  @override
+  String get feedbackShareFailed => '无法打开分享面板';
+
+  @override
   String get support => '支持';
 
   @override

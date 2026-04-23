@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/services/auth_service.dart';
 import '../../l10n/app_localizations.dart';
+import '../../widgets/common/app_logo.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -41,18 +42,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 // Logo
-                Container(
-                  width: 100,
-                  height: 100,
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.primary,
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: const Icon(
-                    Icons.play_circle_filled,
-                    size: 50,
-                    color: Colors.white,
-                  ),
+                const AppLogo(
+                  size: 100,
+                  borderRadius: 20,
                 ),
 
                 const SizedBox(height: 24),
@@ -220,7 +212,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Text(l10n.dontHaveAccount + ' '),
+                    Text('${l10n.dontHaveAccount} '),
                     TextButton(
                       onPressed: () {
                         context.go('/auth/register');
@@ -270,7 +262,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         }
       }
     } catch (e) {
-      print('Login error: $e');
+      debugPrint('Login error: $e');
       // Show error message only if widget is still mounted
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

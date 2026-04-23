@@ -64,7 +64,7 @@ class _OtherUserProfileScreenState extends ConsumerState<OtherUserProfileScreen>
         });
       }
     } catch (e) {
-      print('Error loading user profile: $e');
+      debugPrint('Error loading user profile: $e');
 
       // Check if it's a 401 authentication error
       if (e.toString().contains('Authentication required')) {
@@ -103,7 +103,7 @@ class _OtherUserProfileScreenState extends ConsumerState<OtherUserProfileScreen>
         _userVideos = videos;
       });
     } catch (e) {
-      print('Error loading user videos: $e');
+      debugPrint('Error loading user videos: $e');
     } finally {
       setState(() {
         _isLoadingVideos = false;
@@ -138,63 +138,80 @@ class _OtherUserProfileScreenState extends ConsumerState<OtherUserProfileScreen>
 
   @override
   Widget build(BuildContext context) {
+    final tabBar = _buildProfileTabBar();
+
     return Scaffold(
-      body: Column(
-        children: [
-          // Header
-          _buildOtherUserHeader(),
-          // Stats
-          _buildOtherUserStats(),
-          // Tab Bar
-          TabBar(
-            controller: _tabController,
-            labelPadding: const EdgeInsets.symmetric(horizontal: 8),
-            indicatorPadding: const EdgeInsets.symmetric(horizontal: 4),
-            labelStyle: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
+      body: NestedScrollView(
+        headerSliverBuilder: (context, innerBoxScrolled) {
+          return [
+            SliverToBoxAdapter(
+              child: Column(
+                children: [
+                  _buildOtherUserHeader(),
+                  _buildOtherUserStats(),
+                ],
+              ),
             ),
-            unselectedLabelStyle: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
+            SliverPersistentHeader(
+              pinned: true,
+              delegate: _SliverAppBarDelegate(
+                tabBar: tabBar,
+                backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+                showShadow: innerBoxScrolled,
+              ),
             ),
-            tabs: const [
-              Tab(
-                icon: Icon(Icons.video_library, size: 24),
-                text: 'Videos',
-                height: 60,
-              ),
-              Tab(
-                icon: Icon(Icons.post_add, size: 24),
-                text: 'Posts',
-                height: 60,
-              ),
-              Tab(
-                icon: Icon(Icons.favorite, size: 24),
-                text: 'Liked',
-                height: 60,
-              ),
-              Tab(
-                icon: Icon(Icons.playlist_play, size: 24),
-                text: 'Playlists',
-                height: 60,
-              ),
-            ],
-          ),
-          // Tab Content
-          Expanded(
-            child: TabBarView(
-              controller: _tabController,
-              children: [
-                _buildVideosTab(),
-                _buildPostsTab(),
-                _buildLikedTab(),
-                _buildPlaylistsTab(),
-              ],
-            ),
-          ),
-        ],
+          ];
+        },
+        body: TabBarView(
+          controller: _tabController,
+          children: [
+            _buildVideosTab(),
+            _buildPostsTab(),
+            _buildLikedTab(),
+            _buildPlaylistsTab(),
+          ],
+        ),
       ),
+    );
+  }
+
+  TabBar _buildProfileTabBar() {
+    return TabBar(
+      controller: _tabController,
+      isScrollable: true,
+      tabAlignment: TabAlignment.start,
+      labelPadding: const EdgeInsets.symmetric(horizontal: 8),
+      indicatorPadding: const EdgeInsets.symmetric(horizontal: 4),
+      labelStyle: const TextStyle(
+        fontSize: 14,
+        fontWeight: FontWeight.w600,
+      ),
+      unselectedLabelStyle: const TextStyle(
+        fontSize: 14,
+        fontWeight: FontWeight.w500,
+      ),
+      tabs: const [
+        Tab(
+          icon: Icon(Icons.video_library, size: 22),
+          text: 'Videos',
+          height: 56,
+        ),
+        Tab(
+          icon: Icon(Icons.post_add, size: 22),
+          text: 'Posts',
+          height: 56,
+        ),
+        Tab(
+          icon: Icon(Icons.favorite, size: 22),
+          text: 'Liked',
+          height: 56,
+        ),
+        Tab(
+          icon: Icon(Icons.playlist_play, size: 22),
+          text: 'Playlists',
+          height: 56,
+        ),
+      ],
     );
   }
 
@@ -433,10 +450,12 @@ class _OtherUserProfileScreenState extends ConsumerState<OtherUserProfileScreen>
     }
 
     if (_userVideos.isEmpty) {
-      return Center(
+      return SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(32),
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
           children: [
+            const SizedBox(height: 64),
             Icon(Icons.video_library_outlined,
                 size: 64, color: Colors.grey[400]),
             const SizedBox(height: 16),
@@ -450,6 +469,7 @@ class _OtherUserProfileScreenState extends ConsumerState<OtherUserProfileScreen>
     }
 
     return GridView.builder(
+      key: const PageStorageKey<String>('other-user-videos-grid'),
       padding: const EdgeInsets.all(16),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 2,
@@ -543,10 +563,12 @@ class _OtherUserProfileScreenState extends ConsumerState<OtherUserProfileScreen>
   }
 
   Widget _buildPostsTab() {
-    return Center(
+    return SingleChildScrollView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      padding: const EdgeInsets.all(32),
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
         children: [
+          const SizedBox(height: 64),
           Icon(Icons.post_add_outlined, size: 64, color: Colors.grey[400]),
           const SizedBox(height: 16),
           Text(
@@ -572,10 +594,12 @@ class _OtherUserProfileScreenState extends ConsumerState<OtherUserProfileScreen>
   }
 
   Widget _buildLikedTab() {
-    return const Center(
+    return const SingleChildScrollView(
+      physics: AlwaysScrollableScrollPhysics(),
+      padding: EdgeInsets.all(32),
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
         children: [
+          SizedBox(height: 64),
           Icon(
             Icons.lock_outline,
             size: 64,
@@ -605,10 +629,12 @@ class _OtherUserProfileScreenState extends ConsumerState<OtherUserProfileScreen>
   }
 
   Widget _buildPlaylistsTab() {
-    return const Center(
+    return const SingleChildScrollView(
+      physics: AlwaysScrollableScrollPhysics(),
+      padding: EdgeInsets.all(32),
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
         children: [
+          SizedBox(height: 64),
           Icon(
             Icons.playlist_play_outlined,
             size: 64,
@@ -681,7 +707,7 @@ class _OtherUserProfileScreenState extends ConsumerState<OtherUserProfileScreen>
         }
       }
     } catch (e) {
-      print('Error toggling follow: $e');
+      debugPrint('Error toggling follow: $e');
 
       // Check if it's a 401 authentication error
       if (e.toString().contains('Authentication required')) {
@@ -705,9 +731,12 @@ class _OtherUserProfileScreenState extends ConsumerState<OtherUserProfileScreen>
   }
 
   void _shareProfile(String username) {
-    Share.share(
-      'Check out @$username on Blue Video App!\n\nProfile: bluevideoapp://profile/${widget.userId}',
-      subject: 'Profile of $username',
+    SharePlus.instance.share(
+      ShareParams(
+        text:
+            'Check out @$username on Blue Video App!\n\nProfile: bluevideoapp://profile/${widget.userId}',
+        subject: 'Profile of $username',
+      ),
     );
   }
 
@@ -770,7 +799,7 @@ class _OtherUserProfileScreenState extends ConsumerState<OtherUserProfileScreen>
               const Text('Please select a reason:'),
               const SizedBox(height: 8),
               DropdownButtonFormField<String>(
-                value: selectedReason,
+                initialValue: selectedReason,
                 decoration: const InputDecoration(
                   border: OutlineInputBorder(),
                   contentPadding:
@@ -845,7 +874,7 @@ class _OtherUserProfileScreenState extends ConsumerState<OtherUserProfileScreen>
         );
       }
     } catch (e) {
-      print('Error reporting user: $e');
+      debugPrint('Error reporting user: $e');
 
       // Check if it's a 401 authentication error
       if (e.toString().contains('Authentication required')) {
@@ -915,7 +944,7 @@ class _OtherUserProfileScreenState extends ConsumerState<OtherUserProfileScreen>
         }
       }
     } catch (e) {
-      print('Error blocking user: $e');
+      debugPrint('Error blocking user: $e');
 
       // Check if it's a 401 authentication error
       if (e.toString().contains('Authentication required')) {
@@ -969,6 +998,10 @@ class _OtherUserProfileScreenState extends ConsumerState<OtherUserProfileScreen>
           // Refresh user profile data to get accurate counts
           await _loadUserProfile();
 
+          if (!mounted) {
+            return;
+          }
+
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('User unblocked successfully'),
@@ -987,7 +1020,7 @@ class _OtherUserProfileScreenState extends ConsumerState<OtherUserProfileScreen>
         }
       }
     } catch (e) {
-      print('Error unblocking user: $e');
+      debugPrint('Error unblocking user: $e');
 
       // Check if it's a 401 authentication error
       if (e.toString().contains('Authentication required')) {
@@ -1005,27 +1038,36 @@ class _OtherUserProfileScreenState extends ConsumerState<OtherUserProfileScreen>
   }
 }
 
-// class _SliverAppBarDelegate extends SliverPersistentHeaderDelegate {
-//   final TabBar _tabBar;
+class _SliverAppBarDelegate extends SliverPersistentHeaderDelegate {
+  final TabBar tabBar;
+  final Color backgroundColor;
+  final bool showShadow;
 
-//   _SliverAppBarDelegate(this._tabBar);
+  _SliverAppBarDelegate({
+    required this.tabBar,
+    required this.backgroundColor,
+    required this.showShadow,
+  });
 
-//   @override
-//   double get minExtent => _tabBar.preferredSize.height;
-//   @override
-//   double get maxExtent => _tabBar.preferredSize.height;
+  @override
+  double get minExtent => tabBar.preferredSize.height;
 
-//   @override
-//   Widget build(
-//       BuildContext context, double shrinkOffset, bool overlapsContent) {
-//     return Container(
-//       color: Theme.of(context).scaffoldBackgroundColor,
-//       child: _tabBar,
-//     );
-//   }
+  @override
+  double get maxExtent => tabBar.preferredSize.height;
 
-//   @override
-//   bool shouldRebuild(_SliverAppBarDelegate oldDelegate) {
-//     return false;
-//   }
-// }
+  @override
+  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
+    return Material(
+      color: backgroundColor,
+      elevation: showShadow || overlapsContent ? 2 : 0,
+      child: tabBar,
+    );
+  }
+
+  @override
+  bool shouldRebuild(covariant _SliverAppBarDelegate oldDelegate) {
+    return oldDelegate.tabBar != tabBar ||
+        oldDelegate.backgroundColor != backgroundColor ||
+        oldDelegate.showShadow != showShadow;
+  }
+}
