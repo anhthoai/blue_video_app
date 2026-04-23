@@ -279,6 +279,23 @@ class ApiService {
     return await _handleResponse(response);
   }
 
+  // Report a video
+  Future<Map<String, dynamic>> reportVideo(
+    String videoId, {
+    String? reason,
+    String? description,
+  }) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/videos/$videoId/report'),
+      headers: await _getHeaders(),
+      body: json.encode({
+        'reason': reason ?? 'Inappropriate content',
+        'description': description ?? '',
+      }),
+    );
+    return await _handleResponse(response);
+  }
+
   // Pin/Unpin a community post
   Future<Map<String, dynamic>> pinCommunityPost(String postId) async {
     final response = await http.post(
@@ -669,6 +686,122 @@ class ApiService {
     final response = await http.delete(
       Uri.parse('$baseUrl/users/$userId/block'),
       headers: await _getHeaders(),
+    );
+
+    return await _handleResponse(response);
+  }
+
+  Future<Map<String, dynamic>> submitFeedback({
+    String? subject,
+    required String message,
+  }) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/feedback'),
+      headers: await _getHeaders(),
+      body: json.encode({
+        'subject': subject,
+        'message': message,
+      }),
+    );
+
+    return await _handleResponse(response);
+  }
+
+  Future<Map<String, dynamic>> getAdminDashboard() async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/admin/dashboard'),
+      headers: await _getHeaders(),
+    );
+
+    return await _handleResponse(response);
+  }
+
+  Future<Map<String, dynamic>> getAdminReports({
+    String? type,
+    String? status,
+    int page = 1,
+    int limit = 20,
+  }) async {
+    final queryParams = <String, String>{
+      'page': page.toString(),
+      'limit': limit.toString(),
+    };
+
+    if (type != null && type.isNotEmpty) {
+      queryParams['type'] = type;
+    }
+    if (status != null && status.isNotEmpty) {
+      queryParams['status'] = status;
+    }
+
+    final uri = Uri.parse('$baseUrl/admin/reports').replace(
+      queryParameters: queryParams,
+    );
+
+    final response = await http.get(
+      uri,
+      headers: await _getHeaders(),
+    );
+
+    return await _handleResponse(response);
+  }
+
+  Future<Map<String, dynamic>> updateAdminReport({
+    required String reportType,
+    required String reportId,
+    required String action,
+    String? adminReply,
+  }) async {
+    final response = await http.patch(
+      Uri.parse('$baseUrl/admin/reports/$reportType/$reportId'),
+      headers: await _getHeaders(),
+      body: json.encode({
+        'action': action,
+        'adminReply': adminReply,
+      }),
+    );
+
+    return await _handleResponse(response);
+  }
+
+  Future<Map<String, dynamic>> getAdminFeedback({
+    String? status,
+    int page = 1,
+    int limit = 20,
+  }) async {
+    final queryParams = <String, String>{
+      'page': page.toString(),
+      'limit': limit.toString(),
+    };
+
+    if (status != null && status.isNotEmpty) {
+      queryParams['status'] = status;
+    }
+
+    final uri = Uri.parse('$baseUrl/admin/feedback').replace(
+      queryParameters: queryParams,
+    );
+
+    final response = await http.get(
+      uri,
+      headers: await _getHeaders(),
+    );
+
+    return await _handleResponse(response);
+  }
+
+  Future<Map<String, dynamic>> updateAdminFeedback(
+    String feedbackId, {
+    String? status,
+    String? adminReply,
+  }) async {
+    final response = await http.patch(
+      Uri.parse('$baseUrl/admin/feedback/$feedbackId'),
+      headers: await _getHeaders(),
+      body: json.encode({
+        'status': status,
+        'adminReply': adminReply,
+      }),
     );
 
     return await _handleResponse(response);

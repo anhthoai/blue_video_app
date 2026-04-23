@@ -18,6 +18,7 @@ import '../../screens/profile/edit_profile_screen.dart';
 import '../../screens/chat/chat_screen.dart';
 import '../../screens/chat/chat_list_screen.dart';
 import '../../screens/settings/settings_screen.dart';
+import '../../screens/settings/admin_dashboard_screen.dart';
 import '../../screens/settings/notification_settings_screen.dart';
 import '../../screens/settings/privacy_settings_screen.dart';
 import '../../screens/settings/feedback_screen.dart';
@@ -239,10 +240,12 @@ final routerProvider = Provider<GoRouter>((ref) {
             builder: (context, state) {
               final section = state.pathParameters['section'] ?? '';
               final extra = state.extra as LibraryFolderArgs?;
-              final parentId =
-                  extra?.parentId ?? state.uri.queryParameters['parentId'] ?? '';
-              final title =
-                  extra?.title ?? state.uri.queryParameters['title'] ?? 'Folder';
+              final parentId = extra?.parentId ??
+                  state.uri.queryParameters['parentId'] ??
+                  '';
+              final title = extra?.title ??
+                  state.uri.queryParameters['title'] ??
+                  'Folder';
 
               return LibraryFolderScreen(
                 args: LibraryFolderArgs(
@@ -379,8 +382,7 @@ final routerProvider = Provider<GoRouter>((ref) {
             routes: [
               GoRoute(
                 path: 'notifications',
-                builder: (context, state) =>
-                    const NotificationSettingsScreen(),
+                builder: (context, state) => const NotificationSettingsScreen(),
               ),
               GoRoute(
                 path: 'privacy',
@@ -389,6 +391,22 @@ final routerProvider = Provider<GoRouter>((ref) {
               GoRoute(
                 path: 'feedback',
                 builder: (context, state) => const FeedbackScreen(),
+              ),
+              GoRoute(
+                path: 'admin',
+                builder: (context, state) => const AdminDashboardScreen(),
+                routes: [
+                  GoRoute(
+                    path: 'reports',
+                    builder: (context, state) =>
+                        const AdminDashboardScreen(initialTab: 4),
+                  ),
+                  GoRoute(
+                    path: 'feedback',
+                    builder: (context, state) =>
+                        const AdminDashboardScreen(initialTab: 5),
+                  ),
+                ],
               ),
               GoRoute(
                 path: 'language',

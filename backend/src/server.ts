@@ -19,7 +19,7 @@ import { upload, deleteFromS3, chatFileStorage, chatFileFilter, videoUpload, com
 import { processVideo } from './services/videoProcessingService';
 import { promises as fs } from 'fs';
 import { serializeUserWithUrls, buildAvatarUrl, buildFileUrlSync, buildFileUrl, buildCommunityPostFileUrl, serializeUserWithUrlsAsync, buildAvatarUrlAsync } from './utils/fileUrl';
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, ReportStatus } from '@prisma/client';
 import multer from 'multer';
 import { paymentService, IPNNotification } from './services/paymentService';
 import swaggerUi from 'swagger-ui-express';
@@ -353,6 +353,48 @@ const authenticateToken = async (req: any, res: any, next: any) => {
       success: false,
       message: 'Invalid or expired token',
     });
+  }
+};
+
+const requireAdmin = async (req: any, res: any, next: any) => {
+  try {
+    if (!req.user?.id) {
+      return res.status(401).json({
+        success: false,
+        message: 'Authentication required',
+      });
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: req.user.id },
+      select: { role: true },
+    });
+
+    if (!user || user.role !== 'ADMIN') {
+      return res.status(403).json({
+        success: false,
+        message: 'Admin access required',
+      });
+    }
+
+    next();
+  } catch (error) {
+    console.error('Admin middleware error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to authorize admin request',
+    });
+  }
+};
+
+const mapAdminActionToStatus = (action: string): ReportStatus => {
+  switch (action) {
+    case 'approve':
+      return ReportStatus.RESOLVED;
+    case 'deny':
+      return ReportStatus.DISMISSED;
+    default:
+      return ReportStatus.REVIEWED;
   }
 };
 
@@ -1272,6 +1314,81 @@ app.post('/api/v1/videos/:id/share', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to increment video share',
+    });
+  }
+});
+
+// Report a video
+app.post('/api/v1/videos/:id/report', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const reporterId = req.user?.id;
+    const { reason, description } = req.body;
+
+    if (!reporterId) {
+      return res.status(401).json({
+        success: false,
+        message: 'User not authenticated',
+      });
+    }
+
+    const video = await prisma.video.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        userId: true,
+      },
+    });
+
+    if (!video) {
+      return res.status(404).json({
+        success: false,
+        message: 'Video not found',
+      });
+    }
+
+    if (video.userId === reporterId) {
+      return res.status(400).json({
+        success: false,
+        message: 'You cannot report your own video',
+      });
+    }
+
+    const report = await prisma.videoReport.upsert({
+      where: {
+        userId_videoId: {
+          userId: reporterId,
+          videoId: id,
+        },
+      },
+      update: {
+        reason: reason || 'Inappropriate content',
+        description: description || '',
+        status: 'PENDING',
+        adminReply: null,
+        reviewedAt: null,
+        reviewedBy: null,
+      },
+      create: {
+        userId: reporterId,
+        videoId: id,
+        reason: reason || 'Inappropriate content',
+        description: description || '',
+      },
+    });
+
+    return res.json({
+      success: true,
+      message: 'Video reported successfully',
+      data: {
+        reportId: report.id,
+      },
+    });
+  } catch (error) {
+    console.error('Error reporting video:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to report video',
     });
   }
 });
@@ -4535,6 +4652,558 @@ app.post('/api/v1/community/posts/:postId/report', authenticateToken, async (req
       });
     }
   });
+
+// Submit user feedback
+app.post('/api/v1/feedback', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    const { subject, message } = req.body;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: 'User not authenticated',
+      });
+    }
+
+    if (!message || typeof message !== 'string' || !message.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Feedback message is required',
+      });
+    }
+
+    const feedback = await prisma.feedback.create({
+      data: {
+        userId,
+        subject: typeof subject === 'string' && subject.trim().length > 0 ? subject.trim() : null,
+        message: message.trim(),
+      },
+    });
+
+    return res.json({
+      success: true,
+      message: 'Feedback submitted successfully',
+      data: {
+        feedbackId: feedback.id,
+      },
+    });
+  } catch (error) {
+    console.error('Error submitting feedback:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to submit feedback',
+    });
+  }
+});
+
+// Admin dashboard overview
+app.get('/api/v1/admin/dashboard', authenticateToken, requireAdmin, async (_req, res) => {
+  try {
+    const [
+      totalUsers,
+      totalVideos,
+      totalCategories,
+      totalPosts,
+      pendingUserReports,
+      pendingPostReports,
+      pendingVideoReports,
+      pendingFeedback,
+      recentFeedback,
+    ] = await Promise.all([
+      prisma.user.count(),
+      prisma.video.count(),
+      prisma.category.count(),
+      prisma.communityPost.count(),
+      prisma.userReport.count({ where: { status: 'PENDING' } }),
+      prisma.communityPostReport.count({ where: { status: 'PENDING' } }),
+      prisma.videoReport.count({ where: { status: 'PENDING' } }),
+      prisma.feedback.count({ where: { status: 'PENDING' } }),
+      prisma.feedback.findMany({
+        take: 5,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          user: {
+            select: {
+              id: true,
+              username: true,
+              email: true,
+            },
+          },
+        },
+      }),
+    ]);
+
+    return res.json({
+      success: true,
+      data: {
+        statistics: {
+          totalUsers,
+          totalVideos,
+          totalCategories,
+          totalPosts,
+        },
+        moderation: {
+          pendingReports: pendingUserReports + pendingPostReports + pendingVideoReports,
+          pendingFeedback,
+          pendingUserReports,
+          pendingPostReports,
+          pendingVideoReports,
+        },
+        recentFeedback: recentFeedback.map(item => ({
+          id: item.id,
+          subject: item.subject,
+          message: item.message,
+          status: item.status,
+          createdAt: item.createdAt.toISOString(),
+          user: item.user,
+        })),
+      },
+    });
+  } catch (error) {
+    console.error('Error fetching admin dashboard:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to fetch admin dashboard',
+    });
+  }
+});
+
+// Admin report listing
+app.get('/api/v1/admin/reports', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const page = Number(req.query['page'] || 1);
+    const limit = Number(req.query['limit'] || 20);
+    const offset = (page - 1) * limit;
+    const type = typeof req.query['type'] === 'string' ? req.query['type'] : undefined;
+    const statusParam = typeof req.query['status'] === 'string' ? req.query['status'] : undefined;
+    const where = statusParam
+        ? { status: statusParam as ReportStatus }
+        : {};
+
+    if (type === 'user') {
+      const [reports, total] = await Promise.all([
+        prisma.userReport.findMany({
+          where,
+          include: {
+            reporter: {
+              select: { id: true, username: true, email: true },
+            },
+            reported: {
+              select: { id: true, username: true, email: true },
+            },
+          },
+          orderBy: { createdAt: 'desc' },
+          skip: offset,
+          take: limit,
+        }),
+        prisma.userReport.count({ where }),
+      ]);
+
+      return res.json({
+        success: true,
+        data: reports.map((report) => ({
+          id: report.id,
+          type: 'user',
+          reason: report.reason,
+          description: report.description,
+          status: report.status,
+          adminReply: report.adminReply,
+          createdAt: report.createdAt.toISOString(),
+          updatedAt: report.updatedAt.toISOString(),
+          reporter: report.reporter,
+          target: report.reported,
+        })),
+        pagination: {
+          page,
+          limit,
+          total,
+        },
+      });
+    }
+
+    if (type === 'post') {
+      const [reports, total] = await Promise.all([
+        prisma.communityPostReport.findMany({
+          where,
+          include: {
+            user: {
+              select: { id: true, username: true, email: true },
+            },
+            post: {
+              select: {
+                id: true,
+                title: true,
+                content: true,
+                userId: true,
+              },
+            },
+          },
+          orderBy: { createdAt: 'desc' },
+          skip: offset,
+          take: limit,
+        }),
+        prisma.communityPostReport.count({ where }),
+      ]);
+
+      return res.json({
+        success: true,
+        data: reports.map((report) => ({
+          id: report.id,
+          type: 'post',
+          reason: report.reason,
+          description: report.description,
+          status: report.status,
+          adminReply: report.adminReply,
+          createdAt: report.createdAt.toISOString(),
+          updatedAt: report.updatedAt.toISOString(),
+          reporter: report.user,
+          target: {
+            id: report.post.id,
+            title: report.post.title,
+            contentPreview: report.post.content?.slice(0, 120) || '',
+            userId: report.post.userId,
+          },
+        })),
+        pagination: {
+          page,
+          limit,
+          total,
+        },
+      });
+    }
+
+    if (type === 'video') {
+      const [reports, total] = await Promise.all([
+        prisma.videoReport.findMany({
+          where,
+          include: {
+            user: {
+              select: { id: true, username: true, email: true },
+            },
+            video: {
+              select: {
+                id: true,
+                title: true,
+                thumbnailUrl: true,
+                userId: true,
+              },
+            },
+          },
+          orderBy: { createdAt: 'desc' },
+          skip: offset,
+          take: limit,
+        }),
+        prisma.videoReport.count({ where }),
+      ]);
+
+      return res.json({
+        success: true,
+        data: reports.map((report) => ({
+          id: report.id,
+          type: 'video',
+          reason: report.reason,
+          description: report.description,
+          status: report.status,
+          adminReply: report.adminReply,
+          createdAt: report.createdAt.toISOString(),
+          updatedAt: report.updatedAt.toISOString(),
+          reporter: report.user,
+          target: {
+            id: report.video.id,
+            title: report.video.title,
+            thumbnailUrl: report.video.thumbnailUrl,
+            userId: report.video.userId,
+          },
+        })),
+        pagination: {
+          page,
+          limit,
+          total,
+        },
+      });
+    }
+
+    const mergedTake = page * limit;
+    const [userReports, postReports, videoReports, userTotal, postTotal, videoTotal] = await Promise.all([
+      prisma.userReport.findMany({
+        where,
+        include: {
+          reporter: {
+            select: { id: true, username: true, email: true },
+          },
+          reported: {
+            select: { id: true, username: true, email: true },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+        take: mergedTake,
+      }),
+      prisma.communityPostReport.findMany({
+        where,
+        include: {
+          user: {
+            select: { id: true, username: true, email: true },
+          },
+          post: {
+            select: {
+              id: true,
+              title: true,
+              content: true,
+              userId: true,
+            },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+        take: mergedTake,
+      }),
+      prisma.videoReport.findMany({
+        where,
+        include: {
+          user: {
+            select: { id: true, username: true, email: true },
+          },
+          video: {
+            select: {
+              id: true,
+              title: true,
+              thumbnailUrl: true,
+              userId: true,
+            },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+        take: mergedTake,
+      }),
+      prisma.userReport.count({ where }),
+      prisma.communityPostReport.count({ where }),
+      prisma.videoReport.count({ where }),
+    ]);
+
+    const combinedReports = [
+      ...userReports.map((report) => ({
+        id: report.id,
+        type: 'user',
+        reason: report.reason,
+        description: report.description,
+        status: report.status,
+        adminReply: report.adminReply,
+        createdAt: report.createdAt.toISOString(),
+        updatedAt: report.updatedAt.toISOString(),
+        reporter: report.reporter,
+        target: report.reported,
+      })),
+      ...postReports.map((report) => ({
+        id: report.id,
+        type: 'post',
+        reason: report.reason,
+        description: report.description,
+        status: report.status,
+        adminReply: report.adminReply,
+        createdAt: report.createdAt.toISOString(),
+        updatedAt: report.updatedAt.toISOString(),
+        reporter: report.user,
+        target: {
+          id: report.post.id,
+          title: report.post.title,
+          contentPreview: report.post.content?.slice(0, 120) || '',
+          userId: report.post.userId,
+        },
+      })),
+      ...videoReports.map((report) => ({
+        id: report.id,
+        type: 'video',
+        reason: report.reason,
+        description: report.description,
+        status: report.status,
+        adminReply: report.adminReply,
+        createdAt: report.createdAt.toISOString(),
+        updatedAt: report.updatedAt.toISOString(),
+        reporter: report.user,
+        target: {
+          id: report.video.id,
+          title: report.video.title,
+          thumbnailUrl: report.video.thumbnailUrl,
+          userId: report.video.userId,
+        },
+      })),
+    ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+    return res.json({
+      success: true,
+      data: combinedReports.slice(offset, offset + limit),
+      pagination: {
+        page,
+        limit,
+        total: userTotal + postTotal + videoTotal,
+      },
+    });
+  } catch (error) {
+    console.error('Error fetching admin reports:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to fetch admin reports',
+    });
+  }
+});
+
+// Update report status
+app.patch('/api/v1/admin/reports/:type/:reportId', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { type, reportId } = req.params;
+    const { action, adminReply } = req.body;
+    const reviewerId = req.user?.id;
+
+    if (!action || typeof action !== 'string') {
+      return res.status(400).json({
+        success: false,
+        message: 'Report action is required',
+      });
+    }
+
+    const data = {
+      status: mapAdminActionToStatus(action),
+      adminReply: typeof adminReply === 'string' && adminReply.trim() ? adminReply.trim() : null,
+      reviewedAt: new Date(),
+      reviewedBy: reviewerId || null,
+    };
+
+    switch (type) {
+      case 'user':
+        await prisma.userReport.update({
+          where: { id: reportId },
+          data,
+        });
+        break;
+      case 'post':
+        await prisma.communityPostReport.update({
+          where: { id: reportId },
+          data,
+        });
+        break;
+      case 'video':
+        await prisma.videoReport.update({
+          where: { id: reportId },
+          data,
+        });
+        break;
+      default:
+        return res.status(400).json({
+          success: false,
+          message: 'Unsupported report type',
+        });
+    }
+
+    return res.json({
+      success: true,
+      message: 'Report updated successfully',
+    });
+  } catch (error) {
+    console.error('Error updating admin report:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to update report',
+    });
+  }
+});
+
+// Admin feedback listing
+app.get('/api/v1/admin/feedback', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const page = Number(req.query['page'] || 1);
+    const limit = Number(req.query['limit'] || 20);
+    const offset = (page - 1) * limit;
+    const statusParam = typeof req.query['status'] === 'string' ? req.query['status'] : undefined;
+    const where = statusParam
+        ? { status: statusParam as ReportStatus }
+        : {};
+
+    const [feedbackEntries, total] = await Promise.all([
+      prisma.feedback.findMany({
+        where,
+        include: {
+          user: {
+            select: {
+              id: true,
+              username: true,
+              email: true,
+            },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+        skip: offset,
+        take: limit,
+      }),
+      prisma.feedback.count({ where }),
+    ]);
+
+    return res.json({
+      success: true,
+      data: feedbackEntries.map((entry) => ({
+        id: entry.id,
+        subject: entry.subject,
+        message: entry.message,
+        status: entry.status,
+        adminReply: entry.adminReply,
+        repliedAt: entry.repliedAt?.toISOString() || null,
+        createdAt: entry.createdAt.toISOString(),
+        updatedAt: entry.updatedAt.toISOString(),
+        user: entry.user,
+      })),
+      pagination: {
+        page,
+        limit,
+        total,
+      },
+    });
+  } catch (error) {
+    console.error('Error fetching admin feedback:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to fetch feedback',
+    });
+  }
+});
+
+// Admin feedback reply/update
+app.patch('/api/v1/admin/feedback/:feedbackId', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { feedbackId } = req.params;
+    const { status, adminReply } = req.body;
+    const reviewerId = req.user?.id;
+
+    const trimmedReply = typeof adminReply === 'string' && adminReply.trim()
+      ? adminReply.trim()
+      : null;
+
+    const nextStatus: ReportStatus = typeof status === 'string' && status
+      ? status as ReportStatus
+      : trimmedReply
+          ? ReportStatus.RESOLVED
+          : ReportStatus.REVIEWED;
+
+    await prisma.feedback.update({
+      where: { id: feedbackId },
+      data: {
+        status: nextStatus,
+        adminReply: trimmedReply,
+        repliedAt: trimmedReply ? new Date() : null,
+        repliedBy: trimmedReply ? reviewerId || null : null,
+      },
+    });
+
+    return res.json({
+      success: true,
+      message: 'Feedback updated successfully',
+    });
+  } catch (error) {
+    console.error('Error updating feedback:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to update feedback',
+    });
+  }
+});
 
 // Pin/Unpin a community post (admin only)
 app.post('/api/v1/community/posts/:postId/pin', authenticateToken, async (req, res) => {

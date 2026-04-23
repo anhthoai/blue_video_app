@@ -64,6 +64,8 @@ model User {
   postLikes      CommunityPostLike[] @relation("UserLikes")
   postBookmarks  CommunityPostBookmark[] @relation("UserBookmarks")
   postReports    CommunityPostReport[] @relation("UserReports")
+  videoReports   VideoReport[] @relation("UserVideoReports")
+  feedbackEntries Feedback[]
   
   // Payments
   payments       Payment[]
@@ -124,6 +126,7 @@ model Video {
   user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   category Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
   playlists PlaylistVideo[]
+  reportsList VideoReport[] @relation("VideoReports")
   
   @@index([categoryId])
   @@index([status])
@@ -217,13 +220,41 @@ model CommunityPostReport {
   postId      String   @map("post_id")
   reason      String
   description String?
+  status      ReportStatus @default(PENDING)
+  adminReply  String?  @map("admin_reply")
+  reviewedAt  DateTime? @map("reviewed_at")
+  reviewedBy  String?  @map("reviewed_by")
   createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
 
   // Relations
   user        User           @relation("UserReports", fields: [userId], references: [id], onDelete: Cascade)
   post        CommunityPost  @relation("PostReports", fields: [postId], references: [id], onDelete: Cascade)
 
+  @@index([status])
   @@map("community_post_reports")
+}
+
+model VideoReport {
+  id          String   @id @default(uuid())
+  userId      String   @map("user_id")
+  videoId     String   @map("video_id")
+  reason      String
+  description String?
+  status      ReportStatus @default(PENDING)
+  adminReply  String?  @map("admin_reply")
+  reviewedAt  DateTime? @map("reviewed_at")
+  reviewedBy  String?  @map("reviewed_by")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  user        User  @relation("UserVideoReports", fields: [userId], references: [id], onDelete: Cascade)
+  video       Video @relation("VideoReports", fields: [videoId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, videoId])
+  @@index([status])
+  @@map("video_reports")
 }
 
 model Comment {
@@ -284,6 +315,9 @@ model UserReport {
   reason      String
   description String?
   status      ReportStatus @default(PENDING)
+  adminReply  String?  @map("admin_reply")
+  reviewedAt  DateTime? @map("reviewed_at")
+  reviewedBy  String?  @map("reviewed_by")
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
@@ -291,7 +325,27 @@ model UserReport {
   reporter User @relation("UserReports", fields: [reporterId], references: [id], onDelete: Cascade)
   reported User @relation("UserReported", fields: [reportedId], references: [id], onDelete: Cascade)
 
+  @@index([status])
   @@map("user_reports")
+}
+
+model Feedback {
+  id          String   @id @default(uuid())
+  userId      String   @map("user_id")
+  subject     String?
+  message     String
+  status      ReportStatus @default(PENDING)
+  adminReply  String?  @map("admin_reply")
+  repliedAt   DateTime? @map("replied_at")
+  repliedBy   String?  @map("replied_by")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  user        User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+  @@map("feedback_entries")
 }
 
 model UserBlock {

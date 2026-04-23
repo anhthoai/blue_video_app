@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:cached_network_image/cached_network_image.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../widgets/social/like_button.dart';
 import '../widgets/social/share_button.dart';
@@ -259,7 +259,7 @@ class VideoCard extends ConsumerWidget {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.8),
+                  color: Colors.black.withValues(alpha: 0.8),
                   borderRadius: BorderRadius.circular(4),
                 ),
                 child: Text(
@@ -279,7 +279,7 @@ class VideoCard extends ConsumerWidget {
               width: 60,
               height: 60,
               decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.7),
+                color: Colors.black.withValues(alpha: 0.7),
                 shape: BoxShape.circle,
               ),
               child: const Icon(
@@ -397,7 +397,7 @@ class VideoCard extends ConsumerWidget {
                 title: Text(l10n.report),
                 onTap: () {
                   Navigator.pop(context);
-                  // Handle report
+                  _showReportDialog(context);
                 },
               ),
               ListTile(
@@ -405,7 +405,7 @@ class VideoCard extends ConsumerWidget {
                 title: Text(l10n.share),
                 onTap: () {
                   Navigator.pop(context);
-                  // Handle share
+                  _shareVideo(context);
                 },
               ),
             ],
@@ -413,6 +413,162 @@ class VideoCard extends ConsumerWidget {
         }),
       ),
     );
+  }
+
+  void _showReportDialog(BuildContext context) {
+    if (currentUserId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please sign in to report videos'),
+        ),
+      );
+      return;
+    }
+
+    String selectedReason = 'spam';
+    final descriptionController = TextEditingController();
+    final l10n = AppLocalizations.of(context);
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(l10n.reportVideo),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('Why are you reporting this video?'),
+            const SizedBox(height: 16),
+            DropdownButtonFormField<String>(
+              initialValue: selectedReason,
+              decoration: const InputDecoration(
+                labelText: 'Reason',
+                border: OutlineInputBorder(),
+              ),
+              items: const [
+                DropdownMenuItem(value: 'spam', child: Text('Spam')),
+                DropdownMenuItem(
+                  value: 'inappropriate',
+                  child: Text('Inappropriate Content'),
+                ),
+                DropdownMenuItem(
+                  value: 'harassment',
+                  child: Text('Harassment'),
+                ),
+                DropdownMenuItem(
+                  value: 'fake',
+                  child: Text('Fake Information'),
+                ),
+                DropdownMenuItem(value: 'other', child: Text('Other')),
+              ],
+              onChanged: (value) {
+                selectedReason = value ?? 'spam';
+              },
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: descriptionController,
+              decoration: const InputDecoration(
+                labelText: 'Additional details (optional)',
+                border: OutlineInputBorder(),
+              ),
+              maxLines: 3,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: Text(l10n.cancel),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(dialogContext);
+              _reportVideo(
+                context,
+                selectedReason,
+                descriptionController.text,
+              );
+            },
+            child: Text(l10n.report),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _reportVideo(
+    BuildContext context,
+    String reason,
+    String description,
+  ) async {
+    try {
+      final response = await ApiService().reportVideo(
+        videoId,
+        reason: reason,
+        description: description,
+      );
+
+      if (!context.mounted) {
+        return;
+      }
+
+      if (response['success'] == true) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Video reported successfully')),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(response['message'] ?? 'Failed to report video'),
+          ),
+        );
+      }
+    } catch (error) {
+      if (!context.mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to report video: $error')),
+      );
+    }
+  }
+
+  Future<void> _shareVideo(BuildContext context) async {
+    final l10n = AppLocalizations.of(context);
+    final shareSubject =
+        title?.trim().isNotEmpty == true ? title!.trim() : l10n.shareVideo;
+    final shareMessage = [
+      if (title != null && title!.trim().isNotEmpty) title!.trim(),
+      'Watch on Blue Video',
+      'Video ID: $videoId',
+    ].join('\n');
+
+    try {
+      await SharePlus.instance.share(
+        ShareParams(
+          subject: shareSubject,
+          text: shareMessage,
+        ),
+      );
+      await ApiService().incrementVideoShare(videoId, platform: 'system');
+
+      if (!context.mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Share sheet opened')),
+      );
+    } catch (error) {
+      if (!context.mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Unable to share video: $error')),
+      );
+    }
   }
 
   void _showAddToPlaylistDialog(BuildContext context) async {
@@ -556,6 +712,8 @@ class VideoCard extends ConsumerWidget {
     final nameController = TextEditingController();
     final descriptionController = TextEditingController();
     bool isPublic = true;
+    final navigator = Navigator.of(context);
+    final messenger = ScaffoldMessenger.of(context);
 
     showDialog(
       context: context,
@@ -607,7 +765,7 @@ class VideoCard extends ConsumerWidget {
             ElevatedButton(
               onPressed: () async {
                 if (nameController.text.trim().isEmpty) {
-                  ScaffoldMessenger.of(context).showSnackBar(
+                  messenger.showSnackBar(
                     const SnackBar(
                         content: Text('Please enter a playlist name')),
                   );
@@ -624,7 +782,7 @@ class VideoCard extends ConsumerWidget {
                   );
 
                   if (response['success'] == true) {
-                    Navigator.pop(context);
+                    navigator.pop();
 
                     // Ask if user wants to add the video to this new playlist
                     if (context.mounted) {
@@ -657,21 +815,19 @@ class VideoCard extends ConsumerWidget {
                       }
                     }
                   } else {
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                            content: Text(response['message'] ??
-                                'Failed to create playlist')),
-                      );
-                    }
-                  }
-                } catch (e) {
-                  Navigator.pop(context);
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Error creating playlist: $e')),
+                    messenger.showSnackBar(
+                      SnackBar(
+                          content: Text(response['message'] ??
+                              'Failed to create playlist')),
                     );
                   }
+                } catch (e) {
+                  if (navigator.canPop()) {
+                    navigator.pop();
+                  }
+                  messenger.showSnackBar(
+                    SnackBar(content: Text('Error creating playlist: $e')),
+                  );
                 }
               },
               child: const Text('Create'),

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:package_info_plus/package_info_plus.dart';
-import 'package:share_plus/share_plus.dart';
 
+import '../../core/services/api_service.dart';
 import '../../l10n/app_localizations.dart';
 import '../../widgets/common/app_logo.dart';
 
@@ -14,6 +14,8 @@ class FeedbackScreen extends StatefulWidget {
 
 class _FeedbackScreenState extends State<FeedbackScreen> {
   final TextEditingController _messageController = TextEditingController();
+  final ApiService _apiService = ApiService();
+  bool _isSubmitting = false;
 
   @override
   void dispose() {
@@ -21,7 +23,7 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
     super.dispose();
   }
 
-  Future<void> _shareFeedback(AppLocalizations l10n) async {
+  Future<void> _submitFeedback(AppLocalizations l10n) async {
     final message = _messageController.text.trim();
     if (message.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -29,6 +31,10 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
       );
       return;
     }
+
+    setState(() {
+      _isSubmitting = true;
+    });
 
     try {
       final packageInfo = await PackageInfo.fromPlatform();
@@ -38,20 +44,42 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
         '${l10n.appVersion}: ${packageInfo.version} (${packageInfo.buildNumber})',
       ].join('\n');
 
-      await SharePlus.instance.share(
-        ShareParams(
-          subject: l10n.sendFeedback,
-          text: details,
-        ),
+      final response = await _apiService.submitFeedback(
+        subject:
+            'Blue Video ${packageInfo.version} (${packageInfo.buildNumber})',
+        message: details,
       );
+
+      if (!mounted) {
+        return;
+      }
+
+      if (response['success'] == true) {
+        _messageController.clear();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Feedback sent successfully')),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(response['message'] ?? 'Unable to send feedback'),
+          ),
+        );
+      }
     } catch (_) {
       if (!mounted) {
         return;
       }
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l10n.feedbackShareFailed)),
+        const SnackBar(content: Text('Unable to send feedback')),
       );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSubmitting = false;
+        });
+      }
     }
   }
 
@@ -123,9 +151,9 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
           ),
           const SizedBox(height: 16),
           FilledButton.icon(
-            onPressed: () => _shareFeedback(l10n),
+            onPressed: _isSubmitting ? null : () => _submitFeedback(l10n),
             icon: const Icon(Icons.send_outlined),
-            label: Text(l10n.sendFeedback),
+            label: Text(_isSubmitting ? 'Sending...' : l10n.sendFeedback),
           ),
         ],
       ),

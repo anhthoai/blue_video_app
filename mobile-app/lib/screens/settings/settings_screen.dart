@@ -24,6 +24,8 @@ class SettingsScreen extends ConsumerWidget {
     final l10n = AppLocalizations.of(context);
     final currentLocale = ref.watch(localeProvider);
     final currentTheme = ref.watch(themeProvider);
+    final authService = ref.watch(authServiceProvider);
+    final isAdmin = authService.isAdmin;
 
     String getLanguageName(String languageCode) {
       switch (languageCode) {
@@ -140,6 +142,37 @@ class SettingsScreen extends ConsumerWidget {
                   ),
                 ],
               ),
+              if (isAdmin) ...[
+                const SizedBox(height: 24),
+                _buildSection(
+                  context,
+                  'Admin',
+                  [
+                    _buildListTile(
+                      context,
+                      icon: Icons.admin_panel_settings_outlined,
+                      title: 'Management Dashboard',
+                      subtitle: 'Statistics, videos, categories, users',
+                      onTap: () => context.push('/main/settings/admin'),
+                    ),
+                    _buildListTile(
+                      context,
+                      icon: Icons.flag_outlined,
+                      title: 'Reports',
+                      subtitle: 'Review and moderate reports',
+                      onTap: () => context.push('/main/settings/admin/reports'),
+                    ),
+                    _buildListTile(
+                      context,
+                      icon: Icons.mark_email_read_outlined,
+                      title: 'Feedback Inbox',
+                      subtitle: 'Reply to user feedback',
+                      onTap: () =>
+                          context.push('/main/settings/admin/feedback'),
+                    ),
+                  ],
+                ),
+              ],
               const SizedBox(height: 24),
               _buildSection(
                 context,
@@ -150,7 +183,8 @@ class SettingsScreen extends ConsumerWidget {
                     icon: Icons.info_outline,
                     title: l10n.appVersion,
                     subtitle: versionText,
-                    onTap: () => _showAppInformation(context, l10n, versionText),
+                    onTap: () =>
+                        _showAppInformation(context, l10n, versionText),
                   ),
                 ],
               ),
