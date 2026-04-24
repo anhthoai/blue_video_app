@@ -804,7 +804,7 @@ class _OtherUserProfileScreenState extends ConsumerState<OtherUserProfileScreen>
               const Text('Please select a reason:'),
               const SizedBox(height: 8),
               DropdownButtonFormField<String>(
-                initialValue: selectedReason,
+                value: selectedReason,
                 decoration: const InputDecoration(
                   border: OutlineInputBorder(),
                   contentPadding:
