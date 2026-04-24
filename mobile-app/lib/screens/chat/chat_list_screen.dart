@@ -26,7 +26,10 @@ class ChatListScreen extends ConsumerStatefulWidget {
 class _ChatListScreenState extends ConsumerState<ChatListScreen>
     with WidgetsBindingObserver {
   ProviderSubscription<ChatCallState>? _callSubscription;
+  ProviderSubscription<ChatServiceState>? _chatStateSubscription;
   String? _activeIncomingDialogCallId;
+  bool _hasPrimedMessageNotifications = false;
+  String? _lastIncomingNotificationMessageId;
 
   @override
   void initState() {
@@ -47,6 +50,12 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
         unawaited(_showIncomingCallDialog(invite));
       },
     );
+    _chatStateSubscription = ref.listenManual<ChatServiceState>(
+      chatServiceStateProvider,
+      (previous, next) {
+        _handleChatStateChange(previous, next);
+      },
+    );
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _initializeAndLoadChatRooms();
     });
@@ -55,6 +64,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
   @override
   void dispose() {
     _callSubscription?.close();
+    _chatStateSubscription?.close();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -113,6 +123,71 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
       createdAt: invite.createdAt,
       updatedAt: invite.createdAt,
     );
+  }
+
+  void _handleChatStateChange(
+    ChatServiceState? previous,
+    ChatServiceState next,
+  ) {
+    if (!mounted) {
+      return;
+    }
+
+    if (!_hasPrimedMessageNotifications) {
+      _hasPrimedMessageNotifications = true;
+      return;
+    }
+
+    final currentUserId = ref.read(currentUserProvider)?.id;
+    if (currentUserId == null) {
+      return;
+    }
+
+    for (final room in next.rooms) {
+      final lastMessage = room.lastMessage;
+      if (lastMessage == null ||
+          lastMessage.userId == currentUserId ||
+          lastMessage.isSystem) {
+        continue;
+      }
+
+      String? previousMessageId;
+      if (previous != null) {
+        for (final previousRoom in previous.rooms) {
+          if (previousRoom.id == room.id) {
+            previousMessageId = previousRoom.lastMessage?.id;
+            break;
+          }
+        }
+      }
+
+      if (previousMessageId == lastMessage.id ||
+          _lastIncomingNotificationMessageId == lastMessage.id) {
+        continue;
+      }
+
+      _lastIncomingNotificationMessageId = lastMessage.id;
+      _showIncomingMessageNotification(room, currentUserId);
+      break;
+    }
+  }
+
+  void _showIncomingMessageNotification(ChatRoom room, String currentUserId) {
+    final displayName = room.getDisplayName(currentUserId);
+    final preview = room.lastMessagePreview;
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    if (messenger == null) {
+      return;
+    }
+
+    messenger
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text('$displayName: $preview'),
+          duration: const Duration(seconds: 4),
+        ),
+      );
   }
 
   Future<void> _showIncomingCallDialog(ChatCallInvite invite) async {
@@ -204,6 +279,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
           ),
         ),
       );
+      await callController.clearFinishedCall();
       return;
     }
 

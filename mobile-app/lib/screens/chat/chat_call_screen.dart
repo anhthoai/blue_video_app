@@ -54,36 +54,11 @@ class _ChatCallScreenState extends ConsumerState<ChatCallScreen> {
         }
       },
     );
-
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      if (!widget.autoStartOutgoing || widget.currentUser == null) {
-        return;
-      }
-
-      final started =
-          await ref.read(chatCallControllerProvider.notifier).startOutgoingCall(
-                room: widget.room,
-                currentUser: widget.currentUser!,
-                isVideoCall: widget.isVideoCall,
-              );
-      if (!started && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              ref.read(chatCallControllerProvider).errorMessage ??
-                  'Unable to start the call.',
-            ),
-          ),
-        );
-      }
-    });
   }
 
   @override
   void dispose() {
     _callSubscription?.close();
-    unawaited(
-        ref.read(chatCallControllerProvider.notifier).clearFinishedCall());
     super.dispose();
   }
 

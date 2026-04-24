@@ -7,6 +7,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/services/chat_call_service.dart';
 import '../../core/services/chat_service.dart';
 import '../../core/services/auth_service.dart';
 import '../../models/chat_message.dart';
@@ -28,13 +29,29 @@ class ChatScreen extends ConsumerStatefulWidget {
 class _ChatScreenState extends ConsumerState<ChatScreen> {
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
-  bool _isTyping = false;
+  late final ChatServiceNotifier _chatNotifier;
+  ProviderSubscription<ChatServiceState>? _chatStateSubscription;
+  bool _isSendingTyping = false;
   bool? _isChatMutedOverride;
   Timer? _typingTimer;
 
   @override
   void initState() {
     super.initState();
+    _chatNotifier = ref.read(chatServiceStateProvider.notifier);
+    _chatStateSubscription = ref.listenManual<ChatServiceState>(
+      chatServiceStateProvider,
+      (previous, next) {
+        final previousCount = previous?.messages[widget.chatId]?.length ?? 0;
+        final nextCount = next.messages[widget.chatId]?.length ?? 0;
+
+        if (nextCount > previousCount) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            _scrollToBottom(animated: previousCount > 0);
+          });
+        }
+      },
+    );
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _initializeAndLoadMessages();
     });
@@ -42,70 +59,107 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
   @override
   void dispose() {
+    _typingTimer?.cancel();
+    _chatStateSubscription?.close();
+    _chatNotifier.sendTypingIndicator(widget.chatId, false);
+    _chatNotifier.leaveChatRoom(widget.chatId);
     _messageController.dispose();
     _scrollController.dispose();
-    _typingTimer?.cancel();
     super.dispose();
   }
 
   Future<void> _initializeAndLoadMessages() async {
     final currentUser = ref.read(currentUserProvider);
     final authService = ref.read(authServiceProvider);
-    final chatService = ref.read(chatServiceStateProvider.notifier);
 
-    if (currentUser != null) {
-      // Initialize chat service with user data
-      final token = await authService.getAccessToken();
-      if (token != null) {
-        chatService.initialize(currentUser.id, token);
-        chatService.joinChatRoom(widget.chatId);
-        await chatService.loadMessages(widget.chatId);
-      }
+    if (currentUser == null) {
+      return;
     }
+
+    final token = await authService.getAccessToken();
+    if (token == null) {
+      return;
+    }
+
+    _chatNotifier.initialize(currentUser.id, token);
+    _chatNotifier.joinChatRoom(widget.chatId);
+    await _chatNotifier.loadMessages(widget.chatId);
+    if (!mounted) {
+      return;
+    }
+
+    _scrollToBottom(animated: false);
+  }
+
+  void _scrollToBottom({required bool animated}) {
+    if (!mounted || !_scrollController.hasClients) {
+      return;
+    }
+
+    final targetOffset = _scrollController.position.maxScrollExtent;
+    if (animated) {
+      _scrollController.animateTo(
+        targetOffset,
+        duration: const Duration(milliseconds: 250),
+        curve: Curves.easeOut,
+      );
+      return;
+    }
+
+    _scrollController.jumpTo(targetOffset);
   }
 
   Future<void> _sendMessage() async {
-    if (_messageController.text.trim().isEmpty) return;
-
     final content = _messageController.text.trim();
-    _messageController.clear();
-
-    final chatService = ref.read(chatServiceStateProvider.notifier);
-    await chatService.sendMessage(widget.chatId, content);
-
-    // Scroll to bottom
-    if (_scrollController.hasClients) {
-      _scrollController.animateTo(
-        0,
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeOut,
-      );
+    if (content.isEmpty) {
+      return;
     }
+
+    _messageController.clear();
+    await _chatNotifier.sendMessage(widget.chatId, content);
+    if (!mounted) {
+      return;
+    }
+
+    _sendTypingIndicator(false);
+    setState(() {
+      _isSendingTyping = false;
+    });
+    _scrollToBottom(animated: true);
   }
 
   void _onTextChanged(String text) {
-    if (text.isNotEmpty && !_isTyping) {
+    if (text.isNotEmpty && !_isSendingTyping) {
       setState(() {
-        _isTyping = true;
+        _isSendingTyping = true;
       });
       _sendTypingIndicator(true);
     }
 
+    if (text.isEmpty && _isSendingTyping) {
+      _typingTimer?.cancel();
+      setState(() {
+        _isSendingTyping = false;
+      });
+      _sendTypingIndicator(false);
+      return;
+    }
+
     _typingTimer?.cancel();
     _typingTimer = Timer(const Duration(seconds: 2), () {
-      if (_isTyping) {
-        setState(() {
-          _isTyping = false;
-        });
-        _sendTypingIndicator(false);
+      if (!mounted || !_isSendingTyping) {
+        return;
       }
+
+      setState(() {
+        _isSendingTyping = false;
+      });
+      _sendTypingIndicator(false);
     });
   }
 
   void _sendTypingIndicator(bool isTyping) {
-    ref
-        .read(chatServiceStateProvider.notifier)
-        .sendTypingIndicator(widget.chatId, isTyping);
+    _chatNotifier.sendTypingIndicator(widget.chatId, isTyping);
   }
 
   ChatRoom? _findCurrentRoom(List<ChatRoom> rooms) {
@@ -141,7 +195,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   @override
   Widget build(BuildContext context) {
     final chatState = ref.watch(chatServiceStateProvider);
-    final messages = chatState.messages[widget.chatId] ?? [];
+    final messages = [
+      ...(chatState.messages[widget.chatId] ?? const <ChatMessage>[])
+    ]..sort((left, right) => left.createdAt.compareTo(right.createdAt));
+    final isRemoteTyping = chatState.typingUsers[widget.chatId] ?? false;
     final currentRoom = _findCurrentRoom(chatState.rooms);
     final canViewProfile = currentRoom != null &&
         !currentRoom.isGroup &&
@@ -154,15 +211,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.videocam),
-            onPressed: () {
-              _startVideoCall();
-            },
+            onPressed: _startVideoCall,
           ),
           IconButton(
             icon: const Icon(Icons.phone),
-            onPressed: () {
-              _startVoiceCall();
-            },
+            onPressed: _startVoiceCall,
           ),
           PopupMenuButton<String>(
             onSelected: (value) {
@@ -227,16 +280,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                 ? _buildEmptyState()
                 : ListView.builder(
                     controller: _scrollController,
-                    reverse: true,
-                    itemCount: messages.length + (_isTyping ? 1 : 0),
+                    itemCount: messages.length + (isRemoteTyping ? 1 : 0),
                     itemBuilder: (context, index) {
-                      if (_isTyping && index == 0) {
+                      if (isRemoteTyping && index == messages.length) {
                         return const TypingIndicator();
                       }
 
-                      final messageIndex = _isTyping ? index - 1 : index;
-                      final message = messages[messageIndex];
-
+                      final message = messages[index];
                       final currentUser = ref.read(currentUserProvider);
                       return MessageBubble(
                         message: message,
@@ -848,6 +898,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   Future<void> _openCall({required bool isVideoCall}) async {
     final currentRoom = _getCurrentRoom();
     final currentUser = ref.read(currentUserProvider);
+    final callController = ref.read(chatCallControllerProvider.notifier);
 
     if (currentRoom == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -872,6 +923,28 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       return;
     }
 
+    final started = await callController.startOutgoingCall(
+      room: currentRoom,
+      currentUser: currentUser,
+      isVideoCall: isVideoCall,
+    );
+
+    if (!started) {
+      if (!mounted) {
+        return;
+      }
+      final errorMessage = ref.read(chatCallControllerProvider).errorMessage ??
+          'Unable to start the call.';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(errorMessage)),
+      );
+      return;
+    }
+
+    if (!mounted) {
+      return;
+    }
+
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (context) => ChatCallScreen(
@@ -879,10 +952,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           currentUser: currentUser,
           currentUserId: currentUser.id,
           isVideoCall: isVideoCall,
-          autoStartOutgoing: true,
+          autoStartOutgoing: false,
         ),
       ),
     );
+
+    await callController.clearFinishedCall();
   }
 
   void _openParticipantProfile() {

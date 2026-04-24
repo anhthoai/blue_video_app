@@ -7029,6 +7029,112 @@ function serializeChatMessage(message: any) {
   };
 }
 
+function serializeChatRoom(room: any) {
+  const latestMessage = Array.isArray(room.messages) && room.messages.length > 0
+    ? room.messages[0]
+    : null;
+
+  return {
+    id: room.id,
+    name: room.name,
+    type: room.type,
+    isGroup: room.type === 'GROUP',
+    participants: room.participants.map((participant: any) => ({
+      id: participant.user.id,
+      username: participant.user.username,
+      firstName: participant.user.firstName,
+      lastName: participant.user.lastName,
+      avatarUrl: buildAvatarUrl(participant.user) || participant.user.avatarUrl,
+      isVerified: participant.user.isVerified,
+      joinedAt: participant.joinedAt?.toISOString(),
+      role: participant.role,
+    })),
+    lastMessage: latestMessage ? serializeChatMessage(latestMessage) : null,
+    unreadCount: 0,
+    isOnline: false,
+    createdAt: room.createdAt.toISOString(),
+    updatedAt: room.updatedAt.toISOString(),
+    createdBy: room.creator ? {
+      id: room.creator.id,
+      username: room.creator.username,
+      firstName: room.creator.firstName,
+      lastName: room.creator.lastName,
+    } : null,
+  };
+}
+
+async function getSerializedChatRoom(roomId: string) {
+  const room = await prisma.chatRoom.findUnique({
+    where: {
+      id: roomId,
+    },
+    include: {
+      participants: {
+        include: {
+          user: {
+            select: {
+              id: true,
+              username: true,
+              firstName: true,
+              lastName: true,
+              avatarUrl: true,
+              avatar: true,
+              fileDirectory: true,
+              isVerified: true,
+            },
+          },
+        },
+      },
+      messages: {
+        orderBy: {
+          createdAt: 'desc',
+        },
+        take: 1,
+        include: {
+          user: {
+            select: {
+              id: true,
+              username: true,
+              firstName: true,
+              lastName: true,
+              avatarUrl: true,
+              avatar: true,
+              fileDirectory: true,
+              s3StorageId: true,
+              isVerified: true,
+            },
+          },
+        },
+      },
+      creator: {
+        select: {
+          id: true,
+          username: true,
+          firstName: true,
+          lastName: true,
+        },
+      },
+    },
+  });
+
+  return room ? serializeChatRoom(room) : null;
+}
+
+async function emitChatRoomUpdate(roomId: string, participantIds?: string[]) {
+  const serializedRoom = await getSerializedChatRoom(roomId);
+  if (!serializedRoom) {
+    return;
+  }
+
+  const recipientIds = participantIds && participantIds.length > 0
+    ? participantIds
+    : await getChatRoomParticipantIds(roomId);
+
+  recipientIds.forEach(participantId => {
+    io.to(`user-${participantId}`).emit('chat-room-updated', serializedRoom);
+  });
+}
+
 async function isUserInChatRoom(roomId: string, userId: string) {
   const participant = await prisma.chatRoomParticipant.findFirst({
     where: {
@@ -7104,6 +7210,7 @@ async function createSystemChatMessage(roomId: string, userId: string, content: 
 
   const serializedMessage = serializeChatMessage(message);
   io.to(`chat-${roomId}`).emit('new-message', serializedMessage);
+  await emitChatRoomUpdate(roomId);
 
   return serializedMessage;
 }
@@ -7185,42 +7292,7 @@ app.get('/api/v1/chat/rooms', async (req, res) => {
       take: Number(limit),
     });
 
-    // Serialize chat rooms
-    const serializedRooms = chatRooms.map(room => ({
-      id: room.id,
-      name: room.name,
-      type: room.type,
-      isGroup: room.type === 'GROUP',
-      participants: room.participants.map((p: any) => ({
-        id: p.user.id,
-        username: p.user.username,
-        firstName: p.user.firstName,
-        lastName: p.user.lastName,
-        avatarUrl: buildAvatarUrl(p.user) || p.user.avatarUrl,
-        isVerified: p.user.isVerified,
-        joinedAt: p.joinedAt.toISOString(),
-        role: p.role,
-      })),
-      lastMessage: room.messages.length > 0 && room.messages[0] ? {
-        id: room.messages[0].id,
-        content: room.messages[0].content,
-        type: room.messages[0].messageType,
-        createdAt: room.messages[0].createdAt.toISOString(),
-        userId: room.messages[0].userId,
-        username: room.messages[0].user?.username || 'Unknown',
-        userAvatar: room.messages[0].user ? (buildAvatarUrl(room.messages[0].user) || room.messages[0].user.avatarUrl) : null,
-      } : null,
-      unreadCount: 0, // TODO: Implement unread count
-      isOnline: false, // TODO: Implement online status
-      createdAt: room.createdAt.toISOString(),
-      updatedAt: room.updatedAt.toISOString(),
-      createdBy: room.creator ? {
-        id: room.creator.id,
-        username: room.creator.username,
-        firstName: room.creator.firstName,
-        lastName: room.creator.lastName,
-      } : null,
-    }));
+    const serializedRooms = chatRooms.map(room => serializeChatRoom(room));
 
     res.json({
       success: true,
@@ -7370,15 +7442,14 @@ app.post('/api/v1/chat/rooms', async (req, res) => {
             },
           },
         },
-        include: {
-          participants: true,
-        },
       });
 
       if (existingRoom) {
+        const serializedExistingRoom = await getSerializedChatRoom(existingRoom.id);
+
         return res.json({
           success: true,
-          data: existingRoom,
+          data: serializedExistingRoom,
           message: 'Existing chat room found',
         });
       }
@@ -7425,29 +7496,12 @@ app.post('/api/v1/chat/rooms', async (req, res) => {
       },
     });
 
+    const allParticipantIds = [currentUserId, ...participantIds];
+    await emitChatRoomUpdate(chatRoom.id, allParticipantIds);
+
     return res.json({
       success: true,
-      data: {
-        id: chatRoom.id,
-        name: chatRoom.name,
-        type: chatRoom.type,
-        isGroup: chatRoom.type === 'GROUP',
-        participants: chatRoom.participants.map((p: any) => ({
-          id: p.user.id,
-          username: p.user.username,
-          firstName: p.user.firstName,
-          lastName: p.user.lastName,
-          avatarUrl: buildAvatarUrl(p.user) || p.user.avatarUrl,
-          isVerified: p.user.isVerified,
-        })),
-        createdAt: chatRoom.createdAt.toISOString(),
-        createdBy: {
-          id: chatRoom.creator.id,
-          username: chatRoom.creator.username,
-          firstName: chatRoom.creator.firstName,
-          lastName: chatRoom.creator.lastName,
-        },
-      },
+      data: await getSerializedChatRoom(chatRoom.id),
     });
   } catch (error) {
     console.error('Error creating chat room:', error);
@@ -7624,9 +7678,16 @@ app.post('/api/v1/chat/rooms/:roomId/messages', async (req, res) => {
     });
 
     const serializedMessage = serializeChatMessage(message);
+    const participantIds = await getChatRoomParticipantIds(roomId);
 
     // Emit to Socket.IO for real-time updates
     io.to(`chat-${roomId}`).emit('new-message', serializedMessage);
+    participantIds
+      .filter(participantId => participantId !== currentUserId)
+      .forEach(participantId => {
+        io.to(`user-${participantId}`).emit('new-message', serializedMessage);
+      });
+    await emitChatRoomUpdate(roomId, participantIds);
 
     res.json({
       success: true,
@@ -7724,6 +7785,7 @@ io.on('connection', (socket) => {
   socket.on('typing-start', (data) => {
     const { roomId, userId, username } = data;
     socket.to(`chat-${roomId}`).emit('user-typing', {
+      roomId,
       userId,
       username,
       isTyping: true,
@@ -7733,6 +7795,7 @@ io.on('connection', (socket) => {
   socket.on('typing-stop', (data) => {
     const { roomId, userId } = data;
     socket.to(`chat-${roomId}`).emit('user-typing', {
+      roomId,
       userId,
       isTyping: false,
     });

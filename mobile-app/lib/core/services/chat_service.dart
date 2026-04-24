@@ -10,23 +10,42 @@ import '../../models/chat_message.dart';
 import '../../models/chat_room.dart';
 import 'api_service.dart';
 
+class ChatTypingEvent {
+  final String roomId;
+  final String? userId;
+  final String? username;
+  final bool isTyping;
+
+  const ChatTypingEvent({
+    required this.roomId,
+    required this.isTyping,
+    this.userId,
+    this.username,
+  });
+}
+
 class ChatService {
   socket_io.Socket? _socket;
   final StreamController<ChatMessage> _messageController =
       StreamController<ChatMessage>.broadcast();
   final StreamController<ChatRoom> _roomController =
       StreamController<ChatRoom>.broadcast();
+  final StreamController<ChatTypingEvent> _typingController =
+      StreamController<ChatTypingEvent>.broadcast();
   final StreamController<ChatSocketEvent> _callEventController =
       StreamController<ChatSocketEvent>.broadcast();
+  final Set<String> _joinedRoomIds = <String>{};
   String? _currentUserId;
   String? _authToken;
   bool _isConnected = false;
+  bool _isConnecting = false;
   Timer? _heartbeatTimer;
   final ApiService _apiService = ApiService();
 
   bool get isConnected => _isConnected;
   Stream<ChatMessage> get messageStream => _messageController.stream;
   Stream<ChatRoom> get roomStream => _roomController.stream;
+  Stream<ChatTypingEvent> get typingStream => _typingController.stream;
   Stream<ChatSocketEvent> get callEventStream => _callEventController.stream;
 
   void initialize(String userId, String authToken) {
@@ -34,13 +53,49 @@ class ChatService {
     _authToken = authToken;
   }
 
+  Future<void> _waitForConnection(socket_io.Socket socket) async {
+    if (socket.connected) {
+      _isConnected = true;
+      _isConnecting = false;
+      return;
+    }
+
+    final deadline = DateTime.now().add(const Duration(seconds: 3));
+    while (DateTime.now().isBefore(deadline)) {
+      if (socket.connected) {
+        _isConnected = true;
+        _isConnecting = false;
+        return;
+      }
+
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+    }
+
+    _isConnecting = false;
+  }
+
   Future<void> connect() async {
-    if (_isConnected || _socket != null || _authToken == null) {
+    if (_authToken == null || _isConnecting) {
+      return;
+    }
+
+    final existingSocket = _socket;
+    if (existingSocket != null) {
+      if (existingSocket.connected) {
+        _isConnected = true;
+        return;
+      }
+
+      _isConnecting = true;
+      debugPrint('Reconnecting to chat server');
+      existingSocket.connect();
+      await _waitForConnection(existingSocket);
       return;
     }
 
     try {
-      _socket = socket_io.io(
+      _isConnecting = true;
+      final socket = socket_io.io(
         _apiService.socketUrl,
         socket_io.OptionBuilder()
             .setTransports(['websocket'])
@@ -48,29 +103,35 @@ class ChatService {
             .enableAutoConnect()
             .build(),
       );
+      _socket = socket;
 
-      _socket!.onConnect((_) {
+      socket.onConnect((_) {
         _isConnected = true;
+        _isConnecting = false;
         debugPrint('Connected to chat server');
         if (_currentUserId != null) {
-          _socket!.emit('join-user-room', _currentUserId);
+          socket.emit('join-user-room', _currentUserId);
+        }
+        for (final roomId in _joinedRoomIds) {
+          socket.emit('join-chat-room', roomId);
         }
       });
 
-      _socket!.onDisconnect((_) {
+      socket.onDisconnect((_) {
         _isConnected = false;
+        _isConnecting = false;
         debugPrint('Disconnected from chat server');
       });
 
-      _socket!.onConnectError((error) {
+      socket.onConnectError((error) {
         _isConnected = false;
+        _isConnecting = false;
         debugPrint('Chat connection error: $error');
       });
 
-      _socket!.on('new-message', _handleIncomingMessage);
-      _socket!.on('user-typing', (data) {
-        debugPrint('Typing update: $data');
-      });
+      socket.on('new-message', _handleIncomingMessage);
+      socket.on('chat-room-updated', _handleIncomingRoomUpdate);
+      socket.on('user-typing', _handleTypingUpdate);
 
       for (final eventName in const [
         'incoming-call',
@@ -84,13 +145,16 @@ class ChatService {
         'webrtc-answer',
         'webrtc-ice-candidate',
       ]) {
-        _socket!.on(eventName, (data) {
+        socket.on(eventName, (data) {
           _emitCallEvent(eventName, data);
         });
       }
+
+      await _waitForConnection(socket);
     } catch (e) {
       debugPrint('Failed to connect to chat server: $e');
       _isConnected = false;
+      _isConnecting = false;
     }
   }
 
@@ -101,6 +165,7 @@ class ChatService {
     _socket?.disconnect();
     _socket = null;
     _isConnected = false;
+    _isConnecting = false;
   }
 
   Future<List<ChatRoom>> loadChatRooms({int page = 1, int limit = 20}) async {
@@ -222,14 +287,28 @@ class ChatService {
   }
 
   void joinChatRoom(String roomId) {
-    _socket?.emit('join-chat-room', roomId);
+    _joinedRoomIds.add(roomId);
+    if (_socket?.connected == true) {
+      _socket?.emit('join-chat-room', roomId);
+      return;
+    }
+
+    unawaited(connect());
   }
 
   void leaveChatRoom(String roomId) {
-    _socket?.emit('leave-chat-room', roomId);
+    _joinedRoomIds.remove(roomId);
+    if (_socket?.connected == true) {
+      _socket?.emit('leave-chat-room', roomId);
+    }
   }
 
   void sendTypingIndicator(String roomId, bool isTyping) {
+    if (_socket?.connected != true) {
+      unawaited(connect());
+      return;
+    }
+
     if (isTyping) {
       _socket?.emit('typing-start', {
         'roomId': roomId,
@@ -354,11 +433,43 @@ class ChatService {
     }
   }
 
+  void _handleIncomingRoomUpdate(dynamic data) {
+    try {
+      final room = ChatRoom.fromJson(_normalizeSocketPayload(data));
+      _roomController.add(room);
+    } catch (e) {
+      debugPrint('Error handling incoming room update: $e');
+    }
+  }
+
+  void _handleTypingUpdate(dynamic data) {
+    try {
+      final payload = _normalizeSocketPayload(data);
+      final roomId = payload['roomId'] as String?;
+      if (roomId == null || roomId.isEmpty) {
+        return;
+      }
+
+      _typingController.add(
+        ChatTypingEvent(
+          roomId: roomId,
+          userId: payload['userId'] as String?,
+          username: payload['username'] as String?,
+          isTyping: payload['isTyping'] as bool? ?? false,
+        ),
+      );
+    } catch (e) {
+      debugPrint('Error handling typing update: $e');
+    }
+  }
+
   void dispose() {
     _heartbeatTimer?.cancel();
     _messageController.close();
     _roomController.close();
+    _typingController.close();
     _callEventController.close();
+    _isConnecting = false;
     _socket?.disconnect();
   }
 }
@@ -400,11 +511,13 @@ class ChatServiceNotifier extends StateNotifier<ChatServiceState> {
 
   ChatServiceNotifier(this._chatService) : super(const ChatServiceState()) {
     _setupMessageListener();
+    _setupRoomListener();
+    _setupTypingListener();
   }
 
   void initialize(String userId, String authToken) {
     _chatService.initialize(userId, authToken);
-    _chatService.connect();
+    unawaited(_chatService.connect());
   }
 
   void _setupMessageListener() {
@@ -426,6 +539,46 @@ class ChatServiceNotifier extends StateNotifier<ChatServiceState> {
         );
       }
     });
+  }
+
+  void _setupRoomListener() {
+    _chatService.roomStream.listen((room) {
+      state = state.copyWith(rooms: _mergeRoomIntoList(state.rooms, room));
+    });
+  }
+
+  void _setupTypingListener() {
+    _chatService.typingStream.listen((event) {
+      final updatedTypingUsers = Map<String, bool>.from(state.typingUsers);
+      if (event.isTyping) {
+        updatedTypingUsers[event.roomId] = true;
+      } else {
+        updatedTypingUsers.remove(event.roomId);
+      }
+
+      state = state.copyWith(typingUsers: updatedTypingUsers);
+    });
+  }
+
+  List<ChatRoom> _mergeRoomIntoList(List<ChatRoom> rooms, ChatRoom room) {
+    final updatedRooms = [...rooms];
+    final existingIndex = updatedRooms.indexWhere(
+      (existingRoom) => existingRoom.id == room.id,
+    );
+
+    if (existingIndex >= 0) {
+      updatedRooms[existingIndex] = room;
+    } else {
+      updatedRooms.add(room);
+    }
+
+    updatedRooms.sort((left, right) {
+      final leftUpdatedAt = left.updatedAt ?? left.createdAt;
+      final rightUpdatedAt = right.updatedAt ?? right.createdAt;
+      return rightUpdatedAt.compareTo(leftUpdatedAt);
+    });
+
+    return updatedRooms;
   }
 
   List<ChatRoom> _applyLastMessageToRooms(
@@ -454,6 +607,7 @@ class ChatServiceNotifier extends StateNotifier<ChatServiceState> {
     state = state.copyWith(isLoading: true, error: null);
 
     try {
+      await _chatService.connect();
       final rooms = await _chatService.loadChatRooms();
       state = state.copyWith(rooms: rooms, isLoading: false);
     } catch (e) {
@@ -465,10 +619,12 @@ class ChatServiceNotifier extends StateNotifier<ChatServiceState> {
     state = state.copyWith(isLoading: true, error: null);
 
     try {
+      await _chatService.connect();
       final messages = await _chatService.loadMessages(roomId: roomId);
       final updatedMessages =
           Map<String, List<ChatMessage>>.from(state.messages);
-      updatedMessages[roomId] = messages;
+      updatedMessages[roomId] = [...messages]
+        ..sort((left, right) => left.createdAt.compareTo(right.createdAt));
 
       state = state.copyWith(messages: updatedMessages, isLoading: false);
     } catch (e) {
@@ -496,6 +652,7 @@ class ChatServiceNotifier extends StateNotifier<ChatServiceState> {
     String? mimeType,
   }) async {
     try {
+      await _chatService.connect();
       final message = await _chatService.sendMessage(
         roomId: roomId,
         content: content,
@@ -539,8 +696,7 @@ class ChatServiceNotifier extends StateNotifier<ChatServiceState> {
       );
 
       if (room != null) {
-        final updatedRooms = [...state.rooms, room];
-        state = state.copyWith(rooms: updatedRooms);
+        state = state.copyWith(rooms: _mergeRoomIntoList(state.rooms, room));
       }
 
       return room;

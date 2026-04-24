@@ -80,6 +80,16 @@ class ChatCallController extends StateNotifier<ChatCallState> {
       return false;
     }
 
+    await _chatService.connect();
+    if (!_chatService.isConnected) {
+      state = state.copyWith(
+        phase: ChatCallPhase.error,
+        statusText: 'Unable to connect to the chat server.',
+        errorMessage: 'Unable to connect to the chat server.',
+      );
+      return false;
+    }
+
     final remoteParticipant = participants.first;
 
     state = state.copyWith(
@@ -614,6 +624,7 @@ class ChatCallController extends StateNotifier<ChatCallState> {
       isMuted: false,
       isSpeakerOn: true,
       isCameraEnabled: false,
+      isFrontCamera: true,
       statusText: statusText,
       isOutgoing: false,
       hasRemoteVideo: false,

@@ -172,12 +172,12 @@ class ApiService {
     return await _handleResponse(response);
   }
 
+  String get rootUrl => baseUrl.replaceFirst(RegExp(r'/api/v\d+/?$'), '');
+
   Future<Map<String, dynamic>> checkAppVersion({
     required String platform,
     required String currentVersion,
   }) async {
-    // Use root URL (not /api/v1) for app-version endpoint
-    final rootUrl = baseUrl.replaceAll('/api/v1', '');
     final response = await http.get(
       Uri.parse(
           '$rootUrl/app-version?platform=$platform&currentVersion=$currentVersion'),
@@ -1697,8 +1697,7 @@ class ApiService {
   }
 
   // Socket.IO URL
-  String get socketUrl =>
-      baseUrl.replaceAll('http://', 'ws://').replaceAll('https://', 'wss://');
+  String get socketUrl => rootUrl;
 
   // ============================================================================
   // PAYMENT API METHODS
