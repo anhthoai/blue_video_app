@@ -1,0 +1,702 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Blue Video | Direct Install</title>
+  <meta
+    name="description"
+    content="Download Blue Video for Android and iPhone with a fast direct install page and a first-time iPhone setup guide."
+  >
+  <meta name="theme-color" content="#157df2">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&family=Space+Grotesk:wght@500;700&display=swap"
+    rel="stylesheet"
+  >
+  <link rel="icon" type="image/png" href="./assets/logo-transparent.png">
+  <link rel="apple-touch-icon" href="./assets/logo-transparent.png">
+  <style>
+    :root {
+      --bg-top: #f6fbff;
+      --bg-bottom: #fff7fb;
+      --surface: rgba(255, 255, 255, 0.8);
+      --surface-strong: rgba(255, 255, 255, 0.92);
+      --text: #08172d;
+      --muted: #50627d;
+      --line: rgba(12, 44, 86, 0.1);
+      --cyan: #1bc5e8;
+      --blue: #1a7ff6;
+      --violet: #5d35ff;
+      --pink: #ff50d7;
+      --gold: #ffb508;
+      --shadow: 0 28px 80px rgba(19, 61, 121, 0.12);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--text);
+      font-family: "Manrope", "Segoe UI", sans-serif;
+      background:
+        radial-gradient(circle at top left, rgba(27, 197, 232, 0.2), transparent 35%),
+        radial-gradient(circle at 85% 0%, rgba(255, 80, 215, 0.18), transparent 28%),
+        linear-gradient(180deg, var(--bg-top) 0%, #eef6ff 48%, var(--bg-bottom) 100%);
+    }
+
+    body::before,
+    body::after {
+      content: "";
+      position: fixed;
+      inset: auto;
+      pointer-events: none;
+      z-index: 0;
+      border-radius: 999px;
+      filter: blur(10px);
+      opacity: 0.5;
+    }
+
+    body::before {
+      width: 240px;
+      height: 240px;
+      right: 6%;
+      bottom: 8%;
+      background: rgba(27, 197, 232, 0.16);
+    }
+
+    body::after {
+      width: 280px;
+      height: 280px;
+      left: 4%;
+      top: 18%;
+      background: rgba(255, 80, 215, 0.08);
+    }
+
+    a {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    strong {
+      color: var(--text);
+    }
+
+    .page {
+      position: relative;
+      z-index: 1;
+      width: min(1140px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 28px 0 64px;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      margin-bottom: 28px;
+    }
+
+    .topbar-actions {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      min-width: 0;
+    }
+
+    .brand img {
+      width: 56px;
+      height: 56px;
+      flex: 0 0 auto;
+      border-radius: 18px;
+      box-shadow: 0 18px 40px rgba(24, 95, 214, 0.18);
+      background: rgba(255, 255, 255, 0.82);
+    }
+
+    .brand-copy {
+      min-width: 0;
+    }
+
+    .brand-name {
+      display: block;
+      font-family: "Space Grotesk", sans-serif;
+      font-size: 1.05rem;
+      font-weight: 700;
+      letter-spacing: 0.01em;
+    }
+
+    .brand-subtitle {
+      display: block;
+      margin-top: 2px;
+      color: var(--muted);
+      font-size: 0.92rem;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 11px 16px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.72);
+      box-shadow: 0 14px 35px rgba(14, 49, 104, 0.08);
+      color: #23405f;
+      font-size: 0.92rem;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .pill::before {
+      content: "";
+      width: 9px;
+      height: 9px;
+      border-radius: 999px;
+      background: linear-gradient(135deg, var(--cyan), var(--pink));
+      box-shadow: 0 0 0 5px rgba(27, 197, 232, 0.12);
+    }
+
+    .lang-nav {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.72);
+      box-shadow: 0 14px 35px rgba(14, 49, 104, 0.08);
+    }
+
+    .lang-link {
+      padding: 10px 14px;
+      border-radius: 999px;
+      color: var(--muted);
+      font-size: 0.9rem;
+      font-weight: 800;
+      line-height: 1;
+    }
+
+    .lang-link.is-active {
+      background: rgba(26, 127, 246, 0.12);
+      color: var(--text);
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: minmax(0, 1.08fr) minmax(320px, 0.92fr);
+      gap: 28px;
+      align-items: stretch;
+    }
+
+    .panel {
+      border: 1px solid var(--line);
+      border-radius: 32px;
+      background: var(--surface);
+      backdrop-filter: blur(18px);
+      box-shadow: var(--shadow);
+    }
+
+    .copy-panel {
+      padding: 38px;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 14px;
+      border-radius: 999px;
+      background: rgba(8, 23, 45, 0.05);
+      color: #17365f;
+      font-size: 0.94rem;
+      font-weight: 800;
+      letter-spacing: 0.01em;
+    }
+
+    .eyebrow::before {
+      content: "Install";
+      padding: 4px 8px;
+      border-radius: 999px;
+      background: linear-gradient(135deg, rgba(27, 197, 232, 0.18), rgba(93, 53, 255, 0.18));
+      color: #0f56a9;
+      font-size: 0.78rem;
+      font-weight: 800;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      margin: 18px 0 18px;
+      max-width: 10ch;
+      font-family: "Space Grotesk", sans-serif;
+      font-size: clamp(2.9rem, 7vw, 5.2rem);
+      line-height: 0.96;
+      letter-spacing: -0.04em;
+    }
+
+    .lead {
+      max-width: 40rem;
+      margin: 0;
+      color: var(--muted);
+      font-size: 1.08rem;
+      line-height: 1.72;
+    }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 14px;
+      margin-top: 28px;
+    }
+
+    .button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 220px;
+      padding: 16px 24px;
+      border-radius: 18px;
+      border: 1px solid transparent;
+      font-size: 1rem;
+      font-weight: 800;
+      transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
+    }
+
+    .button:hover {
+      transform: translateY(-2px);
+    }
+
+    .button-primary {
+      background: linear-gradient(135deg, var(--blue), var(--violet));
+      color: #fff;
+      box-shadow: 0 20px 48px rgba(26, 127, 246, 0.34);
+    }
+
+    .button-secondary {
+      border-color: rgba(12, 44, 86, 0.12);
+      background: rgba(255, 255, 255, 0.82);
+      color: var(--text);
+      box-shadow: 0 18px 40px rgba(14, 49, 104, 0.08);
+    }
+
+    .button-note {
+      margin-top: 16px;
+      color: var(--muted);
+      font-size: 0.94rem;
+      line-height: 1.6;
+    }
+
+    .micro-links {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px 16px;
+      align-items: center;
+      margin-top: 14px;
+      color: var(--muted);
+      font-size: 0.93rem;
+      line-height: 1.6;
+    }
+
+    .text-link {
+      color: #0f56a9;
+      font-weight: 800;
+    }
+
+    .callout {
+      margin-top: 22px;
+      padding: 18px 20px;
+      border: 1px solid rgba(26, 127, 246, 0.12);
+      border-radius: 24px;
+      background: linear-gradient(135deg, rgba(27, 197, 232, 0.08), rgba(255, 255, 255, 0.92));
+      color: #27476a;
+      line-height: 1.65;
+    }
+
+    .highlights {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 24px;
+    }
+
+    .highlight {
+      padding: 16px;
+      border-radius: 22px;
+      background: rgba(8, 23, 45, 0.035);
+      border: 1px solid rgba(12, 44, 86, 0.06);
+    }
+
+    .highlight strong {
+      display: block;
+      margin-bottom: 6px;
+      font-size: 0.95rem;
+    }
+
+    .highlight span {
+      display: block;
+      color: var(--muted);
+      font-size: 0.93rem;
+      line-height: 1.55;
+    }
+
+    .visual-panel {
+      position: relative;
+      overflow: hidden;
+      padding: 32px;
+      background:
+        linear-gradient(160deg, rgba(27, 197, 232, 0.16), rgba(255, 255, 255, 0.82) 34%, rgba(255, 80, 215, 0.16) 100%);
+    }
+
+    .visual-panel::before {
+      content: "";
+      position: absolute;
+      width: 240px;
+      height: 240px;
+      top: -56px;
+      right: -36px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(255, 181, 8, 0.34), rgba(255, 181, 8, 0));
+    }
+
+    .visual-top {
+      display: flex;
+      justify-content: flex-start;
+      margin-bottom: 10px;
+    }
+
+    .logo-stage {
+      position: relative;
+      display: grid;
+      place-items: center;
+      min-height: 290px;
+      margin-bottom: 24px;
+    }
+
+    .logo-halo {
+      position: absolute;
+      width: min(310px, 78%);
+      aspect-ratio: 1;
+      border-radius: 50%;
+      background: conic-gradient(from 160deg, rgba(27, 197, 232, 0.22), rgba(26, 127, 246, 0.22), rgba(255, 80, 215, 0.22), rgba(255, 181, 8, 0.16), rgba(27, 197, 232, 0.22));
+      filter: blur(4px);
+    }
+
+    .logo-stage img {
+      position: relative;
+      width: min(310px, 74%);
+      max-width: 100%;
+      filter: drop-shadow(0 24px 40px rgba(21, 98, 214, 0.18));
+    }
+
+    .install-card {
+      position: relative;
+      z-index: 1;
+      padding: 24px;
+      border-radius: 26px;
+      background: var(--surface-strong);
+      border: 1px solid rgba(12, 44, 86, 0.1);
+    }
+
+    .install-card h2 {
+      margin: 0 0 12px;
+      font-family: "Space Grotesk", sans-serif;
+      font-size: 1.55rem;
+      letter-spacing: -0.02em;
+    }
+
+    .install-card p {
+      margin: 0 0 16px;
+      color: var(--muted);
+      line-height: 1.65;
+    }
+
+    .install-card ol {
+      margin: 0;
+      padding-left: 1.2rem;
+      display: grid;
+      gap: 12px;
+      color: var(--muted);
+      line-height: 1.65;
+    }
+
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 20px;
+      margin-top: 22px;
+    }
+
+    .info-card {
+      padding: 24px;
+      border-radius: 26px;
+      border: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.76);
+      box-shadow: 0 18px 44px rgba(14, 49, 104, 0.08);
+    }
+
+    .info-card h3 {
+      margin: 0 0 10px;
+      font-family: "Space Grotesk", sans-serif;
+      font-size: 1.22rem;
+      letter-spacing: -0.02em;
+    }
+
+    .info-card p {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.68;
+    }
+
+    .footer {
+      margin-top: 24px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 8px 18px;
+      flex-wrap: wrap;
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    @media (max-width: 960px) {
+      .hero,
+      .cards {
+        grid-template-columns: 1fr;
+      }
+
+      h1 {
+        max-width: none;
+      }
+
+      .highlights {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 640px) {
+      .page {
+        width: min(100% - 20px, 100%);
+        padding: 18px 0 42px;
+      }
+
+      .topbar {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+
+      .topbar-actions {
+        justify-content: flex-start;
+      }
+
+      .copy-panel,
+      .visual-panel,
+      .info-card {
+        padding: 22px;
+      }
+
+      .button {
+        width: 100%;
+        min-width: 0;
+      }
+
+      .highlights {
+        grid-template-columns: 1fr;
+      }
+
+      .logo-stage {
+        min-height: 220px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header class="topbar">
+      <div class="brand">
+        <img src="./assets/logo-transparent.png" alt="Blue Video logo">
+        <div class="brand-copy">
+          <span class="brand-name">Blue Video</span>
+          <span class="brand-subtitle">Official direct install page</span>
+        </div>
+      </div>
+      <div class="topbar-actions">
+        <div class="pill">Fast deployment ready</div>
+        <nav class="lang-nav" aria-label="Language switcher">
+          <a class="lang-link is-active" href="./index.html">English</a>
+          <a class="lang-link" href="./zh/index.html">中文</a>
+        </nav>
+      </div>
+    </header>
+
+    <section class="hero" aria-label="Blue Video install hero">
+      <div class="panel copy-panel">
+        <div class="eyebrow">Official release</div>
+        <h1>Install Blue Video in minutes.</h1>
+        <p class="lead">
+          One clean page for the official Android APK, the first-time iPhone install flow,
+          and the exact steps users need when they install Blue Video before the App Store release.
+        </p>
+
+        <div class="actions">
+          <a
+            class="button button-primary"
+            href="https://cdn.onlybl.com/downloads/blue-video-latest.apk"
+            target="_blank"
+            rel="noopener"
+          >
+            Download Android APK
+          </a>
+          <a
+            class="button button-secondary"
+            id="ios-install-link"
+            href="https://cdn.onlybl.com/downloads/blue-video-latest.ipa"
+            data-manifest-path="./manifest.plist"
+            data-fallback-url="https://cdn.onlybl.com/downloads/blue-video-latest.ipa"
+          >
+            Open iPhone Install
+          </a>
+        </div>
+
+        <p class="button-note" id="ios-install-status">
+          Android may ask for permission to install from this browser. iPhone users should open this page in Safari.
+        </p>
+
+        <div class="micro-links">
+          <a class="text-link" id="manifest-preview-link" href="./manifest.plist" target="_blank" rel="noopener">Preview manifest.plist</a>
+          <a class="text-link" href="https://x.com/onlyblcom" target="_blank" rel="noopener">x.com/onlyblcom</a>
+          <span>Need help? Open App Support after you sign in.</span>
+        </div>
+
+        <div class="callout">
+          <strong>Important for iPhone first-time install:</strong> tap the iPhone button in Safari. If the install opens in
+          TestFlight, accept the invite there. If iOS asks you to trust the developer after the icon appears, go to
+          <strong>Settings &gt; General &gt; VPN &amp; Device Management</strong> and trust the Blue Video profile.
+        </div>
+
+        <div class="highlights">
+          <div class="highlight">
+            <strong>Official link only</strong>
+            <span>Install only from the download buttons on this page.</span>
+          </div>
+          <div class="highlight">
+            <strong>Fast updates</strong>
+            <span>Direct delivery lets new versions go live without store review delay.</span>
+          </div>
+          <div class="highlight">
+            <strong>Simple setup</strong>
+            <span>Android is one direct download. iPhone users get a clear first-run guide below.</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel visual-panel">
+        <div class="visual-top">
+          <div class="pill">First-time install help</div>
+        </div>
+
+        <div class="logo-stage" aria-hidden="true">
+          <div class="logo-halo"></div>
+          <img src="./assets/logo-transparent.png" alt="">
+        </div>
+
+        <div class="install-card">
+          <h2>How to install on iPhone</h2>
+          <p>Users do not need the App Store first, but the install path is different from a normal public app install.</p>
+          <ol>
+            <li>Open this page in Safari on your iPhone and tap <strong>Open iPhone Install</strong>.</li>
+            <li>If TestFlight opens, install TestFlight and accept the invite. If Safari shows an install prompt, approve it.</li>
+            <li>After the app icon appears, open <strong>Settings &gt; General &gt; VPN &amp; Device Management</strong> if iOS asks you to trust the developer.</li>
+            <li>Return to the Home Screen and open Blue Video.</li>
+          </ol>
+        </div>
+      </div>
+    </section>
+
+    <section class="cards" aria-label="Install notes">
+      <article class="info-card">
+        <h3>Android install</h3>
+        <p>
+          Tap the APK button, allow the download to complete, then enable install permission for this browser if Android asks.
+          Open the downloaded file to finish setup.
+        </p>
+      </article>
+
+      <article class="info-card">
+        <h3>What users should expect</h3>
+        <p>
+          Direct installs can look different from store installs. That is normal as long as the file came from this official
+          Blue Video page and the user followed the install steps above.
+        </p>
+      </article>
+
+      <article class="info-card">
+        <h3>If the iPhone install does not start</h3>
+        <p>
+          Reopen the page in Safari and try again. If the button only downloads a file or the invite has expired, ask for the
+          latest Blue Video iPhone install link before continuing.
+        </p>
+      </article>
+
+      <article class="info-card">
+        <h3>Support contact</h3>
+        <p>
+          Contact <a class="text-link" href="https://x.com/onlyblcom" target="_blank" rel="noopener">x.com/onlyblcom</a>
+          or use App Support after you sign in.
+        </p>
+      </article>
+    </section>
+
+    <div class="footer">
+      <span>Blue Video direct install page</span>
+      <a class="text-link" href="https://x.com/onlyblcom" target="_blank" rel="noopener">Support on X</a>
+      <a class="text-link" href="./zh/index.html">Chinese version</a>
+    </div>
+  </main>
+  <script>
+    (function () {
+      var iosLink = document.getElementById("ios-install-link");
+      var manifestLink = document.getElementById("manifest-preview-link");
+      var status = document.getElementById("ios-install-status");
+
+      if (!iosLink) {
+        return;
+      }
+
+      var manifestPath = iosLink.getAttribute("data-manifest-path");
+      var fallbackUrl = iosLink.getAttribute("data-fallback-url");
+      var manifestUrl = manifestPath ? new URL(manifestPath, window.location.href).href : "";
+      var isHttps = window.location.protocol === "https:";
+
+      if (manifestLink && manifestUrl) {
+        manifestLink.href = manifestUrl;
+      }
+
+      if (isHttps && manifestUrl) {
+        iosLink.href = "itms-services://?action=download-manifest&url=" + encodeURIComponent(manifestUrl);
+      } else if (fallbackUrl) {
+        iosLink.href = fallbackUrl;
+      }
+
+      if (status && !isHttps) {
+        status.textContent = "Android may ask for permission to install from this browser. iPhone users should open this page in Safari. Manifest install testing requires HTTPS hosting, so local preview falls back to the raw IPA link.";
+      }
+    })();
+  </script>
+</body>
+</html>
