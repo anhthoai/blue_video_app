@@ -59,6 +59,7 @@ model User {
   chatRooms      ChatRoom[] @relation("ChatRoomCreator")
   chatMessages   ChatMessage[]
   chatRoomParticipants ChatRoomParticipant[]
+  pushTokens     PushNotificationToken[]
   
   // Community post interactions
   postLikes      CommunityPostLike[] @relation("UserLikes")
@@ -413,6 +414,22 @@ model ChatMessage {
   user User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("chat_messages")
+}
+
+model PushNotificationToken {
+  id         String   @id @default(uuid())
+  userId     String   @map("user_id")
+  token      String   @unique
+  platform   String   @db.VarChar(50)
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+  lastUsedAt DateTime @default(now()) @map("last_used_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([updatedAt])
+  @@map("push_notification_tokens")
 }
 
 // Enums

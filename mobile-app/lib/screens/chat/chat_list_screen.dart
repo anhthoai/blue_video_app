@@ -28,6 +28,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
   ProviderSubscription<ChatCallState>? _callSubscription;
   ProviderSubscription<ChatServiceState>? _chatStateSubscription;
   String? _activeIncomingDialogCallId;
+  BuildContext? _activeIncomingDialogContext;
   bool _hasPrimedMessageNotifications = false;
   String? _lastIncomingNotificationMessageId;
 
@@ -38,6 +39,25 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
     _callSubscription = ref.listenManual<ChatCallState>(
       chatCallControllerProvider,
       (previous, next) {
+        final activeDialogCallId = _activeIncomingDialogCallId;
+        if (activeDialogCallId != null) {
+          final hasMatchingInvite = next.incomingInvite?.callId == activeDialogCallId;
+          final shouldDismissDialog = !hasMatchingInvite &&
+              (next.phase == ChatCallPhase.ended ||
+                  next.phase == ChatCallPhase.missed ||
+                  next.phase == ChatCallPhase.declined ||
+                  next.phase == ChatCallPhase.error ||
+                  next.phase == ChatCallPhase.idle);
+
+          if (shouldDismissDialog &&
+              (_activeIncomingDialogContext?.mounted ?? false)) {
+            final dialogContext = _activeIncomingDialogContext!;
+            _activeIncomingDialogCallId = null;
+            _activeIncomingDialogContext = null;
+            Navigator.of(dialogContext, rootNavigator: true).pop();
+          }
+        }
+
         final invite = next.incomingInvite;
         if (!mounted || invite == null) {
           return;
@@ -196,6 +216,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
       barrierDismissible: false,
       useRootNavigator: true,
       builder: (dialogContext) {
+        _activeIncomingDialogContext = dialogContext;
         final isVideoCall = invite.isVideoCall;
         final avatar = invite.callerAvatar;
 
@@ -252,8 +273,13 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
     );
 
     _activeIncomingDialogCallId = null;
+    _activeIncomingDialogContext = null;
 
     if (!mounted) {
+      return;
+    }
+
+    if (accepted == null) {
       return;
     }
 

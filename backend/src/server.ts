@@ -15,6 +15,7 @@ import { Server as SocketIOServer } from 'socket.io';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { emailService } from './services/emailService';
+import { sendPushNotification } from './services/fcmService';
 import { upload, deleteFromS3, chatFileStorage, chatFileFilter, videoUpload, communityPostUpload, uploadCommunityPostFiles } from './services/s3Service';
 import { processVideo } from './services/videoProcessingService';
 import { promises as fs } from 'fs';
@@ -6989,6 +6990,106 @@ app.get('/api/v1/community/tags', authenticateToken, async (_req, res) => {
 // Chat API Endpoints
 // ============================================
 
+app.post('/api/v1/notifications/tokens', authenticateToken, async (req, res) => {
+  try {
+    const currentUserId = req.user?.id as string | undefined;
+    const { token, platform } = req.body as {
+      token?: string;
+      platform?: string;
+    };
+
+    if (!currentUserId) {
+      res.status(401).json({
+        success: false,
+        message: 'Authentication required',
+      });
+      return;
+    }
+
+    if (!token || typeof token !== 'string' || token.trim().length === 0) {
+      res.status(400).json({
+        success: false,
+        message: 'Push token is required',
+      });
+      return;
+    }
+
+    const normalizedPlatform =
+      typeof platform === 'string' && platform.trim().length > 0
+        ? platform.trim().toLowerCase()
+        : 'unknown';
+
+    await prisma.pushNotificationToken.upsert({
+      where: {
+        token,
+      },
+      update: {
+        userId: currentUserId,
+        platform: normalizedPlatform,
+        lastUsedAt: new Date(),
+      },
+      create: {
+        userId: currentUserId,
+        token,
+        platform: normalizedPlatform,
+        lastUsedAt: new Date(),
+      },
+    });
+
+    res.json({
+      success: true,
+    });
+  } catch (error) {
+    console.error('Error registering push token:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to register push token',
+    });
+  }
+});
+
+app.post('/api/v1/notifications/tokens/unregister', authenticateToken, async (req, res) => {
+  try {
+    const currentUserId = req.user?.id as string | undefined;
+    const { token } = req.body as {
+      token?: string;
+    };
+
+    if (!currentUserId) {
+      res.status(401).json({
+        success: false,
+        message: 'Authentication required',
+      });
+      return;
+    }
+
+    if (!token || typeof token !== 'string' || token.trim().length === 0) {
+      res.status(400).json({
+        success: false,
+        message: 'Push token is required',
+      });
+      return;
+    }
+
+    await prisma.pushNotificationToken.deleteMany({
+      where: {
+        userId: currentUserId,
+        token,
+      },
+    });
+
+    res.json({
+      success: true,
+    });
+  } catch (error) {
+    console.error('Error unregistering push token:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to unregister push token',
+    });
+  }
+});
+
 function getChatFileFolder(messageType: string | undefined): string | undefined {
   if (!messageType) {
     return undefined;
@@ -7160,6 +7261,95 @@ async function getChatRoomParticipantIds(roomId: string) {
   });
 
   return participants.map(participant => participant.userId);
+}
+
+function buildDisplayName(user: {
+  firstName?: string | null;
+  lastName?: string | null;
+  username?: string | null;
+}) {
+  const fullName = [user.firstName, user.lastName]
+    .filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+    .join(' ')
+    .trim();
+
+  if (fullName.length > 0) {
+    return fullName;
+  }
+
+  return user.username || 'Blue Video';
+}
+
+function buildChatPushBody(message: {
+  messageType?: string;
+  content?: string;
+}) {
+  const messageType = message.messageType || 'TEXT';
+  if (messageType === 'TEXT') {
+    const text = (message.content || '').trim();
+    if (text.length <= 120) {
+      return text || 'Sent you a message';
+    }
+
+    return `${text.slice(0, 117)}...`;
+  }
+
+  if (messageType === 'IMAGE') return 'Sent you a photo';
+  if (messageType === 'VIDEO') return 'Sent you a video';
+  if (messageType === 'AUDIO') return 'Sent you a voice message';
+  if (messageType === 'FILE') return 'Sent you a file';
+  return 'Sent you a message';
+}
+
+async function sendPushToUsers(
+  userIds: string[],
+  payload: {
+    title: string;
+    body: string;
+    data?: Record<string, string>;
+    sound?: string;
+  }
+) {
+  const uniqueUserIds = [...new Set(userIds.filter(userId => userId.trim().length > 0))];
+  if (uniqueUserIds.length === 0) {
+    return;
+  }
+
+  const tokenRecords = await prisma.pushNotificationToken.findMany({
+    where: {
+      userId: {
+        in: uniqueUserIds,
+      },
+    },
+    select: {
+      token: true,
+    },
+  });
+
+  const tokens = [...new Set(tokenRecords.map(record => record.token))];
+  if (tokens.length === 0) {
+    return;
+  }
+
+  const pushPayload = {
+    tokens,
+    title: payload.title,
+    body: payload.body,
+    ...(payload.data ? { data: payload.data } : {}),
+    ...(payload.sound ? { sound: payload.sound } : {}),
+  };
+
+  const invalidTokens = await sendPushNotification(pushPayload);
+
+  if (invalidTokens.length > 0) {
+    await prisma.pushNotificationToken.deleteMany({
+      where: {
+        token: {
+          in: invalidTokens,
+        },
+      },
+    });
+  }
 }
 
 function getCallLabel(isVideoCall: boolean) {
@@ -7689,6 +7879,23 @@ app.post('/api/v1/chat/rooms/:roomId/messages', async (req, res) => {
       });
     await emitChatRoomUpdate(roomId, participantIds);
 
+    if (message.messageType !== 'SYSTEM') {
+      await sendPushToUsers(
+        participantIds.filter(participantId => participantId !== currentUserId),
+        {
+          title: buildDisplayName(message.user),
+          body: buildChatPushBody(message),
+          data: {
+            kind: 'chat_message',
+            roomId,
+            messageId: message.id,
+            route: `/main/chat/${roomId}`,
+          },
+          sound: 'default',
+        }
+      );
+    }
+
     res.json({
       success: true,
       data: serializedMessage,
@@ -7869,6 +8076,22 @@ io.on('connection', (socket) => {
           isVideoCall: Boolean(isVideoCall),
           createdAt: new Date().toISOString(),
         });
+      });
+
+      await sendPushToUsers(targetParticipantIds, {
+        title: callerName || 'Incoming call',
+        body: Boolean(isVideoCall)
+          ? `${callerName || 'Someone'} is video calling you`
+          : `${callerName || 'Someone'} is calling you`,
+        data: {
+          kind: 'incoming_call',
+          callId: String(callId),
+          roomId: String(roomId),
+          callerId: String(callerId),
+          isVideoCall: String(Boolean(isVideoCall)),
+          route: `/main/chat/${roomId}`,
+        },
+        sound: 'default',
       });
 
       socket.emit('outgoing-call', {

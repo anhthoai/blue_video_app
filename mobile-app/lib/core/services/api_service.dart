@@ -1187,6 +1187,36 @@ class ApiService {
     return await _handleResponse(response);
   }
 
+  Future<Map<String, dynamic>> registerPushToken({
+    required String token,
+    required String platform,
+  }) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/notifications/tokens'),
+      headers: await _getHeaders(),
+      body: json.encode({
+        'token': token,
+        'platform': platform,
+      }),
+    );
+
+    return await _handleResponse(response);
+  }
+
+  Future<Map<String, dynamic>> unregisterPushToken({
+    required String token,
+  }) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/notifications/tokens/unregister'),
+      headers: await _getHeaders(),
+      body: json.encode({
+        'token': token,
+      }),
+    );
+
+    return await _handleResponse(response);
+  }
+
   // Upload chat attachment (file, image, video, audio, document)
   Future<Map<String, dynamic>> uploadChatAttachment(File file) async {
     final uri = Uri.parse('$baseUrl/chat/upload');

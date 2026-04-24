@@ -49,5 +49,9 @@
 	<string>Blue Video needs camera access for video calls in chat.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Blue Video needs microphone access for voice and video calls in chat.</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>remote-notification</string>
+	</array>
 </dict>
 </plist>

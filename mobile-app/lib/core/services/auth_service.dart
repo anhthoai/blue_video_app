@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../models/user_model.dart';
 import 'api_service.dart';
+import 'notification_service.dart';
 
 class AuthService {
   final SharedPreferences _prefs;
@@ -95,6 +96,7 @@ class AuthService {
       }
     }
 
+    await NotificationService.registerCurrentToken();
     _notifyListeners();
   }
 
@@ -202,6 +204,7 @@ class AuthService {
         print('🔐 AuthService: User data saved, notifying listeners');
 
         // Notify listeners that user has changed
+        await NotificationService.registerCurrentToken();
         _notifyListeners();
 
         print('🔐 AuthService: Login successful for ${_currentUser?.username}');
@@ -263,6 +266,7 @@ class AuthService {
           _notifyListeners();
           print('🔐 AuthService: Listeners notified');
         });
+        await NotificationService.registerCurrentToken();
 
         print(
             '🔐 AuthService: Registration successful for ${_currentUser?.username}');
@@ -279,6 +283,7 @@ class AuthService {
 
   Future<void> signOut() async {
     try {
+      await NotificationService.unregisterCurrentToken();
       await _apiService.logout();
     } catch (e) {
       print('Logout API error: $e');

@@ -8,6 +8,7 @@ import 'package:uuid/uuid.dart';
 import '../../models/chat_call.dart';
 import '../../models/chat_room.dart';
 import '../../models/user_model.dart';
+import 'call_ringtone_service.dart';
 import 'chat_service.dart';
 
 class ChatCallController extends StateNotifier<ChatCallState> {
@@ -120,6 +121,7 @@ class ChatCallController extends StateNotifier<ChatCallState> {
       isOutgoing: true,
       errorMessage: null,
     );
+    await CallRingtoneService.playOutgoing();
 
     _inviteTimeout?.cancel();
     _inviteTimeout = Timer(const Duration(seconds: 30), () async {
@@ -151,6 +153,8 @@ class ChatCallController extends StateNotifier<ChatCallState> {
       return false;
     }
 
+    await CallRingtoneService.stop();
+
     state = state.copyWith(
       activeCallId: invite.callId,
       roomId: invite.roomId,
@@ -178,6 +182,7 @@ class ChatCallController extends StateNotifier<ChatCallState> {
   }
 
   Future<void> declineIncomingCall() async {
+    await CallRingtoneService.stop();
     final invite = state.incomingInvite;
     if (invite != null) {
       _chatService.declineCall(callId: invite.callId);
@@ -271,6 +276,7 @@ class ChatCallController extends StateNotifier<ChatCallState> {
       return;
     }
 
+    await CallRingtoneService.stop();
     await _disposeRtcSession();
     state = state.copyWith(
       phase: ChatCallPhase.idle,
@@ -429,6 +435,7 @@ class ChatCallController extends StateNotifier<ChatCallState> {
       incomingInvite: null,
       isOutgoing: false,
     );
+    await CallRingtoneService.stop();
     return false;
   }
 
@@ -445,6 +452,7 @@ class ChatCallController extends StateNotifier<ChatCallState> {
           _chatService.declineCall(callId: invite.callId);
           return;
         }
+        await CallRingtoneService.playIncoming();
         state = state.copyWith(
           phase: ChatCallPhase.incoming,
           incomingInvite: invite,
@@ -465,6 +473,7 @@ class ChatCallController extends StateNotifier<ChatCallState> {
             state.phase != ChatCallPhase.outgoing) {
           return;
         }
+        await CallRingtoneService.stop();
         _inviteTimeout?.cancel();
         state = state.copyWith(
           phase: ChatCallPhase.connecting,
@@ -536,14 +545,17 @@ class ChatCallController extends StateNotifier<ChatCallState> {
         if (payload['callId'] != state.activeCallId) {
           return;
         }
+        await CallRingtoneService.stop();
         await _setTerminalState(ChatCallPhase.declined, 'Call declined');
         return;
       case 'call-missed':
         if (payload['callId'] == state.activeCallId) {
+          await CallRingtoneService.stop();
           await _setTerminalState(ChatCallPhase.missed, 'No answer');
           return;
         }
         if (state.incomingInvite?.callId == payload['callId']) {
+          await CallRingtoneService.stop();
           state = state.copyWith(
             phase: ChatCallPhase.missed,
             incomingInvite: null,
@@ -553,14 +565,27 @@ class ChatCallController extends StateNotifier<ChatCallState> {
         }
         return;
       case 'call-ended':
-        if (payload['callId'] != state.activeCallId) {
+        if (payload['callId'] == state.activeCallId) {
+          await CallRingtoneService.stop();
+          await _setTerminalState(ChatCallPhase.ended, 'Call ended');
           return;
         }
-        await _setTerminalState(ChatCallPhase.ended, 'Call ended');
+
+        if (state.incomingInvite?.callId == payload['callId']) {
+          await CallRingtoneService.stop();
+          state = state.copyWith(
+            phase: ChatCallPhase.ended,
+            incomingInvite: null,
+            statusText: 'Call ended',
+            errorMessage: null,
+            isOutgoing: false,
+          );
+        }
         return;
       case 'call-error':
         final message =
             payload['message'] as String? ?? 'Unable to start the call.';
+        await CallRingtoneService.stop();
         state = state.copyWith(
           phase: ChatCallPhase.error,
           statusText: message,
@@ -600,6 +625,7 @@ class ChatCallController extends StateNotifier<ChatCallState> {
       return;
     }
 
+    unawaited(CallRingtoneService.stop());
     _inviteTimeout?.cancel();
     _callTimer?.cancel();
     _callTimer = Timer.periodic(const Duration(seconds: 1), (_) {
@@ -615,6 +641,7 @@ class ChatCallController extends StateNotifier<ChatCallState> {
   }
 
   Future<void> _setTerminalState(ChatCallPhase phase, String statusText) async {
+    await CallRingtoneService.stop();
     await _disposeRtcSession();
     state = state.copyWith(
       phase: phase,
@@ -660,6 +687,7 @@ class ChatCallController extends StateNotifier<ChatCallState> {
   @override
   void dispose() {
     _callEventSubscription?.cancel();
+    unawaited(CallRingtoneService.stop());
     unawaited(_disposeRtcSession());
     if (_renderersInitialized) {
       unawaited(_localRenderer.dispose());

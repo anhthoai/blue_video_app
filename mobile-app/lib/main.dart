@@ -12,6 +12,7 @@ import 'core/services/storage_service.dart';
 import 'core/services/auth_service.dart';
 import 'core/services/nsfw_settings_service.dart';
 import 'core/services/locale_service.dart';
+import 'core/services/notification_service.dart';
 import 'core/services/theme_service.dart';
 import 'l10n/app_localizations.dart';
 
@@ -33,15 +34,11 @@ void main() async {
     debugPrint('   Using default API URLs from ApiService');
   }
 
-  // Initialize Firebase (disabled for testing with mock data)
-  // await Firebase.initializeApp();
-
   // Initialize Hive
   await Hive.initFlutter();
 
   // Initialize services
   await StorageService.init();
-  // await NotificationService.init(); // Disabled for testing (requires Firebase)
 
   // Initialize AuthService
   final prefs = await SharedPreferences.getInstance();
@@ -51,6 +48,7 @@ void main() async {
 
   // Reload current user with fresh data from API
   await authService.reloadCurrentUser();
+  await NotificationService.init();
 
   runApp(ProviderScope(
     overrides: [
