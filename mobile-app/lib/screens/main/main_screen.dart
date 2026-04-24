@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../l10n/app_localizations.dart';
-import '../../core/services/version_service.dart';
 import '../../core/services/app_lifecycle_service.dart';
 import '../home/home_screen.dart';
 // import '../discover/discover_screen.dart'; // Hidden for now
@@ -36,18 +35,15 @@ class _MainScreenState extends ConsumerState<MainScreen> {
   void initState() {
     super.initState();
 
-    // Initialize lifecycle observer and check for updates
+    // Register lifecycle observer for background resume checks.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
-        final versionService = ref.read(versionServiceProvider);
+        final updateCoordinator = ref.read(appUpdateCoordinatorProvider);
         _lifecycleObserver = AppLifecycleObserver(
           context: context,
-          versionService: versionService,
+          updateCoordinator: updateCoordinator,
         );
         WidgetsBinding.instance.addObserver(_lifecycleObserver!);
-
-        // Check for updates on startup
-        _lifecycleObserver!.checkForUpdatesOnStartup();
       }
     });
   }

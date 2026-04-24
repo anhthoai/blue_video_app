@@ -2,6 +2,8 @@
 
 ## 🚀 How to Release a New Version (5 minutes)
 
+The app now checks for updates automatically on the splash screen every time it starts, before routing to Login or Main. After that, it only rechecks when the app resumes from background and at least 1 hour has passed. If a user taps `Later` on an optional update, that prompt is hidden for 24 hours even after restarting the app.
+
 ### Step 1: Build New Version (2 min)
 
 ```bash
@@ -72,7 +74,12 @@ curl "http://your-server.com/app-version?platform=android&currentVersion=1.0.0"
 **Open app on phone:**
 - Should see update dialog
 - Click "Update Now"
-- Download and install new version ✅
+- On Android, the app downloads the APK inside the dialog, shows progress, then opens the system install prompt ✅
+- On iOS, the app still uses the external download link because iOS does not allow APK-style in-app installs
+
+Important:
+- `ANDROID_DOWNLOAD_URL` and `IOS_DOWNLOAD_URL` must be public direct download links.
+- The version in `mobile-app/pubspec.yaml` must match the build you installed on the phone.
 
 ---
 
@@ -206,13 +213,15 @@ Checking for updates...
 
 **3. Click "Update Now":**
 ```
-Dialog closes
+Dialog stays open
 ↓
-Browser opens
+APK downloads inside the app
 ↓
-APK download starts
+Progress bar updates in the dialog
 ↓
-Download complete notification
+System install prompt appears
+↓
+User taps Install
 ↓
 User taps notification
 ↓

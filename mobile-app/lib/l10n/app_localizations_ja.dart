@@ -1130,6 +1130,21 @@ class AppLocalizationsJa extends AppLocalizations {
   @override
   String get forceUpdateMessage => 'このアップデートは必須です。アプリを使用し続けるには今すぐ更新してください。';
 
+  @override
+  String get updateDownloading => 'アップデートをダウンロード中';
+
+  @override
+  String get updateInstallPrompt => 'ダウンロードが完了しました。システムの確認画面でインストールしてください。';
+
+  @override
+  String get updateDownloadFailed => 'アップデートのダウンロードに失敗しました';
+
+  @override
+  String get updateInstallerFailed => 'インストーラーを開けませんでした';
+
+  @override
+  String get updateAndroidInstallerOnly => 'アプリ内インストールは現在 Android のみ対応しています。';
+
   // Auth additional
   @override
   String get welcomeBack => 'おかえりなさい';

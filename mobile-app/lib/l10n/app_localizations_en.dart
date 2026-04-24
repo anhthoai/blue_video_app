@@ -1139,6 +1139,23 @@ class AppLocalizationsEn extends AppLocalizations {
   String get forceUpdateMessage =>
       'This update is required to continue using the app. Please update now.';
 
+  @override
+  String get updateDownloading => 'Downloading update';
+
+  @override
+  String get updateInstallPrompt =>
+      'Download complete. Confirm installation in the system prompt.';
+
+  @override
+  String get updateDownloadFailed => 'Update download failed';
+
+  @override
+  String get updateInstallerFailed => 'Could not open the installer';
+
+  @override
+  String get updateAndroidInstallerOnly =>
+      'In-app installation is currently supported on Android only.';
+
   // Auth additional
   @override
   String get welcomeBack => 'Welcome Back';

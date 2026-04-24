@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/services/auth_service.dart';
+import '../../core/services/app_lifecycle_service.dart';
 import '../../widgets/common/app_logo.dart';
 
 class SplashScreen extends ConsumerStatefulWidget {
@@ -22,7 +23,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
   void initState() {
     super.initState();
     _setupAnimations();
-    _checkAuthStatus();
+    _runStartupFlow();
   }
 
   void _setupAnimations() {
@@ -42,9 +43,14 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
     _animationController.forward();
   }
 
-  Future<void> _checkAuthStatus() async {
-    // Wait for animation to complete
-    await Future.delayed(const Duration(seconds: 3));
+  Future<void> _runStartupFlow() async {
+    final startupDelay = Future<void>.delayed(const Duration(seconds: 3));
+    final updateCheck = ref.read(appUpdateCoordinatorProvider).checkOnStartup(
+          context,
+        );
+
+    await startupDelay;
+    await updateCheck;
 
     if (mounted) {
       final authService = ref.read(authServiceProvider);

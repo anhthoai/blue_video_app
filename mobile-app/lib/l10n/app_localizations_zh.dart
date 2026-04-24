@@ -1128,6 +1128,21 @@ class AppLocalizationsZh extends AppLocalizations {
   @override
   String get forceUpdateMessage => '此更新为必需更新，请立即更新以继续使用应用。';
 
+  @override
+  String get updateDownloading => '正在下载更新';
+
+  @override
+  String get updateInstallPrompt => '下载完成，请在系统提示中确认安装。';
+
+  @override
+  String get updateDownloadFailed => '更新下载失败';
+
+  @override
+  String get updateInstallerFailed => '无法打开安装程序';
+
+  @override
+  String get updateAndroidInstallerOnly => '应用内安装目前仅支持 Android。';
+
   // Auth additional
   @override
   String get welcomeBack => '欢迎回来';

@@ -11,9 +11,10 @@ The Blue Video app includes an automatic update notification system that checks 
 ✅ **Force Updates** - Required updates that block app usage  
 ✅ **Beautiful UI** - Professional update dialog with gradient design  
 ✅ **Multi-language** - Translated to EN, ZH, JA  
-✅ **Direct Download** - Opens browser to download APK/IPA  
+✅ **Direct Download** - Downloads the Android APK inside the app and opens the system installer  
 ✅ **Release Notes** - Shows what's new in each version  
-✅ **Smart Caching** - Checks max once per hour to save bandwidth  
+✅ **Smart Caching** - Checks max once per hour on resume to save bandwidth  
+✅ **Persistent Cooldown** - Optional update prompts are snoozed for 24 hours across app restarts  
 ✅ **Platform-Specific** - Different versions for Android and iOS  
 
 ---
@@ -23,10 +24,14 @@ The Blue Video app includes an automatic update notification system that checks 
 ### 1. Version Check Flow
 
 ```
-App Startup / Resume from Background
+App opens to Splash Screen
     ↓
-Check if 1 hour passed since last check
-    ↓ (Yes)
+Splash checks `/app-version` before routing to Login or Main
+  ↓
+If optional update was dismissed in the last 24 hours, skip dialog
+  ↓
+If app later resumes from background, check again only if 1 hour passed
+  ↓
 Call API: GET /app-version?platform=android&currentVersion=1.0.0
     ↓
 Backend compares versions
@@ -35,9 +40,13 @@ Returns: updateRequired=true/false, forceUpdate=true/false
     ↓
 If update required → Show update dialog
     ↓
-User clicks "Update Now" → Opens download URL in browser
-    ↓
-User downloads and installs APK/IPA
+User clicks "Update Now"
+  ↓
+Android: app downloads APK in-place and shows progress
+  ↓
+Android: system install prompt opens
+  ↓
+iOS: app falls back to external download URL
 ```
 
 ### 2. Version Comparison
@@ -163,30 +172,33 @@ ssh user@onlybl.com "ln -sf /var/www/html/downloads/blue-video-v1.0.1.apk /var/w
    - Current version detection from package info
 
 2. **`core/services/app_lifecycle_service.dart`**
-   - Monitors app lifecycle (startup, resume)
-   - Triggers version checks
-   - Shows update dialog when needed
-   - Prevents spam (max 1 check per hour)
+  - Owns the shared update coordinator
+  - Persists last-check time and optional prompt cooldown
+  - Shows update dialog when needed
+  - Prevents spam (max 1 check per hour on resume)
 
 3. **`widgets/dialogs/app_update_dialog.dart`**
    - Beautiful update dialog UI
    - Shows version comparison
    - Displays release notes
    - Force update warning (red)
-   - "Update Now" and "Later" buttons
-   - Opens download URL in browser
+  - "Update Now" and "Later" buttons
+  - Downloads Android updates in-app with progress
+  - Opens Android system installer after download
 
 ### Files Modified
 
-1. **`screens/main/main_screen.dart`**
-   - Added lifecycle observer
-   - Triggers update check on startup
-   - Monitors app resume events
+1. **`screens/splash/splash_screen.dart`**
+  - Triggers the startup update check before routing to login or main
 
-2. **`core/services/api_service.dart`**
+2. **`screens/main/main_screen.dart`**
+  - Registers the lifecycle observer
+  - Monitors app resume events only
+
+3. **`core/services/api_service.dart`**
    - Added `checkAppVersion()` method
 
-3. **Localization files** - Added update dialog translations
+4. **Localization files** - Added update dialog translations
 
 ---
 

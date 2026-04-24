@@ -4,12 +4,14 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/services/api_service.dart';
 import '../../core/services/chat_call_service.dart';
 import '../../core/services/chat_service.dart';
 import '../../core/services/auth_service.dart';
 import '../../models/chat_call.dart';
 import '../../models/chat_participant.dart';
 import '../../models/chat_room.dart';
+import '../../models/user_search_result.dart';
 import '../../widgets/chat/chat_room_tile.dart';
 import '../../widgets/chat/user_selection_dialog.dart';
 import '../../l10n/app_localizations.dart';
@@ -92,7 +94,6 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      // Refresh chat list when returning to the screen
       _loadChatRooms();
     }
   }
@@ -115,6 +116,38 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
   Future<void> _loadChatRooms() async {
     final chatService = ref.read(chatServiceStateProvider.notifier);
     await chatService.loadChatRooms();
+  }
+
+  Future<void> _openChatRoom(ChatRoom room) async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ChatScreen(chatId: room.id),
+      ),
+    );
+
+    if (mounted) {
+      _loadChatRooms();
+    }
+  }
+
+  Future<void> _showChatSearch() async {
+    final chatState = ref.read(chatServiceStateProvider);
+    final currentUserId = ref.read(currentUserProvider)?.id;
+
+    final selectedRoom = await showSearch<ChatRoom?>(
+      context: context,
+      delegate: _ChatRoomSearchDelegate(
+        rooms: chatState.rooms,
+        currentUserId: currentUserId,
+      ),
+    );
+
+    if (!mounted || selectedRoom == null) {
+      return;
+    }
+
+    await _openChatRoom(selectedRoom);
   }
 
   ChatRoom? _findRoomById(String roomId) {
@@ -324,9 +357,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
         actions: [
           IconButton(
             icon: const Icon(Icons.search),
-            onPressed: () {
-              // Show search
-            },
+            onPressed: _showChatSearch,
           ),
           IconButton(
             icon: const Icon(Icons.more_vert),
@@ -347,16 +378,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
                   return ChatRoomTile(
                     room: room,
                     currentUserId: currentUser?.id,
-                    onTap: () async {
-                      await Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => ChatScreen(chatId: room.id),
-                        ),
-                      );
-                      // Reload chat list when returning from chat screen
-                      _loadChatRooms();
-                    },
+                    onTap: () => _openChatRoom(room),
                   );
                 },
               ),
@@ -416,27 +438,27 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
             mainAxisSize: MainAxisSize.min,
             children: [
               ListTile(
-                leading: const Icon(Icons.archive),
-                title: Text(dialogL10n.archivedChats),
+                leading: const Icon(Icons.person_add),
+                title: Text(dialogL10n.newChat),
                 onTap: () {
                   Navigator.pop(context);
-                  _showArchivedChats();
+                  _startNewChat();
                 },
               ),
               ListTile(
-                leading: const Icon(Icons.block),
-                title: Text(dialogL10n.blockedUsers),
+                leading: const Icon(Icons.group_add),
+                title: Text(dialogL10n.newGroupChat),
                 onTap: () {
                   Navigator.pop(context);
-                  _showBlockedUsers();
+                  _createNewGroup();
                 },
               ),
               ListTile(
-                leading: const Icon(Icons.settings),
-                title: Text(dialogL10n.chatSettings),
+                leading: const Icon(Icons.refresh),
+                title: const Text('Refresh chats'),
                 onTap: () {
                   Navigator.pop(context);
-                  _showChatSettings();
+                  _loadChatRooms();
                 },
               ),
             ],
@@ -479,39 +501,6 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
     );
   }
 
-  void _showArchivedChats() {
-    final l10n = AppLocalizations.of(context);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('${l10n.archivedChats} ${l10n.comingSoon}')),
-    );
-  }
-
-  void _showBlockedUsers() {
-    final l10n = AppLocalizations.of(context);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('${l10n.blockedUsers} ${l10n.comingSoon}')),
-    );
-  }
-
-  void _showChatSettings() {
-    showDialog(
-      context: context,
-      builder: (context) {
-        final dialogL10n = AppLocalizations.of(context);
-        return AlertDialog(
-          title: Text(dialogL10n.chatSettings),
-          content: Text('${dialogL10n.chatSettings} ${dialogL10n.comingSoon}'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: Text(dialogL10n.close),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
   Future<void> _startNewChat() async {
     final l10n = AppLocalizations.of(context);
 
@@ -526,11 +515,50 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
     );
   }
 
-  void _createNewGroup() {
+  Future<void> _createNewGroup() async {
     final l10n = AppLocalizations.of(context);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('${l10n.newGroupChat} ${l10n.comingSoon}')),
+    final currentUserId = ref.read(currentUserProvider)?.id;
+    if (currentUserId == null) {
+      return;
+    }
+
+    final draft = await showDialog<_NewGroupChatDraft>(
+      context: context,
+      builder: (context) => _GroupChatCreationDialog(
+        currentUserId: currentUserId,
+        title: l10n.newGroupChat,
+        cancelLabel: l10n.cancel,
+        createLabel: l10n.create,
+        fieldRequiredMessage: l10n.fieldRequired,
+        searchUsersLabel: l10n.searchUsers,
+      ),
     );
+
+    if (!mounted || draft == null) {
+      return;
+    }
+
+    try {
+      final chatService = ref.read(chatServiceStateProvider.notifier);
+      final result = await chatService.createChatRoom(
+        name: draft.name,
+        type: 'GROUP',
+        participantIds: draft.participantIds,
+      );
+
+      if (result != null && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('${l10n.newGroupChat} ${l10n.savedSuccessfully}')),
+        );
+        await _openChatRoom(result);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('${l10n.error}: $e')),
+        );
+      }
+    }
   }
 
   Future<void> _createDirectChat(String userId) async {
@@ -547,13 +575,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('${l10n.chat} ${l10n.savedSuccessfully}')),
         );
-        // Navigate to the new chat
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => ChatScreen(chatId: result.id),
-          ),
-        );
+        await _openChatRoom(result);
       }
     } catch (e) {
       if (mounted) {
@@ -563,4 +585,332 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
       }
     }
   }
+}
+
+class _ChatRoomSearchDelegate extends SearchDelegate<ChatRoom?> {
+  _ChatRoomSearchDelegate({
+    required this.rooms,
+    required this.currentUserId,
+  }) : super(searchFieldLabel: 'Search chats');
+
+  final List<ChatRoom> rooms;
+  final String? currentUserId;
+
+  List<ChatRoom> _filterRooms() {
+    final normalizedQuery = query.trim().toLowerCase();
+    if (normalizedQuery.isEmpty) {
+      return rooms;
+    }
+
+    return rooms.where((room) {
+      final searchBuffer = <String>[
+        room.getDisplayName(currentUserId),
+        room.name,
+        room.lastMessagePreview,
+        ...room.participants.map((participant) => participant.username),
+        ...room.participants.map(
+          (participant) =>
+              '${participant.firstName ?? ''} ${participant.lastName ?? ''}',
+        ),
+      ].join(' ').toLowerCase();
+      return searchBuffer.contains(normalizedQuery);
+    }).toList();
+  }
+
+  @override
+  List<Widget>? buildActions(BuildContext context) {
+    return [
+      if (query.isNotEmpty)
+        IconButton(
+          icon: const Icon(Icons.clear),
+          onPressed: () {
+            query = '';
+          },
+        ),
+    ];
+  }
+
+  @override
+  Widget? buildLeading(BuildContext context) {
+    return IconButton(
+      icon: const Icon(Icons.arrow_back),
+      onPressed: () => close(context, null),
+    );
+  }
+
+  @override
+  Widget buildResults(BuildContext context) {
+    return _buildRoomList(context);
+  }
+
+  @override
+  Widget buildSuggestions(BuildContext context) {
+    return _buildRoomList(context);
+  }
+
+  Widget _buildRoomList(BuildContext context) {
+    final filteredRooms = _filterRooms();
+
+    if (filteredRooms.isEmpty) {
+      return Center(
+        child: Text(query.trim().isEmpty ? 'Search chats' : 'No chats found'),
+      );
+    }
+
+    return ListView.builder(
+      itemCount: filteredRooms.length,
+      itemBuilder: (context, index) {
+        final room = filteredRooms[index];
+        return ChatRoomTile(
+          room: room,
+          currentUserId: currentUserId,
+          onTap: () => close(context, room),
+        );
+      },
+    );
+  }
+}
+
+class _NewGroupChatDraft {
+  const _NewGroupChatDraft({
+    required this.name,
+    required this.participantIds,
+  });
+
+  final String name;
+  final List<String> participantIds;
+}
+
+class _GroupChatCreationDialog extends StatefulWidget {
+  const _GroupChatCreationDialog({
+    required this.currentUserId,
+    required this.title,
+    required this.cancelLabel,
+    required this.createLabel,
+    required this.fieldRequiredMessage,
+    required this.searchUsersLabel,
+  });
+
+  final String currentUserId;
+  final String title;
+  final String cancelLabel;
+  final String createLabel;
+  final String fieldRequiredMessage;
+  final String searchUsersLabel;
+
+  @override
+  State<_GroupChatCreationDialog> createState() =>
+      _GroupChatCreationDialogState();
+}
+
+class _GroupChatCreationDialogState extends State<_GroupChatCreationDialog> {
+  final ApiService _apiService = ApiService();
+  final TextEditingController _nameController = TextEditingController();
+  final TextEditingController _searchController = TextEditingController();
+  final Set<String> _selectedUserIds = <String>{};
+
+  List<UserSearchResult> _users = const [];
+  Timer? _debounce;
+  bool _isLoading = false;
+  String? _errorText;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUsers();
+  }
+
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    _nameController.dispose();
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadUsers({String query = ''}) async {
+    setState(() {
+      _isLoading = true;
+      _errorText = null;
+    });
+
+    try {
+      final response = await _apiService.searchUsers(query, page: 1, limit: 30);
+      if (!mounted) {
+        return;
+      }
+
+      if (response['success'] == true) {
+        final users = (response['data'] as List<dynamic>? ?? const [])
+            .map((userData) => UserSearchResult.fromJson(userData))
+            .where((user) => user.id != widget.currentUserId)
+            .toList();
+
+        setState(() {
+          _users = users;
+        });
+      }
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _errorText = 'Error loading users';
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  void _onSearchChanged(String value) {
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 350), () {
+      _loadUsers(query: value.trim());
+    });
+  }
+
+  void _toggleUser(String userId) {
+    setState(() {
+      if (_selectedUserIds.contains(userId)) {
+        _selectedUserIds.remove(userId);
+      } else {
+        _selectedUserIds.add(userId);
+      }
+      _errorText = null;
+    });
+  }
+
+  void _submit() {
+    final trimmedName = _nameController.text.trim();
+
+    if (trimmedName.isEmpty) {
+      setState(() {
+        _errorText = 'Group name is required';
+      });
+      return;
+    }
+
+    if (_selectedUserIds.isEmpty) {
+      setState(() {
+        _errorText = 'Add at least one member';
+      });
+      return;
+    }
+
+    Navigator.of(context).pop(
+      _NewGroupChatDraft(
+        name: trimmedName,
+        participantIds: _selectedUserIds.toList(),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(widget.title),
+      content: SizedBox(
+        width: double.maxFinite,
+        height: 460,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            TextField(
+              controller: _nameController,
+              decoration: InputDecoration(
+                labelText: 'Group name',
+                border: const OutlineInputBorder(),
+                errorText: _errorText == 'Group name is required'
+                    ? widget.fieldRequiredMessage
+                    : null,
+              ),
+              onChanged: (_) {
+                if (_errorText != null) {
+                  setState(() {
+                    _errorText = null;
+                  });
+                }
+              },
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _searchController,
+              decoration: InputDecoration(
+                hintText: widget.searchUsersLabel,
+                prefixIcon: const Icon(Icons.search),
+                border: const OutlineInputBorder(),
+              ),
+              onChanged: _onSearchChanged,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Selected: ${_selectedUserIds.length}',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            if (_errorText != null && _errorText != 'Group name is required') ...[
+              const SizedBox(height: 8),
+              Text(
+                _errorText!,
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.error,
+                  fontSize: 12,
+                ),
+              ),
+            ],
+            const SizedBox(height: 12),
+            Expanded(
+              child: _isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : _users.isEmpty
+                      ? const Center(child: Text('No users found'))
+                      : ListView.builder(
+                          itemCount: _users.length,
+                          itemBuilder: (context, index) {
+                            final user = _users[index];
+                            final isSelected = _selectedUserIds.contains(user.id);
+
+                            return CheckboxListTile(
+                              value: isSelected,
+                              onChanged: (_) => _toggleUser(user.id),
+                              secondary: CircleAvatar(
+                                backgroundImage: user.avatarUrl != null
+                                    ? NetworkImage(user.avatarUrl!)
+                                    : null,
+                                child: user.avatarUrl == null
+                                    ? Text(
+                                        user.username.isNotEmpty
+                                            ? user.username[0].toUpperCase()
+                                            : 'U',
+                                      )
+                                    : null,
+                              ),
+                              title: Text(user.username),
+                              controlAffinity:
+                                  ListTileControlAffinity.trailing,
+                              contentPadding: EdgeInsets.zero,
+                            );
+                          },
+                        ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: Text(widget.cancelLabel),
+        ),
+        FilledButton(
+          onPressed: _submit,
+          child: Text(widget.createLabel),
+        ),
+      ],
+    );
+  }
+
 }

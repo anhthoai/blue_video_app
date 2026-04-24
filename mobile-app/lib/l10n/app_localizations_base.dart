@@ -437,6 +437,11 @@ abstract class AppLocalizations {
   String get updateNow;
   String get later;
   String get forceUpdateMessage;
+  String get updateDownloading;
+  String get updateInstallPrompt;
+  String get updateDownloadFailed;
+  String get updateInstallerFailed;
+  String get updateAndroidInstallerOnly;
 
   // Auth additional
   String get welcomeBack;
