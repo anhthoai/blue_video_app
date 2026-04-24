@@ -439,7 +439,7 @@ class VideoCard extends ConsumerWidget {
             const Text('Why are you reporting this video?'),
             const SizedBox(height: 16),
             DropdownButtonFormField<String>(
-              initialValue: selectedReason,
+              value: selectedReason,
               decoration: const InputDecoration(
                 labelText: 'Reason',
                 border: OutlineInputBorder(),
