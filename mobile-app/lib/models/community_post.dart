@@ -239,16 +239,18 @@ class CommunityPost {
   }
 
   factory CommunityPost.fromJson(Map<String, dynamic> json) {
+    final pollPayload = json['pollData'] ?? json['pollOptions'];
+
     return CommunityPost(
-      id: json['id'] as String,
-      userId: json['userId'] as String,
-      username: json['username'] as String,
+      id: (json['id'] ?? '').toString(),
+      userId: (json['userId'] ?? '').toString(),
+      username: json['username'] as String? ?? 'User',
       firstName: json['firstName'] as String?,
       lastName: json['lastName'] as String?,
       isVerified: json['isVerified'] as bool? ?? false,
-      userAvatar: json['userAvatar'] as String,
+      userAvatar: json['userAvatar'] as String? ?? '',
       title: json['title'] as String?,
-      content: json['content'] as String,
+      content: json['content'] as String? ?? '',
       type: PostType.values.firstWhere(
         (e) => e.name.toLowerCase() == (json['type'] as String?)?.toLowerCase(),
         orElse: () => PostType.text,
@@ -270,28 +272,29 @@ class CommunityPost {
       linkTitle: json['linkTitle'] as String?,
       linkDescription: json['linkDescription'] as String?,
       linkThumbnail: json['linkThumbnail'] as String?,
-      pollData: json['pollData'] as Map<String, dynamic>?,
+        pollData: pollPayload is Map ? Map<String, dynamic>.from(pollPayload) : null,
       tags: (json['tags'] as List<dynamic>?)?.cast<String>() ?? [],
       category: json['category'] as String?,
-      likes: json['likes'] as int? ?? 0,
-      comments: json['comments'] as int? ?? 0,
-      shares: json['shares'] as int? ?? 0,
-      views: json['views'] as int? ?? 0,
+        likes: (json['likes'] as num?)?.toInt() ?? 0,
+        comments: (json['comments'] as num?)?.toInt() ?? 0,
+        shares: (json['shares'] as num?)?.toInt() ?? 0,
+        views: (json['views'] as num?)?.toInt() ?? 0,
       isLiked: json['isLiked'] as bool? ?? false,
       isBookmarked: json['isBookmarked'] as bool? ?? false,
       isPinned: json['isPinned'] as bool? ?? false,
       isFollowing: json['isFollowing'] as bool? ?? false,
       isFeatured: json['isFeatured'] as bool? ?? false,
       isNsfw: json['isNsfw'] as bool? ?? false,
-      cost: json['cost'] as int? ?? 0,
+        cost: (json['cost'] as num?)?.toInt() ?? 0,
       requiresVip: json['requiresVip'] as bool? ?? false,
       isUnlocked: json['isUnlocked'] as bool? ?? false,
-      createdAt: DateTime.parse(json['createdAt'] as String),
+        createdAt:
+          DateTime.tryParse((json['createdAt'] ?? '').toString()) ?? DateTime.now(),
       updatedAt: json['updatedAt'] != null
-          ? DateTime.parse(json['updatedAt'] as String)
+          ? DateTime.tryParse((json['updatedAt']).toString())
           : null,
       publishedAt: json['publishedAt'] != null
-          ? DateTime.parse(json['publishedAt'] as String)
+          ? DateTime.tryParse((json['publishedAt']).toString())
           : null,
       metadata: json['metadata'] as Map<String, dynamic>?,
     );

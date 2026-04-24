@@ -892,7 +892,7 @@ class _CurrentUserProfileScreenState
             currentUserId: currentUser?.id,
             currentUsername: currentUser?.username,
             currentUserAvatar: currentUser?.avatarUrl ?? '',
-            onTap: () => context.push('/main/post/${post.id}'),
+            onTap: () => context.push('/main/post/${post.id}', extra: post),
             onUserTap: () {},
           );
         },

@@ -7,7 +7,9 @@ import 'package:path/path.dart' as path;
 import 'package:path_provider/path_provider.dart';
 
 import '../../core/services/api_service.dart';
+import '../../core/services/community_service.dart';
 import '../../core/utils/video_utils.dart';
+import '../../models/community_post.dart';
 
 class CreatePostScreen extends ConsumerStatefulWidget {
   const CreatePostScreen({super.key});
@@ -229,6 +231,11 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
       );
 
       if (response['success'] == true) {
+        final createdPost = _buildCreatedPostFromResponse(response['data']);
+        if (createdPost != null) {
+          ref.read(communityServiceStateProvider.notifier).upsertPost(createdPost);
+        }
+
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Post created successfully!')),
@@ -253,6 +260,24 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
         });
       }
     }
+  }
+
+  CommunityPost? _buildCreatedPostFromResponse(dynamic rawPost) {
+    if (rawPost is! Map) {
+      return null;
+    }
+
+    final post = Map<String, dynamic>.from(rawPost);
+    return CommunityPost.fromJson({
+      ...post,
+      'content': post['content'] ?? '',
+      'userAvatar': post['userAvatar'] ?? '',
+      'imageUrls': post['imageUrls'] ?? const [],
+      'videoUrls': post['videoUrls'] ?? const [],
+      'videoThumbnailUrls': post['videoThumbnailUrls'] ?? const [],
+      'pollData': post['pollData'] ?? post['pollOptions'],
+      'createdAt': post['createdAt'] ?? DateTime.now().toIso8601String(),
+    });
   }
 
   @override

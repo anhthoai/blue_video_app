@@ -8,6 +8,17 @@ import 'api_service.dart';
 class CommunityService {
   final ApiService _apiService = ApiService();
 
+  CommunityPost _parseCommunityPost(
+    dynamic rawJson, {
+    bool isUnlocked = false,
+  }) {
+    final json = Map<String, dynamic>.from(rawJson as Map);
+    return CommunityPost.fromJson({
+      ...json,
+      'isUnlocked': json['isUnlocked'] == true || isUnlocked,
+    });
+  }
+
   // Create a new community post
   Future<Map<String, dynamic>> createPost({
     required String title,
@@ -61,6 +72,48 @@ class CommunityService {
     } catch (e) {
       print('Error creating post: $e');
       return {'success': false, 'message': e.toString()};
+    }
+  }
+
+  Future<CommunityPost> getPostById(String postId) async {
+    try {
+      final response = await _apiService.getCommunityPostById(postId);
+
+      if (response['success'] == true && response['data'] != null) {
+        final postJson = Map<String, dynamic>.from(response['data'] as Map);
+        final hasPaidAccess =
+            ((postJson['cost'] as num?)?.toInt() ?? 0) > 0 ||
+                postJson['requiresVip'] == true;
+
+        final isUnlocked = hasPaidAccess
+            ? await _apiService.isPostUnlocked(postId)
+            : postJson['isUnlocked'] == true;
+
+        return _parseCommunityPost(postJson, isUnlocked: isUnlocked);
+      }
+
+      throw Exception(response['message'] ?? 'Failed to fetch post');
+    } catch (e) {
+      final errorMessage = e.toString();
+      if (errorMessage.contains('404') &&
+          errorMessage.contains('Route not found')) {
+        final feedPosts = await getPosts(limit: 50);
+        for (final post in feedPosts) {
+          if (post.id == postId) {
+            return post;
+          }
+        }
+
+        final trendingPosts = await getTrendingPosts(limit: 50);
+        for (final post in trendingPosts) {
+          if (post.id == postId) {
+            return post;
+          }
+        }
+      }
+
+      print('Error getting post by id: $e');
+      rethrow;
     }
   }
 
@@ -169,47 +222,9 @@ class CommunityService {
 
       if (response['success'] == true) {
         final items = response['data'] as List<dynamic>;
-        return items.map<CommunityPost>((json) {
-          return CommunityPost(
-            id: json['id'],
-            userId: json['userId'],
-            username: json['username'],
-            title: json['title'],
-            content: json['content'],
-            type: _mapPostType(json['type']),
-            images: List<String>.from(json['images'] ?? const []),
-            videos: List<String>.from(json['videos'] ?? const []),
-            imageUrls: List<String>.from(json['imageUrls'] ?? const []),
-            videoUrls: List<String>.from(json['videoUrls'] ?? const []),
-            videoThumbnailUrls:
-                List<String>.from(json['videoThumbnailUrls'] ?? const []),
-            duration: List<String>.from(json['duration'] ?? const []),
-            videoUrl: null,
-            linkUrl: json['linkUrl'],
-            linkTitle: json['linkTitle'],
-            linkDescription: json['linkDescription'],
-            linkThumbnail: json['linkThumbnail'],
-            pollData: json['pollData'],
-            tags: List<String>.from(json['tags'] ?? const []),
-            category: json['category'],
-            likes: json['likes'] ?? 0,
-            comments: json['comments'] ?? 0,
-            shares: json['shares'] ?? 0,
-            views: json['views'] ?? 0,
-            isLiked: json['isLiked'] ?? false,
-            isBookmarked: json['isBookmarked'] ?? false,
-            isPinned: json['isPinned'] ?? false,
-            isNsfw: json['isNsfw'] ?? false,
-            cost: json['cost'] ?? 0,
-            requiresVip: json['requiresVip'] ?? false,
-            createdAt: DateTime.parse(json['createdAt']),
-            updatedAt: DateTime.parse(json['updatedAt']),
-            firstName: json['firstName'],
-            lastName: json['lastName'],
-            isVerified: json['isVerified'] ?? false,
-            userAvatar: json['userAvatar'] ?? '',
-          );
-        }).toList();
+        return items
+            .map<CommunityPost>((json) => _parseCommunityPost(json))
+            .toList();
       } else {
         throw Exception(response['message'] ?? 'Failed to fetch posts by tag');
       }
@@ -237,47 +252,9 @@ class CommunityService {
           print(
               '📋 First trending post cost: ${items.first['cost']}, requiresVip: ${items.first['requiresVip']}');
         }
-        return items.map<CommunityPost>((json) {
-          return CommunityPost(
-            id: json['id'],
-            userId: json['userId'],
-            username: json['username'],
-            title: json['title'],
-            content: json['content'],
-            type: _mapPostType(json['type']),
-            images: List<String>.from(json['images'] ?? const []),
-            videos: List<String>.from(json['videos'] ?? const []),
-            imageUrls: List<String>.from(json['imageUrls'] ?? const []),
-            videoUrls: List<String>.from(json['videoUrls'] ?? const []),
-            videoThumbnailUrls:
-                List<String>.from(json['videoThumbnailUrls'] ?? const []),
-            duration: List<String>.from(json['duration'] ?? const []),
-            videoUrl: null,
-            linkUrl: json['linkUrl'],
-            linkTitle: json['linkTitle'],
-            linkDescription: json['linkDescription'],
-            linkThumbnail: json['linkThumbnail'],
-            pollData: json['pollData'],
-            tags: List<String>.from(json['tags'] ?? const []),
-            category: json['category'],
-            likes: json['likes'] ?? 0,
-            comments: json['comments'] ?? 0,
-            shares: json['shares'] ?? 0,
-            views: json['views'] ?? 0,
-            isLiked: json['isLiked'] ?? false,
-            isBookmarked: json['isBookmarked'] ?? false,
-            isPinned: json['isPinned'] ?? false,
-            isNsfw: json['isNsfw'] ?? false,
-            cost: json['cost'] ?? 0,
-            requiresVip: json['requiresVip'] ?? false,
-            createdAt: DateTime.parse(json['createdAt']),
-            updatedAt: DateTime.parse(json['updatedAt']),
-            firstName: json['firstName'],
-            lastName: json['lastName'],
-            isVerified: json['isVerified'] ?? false,
-            userAvatar: json['userAvatar'] ?? '',
-          );
-        }).toList();
+        return items
+            .map<CommunityPost>((json) => _parseCommunityPost(json))
+            .toList();
       } else {
         throw Exception(
             response['message'] ?? 'Failed to fetch trending posts');
@@ -303,47 +280,9 @@ class CommunityService {
 
       if (response['success'] == true) {
         final items = response['data'] as List<dynamic>;
-        return items.map<CommunityPost>((json) {
-          return CommunityPost(
-            id: json['id'],
-            userId: json['userId'],
-            username: json['username'],
-            title: json['title'],
-            content: json['content'],
-            type: _mapPostType(json['type']),
-            images: List<String>.from(json['images'] ?? const []),
-            videos: List<String>.from(json['videos'] ?? const []),
-            imageUrls: List<String>.from(json['imageUrls'] ?? const []),
-            videoUrls: List<String>.from(json['videoUrls'] ?? const []),
-            videoThumbnailUrls:
-                List<String>.from(json['videoThumbnailUrls'] ?? const []),
-            duration: List<String>.from(json['duration'] ?? const []),
-            videoUrl: null,
-            linkUrl: json['linkUrl'],
-            linkTitle: json['linkTitle'],
-            linkDescription: json['linkDescription'],
-            linkThumbnail: json['linkThumbnail'],
-            pollData: json['pollData'],
-            tags: List<String>.from(json['tags'] ?? const []),
-            category: json['category'],
-            likes: json['likes'] ?? 0,
-            comments: json['comments'] ?? 0,
-            shares: json['shares'] ?? 0,
-            views: json['views'] ?? 0,
-            isLiked: json['isLiked'] ?? false,
-            isBookmarked: json['isBookmarked'] ?? false,
-            isPinned: json['isPinned'] ?? false,
-            isNsfw: json['isNsfw'] ?? false,
-            cost: json['cost'] ?? 0,
-            requiresVip: json['requiresVip'] ?? false,
-            createdAt: DateTime.parse(json['createdAt']),
-            updatedAt: DateTime.parse(json['updatedAt']),
-            firstName: json['firstName'],
-            lastName: json['lastName'],
-            isVerified: json['isVerified'] ?? false,
-            userAvatar: json['userAvatar'] ?? '',
-          );
-        }).toList();
+        return items
+            .map<CommunityPost>((json) => _parseCommunityPost(json))
+            .toList();
       } else {
         throw Exception(response['message'] ?? 'Failed to search posts');
       }
@@ -410,48 +349,9 @@ class CommunityService {
             print(
                 '   Raw requiresVip: ${json['requiresVip']} (type: ${json['requiresVip'].runtimeType})');
           }
-          return CommunityPost(
-            id: json['id'] ?? '',
-            userId: json['userId'] ?? '',
-            username: json['username'] ?? 'User',
-            firstName: json['firstName'],
-            lastName: json['lastName'],
-            isVerified: json['isVerified'] ?? false,
-            userAvatar: json['userAvatar'] ?? '',
-            title: json['title'],
-            content: json['content'],
-            type: _mapPostType(json['type']),
-            images: List<String>.from(json['images'] ?? const []),
-            videos: List<String>.from(json['videos'] ?? const []),
-            imageUrls: List<String>.from(json['imageUrls'] ?? const []),
-            videoUrls: List<String>.from(json['videoUrls'] ?? const []),
-            videoThumbnailUrls:
-                List<String>.from(json['videoThumbnailUrls'] ?? const []),
-            duration: List<String>.from(json['duration'] ?? const []),
-            videoUrl: null,
-            linkUrl: json['linkUrl'],
-            linkTitle: json['linkTitle'],
-            linkDescription: json['linkDescription'],
-            linkThumbnail: json['linkThumbnail'],
-            pollData: json['pollOptions'],
-            tags: List<String>.from(json['tags'] ?? const []),
-            category: json['category'],
-            likes: json['likes'] ?? 0,
-            comments: json['comments'] ?? 0,
-            shares: json['shares'] ?? 0,
-            views: json['views'] ?? 0,
-            isLiked: json['isLiked'] ?? false,
-            isBookmarked: json['isBookmarked'] ?? false,
-            isPinned: json['isPinned'] ?? false,
-            isNsfw: json['isNsfw'] ?? false,
-            isFeatured: json['isFeatured'] ?? false,
-            cost: json['cost'] ?? 0,
-            requiresVip: json['requiresVip'] ?? false,
+          return _parseCommunityPost(
+            json,
             isUnlocked: unlockStatus[json['id']] ?? false,
-            createdAt:
-                DateTime.tryParse(json['createdAt'] ?? '') ?? DateTime.now(),
-            publishedAt:
-                DateTime.tryParse(json['createdAt'] ?? '') ?? DateTime.now(),
           );
         }).toList();
       }
@@ -655,6 +555,36 @@ class CommunityServiceState {
 class CommunityServiceNotifier extends StateNotifier<CommunityServiceState> {
   CommunityServiceNotifier() : super(const CommunityServiceState()) {
     // CommunityServiceNotifier initialized
+  }
+
+  List<CommunityPost> _upsertInList(
+    List<CommunityPost> posts,
+    CommunityPost post, {
+    bool insertIfMissing = true,
+  }) {
+    final index = posts.indexWhere((existingPost) => existingPost.id == post.id);
+    if (index == -1) {
+      return insertIfMissing ? [post, ...posts] : posts;
+    }
+
+    final updatedPosts = [...posts];
+    updatedPosts[index] = post;
+    return updatedPosts;
+  }
+
+  void upsertPost(CommunityPost post) {
+    state = state.copyWith(
+      posts: _upsertInList(state.posts, post),
+      trendingPosts:
+          _upsertInList(state.trendingPosts, post, insertIfMissing: false),
+      searchResults:
+          _upsertInList(state.searchResults, post, insertIfMissing: false),
+      tagPosts: _upsertInList(state.tagPosts, post, insertIfMissing: false),
+      bookmarkedPosts:
+          _upsertInList(state.bookmarkedPosts, post, insertIfMissing: false),
+      reportedPosts:
+          _upsertInList(state.reportedPosts, post, insertIfMissing: false),
+    );
   }
 
   Future<void> loadPosts({

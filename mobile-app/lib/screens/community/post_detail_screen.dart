@@ -17,8 +17,13 @@ import '_fullscreen_media_gallery.dart';
 
 class PostDetailScreen extends ConsumerStatefulWidget {
   final String postId;
+  final CommunityPost? initialPost;
 
-  const PostDetailScreen({super.key, required this.postId});
+  const PostDetailScreen({
+    super.key,
+    required this.postId,
+    this.initialPost,
+  });
 
   @override
   ConsumerState<PostDetailScreen> createState() => _PostDetailScreenState();
@@ -32,9 +37,46 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
   bool _commentsLoaded = false; // Track if comments have been loaded
   List<CommentModel> _comments = [];
 
+  CommunityPost? _findCachedPost(CommunityServiceState communityState) {
+    for (final source in [
+      communityState.posts,
+      communityState.trendingPosts,
+      communityState.tagPosts,
+    ]) {
+      for (final post in source) {
+        if (post.id == widget.postId) {
+          return post;
+        }
+      }
+    }
+
+    return null;
+  }
+
+  void _setLoadedPost(CommunityPost post) {
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _post = post;
+      _isLoading = false;
+    });
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _loadComments();
+      }
+    });
+  }
+
   @override
   void initState() {
     super.initState();
+    if (widget.initialPost != null) {
+      _setLoadedPost(widget.initialPost!);
+      return;
+    }
     _loadPost();
   }
 
@@ -47,76 +89,20 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
 
       final communityState = ref.read(communityServiceStateProvider);
 
-      // First try to find the post in existing posts
-      try {
-        final existingPost = communityState.posts.firstWhere(
-          (post) => post.id == widget.postId,
-        );
-        setState(() {
-          _post = existingPost;
-          _isLoading = false;
-        });
-
-        // Debug logging
-        print('🎯 Post Detail: Loaded post from existing posts');
-        print('   Post ID: ${_post!.id}');
-        print('   Cost: ${_post!.cost}, VIP: ${_post!.requiresVip}');
-
-        // Load comments for this post after frame is built
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          _loadComments();
-        });
+      final cachedPost = _findCachedPost(communityState);
+      if (cachedPost != null) {
+        _setLoadedPost(cachedPost);
         return;
-      } catch (e) {
-        // Post not found in existing posts, try trending posts
-        try {
-          final existingPost = communityState.trendingPosts.firstWhere(
-            (post) => post.id == widget.postId,
-          );
-          setState(() {
-            _post = existingPost;
-            _isLoading = false;
-          });
-
-          // Debug logging
-          print('🎯 Post Detail: Loaded post from trending posts');
-          print('   Post ID: ${_post!.id}');
-          print('   Cost: ${_post!.cost}, VIP: ${_post!.requiresVip}');
-
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            _loadComments();
-          });
-          return;
-        } catch (e2) {
-          // Post not found in trending posts, try tag posts
-          try {
-            final existingPost = communityState.tagPosts.firstWhere(
-              (post) => post.id == widget.postId,
-            );
-            setState(() {
-              _post = existingPost;
-              _isLoading = false;
-            });
-
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              _loadComments();
-            });
-            return;
-          } catch (e3) {
-            // Post not found in any state
-          }
-        }
       }
 
-      // If not found, we could implement a single post fetch API
-      // For now, we'll show an error
-      setState(() {
-        _error = 'Post not found';
-        _isLoading = false;
-      });
+      final communityService = ref.read(communityServiceProvider);
+      final fetchedPost = await communityService.getPostById(widget.postId);
+      _setLoadedPost(fetchedPost);
     } catch (e) {
       setState(() {
-        _error = 'Failed to load post: $e';
+        _error = e.toString().contains('Post not found')
+            ? 'Post not found'
+            : 'Failed to load post: $e';
         _isLoading = false;
       });
     }

@@ -6620,6 +6620,104 @@ app.get('/api/v1/community/posts/search', authenticateToken, async (req, res) =>
     const currentUserId = req.user?.id;
 
     if (!query || query.toString().trim() === '') {
+
+app.get('/api/v1/community/posts/:postId', authenticateToken, async (req, res) => {
+  try {
+    const { postId } = req.params;
+    const currentUserId = req.user?.id;
+
+    const post = await prisma.communityPost.findFirst({
+      where: {
+        id: postId,
+        isPublic: true,
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            username: true,
+            firstName: true,
+            lastName: true,
+            avatar: true,
+            avatarUrl: true,
+            fileDirectory: true,
+            isVerified: true,
+          },
+        },
+      },
+    });
+
+    if (!post) {
+      return res.status(404).json({
+        success: false,
+        message: 'Post not found',
+      });
+    }
+
+    const imageUrls = await Promise.all(
+      post.images.map((fileName) =>
+        buildCommunityPostFileUrl(post.fileDirectory, fileName, (post as any).s3StorageId || 1)
+      )
+    );
+
+    const videoUrls = await Promise.all(
+      post.videos.map((fileName) =>
+        buildCommunityPostFileUrl(post.fileDirectory, fileName, (post as any).s3StorageId || 1)
+      )
+    );
+
+    const videoThumbnailUrls = await Promise.all(
+      post.videoThumbnails.map((fileName) =>
+        buildCommunityPostFileUrl(post.fileDirectory, fileName, (post as any).s3StorageId || 1)
+      )
+    );
+
+    const avatarUrl = post.user.avatar && post.user.fileDirectory
+      ? await buildFileUrl(post.user.fileDirectory, post.user.avatar, 'avatars', (post.user as any).s3StorageId || 1)
+      : post.user.avatarUrl;
+
+    const isLiked = currentUserId ? await prisma.communityPostLike.findUnique({
+      where: {
+        userId_postId: {
+          userId: currentUserId,
+          postId: post.id,
+        },
+      },
+    }) : null;
+
+    const isBookmarked = currentUserId ? await prisma.communityPostBookmark.findUnique({
+      where: {
+        userId_postId: {
+          userId: currentUserId,
+          postId: post.id,
+        },
+      },
+    }) : null;
+
+    return res.json({
+      success: true,
+      data: {
+        ...post,
+        username: post.user.username,
+        firstName: post.user.firstName,
+        lastName: post.user.lastName,
+        isVerified: post.user.isVerified,
+        userAvatar: avatarUrl,
+        imageUrls: imageUrls.filter((url) => url != null),
+        videoUrls: videoUrls.filter((url) => url != null),
+        videoThumbnailUrls: videoThumbnailUrls.filter((url) => url != null),
+        isLiked: isLiked != null,
+        isBookmarked: isBookmarked != null,
+      },
+    });
+  } catch (error) {
+    console.error('Get community post error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to get post',
+    });
+  }
+});
       return res.status(400).json({
         success: false,
         message: 'Search query is required',

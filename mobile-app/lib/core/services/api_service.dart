@@ -244,6 +244,15 @@ class ApiService {
     return await _handleResponse(response);
   }
 
+  Future<Map<String, dynamic>> getCommunityPostById(String postId) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/community/posts/$postId'),
+      headers: await _getHeaders(),
+    );
+
+    return await _handleResponse(response);
+  }
+
   // Like/Unlike a community post
   Future<Map<String, dynamic>> likeCommunityPost(String postId) async {
     final response = await http.post(

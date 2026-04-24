@@ -46,6 +46,7 @@ import '../../screens/library/library_audio_player_screen.dart';
 import '../../screens/library/library_video_player_screen.dart';
 import '../../screens/library/library_document_screen.dart';
 import '../../screens/library/library_ebook_reader_screen.dart';
+import '../../models/community_post.dart';
 import '../../models/category_model.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
@@ -137,7 +138,13 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: 'post/:postId',
             builder: (context, state) {
               final postId = state.pathParameters['postId']!;
-              return PostDetailScreen(postId: postId);
+              final initialPost = state.extra is CommunityPost
+                  ? state.extra as CommunityPost
+                  : null;
+              return PostDetailScreen(
+                postId: postId,
+                initialPost: initialPost,
+              );
             },
           ),
           GoRoute(

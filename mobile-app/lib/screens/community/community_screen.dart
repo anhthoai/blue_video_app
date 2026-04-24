@@ -76,6 +76,32 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
     }
   }
 
+  Future<void> _refreshPostsTab() async {
+    await Future.wait([
+      _loadPosts(),
+      _loadTags(),
+    ]);
+  }
+
+  Future<void> _refreshTrendingTab() async {
+    await Future.wait([
+      _loadTrendingPosts(),
+      _loadTags(),
+    ]);
+  }
+
+  Future<void> _refreshVideosTab() async {
+    await _loadPosts();
+  }
+
+  Future<void> _refreshAfterCreate() async {
+    await Future.wait([
+      _loadPosts(),
+      _loadTrendingPosts(),
+      _loadTags(),
+    ]);
+  }
+
   void _openVideoPlayer(CommunityPost post) {
     if (post.videoUrls.isEmpty) return;
 
@@ -227,7 +253,8 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
     }
 
     if (state.posts.isEmpty) {
-      return _buildEmptyState(
+      return _buildRefreshableEmptyState(
+        onRefresh: _refreshPostsTab,
         icon: Icons.article_outlined,
         title: 'No posts yet',
         subtitle: 'Be the first to share something with the community!',
@@ -237,8 +264,9 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
     }
 
     return RefreshIndicator(
-      onRefresh: _loadPosts,
+      onRefresh: _refreshPostsTab,
       child: ListView.builder(
+        physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.symmetric(vertical: 8),
         itemCount: state.posts.length,
         itemBuilder: (context, index) {
@@ -250,7 +278,7 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
             currentUserAvatar: authState.currentUser?.avatarUrl ?? '',
             onTap: () {
               // Navigate to post detail
-              context.push('/main/post/${post.id}');
+              context.push('/main/post/${post.id}', extra: post);
             },
             onUserTap: () {
               // Navigate to user profile
@@ -271,7 +299,8 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
     final trendingPosts = state.trendingPosts;
 
     if (trendingPosts.isEmpty) {
-      return _buildEmptyState(
+      return _buildRefreshableEmptyState(
+        onRefresh: _refreshTrendingTab,
         icon: Icons.trending_up,
         title: 'No trending posts',
         subtitle: 'Check back later for trending content!',
@@ -279,8 +308,9 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
     }
 
     return RefreshIndicator(
-      onRefresh: _loadTrendingPosts,
+      onRefresh: _refreshTrendingTab,
       child: ListView.builder(
+        physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.symmetric(vertical: 8),
         itemCount: trendingPosts.length,
         itemBuilder: (context, index) {
@@ -292,7 +322,7 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
             currentUserAvatar: authState.currentUser?.avatarUrl ?? '',
             onTap: () {
               // Navigate to post detail
-              context.push('/main/post/${post.id}');
+              context.push('/main/post/${post.id}', extra: post);
             },
             onUserTap: () {
               // Navigate to user profile
@@ -314,7 +344,8 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
         state.posts.where((post) => post.videoUrls.isNotEmpty).toList();
 
     if (videoPosts.isEmpty) {
-      return _buildEmptyState(
+      return _buildRefreshableEmptyState(
+        onRefresh: _refreshVideosTab,
         icon: Icons.video_library,
         title: 'No videos yet',
         subtitle: 'Be the first to share a video with the community!',
@@ -324,8 +355,9 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
     }
 
     return RefreshIndicator(
-      onRefresh: _loadPosts,
+      onRefresh: _refreshVideosTab,
       child: ListView.builder(
+        physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.symmetric(vertical: 8),
         itemCount: videoPosts.length,
         itemBuilder: (context, index) {
@@ -333,6 +365,36 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
           return VideoCardWidget(
             post: post,
             onTap: () => _openVideoPlayer(post),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildRefreshableEmptyState({
+    required Future<void> Function() onRefresh,
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    String? actionText,
+    VoidCallback? onAction,
+  }) {
+    return RefreshIndicator(
+      onRefresh: onRefresh,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          return SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minHeight: constraints.maxHeight),
+              child: _buildEmptyState(
+                icon: icon,
+                title: title,
+                subtitle: subtitle,
+                actionText: actionText,
+                onAction: onAction,
+              ),
+            ),
           );
         },
       ),
@@ -568,8 +630,7 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
 
     // If post was created successfully, refresh the posts
     if (result == true) {
-      // Reload posts instead of invalidating to avoid recreation
-      await ref.read(communityServiceStateProvider.notifier).loadPosts();
+      await _refreshAfterCreate();
     }
   }
 }

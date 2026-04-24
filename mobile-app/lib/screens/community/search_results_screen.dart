@@ -234,7 +234,7 @@ class _SearchResultsScreenState extends ConsumerState<SearchResultsScreen>
               currentUserAvatar: authState.currentUser?.avatarUrl ?? '',
               onTap: () {
                 // Navigate to post detail
-                context.push('/main/post/${post.id}');
+                context.push('/main/post/${post.id}', extra: post);
               },
               onUserTap: () {
                 // Navigate to user profile
@@ -445,7 +445,7 @@ class _SearchResultsScreenState extends ConsumerState<SearchResultsScreen>
                           currentUserAvatar:
                               authState.currentUser?.avatarUrl ?? '',
                           onTap: () {
-                            context.push('/main/post/${post.id}');
+                            context.push('/main/post/${post.id}', extra: post);
                           },
                           onUserTap: () {
                             context.push('/main/profile/${post.userId}');
@@ -462,7 +462,7 @@ class _SearchResultsScreenState extends ConsumerState<SearchResultsScreen>
                           currentUserAvatar:
                               authState.currentUser?.avatarUrl ?? '',
                           onTap: () {
-                            context.push('/main/post/${post.id}');
+                            context.push('/main/post/${post.id}', extra: post);
                           },
                           onUserTap: () {
                             context.push('/main/profile/${post.userId}');

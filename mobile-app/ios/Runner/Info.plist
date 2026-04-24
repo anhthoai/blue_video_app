@@ -47,6 +47,10 @@
 	<true/>
 	<key>NSCameraUsageDescription</key>
 	<string>Blue Video needs camera access for video calls in chat.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Blue Video needs photo library access so you can choose images and videos for posts, chats, profile updates, and uploads.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Blue Video needs permission to save images and videos to your photo library when you choose to download or export media.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Blue Video needs microphone access for voice and video calls in chat.</string>
 	<key>UIBackgroundModes</key>
