@@ -10,6 +10,7 @@ import 'package:media_kit_video/media_kit_video.dart';
 
 import '../../core/models/library_navigation.dart';
 import '../../core/models/library_item_model.dart';
+import '../../utils/media_kit_low_latency.dart';
 import '../../utils/subtitle_parser.dart';
 import '../../utils/language_labels.dart' as lang;
 
@@ -157,6 +158,7 @@ class _LibraryVideoPlayerScreenState extends State<LibraryVideoPlayerScreen>
 
   Future<void> _openWithFallback(String streamUrl) async {
     _ensurePlayerInitialized();
+    final preferLowLatency = shouldUseLowLatencyProfile(streamUrl);
 
     // mpv (Android):
     // - media_kit defaults `network-timeout=5` which is often too aggressive for CDN/worker URLs.
@@ -164,6 +166,8 @@ class _LibraryVideoPlayerScreenState extends State<LibraryVideoPlayerScreen>
     // Tune networking & cache to improve reliability.
     try {
       final platform = _player?.platform;
+
+      await applyMediaKitLowLatency(_player!, sourceUrl: streamUrl);
 
       // Audio quality (Android):
       // - Prefer AudioTrack output (OpenSLES can produce static/noise on some devices).
@@ -176,8 +180,11 @@ class _LibraryVideoPlayerScreenState extends State<LibraryVideoPlayerScreen>
 
       await _applyMpvSubtitleStyle();
 
-      // Keep memory cache (helps with flaky networks) but disable disk cache.
-      await (platform as dynamic).setProperty('cache', 'yes');
+      // Preserve higher cache for VOD, but don't fight low-latency live profiles.
+      await (platform as dynamic).setProperty(
+        'cache',
+        preferLowLatency ? 'no' : 'yes',
+      );
       await (platform as dynamic).setProperty('cache-on-disk', 'no');
 
       // Increase timeouts & enable reconnect for intermittent networks.

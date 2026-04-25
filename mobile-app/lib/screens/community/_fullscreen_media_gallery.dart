@@ -4,6 +4,8 @@ import 'package:flutter/services.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 
+import '../../utils/media_kit_low_latency.dart';
+
 // Media item class to hold both images and videos
 class MediaItem {
   final String url;
@@ -59,6 +61,11 @@ class _FullscreenMediaGalleryState extends State<FullscreenMediaGallery> {
       _players[index] = player;
       _videoControllers[index] = controller;
       _videoHasError[index] = false;
+
+      await applyMediaKitLowLatency(
+        player,
+        sourceUrl: widget.mediaItems[index].url,
+      );
 
       await player.open(
         Media(widget.mediaItems[index].url),

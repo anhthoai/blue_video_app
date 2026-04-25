@@ -3,7 +3,6 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:dio/dio.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -20,6 +19,7 @@ import '../../models/movie_model.dart';
 import '../../core/services/movie_service.dart';
 import '../../core/services/auth_service.dart';
 import '../../l10n/app_localizations.dart';
+import '../../utils/media_kit_low_latency.dart';
 import '../../utils/subtitle_parser.dart';
 import '../../utils/language_labels.dart' as lang;
 
@@ -188,6 +188,7 @@ class _MoviePlayerScreenState extends ConsumerState<MoviePlayerScreen>
 
   Future<void> _openWithFallback(String streamUrl) async {
     _ensurePlayerInitialized();
+    final preferLowLatency = shouldUseLowLatencyProfile(streamUrl);
 
     // mpv (Android):
     // - media_kit defaults `network-timeout=5` which is often too aggressive for CDN/worker URLs.
@@ -195,6 +196,8 @@ class _MoviePlayerScreenState extends ConsumerState<MoviePlayerScreen>
     // Tune networking & cache to improve reliability.
     try {
       final platform = _player?.platform;
+
+      await applyMediaKitLowLatency(_player!, sourceUrl: streamUrl);
 
       // Audio quality (Android):
       // - Prefer AudioTrack output (OpenSLES can produce static/noise on some devices).
@@ -207,8 +210,11 @@ class _MoviePlayerScreenState extends ConsumerState<MoviePlayerScreen>
 
       await _applyMpvSubtitleStyle();
 
-      // Keep memory cache (helps with flaky networks) but disable disk cache.
-      await (platform as dynamic).setProperty('cache', 'yes');
+      // Preserve higher cache for VOD, but don't fight low-latency live profiles.
+      await (platform as dynamic).setProperty(
+        'cache',
+        preferLowLatency ? 'no' : 'yes',
+      );
       await (platform as dynamic).setProperty('cache-on-disk', 'no');
 
       // Increase timeouts & enable reconnect for intermittent networks.

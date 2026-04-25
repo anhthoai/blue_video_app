@@ -14,6 +14,7 @@ import '../../core/services/auth_service.dart';
 import '../../core/services/file_url_service.dart';
 import '../../core/utils/subtitle_utils.dart';
 import '../../core/utils/language_utils.dart';
+import '../../utils/media_kit_low_latency.dart';
 import '../../widgets/social/comments_section.dart';
 import '../../widgets/common/presigned_image.dart';
 import '../../l10n/app_localizations.dart';
@@ -765,7 +766,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
       return;
     }
 
-    _initializeVideoPlayer(playbackUrl, video);
+    unawaited(_initializeVideoPlayer(playbackUrl, video));
   }
 
   void _initializeEmbedVideo(String embedCode) {
@@ -790,7 +791,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
       ''');
   }
 
-  void _initializeVideoPlayer(String videoUrl, VideoModel video) {
+  Future<void> _initializeVideoPlayer(String videoUrl, VideoModel video) async {
     print('🎥 Initializing video player with URL: $videoUrl');
 
     // Cache video file info for subtitle loading
@@ -804,6 +805,8 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
     final controller = VideoController(player);
     _player = player;
     _videoController = controller;
+
+    await applyMediaKitLowLatency(player, sourceUrl: videoUrl);
 
     _playingSubscription = player.stream.playing.listen((playing) {
       if (!mounted) return;
