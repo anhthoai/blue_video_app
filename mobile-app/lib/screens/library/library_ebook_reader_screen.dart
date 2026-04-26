@@ -26,6 +26,7 @@ class _LibraryEbookReaderScreenState extends State<LibraryEbookReaderScreen> {
   InAppWebViewController? _controller;
   String? _readerUrl;
   String? _bookEntryId;
+  bool _isPdfMode = false;
   bool _isLoading = true;
   String? _error;
   double _percentage = 0;
@@ -36,7 +37,7 @@ class _LibraryEbookReaderScreenState extends State<LibraryEbookReaderScreen> {
   late ContextMenu _contextMenu;
 
   InAppWebViewSettings get _webViewSettings => InAppWebViewSettings(
-        supportZoom: false,
+        supportZoom: _isPdfMode,
         isInspectable: kDebugMode,
       );
 
@@ -95,6 +96,7 @@ class _LibraryEbookReaderScreenState extends State<LibraryEbookReaderScreen> {
       }
 
       var extension = _deriveExtension(item);
+      final isPdf = extension == 'pdf';
       
       // Convert TXT to EPUB if needed
       if (extension == 'txt') {
@@ -113,11 +115,14 @@ class _LibraryEbookReaderScreenState extends State<LibraryEbookReaderScreen> {
         bytes: Uint8List.fromList(bytes),
         extension: extension,
       );
-      final readerUrl = server.buildReaderUrl(bookId: bookId);
+      final readerUrl = isPdf
+          ? server.buildPdfReaderUrl(bookId: bookId)
+          : server.buildReaderUrl(bookId: bookId);
 
       if (!mounted) return;
       _bookEntryId = bookId;
       _readerUrl = readerUrl;
+      _isPdfMode = isPdf;
 
       final controller = _controller;
       if (controller != null) {
@@ -253,7 +258,7 @@ class _LibraryEbookReaderScreenState extends State<LibraryEbookReaderScreen> {
           : Stack(
               children: [
                 Positioned.fill(child: _buildReaderView()),
-                if (_readerUrl != null && _error == null)
+                if (_readerUrl != null && _error == null && !_isPdfMode)
                   _buildOverlayControls(),
                 if (_isLoading)
                   const Center(child: CircularProgressIndicator()),
@@ -267,34 +272,43 @@ class _LibraryEbookReaderScreenState extends State<LibraryEbookReaderScreen> {
       return const SizedBox.shrink();
     }
 
+    final webView = InAppWebView(
+      initialUrlRequest: URLRequest(url: WebUri(_readerUrl!)),
+      initialSettings: _webViewSettings,
+      contextMenu: _contextMenu,
+      onWebViewCreated: (controller) {
+        _controller = controller;
+        _hasReceivedInitialRelocated = false;
+        _relocatedCount = 0;
+      },
+      onLoadStop: (controller, uri) async {
+        if (!_isPdfMode) {
+          await _registerHandlers(controller);
+        }
+        if (mounted) {
+          setState(() => _isLoading = false);
+        }
+      },
+      onConsoleMessage: _onConsoleMessage,
+      onReceivedError: (controller, request, error) {
+        if (mounted) {
+          setState(() {
+            _error = error.description;
+            _isLoading = false;
+          });
+        }
+      },
+    );
+
+    if (_isPdfMode) {
+      // PDF.js handles all gestures natively; no GestureDetector wrapper needed
+      return webView;
+    }
+
     return GestureDetector(
       behavior: HitTestBehavior.translucent,
       onHorizontalDragEnd: _handleHorizontalDrag,
-      child: InAppWebView(
-        initialUrlRequest: URLRequest(url: WebUri(_readerUrl!)),
-        initialSettings: _webViewSettings,
-        contextMenu: _contextMenu,
-        onWebViewCreated: (controller) {
-          _controller = controller;
-          _hasReceivedInitialRelocated = false;
-          _relocatedCount = 0;
-        },
-        onLoadStop: (controller, uri) async {
-          await _registerHandlers(controller);
-          if (mounted) {
-            setState(() => _isLoading = false);
-          }
-        },
-        onConsoleMessage: _onConsoleMessage,
-        onReceivedError: (controller, request, error) {
-          if (mounted) {
-            setState(() {
-              _error = error.description;
-              _isLoading = false;
-            });
-          }
-        },
-      ),
+      child: webView,
     );
   }
 
@@ -358,7 +372,7 @@ class _LibraryEbookReaderScreenState extends State<LibraryEbookReaderScreen> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.65),
+                color: Colors.black.withValues(alpha: 0.65),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Column(

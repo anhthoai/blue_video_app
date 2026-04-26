@@ -762,14 +762,20 @@ class _LibraryItemSearchCardState
         extension == 'azw3' ||
         extension == 'fb2' ||
         extension == 'txt' ||
-        extension == 'pdf' ||
         mime.contains('epub') ||
         mime.contains('mobi') ||
         mime.contains('azw') ||
         mime.contains('kindle') ||
         mime.contains('fb2') ||
-        mime.contains('pdf') ||
         mime.contains('text/plain');
+  }
+
+  bool _isPdf(LibraryItemModel item) {
+    final extension = item.filePath?.split('.').last.toLowerCase() ??
+        item.fileUrl?.split('.').last.toLowerCase() ??
+        '';
+    final mime = item.mimeType?.toLowerCase() ?? '';
+    return extension == 'pdf' || mime.contains('pdf');
   }
 
   IconData _getIconForItem(LibraryItemModel item) {
@@ -852,6 +858,18 @@ class _LibraryItemSearchCardState
             videos: [finalItem],
             subtitles: [],
             initialIndex: 0,
+            folderTitle: null,
+          ),
+        );
+        return;
+      }
+
+      if (_isPdf(item)) {
+        context.push(
+          '/main/library/section/${Uri.encodeComponent(section)}/ebook',
+          extra: LibraryEbookReaderArgs(
+            section: section,
+            item: finalItem,
             folderTitle: null,
           ),
         );

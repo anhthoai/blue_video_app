@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
@@ -18,8 +17,6 @@ class EbookServer {
 
   HttpServer? _server;
   final Map<String, _EbookEntry> _entries = {};
-  Map<String, dynamic>? _assetManifest;
-  List<String>? _assetKeys;
 
   Future<void> ensureStarted() async {
     if (_server != null) return;
@@ -43,34 +40,19 @@ class EbookServer {
     await _server?.close(force: true);
     _server = null;
     _entries.clear();
-    _assetManifest = null;
-    _assetKeys = null;
   }
 
-  Future<void> _ensureAssetManifestLoaded() async {
-    if (_assetManifest != null && _assetKeys != null) return;
-    final manifestString = await rootBundle.loadString('AssetManifest.json');
-    final manifestMap = jsonDecode(manifestString) as Map<String, dynamic>;
-    _assetManifest = manifestMap;
-    _assetKeys = manifestMap.keys.toList(growable: false);
-  }
-
-  Future<Uint8List?> _loadAssetBytes(String logicalPath) async {
-    await _ensureAssetManifestLoaded();
-    final keys = _assetKeys ?? const [];
-
-    final normalized = logicalPath.startsWith('assets/')
-        ? logicalPath
-        : 'assets/foliate-js/$logicalPath';
-
+  Future<Uint8List?> _loadAssetBytes(
+    String logicalPath, {
+    String baseAssetDir = 'assets/foliate-js',
+  }) async {
+    final decodedPath = Uri.decodeComponent(logicalPath);
+    final normalized = decodedPath.startsWith('assets/')
+        ? decodedPath
+        : '$baseAssetDir/$decodedPath';
     final packagePath = 'packages/blue_video_app/$normalized';
 
     final candidates = <String>{normalized, packagePath};
-    for (final key in keys) {
-      if (key == normalized || key.endsWith('/$logicalPath')) {
-        candidates.add(key);
-      }
-    }
 
     for (final candidate in candidates) {
       try {
@@ -81,7 +63,7 @@ class EbookServer {
       }
     }
     debugPrint(
-        'EbookServer: asset not found for $logicalPath. Tried: $candidates');
+      'EbookServer: asset not found for $decodedPath. Tried: $candidates');
     return null;
   }
 
@@ -129,10 +111,77 @@ class EbookServer {
       if (entry == null || !await entry.file.exists()) {
         return Response.notFound('Book not found');
       }
+
+      final fileLength = await entry.file.length();
+      final rangeHeader = request.headers['range'];
+
+      if (rangeHeader != null && rangeHeader.startsWith('bytes=')) {
+        final rangeValue = rangeHeader.substring('bytes='.length).trim();
+        final parts = rangeValue.split('-');
+
+        if (parts.length == 2) {
+          int? start;
+          int? end;
+
+          final startRaw = parts[0].trim();
+          final endRaw = parts[1].trim();
+
+          if (startRaw.isNotEmpty) {
+            start = int.tryParse(startRaw);
+          }
+          if (endRaw.isNotEmpty) {
+            end = int.tryParse(endRaw);
+          }
+
+          if (start == null && end != null) {
+            final suffixLength = end;
+            if (suffixLength > 0) {
+              start = fileLength - suffixLength;
+              if (start < 0) start = 0;
+              end = fileLength - 1;
+            }
+          } else if (start != null && end == null) {
+            end = fileLength - 1;
+          }
+
+          if (start != null && end != null && start >= 0 && end >= start) {
+            if (start >= fileLength) {
+              return Response(
+                416,
+                headers: {
+                  'Content-Range': 'bytes */$fileLength',
+                  'Accept-Ranges': 'bytes',
+                  'Access-Control-Allow-Origin': '*',
+                },
+              );
+            }
+
+            if (end >= fileLength) {
+              end = fileLength - 1;
+            }
+
+            final chunkLength = end - start + 1;
+            return Response(
+              206,
+              body: entry.file.openRead(start, end + 1),
+              headers: {
+                'Content-Type': entry.contentType,
+                'Content-Range': 'bytes $start-$end/$fileLength',
+                'Content-Length': '$chunkLength',
+                'Accept-Ranges': 'bytes',
+                'Access-Control-Allow-Origin': '*',
+              },
+            );
+          }
+        }
+      }
+
       return Response.ok(
         entry.file.openRead(),
         headers: {
           'Content-Type': entry.contentType,
+          'Content-Length': '$fileLength',
+          'Accept-Ranges': 'bytes',
           'Access-Control-Allow-Origin': '*',
         },
       );
@@ -140,7 +189,29 @@ class EbookServer {
 
     if (path.startsWith('/foliate/')) {
       final assetPath = path.substring('/foliate/'.length);
-      final bytes = await _loadAssetBytes(assetPath);
+      final bytes = await _loadAssetBytes(
+        assetPath,
+        baseAssetDir: 'assets/foliate-js',
+      );
+      if (bytes == null) {
+        return Response.notFound('Asset not found: $assetPath');
+      }
+      final contentType = _guessContentType(assetPath);
+      return Response.ok(
+        bytes,
+        headers: {
+          'Content-Type': contentType,
+          'Access-Control-Allow-Origin': '*',
+        },
+      );
+    }
+
+    if (path.startsWith('/pdfjs/')) {
+      final assetPath = path.substring('/pdfjs/'.length);
+      final bytes = await _loadAssetBytes(
+        assetPath,
+        baseAssetDir: 'assets/pdfjs',
+      );
       if (bytes == null) {
         return Response.notFound('Asset not found: $assetPath');
       }
@@ -208,11 +279,34 @@ class EbookServer {
     return 'http://${InternetAddress.loopbackIPv4.address}:$port/ebook/$id';
   }
 
+  String buildPdfReaderUrl({
+    required String bookId,
+    int initialPage = 1,
+  }) {
+    final fileUrl = _buildBookUrl(bookId);
+    final page = initialPage <= 0 ? 1 : initialPage;
+
+    final url = Uri(
+      scheme: 'http',
+      host: InternetAddress.loopbackIPv4.address,
+      port: port,
+      path: '/pdfjs/web/viewer.html',
+      queryParameters: {
+        'file': fileUrl,
+        'page': '$page',
+      },
+    );
+    return url.toString();
+  }
+
   static String _guessContentType(String assetPath) {
     if (assetPath.endsWith('.html')) {
       return 'text/html';
     }
     if (assetPath.endsWith('.js')) {
+      return 'application/javascript';
+    }
+    if (assetPath.endsWith('.mjs')) {
       return 'application/javascript';
     }
     final mime = lookupMimeType(assetPath);

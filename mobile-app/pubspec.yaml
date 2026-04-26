@@ -173,6 +173,16 @@ flutter:
     - assets/foliate-js/src/vendor/zip.js
     - assets/foliate-js/src/vendor/pdfjs/pdf.js
     - assets/foliate-js/src/vendor/pdfjs/pdf.worker.js
+    - assets/pdfjs/
+    - assets/pdfjs/web/
+    - assets/pdfjs/web/cmaps/
+    - assets/pdfjs/web/iccs/
+    - assets/pdfjs/web/images/
+    - assets/pdfjs/web/locale/
+    - assets/pdfjs/web/locale/en-US/
+    - assets/pdfjs/web/standard_fonts/
+    - assets/pdfjs/web/wasm/
+    - assets/pdfjs/build/
 
   # fonts:
   #   - family: Roboto

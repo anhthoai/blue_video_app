@@ -437,6 +437,11 @@ class _LibraryItemsViewState extends ConsumerState<LibraryItemsView>
       return;
     }
 
+    if (_isPdf(item)) {
+      _openEbook(context, section, folderTitle, item);
+      return;
+    }
+
     if (_isEbook(item)) {
       _openEbook(context, section, folderTitle, item);
       return;
@@ -490,7 +495,6 @@ class _LibraryItemsViewState extends ConsumerState<LibraryItemsView>
       'azw3',
       'fb2',
       'txt',
-      'pdf',
     };
 
     return content == 'ebook' ||
@@ -498,8 +502,16 @@ class _LibraryItemsViewState extends ConsumerState<LibraryItemsView>
         mime.contains('epub') ||
         mime.contains('mobi') ||
         mime.contains('fb2') ||
-        mime.contains('pdf') ||
         mime.contains('text/plain');
+  }
+
+  bool _isPdf(LibraryItemModel item) {
+    final extension = (item.extension ?? item.filePath ?? item.fileUrl ?? '')
+        .split('.')
+        .last
+        .toLowerCase();
+    final mime = item.mimeType?.toLowerCase() ?? '';
+    return extension == 'pdf' || mime.contains('pdf');
   }
 
   bool _isDocument(LibraryItemModel item) {
