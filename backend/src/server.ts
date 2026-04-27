@@ -28,7 +28,10 @@ import { swaggerSpec } from './config/swagger';
 import movieRoutes from './routes/movies';
 import libraryRoutes from './routes/library';
 import { buildVerificationUrl } from './utils/publicUrl';
-import { AppSettingsService } from './services/appSettingsService';
+import {
+  AppSettingsService,
+  AppSettingsStorageUnavailableError,
+} from './services/appSettingsService';
 import { cleanupVideoStorageAssets } from './services/videoStorageCleanupService';
 
 // Initialize Prisma Client
@@ -4956,9 +4959,14 @@ app.patch('/api/v1/admin/app-settings', authenticateToken, requireAdmin, async (
     });
   } catch (error) {
     console.error('Error updating admin app settings:', error);
-    return res.status(500).json({
+    const isStorageUnavailable =
+      error instanceof AppSettingsStorageUnavailableError;
+
+    return res.status(isStorageUnavailable ? 503 : 500).json({
       success: false,
-      message: 'Failed to update app settings',
+      message: isStorageUnavailable
+        ? error.message
+        : 'Failed to update app settings',
     });
   }
 });
