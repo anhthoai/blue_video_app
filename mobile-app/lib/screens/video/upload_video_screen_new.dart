@@ -43,7 +43,6 @@ class _UploadVideoScreenNewState extends ConsumerState<UploadVideoScreenNew> {
 
   // Subtitle extraction
   Map<String, String> _extractedSubtitles = {}; // langCode -> file path
-  List<String> _subtitleLanguages = []; // List of language codes
 
   @override
   void initState() {
@@ -101,7 +100,6 @@ class _UploadVideoScreenNewState extends ConsumerState<UploadVideoScreenNew> {
         _generatedThumbnails = thumbnails;
         _selectedThumbnailIndex = 0;
         _extractedSubtitles = subtitles;
-        _subtitleLanguages = subtitles.keys.toList();
         _isGeneratingThumbnails = false;
       });
 
@@ -122,7 +120,6 @@ class _UploadVideoScreenNewState extends ConsumerState<UploadVideoScreenNew> {
         _videoDuration = null;
         _generatedThumbnails = [];
         _extractedSubtitles = {};
-        _subtitleLanguages = [];
         _isGeneratingThumbnails = false;
       });
 

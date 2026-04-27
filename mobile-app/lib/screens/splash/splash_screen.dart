@@ -1,9 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/services/auth_service.dart';
 import '../../core/services/app_lifecycle_service.dart';
+import '../../core/services/notification_service.dart';
 import '../../widgets/common/app_logo.dart';
 
 class SplashScreen extends ConsumerStatefulWidget {
@@ -44,16 +47,25 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
   }
 
   Future<void> _runStartupFlow() async {
+    final authService = ref.read(authServiceProvider);
     final startupDelay = Future<void>.delayed(const Duration(seconds: 3));
+    final authRefresh = authService.reloadCurrentUser().timeout(
+          const Duration(seconds: 10),
+          onTimeout: () {},
+        );
     final updateCheck = ref.read(appUpdateCoordinatorProvider).checkOnStartup(
           context,
+        ).timeout(
+          const Duration(seconds: 10),
+          onTimeout: () {},
         );
 
     await startupDelay;
+    await authRefresh;
     await updateCheck;
 
     if (mounted) {
-      final authService = ref.read(authServiceProvider);
+      unawaited(NotificationService.init());
 
       if (authService.isLoggedIn) {
         context.go('/main');

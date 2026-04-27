@@ -12,7 +12,6 @@ import 'core/services/storage_service.dart';
 import 'core/services/auth_service.dart';
 import 'core/services/nsfw_settings_service.dart';
 import 'core/services/locale_service.dart';
-import 'core/services/notification_service.dart';
 import 'core/services/theme_service.dart';
 import 'l10n/app_localizations.dart';
 
@@ -45,10 +44,6 @@ void main() async {
   final authService = AuthService(prefs);
   final nsfwSettingsService = NsfwSettingsService(prefs);
   final themeService = ThemeNotifier(prefs);
-
-  // Reload current user with fresh data from API
-  await authService.reloadCurrentUser();
-  await NotificationService.init();
 
   runApp(ProviderScope(
     overrides: [

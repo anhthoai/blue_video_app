@@ -51,7 +51,7 @@ dependencies:
   path_provider: ^2.1.1
   path: ^1.9.0
   shelf: ^1.4.1
-  ffmpeg_kit_flutter_new: ^3.2.0
+  ffmpeg_kit_flutter_new: 1.4.1
   # image_cropper: ^5.0.1  # Removed due to compatibility issues
 
   # UI Components
@@ -111,6 +111,9 @@ dev_dependencies:
 
   # Testing
   mockito: ^5.4.4
+
+dependency_overrides:
+  ffmpeg_kit_flutter_android: 1.2.0
 
 flutter_launcher_icons:
   android: true

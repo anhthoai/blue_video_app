@@ -1,13 +1,11 @@
 import 'dart:io';
+
 import 'package:ffmpeg_kit_flutter_new/ffmpeg_kit.dart';
 import 'package:ffmpeg_kit_flutter_new/ffprobe_kit.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as path;
 
-/// Utility class for video operations using FFmpeg Kit
 class VideoUtils {
-  /// Extract video duration using FFprobe
-  /// Returns duration in seconds
   static Future<int?> getVideoDuration(File videoFile) async {
     try {
       final session = await FFprobeKit.getMediaInformation(videoFile.path);
@@ -33,7 +31,6 @@ class VideoUtils {
     }
   }
 
-  /// Extract video metadata (duration, resolution, codec, etc.)
   static Future<Map<String, dynamic>?> getVideoMetadata(File videoFile) async {
     try {
       final session = await FFprobeKit.getMediaInformation(videoFile.path);
@@ -45,7 +42,6 @@ class VideoUtils {
           final format = properties['format'] as Map?;
           final streams = properties['streams'] as List?;
 
-          // Find video stream
           Map? videoStream;
           if (streams != null) {
             videoStream = streams.firstWhere(
@@ -74,142 +70,114 @@ class VideoUtils {
     }
   }
 
-  /// Generate thumbnail from video at specific timestamp
-  /// Optimized to 640px width for faster loading
-  /// Returns the path to the generated thumbnail
   static Future<String> generateThumbnail(
     File videoFile,
     int timeInSeconds, {
     String? outputPath,
   }) async {
     try {
-      // Verify video file exists
       if (!await videoFile.exists()) {
         throw Exception('Video file does not exist: ${videoFile.path}');
       }
 
       final tempDir = await getTemporaryDirectory();
       final thumbnailPath = outputPath ??
-          path.join(tempDir.path,
-              'thumbnail_${DateTime.now().millisecondsSinceEpoch}.jpg');
+          path.join(
+            tempDir.path,
+            'thumbnail_${DateTime.now().millisecondsSinceEpoch}.jpg',
+          );
 
-      // Delete existing thumbnail if it exists (to avoid FFmpeg asking for overwrite confirmation)
       final thumbnailFile = File(thumbnailPath);
       if (await thumbnailFile.exists()) {
-        print('🗑️  Deleting existing thumbnail: $thumbnailPath');
+        print('Deleting existing thumbnail: $thumbnailPath');
         await thumbnailFile.delete();
       }
 
-      print('🎬 Generating thumbnail...');
-      print('   Video: ${videoFile.path}');
-      print('   Output: $thumbnailPath');
-      print('   Time: ${timeInSeconds}s');
+      print('Generating thumbnail...');
+      print('  Video: ${videoFile.path}');
+      print('  Output: $thumbnailPath');
+      print('  Time: ${timeInSeconds}s');
 
-      // Try with scale filter first (better quality, smaller file)
-      // -y = automatically overwrite output files without asking
-      // -ss before -i for faster seeking
-      // -vframes 1 = extract only 1 frame
-      // -vf scale=640:-1 resizes to 640px width, maintains aspect ratio
-      // -q:v 5 = slightly lower quality for faster processing (2=best, 31=worst)
       var command =
           '-y -ss $timeInSeconds -i ${videoFile.path} -vframes 1 -vf scale=640:-1 -q:v 5 $thumbnailPath';
 
-      print('🔧 FFmpeg command (with scale): $command');
+      print('FFmpeg command (with scale): $command');
 
       var session = await FFmpegKit.execute(command);
       var returnCode = await session.getReturnCode();
 
-      print('📊 FFmpeg return code: ${returnCode?.getValue()}');
+      print('FFmpeg return code: ${returnCode?.getValue()}');
 
-      // If failed with scale, try simpler command without scale filter
       if (returnCode == null || returnCode.getValue() != 0) {
-        print('⚠️  Scaling failed, trying without scale filter...');
+        print('Scaling failed, trying without scale filter...');
 
-        // Simpler command without scale filter
         command =
             '-y -ss $timeInSeconds -i ${videoFile.path} -vframes 1 $thumbnailPath';
-        print('🔧 FFmpeg command (no scale): $command');
+        print('FFmpeg command (no scale): $command');
 
         session = await FFmpegKit.execute(command);
         returnCode = await session.getReturnCode();
-        print('📊 FFmpeg return code (retry): ${returnCode?.getValue()}');
+        print('FFmpeg return code (retry): ${returnCode?.getValue()}');
       }
 
       if (returnCode != null && returnCode.getValue() == 0) {
-        // Verify thumbnail was created
-        final thumbnailFile = File(thumbnailPath);
         if (await thumbnailFile.exists()) {
           final fileSize = await thumbnailFile.length();
-          print('✅ Thumbnail created successfully (${fileSize} bytes)');
+          print('Thumbnail created successfully (${fileSize} bytes)');
           return thumbnailPath;
-        } else {
-          throw Exception('Thumbnail file was not created at: $thumbnailPath');
         }
+
+        throw Exception('Thumbnail file was not created at: $thumbnailPath');
       }
 
-      // If both attempts failed, print error logs
-      print('❌ FFmpeg FAILED on both attempts!');
+      print('FFmpeg failed on both attempts');
       final logs = await session.getAllLogsAsString();
       if (logs != null && logs.isNotEmpty) {
-        // Get last 1000 characters of logs (most relevant error info)
         final relevantLogs =
             logs.length > 1000 ? logs.substring(logs.length - 1000) : logs;
-        print('📝 FFmpeg error logs:\n$relevantLogs');
+        print('FFmpeg error logs:\n$relevantLogs');
       }
 
       throw Exception(
-          'FFmpeg failed with return code: ${returnCode?.getValue()}');
+        'FFmpeg failed with return code: ${returnCode?.getValue()}',
+      );
     } catch (e) {
-      print('❌ Error generating thumbnail: $e');
+      print('Error generating thumbnail: $e');
       rethrow;
     }
   }
 
-  /// Generate multiple thumbnails from video
-  /// Returns list of thumbnail paths
   static Future<List<String>> generateThumbnails(
     File videoFile,
     int count, {
     String? outputDir,
   }) async {
     try {
-      // Get video duration first
       final duration = await getVideoDuration(videoFile);
-      if (duration == null || duration <= 0) {
-        print('⚠️  Invalid video duration: $duration');
+      if (duration == null || duration <= 0 || count <= 0) {
+        print('Invalid thumbnail generation input: duration=$duration, count=$count');
         return [];
       }
 
       final tempDir = await getTemporaryDirectory();
       final outputDirectory = outputDir ?? tempDir.path;
-
       final thumbnails = <String>[];
       final baseTimestamp = DateTime.now().millisecondsSinceEpoch;
 
-      print('🖼️  Generating $count thumbnails from ${duration}s video...');
-      print('⚡ Using PARALLEL generation for faster processing...');
+      print('Generating $count thumbnails from ${duration}s video...');
+      print('Using parallel generation for faster processing...');
 
-      // Prepare all thumbnail generation tasks
       final thumbnailTasks = <Future<String?>>[];
-      final thumbnailPaths = <String>[];
 
-      // Generate thumbnails at evenly distributed timestamps
-      for (int i = 0; i < count; i++) {
-        // Skip first 5% and last 5% to avoid black frames
-        final position = 0.05 + (i / (count - 1)) * 0.9;
+      for (int index = 0; index < count; index++) {
+        final position = count == 1 ? 0.5 : 0.05 + (index / (count - 1)) * 0.9;
         final timestamp = (duration * position).round();
-
-        // Use unique timestamp for each thumbnail
         final thumbnailPath = path.join(
           outputDirectory,
-          'thumbnail_${i + 1}_${baseTimestamp + i}.jpg',
+          'thumbnail_${index + 1}_${baseTimestamp + index}.jpg',
         );
 
-        thumbnailPaths.add(thumbnailPath);
-
-        print('   Queuing thumbnail ${i + 1}/$count at ${timestamp}s...');
-
-        // Queue the thumbnail generation (execute in parallel)
+        print('  Queuing thumbnail ${index + 1}/$count at ${timestamp}s...');
         thumbnailTasks.add(
           generateThumbnail(
             videoFile,
@@ -219,37 +187,34 @@ class VideoUtils {
         );
       }
 
-      // Execute all thumbnail generations IN PARALLEL (much faster!)
-      print('🚀 Starting parallel thumbnail generation...');
+      print('Starting parallel thumbnail generation...');
       final results = await Future.wait(thumbnailTasks);
 
-      // Verify results and collect successful thumbnails
-      for (int i = 0; i < results.length; i++) {
-        final thumbnail = results[i];
+      for (int index = 0; index < results.length; index++) {
+        final thumbnail = results[index];
         if (thumbnail != null) {
-          // Verify file exists before adding
           final file = File(thumbnail);
           if (await file.exists()) {
             thumbnails.add(thumbnail);
-            print('   ✅ Thumbnail ${i + 1} saved');
+            print('  Thumbnail ${index + 1} saved');
           } else {
-            print('   ⚠️  Thumbnail ${i + 1} file not found');
+            print('  Thumbnail ${index + 1} file not found');
           }
         } else {
-          print('   ❌ Failed to generate thumbnail ${i + 1}');
+          print('  Failed to generate thumbnail ${index + 1}');
         }
       }
 
       print(
-          '✅ Generated ${thumbnails.length}/$count thumbnails successfully (PARALLEL)');
+        'Generated ${thumbnails.length}/$count thumbnails successfully (parallel)',
+      );
       return thumbnails;
     } catch (e) {
-      print('❌ Error generating thumbnails: $e');
+      print('Error generating thumbnails: $e');
       return [];
     }
   }
 
-  /// Format duration from seconds to readable string (MM:SS or HH:MM:SS)
   static String formatDuration(int seconds) {
     final duration = Duration(seconds: seconds);
     final hours = duration.inHours;
@@ -258,12 +223,10 @@ class VideoUtils {
 
     if (hours > 0) {
       return '${hours.toString().padLeft(2, '0')}:${minutes.toString().padLeft(2, '0')}:${secs.toString().padLeft(2, '0')}';
-    } else {
-      return '${minutes.toString().padLeft(2, '0')}:${secs.toString().padLeft(2, '0')}';
     }
+    return '${minutes.toString().padLeft(2, '0')}:${secs.toString().padLeft(2, '0')}';
   }
 
-  /// Get video file size in MB
   static Future<double> getVideoSizeMB(File videoFile) async {
     try {
       final fileSize = await videoFile.length();
@@ -274,34 +237,28 @@ class VideoUtils {
     }
   }
 
-  /// Extract subtitles from video file (especially MKV)
-  /// Returns a map of language code -> subtitle file path
-  /// Example: {'eng': '/path/to/subtitle.eng.srt', 'tha': '/path/to/subtitle.tha.srt'}
   static Future<Map<String, String>> extractSubtitles(
     File videoFile, {
     String? outputDir,
   }) async {
     try {
-      print('🎬 Extracting subtitles from: ${videoFile.path}');
+      print('Extracting subtitles from: ${videoFile.path}');
 
       final tempDir = await getTemporaryDirectory();
       final outputDirectory = outputDir ?? tempDir.path;
       final Map<String, String> subtitles = {};
 
-      // First, probe the video to get subtitle stream information
       final probeCommand = '-i "${videoFile.path}" -hide_banner';
       final probeSession = await FFprobeKit.execute(probeCommand);
       final output = await probeSession.getOutput();
 
       if (output == null) {
-        print('❌ No FFprobe output');
+        print('No FFprobe output');
         return subtitles;
       }
 
-      print('📋 FFprobe output:\n$output');
+      print('FFprobe output:\n$output');
 
-      // Parse subtitle streams from output
-      // Look for lines like: "Stream #0:2(eng): Subtitle: subrip"
       final streamPattern = RegExp(
         r'Stream #0:(\d+)\(([a-z]{2,3})\): Subtitle:',
         caseSensitive: false,
@@ -310,34 +267,32 @@ class VideoUtils {
       final matches = streamPattern.allMatches(output);
 
       if (matches.isEmpty) {
-        print('ℹ️  No embedded subtitles found');
+        print('No embedded subtitles found');
         return subtitles;
       }
 
-      print('✅ Found ${matches.length} subtitle stream(s)');
+      print('Found ${matches.length} subtitle stream(s)');
 
-      // Extract each subtitle stream
       for (final match in matches) {
         final streamIndex = match.group(1);
         final langCode = match.group(2)?.toLowerCase();
 
-        if (streamIndex == null || langCode == null) continue;
+        if (streamIndex == null || langCode == null) {
+          continue;
+        }
 
         print(
-            '📝 Extracting subtitle stream $streamIndex (language: $langCode)');
+          'Extracting subtitle stream $streamIndex (language: $langCode)',
+        );
 
-        // Generate output filename
         final timestamp = DateTime.now().millisecondsSinceEpoch;
         final outputPath = path.join(
           outputDirectory,
           'subtitle_${langCode}_$timestamp.srt',
         );
 
-        // Extract subtitle using FFmpeg
-        // -map 0:streamIndex selects the specific subtitle stream
         final extractCommand =
             '-i "${videoFile.path}" -map 0:$streamIndex -c:s srt "$outputPath"';
-
         final extractSession = await FFmpegKit.execute(extractCommand);
         final returnCode = await extractSession.getReturnCode();
 
@@ -345,19 +300,19 @@ class VideoUtils {
           final file = File(outputPath);
           if (await file.exists()) {
             subtitles[langCode] = outputPath;
-            print('   ✅ Extracted: $langCode -> $outputPath');
+            print('  Extracted: $langCode -> $outputPath');
           } else {
-            print('   ⚠️  File not created: $outputPath');
+            print('  File not created: $outputPath');
           }
         } else {
-          print('   ❌ Failed to extract subtitle stream $streamIndex');
+          print('  Failed to extract subtitle stream $streamIndex');
         }
       }
 
-      print('🎉 Successfully extracted ${subtitles.length} subtitle(s)');
+      print('Successfully extracted ${subtitles.length} subtitle(s)');
       return subtitles;
     } catch (e) {
-      print('❌ Error extracting subtitles: $e');
+      print('Error extracting subtitles: $e');
       return {};
     }
   }
