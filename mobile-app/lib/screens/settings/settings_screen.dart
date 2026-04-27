@@ -79,6 +79,13 @@ class SettingsScreen extends ConsumerWidget {
                   ),
                   _buildListTile(
                     context,
+                    icon: Icons.lock_outline,
+                    title: 'Change Password',
+                    subtitle: 'Update the password for this account',
+                    onTap: () => context.push('/main/settings/change-password'),
+                  ),
+                  _buildListTile(
+                    context,
                     icon: Icons.notifications_outlined,
                     title: l10n.notifications,
                     subtitle: l10n.notificationsSubtitle,

@@ -217,6 +217,22 @@ class ApiService {
     return await _handleResponse(response);
   }
 
+  Future<Map<String, dynamic>> changePassword(
+    String currentPassword,
+    String newPassword,
+  ) async {
+    final response = await http.put(
+      Uri.parse('$baseUrl/auth/change-password'),
+      headers: await _getHeaders(),
+      body: json.encode({
+        'currentPassword': currentPassword,
+        'newPassword': newPassword,
+      }),
+    );
+
+    return await _handleResponse(response);
+  }
+
   // Community Posts APIs
   Future<Map<String, dynamic>> getCommunityPosts({
     int page = 1,
@@ -720,6 +736,20 @@ class ApiService {
     final response = await http.get(
       Uri.parse('$baseUrl/admin/dashboard'),
       headers: await _getHeaders(),
+    );
+
+    return await _handleResponse(response);
+  }
+
+  Future<Map<String, dynamic>> updateAdminAppSettings({
+    required bool contentProtectionEnabled,
+  }) async {
+    final response = await http.patch(
+      Uri.parse('$baseUrl/admin/app-settings'),
+      headers: await _getHeaders(),
+      body: json.encode({
+        'contentProtectionEnabled': contentProtectionEnabled,
+      }),
     );
 
     return await _handleResponse(response);

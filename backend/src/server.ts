@@ -28,9 +28,12 @@ import { swaggerSpec } from './config/swagger';
 import movieRoutes from './routes/movies';
 import libraryRoutes from './routes/library';
 import { buildVerificationUrl } from './utils/publicUrl';
+import { AppSettingsService } from './services/appSettingsService';
+import { cleanupVideoStorageAssets } from './services/videoStorageCleanupService';
 
 // Initialize Prisma Client
 const prisma = new PrismaClient();
+const appSettingsService = new AppSettingsService(prisma);
 
 const app = express();
 const server = createServer(app);
@@ -269,7 +272,7 @@ app.get('/health', (_req, res) => {
  *                 releaseDate:
  *                   type: string
  */
-app.get('/app-version', (req, res) => {
+app.get('/app-version', async (req, res) => {
   const platform = req.query['platform'] as string;
   const currentVersion = req.query['currentVersion'] as string;
 
@@ -294,6 +297,7 @@ app.get('/app-version', (req, res) => {
   const platformConfig = platform === 'ios' ? versionConfig.ios : versionConfig.android;
   const latestVersion = platformConfig.latestVersion;
   const minVersion = platformConfig.minVersion;
+  const appSettings = await appSettingsService.getPublicSettings();
 
   // Compare versions
   const isUpdateAvailable = currentVersion ? compareVersions(currentVersion, latestVersion) < 0 : true;
@@ -309,6 +313,8 @@ app.get('/app-version', (req, res) => {
     downloadUrl: platformConfig.downloadUrl,
     releaseNotes: platformConfig.releaseNotes,
     releaseDate: platformConfig.releaseDate,
+    contentProtectionEnabled: appSettings.contentProtectionEnabled,
+    contentProtectionUpdatedAt: appSettings.updatedAt,
     platform: platform || 'android',
   });
 });
@@ -356,6 +362,7 @@ const authenticateToken = async (req: any, res: any, next: any) => {
     req.user = {
       id: decoded.userId,
       email: decoded.email,
+      role: typeof decoded.role === 'string' ? decoded.role : undefined,
     };
     
     console.log('🔍 Auth middleware - Attached user:', req.user);
@@ -917,6 +924,86 @@ app.post('/api/v1/auth/logout', async (_req, res) => {
     res.status(500).json({
       success: false,
       message: 'Logout failed',
+    });
+  }
+});
+
+app.put('/api/v1/auth/change-password', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    const { currentPassword, newPassword } = req.body ?? {};
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: 'User not authenticated',
+      });
+    }
+
+    if (typeof currentPassword !== 'string' || typeof newPassword !== 'string') {
+      return res.status(400).json({
+        success: false,
+        message: 'Current password and new password are required',
+      });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: 'New password must be at least 6 characters long',
+      });
+    }
+
+    if (currentPassword === newPassword) {
+      return res.status(400).json({
+        success: false,
+        message: 'New password must be different from the current password',
+      });
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        passwordHash: true,
+      },
+    });
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found',
+      });
+    }
+
+    const isCurrentPasswordValid = await bcrypt.compare(
+      currentPassword,
+      user.passwordHash,
+    );
+
+    if (!isCurrentPasswordValid) {
+      return res.status(401).json({
+        success: false,
+        message: 'Current password is incorrect',
+      });
+    }
+
+    const passwordHash = await bcrypt.hash(newPassword, 10);
+
+    await prisma.user.update({
+      where: { id: userId },
+      data: { passwordHash },
+    });
+
+    return res.json({
+      success: true,
+      message: 'Password changed successfully',
+    });
+  } catch (error) {
+    console.error('Change password error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to change password',
     });
   }
 });
@@ -1910,6 +1997,68 @@ app.get('/api/v1/videos/:id', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to fetch video',
+    });
+  }
+});
+
+app.delete('/api/v1/videos/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user?.id;
+    const isAdmin = req.user?.role === UserRole.ADMIN;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: 'User not authenticated',
+      });
+    }
+
+    const video = await prisma.video.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        userId: true,
+        fileName: true,
+        fileDirectory: true,
+        s3StorageId: true,
+        thumbnailUrl: true,
+        thumbnails: true,
+        videoUrl: true,
+        remotePlayUrl: true,
+        subtitles: true,
+      },
+    });
+
+    if (!video) {
+      return res.status(404).json({
+        success: false,
+        message: 'Video not found',
+      });
+    }
+
+    if (video.userId !== userId && !isAdmin) {
+      return res.status(403).json({
+        success: false,
+        message: 'You can only delete your own videos',
+      });
+    }
+
+    await cleanupVideoStorageAssets(video);
+
+    await prisma.video.delete({
+      where: { id },
+    });
+
+    return res.json({
+      success: true,
+      message: 'Video deleted successfully',
+    });
+  } catch (error) {
+    console.error('Error deleting video:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to delete video',
     });
   }
 });
@@ -4723,6 +4872,7 @@ app.get('/api/v1/admin/dashboard', authenticateToken, requireAdmin, async (_req,
       pendingVideoReports,
       pendingFeedback,
       recentFeedback,
+      appSettings,
     ] = await Promise.all([
       prisma.user.count(),
       prisma.video.count(),
@@ -4745,6 +4895,7 @@ app.get('/api/v1/admin/dashboard', authenticateToken, requireAdmin, async (_req,
           },
         },
       }),
+      appSettingsService.getPublicSettings(),
     ]);
 
     return res.json({
@@ -4771,6 +4922,7 @@ app.get('/api/v1/admin/dashboard', authenticateToken, requireAdmin, async (_req,
           createdAt: item.createdAt.toISOString(),
           user: item.user,
         })),
+        appSettings,
       },
     });
   } catch (error) {
@@ -4778,6 +4930,35 @@ app.get('/api/v1/admin/dashboard', authenticateToken, requireAdmin, async (_req,
     return res.status(500).json({
       success: false,
       message: 'Failed to fetch admin dashboard',
+    });
+  }
+});
+
+app.patch('/api/v1/admin/app-settings', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { contentProtectionEnabled } = req.body ?? {};
+
+    if (typeof contentProtectionEnabled !== 'boolean') {
+      return res.status(400).json({
+        success: false,
+        message: 'contentProtectionEnabled must be a boolean',
+      });
+    }
+
+    const appSettings = await appSettingsService.updateContentProtectionEnabled(
+      contentProtectionEnabled,
+    );
+
+    return res.json({
+      success: true,
+      message: 'App settings updated successfully',
+      data: appSettings,
+    });
+  } catch (error) {
+    console.error('Error updating admin app settings:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to update app settings',
     });
   }
 });
@@ -4987,6 +5168,30 @@ app.patch('/api/v1/admin/videos/:videoId', authenticateToken, requireAdmin, asyn
 app.delete('/api/v1/admin/videos/:videoId', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const { videoId } = req.params;
+
+    const video = await prisma.video.findUnique({
+      where: { id: videoId },
+      select: {
+        id: true,
+        fileName: true,
+        fileDirectory: true,
+        s3StorageId: true,
+        thumbnailUrl: true,
+        thumbnails: true,
+        videoUrl: true,
+        remotePlayUrl: true,
+        subtitles: true,
+      },
+    });
+
+    if (!video) {
+      return res.status(404).json({
+        success: false,
+        message: 'Video not found',
+      });
+    }
+
+    await cleanupVideoStorageAssets(video);
 
     await prisma.video.delete({
       where: { id: videoId },

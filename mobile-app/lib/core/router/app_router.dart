@@ -21,6 +21,7 @@ import '../../screens/settings/settings_screen.dart';
 import '../../screens/settings/admin_dashboard_screen.dart';
 import '../../screens/settings/notification_settings_screen.dart';
 import '../../screens/settings/privacy_settings_screen.dart';
+import '../../screens/settings/change_password_screen.dart';
 import '../../screens/settings/feedback_screen.dart';
 import '../../screens/settings/language_selection_screen.dart';
 import '../../screens/settings/theme_selection_screen.dart';
@@ -394,6 +395,10 @@ final routerProvider = Provider<GoRouter>((ref) {
               GoRoute(
                 path: 'privacy',
                 builder: (context, state) => const PrivacySettingsScreen(),
+              ),
+              GoRoute(
+                path: 'change-password',
+                builder: (context, state) => const ChangePasswordScreen(),
               ),
               GoRoute(
                 path: 'feedback',

@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'api_service.dart';
+import 'content_protection_service.dart';
 
 class VersionInfo {
   final String latestVersion;
@@ -12,6 +13,8 @@ class VersionInfo {
   final String downloadUrl;
   final String releaseNotes;
   final String releaseDate;
+  final bool contentProtectionEnabled;
+  final String? contentProtectionUpdatedAt;
 
   VersionInfo({
     required this.latestVersion,
@@ -22,6 +25,8 @@ class VersionInfo {
     required this.downloadUrl,
     required this.releaseNotes,
     required this.releaseDate,
+    required this.contentProtectionEnabled,
+    required this.contentProtectionUpdatedAt,
   });
 
   factory VersionInfo.fromJson(Map<String, dynamic> json) {
@@ -34,6 +39,8 @@ class VersionInfo {
       downloadUrl: json['downloadUrl'] ?? '',
       releaseNotes: json['releaseNotes'] ?? '',
       releaseDate: json['releaseDate'] ?? '',
+      contentProtectionEnabled: json['contentProtectionEnabled'] == true,
+      contentProtectionUpdatedAt: json['contentProtectionUpdatedAt'] as String?,
     );
   }
 }
@@ -62,6 +69,9 @@ class VersionService {
 
       if (response['success'] == true) {
         final versionInfo = VersionInfo.fromJson(response);
+        await ContentProtectionService.instance.setEnabled(
+          versionInfo.contentProtectionEnabled,
+        );
 
         print('✅ Version check complete:');
         print('   Latest: ${versionInfo.latestVersion}');

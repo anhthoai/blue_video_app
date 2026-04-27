@@ -4,8 +4,9 @@ declare namespace Express {
     userCreatedAt?: Date;
     user?: {
       id: string;
-      username: string;
+      username?: string;
       email: string;
+      role?: string;
     };
     currentUser?: {
       id: string;

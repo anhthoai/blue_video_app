@@ -312,6 +312,22 @@ class AuthService {
     }
   }
 
+  Future<bool> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    try {
+      final response = await _apiService.changePassword(
+        currentPassword,
+        newPassword,
+      );
+      return response['success'] == true;
+    } catch (e) {
+      print('Change password error: $e');
+      return false;
+    }
+  }
+
   Stream<UserModel?> get authStateChanges {
     return Stream.value(_currentUser);
   }

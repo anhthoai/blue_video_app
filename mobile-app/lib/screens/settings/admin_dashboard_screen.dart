@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/services/api_service.dart';
 import '../../core/services/auth_service.dart';
+import '../../core/services/content_protection_service.dart';
 
 class AdminDashboardScreen extends ConsumerStatefulWidget {
   final int initialTab;
@@ -391,6 +392,48 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
           return;
         }
         _showMessage('Failed to delete video: $error');
+      }
+    });
+  }
+
+  Future<void> _updateContentProtectionSetting(bool enabled) async {
+    const busyKey = 'app-settings';
+
+    await _runBusyAction(busyKey, () async {
+      try {
+        final response = await _apiService.updateAdminAppSettings(
+          contentProtectionEnabled: enabled,
+        );
+
+        if (!mounted) {
+          return;
+        }
+
+        if (response['success'] == true) {
+          final updatedSettings = Map<String, dynamic>.from(
+            response['data'] as Map? ??
+                <String, dynamic>{'contentProtectionEnabled': enabled},
+          );
+
+          setState(() {
+            _dashboard = <String, dynamic>{
+              ..._dashboard,
+              'appSettings': updatedSettings,
+            };
+          });
+
+          await ContentProtectionService.instance.setEnabled(
+            updatedSettings['contentProtectionEnabled'] == true,
+          );
+          _showMessage(response['message'] ?? 'App settings updated');
+        } else {
+          _showMessage(response['message'] ?? 'Failed to update app settings');
+        }
+      } catch (error) {
+        if (!mounted) {
+          return;
+        }
+        _showMessage('Failed to update app settings: $error');
       }
     });
   }
@@ -1439,6 +1482,9 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
     final moderation = Map<String, dynamic>.from(
       _dashboard['moderation'] as Map? ?? const {},
     );
+    final appSettings = Map<String, dynamic>.from(
+      _dashboard['appSettings'] as Map? ?? const {},
+    );
     final recentFeedback = List<Map<String, dynamic>>.from(
       _dashboard['recentFeedback'] as List? ?? const [],
     );
@@ -1511,6 +1557,26 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
                 },
               );
             },
+          ),
+          const SizedBox(height: 24),
+          Card(
+            child: SwitchListTile.adaptive(
+              secondary: _isBusy('app-settings')
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.shield_outlined),
+              title: const Text('Screen capture protection'),
+              subtitle: const Text(
+                'Blocks screenshots and recording on Android and applies best-effort masking on iOS for protected content.',
+              ),
+              value: appSettings['contentProtectionEnabled'] == true,
+              onChanged: _isBusy('app-settings')
+                  ? null
+                  : _updateContentProtectionSetting,
+            ),
           ),
           const SizedBox(height: 24),
           Text(

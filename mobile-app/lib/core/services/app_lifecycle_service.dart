@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'content_protection_service.dart';
 import 'version_service.dart';
 import '../../widgets/dialogs/app_update_dialog.dart';
 
@@ -42,6 +43,8 @@ class AppUpdateCoordinator {
 
     _isChecking = true;
     try {
+      await ContentProtectionService.instance.restoreLastKnownSetting();
+
       final prefs = await SharedPreferences.getInstance();
       final now = DateTime.now();
       final lastCheckTime = _readStoredDateTime(
@@ -61,7 +64,9 @@ class AppUpdateCoordinator {
       await prefs.setString(_appUpdateLastCheckAtKey, now.toIso8601String());
 
       final versionInfo = await versionService.checkForUpdates();
-      if (!context.mounted || versionInfo == null || !versionInfo.updateRequired) {
+      if (!context.mounted ||
+          versionInfo == null ||
+          !versionInfo.updateRequired) {
         return;
       }
 
@@ -69,7 +74,8 @@ class AppUpdateCoordinator {
         final nextOptionalPromptAt = _readStoredDateTime(
           prefs.getString(_appUpdateOptionalPromptAtKey),
         );
-        if (nextOptionalPromptAt != null && now.isBefore(nextOptionalPromptAt)) {
+        if (nextOptionalPromptAt != null &&
+            now.isBefore(nextOptionalPromptAt)) {
           debugPrint(
             '⏭️ Skipping optional update dialog until ${nextOptionalPromptAt.toIso8601String()}',
           );
@@ -85,7 +91,8 @@ class AppUpdateCoordinator {
       );
 
       if (!versionInfo.forceUpdate) {
-        final nextOptionalPromptAt = DateTime.now().add(const Duration(hours: 24));
+        final nextOptionalPromptAt =
+            DateTime.now().add(const Duration(hours: 24));
         await prefs.setString(
           _appUpdateOptionalPromptAtKey,
           nextOptionalPromptAt.toIso8601String(),
