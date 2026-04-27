@@ -28,7 +28,7 @@ Static HTML landing page for quick deployment.
 ## Manifest Testing
 
 - `manifest.plist` points to `https://cdn.onlybl.com/downloads/blue-video-latest.ipa`
-- The HTML pages automatically switch the iPhone button to `itms-services` when served over HTTPS
+- The HTML pages only switch the iPhone button to `itms-services` when URL query includes `?ota=1`
 - Local `file:///` preview cannot test OTA install, so the button falls back to the raw IPA URL
 - OTA install still requires a properly signed iPhone build such as enterprise, ad hoc, or a TestFlight flow
 

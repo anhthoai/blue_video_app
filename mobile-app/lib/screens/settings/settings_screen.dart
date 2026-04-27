@@ -326,7 +326,11 @@ class SettingsScreen extends ConsumerWidget {
   ) async {
     final opened = await launchUrl(
       _privacyPolicyUri,
-      mode: LaunchMode.externalApplication,
+      mode: LaunchMode.inAppWebView,
+      webViewConfiguration: const WebViewConfiguration(
+        enableJavaScript: true,
+        enableDomStorage: true,
+      ),
     );
 
     if (!opened && context.mounted) {

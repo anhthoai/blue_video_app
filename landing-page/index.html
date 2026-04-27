@@ -597,6 +597,7 @@
             class="button button-secondary"
             id="ios-install-link"
             href="https://cdn.onlybl.com/downloads/blue-video-latest.ipa"
+            data-ios-install-url=""
             data-manifest-path="./manifest.plist"
             data-fallback-url="https://cdn.onlybl.com/downloads/blue-video-latest.ipa"
           >
@@ -713,20 +714,25 @@
 
       var manifestPath = iosLink.getAttribute("data-manifest-path");
       var fallbackUrl = iosLink.getAttribute("data-fallback-url");
+      var iosInstallUrl = iosLink.getAttribute("data-ios-install-url");
       var manifestUrl = manifestPath ? new URL(manifestPath, window.location.href).href : "";
       var isHttps = window.location.protocol === "https:";
+      var search = new URLSearchParams(window.location.search);
+      var useManifest = search.get("ota") === "1";
 
       if (manifestLink && manifestUrl) {
         manifestLink.href = manifestUrl;
       }
 
-      if (isHttps && manifestUrl) {
+      if (iosInstallUrl && iosInstallUrl.trim().length > 0) {
+        iosLink.href = iosInstallUrl;
+      } else if (useManifest && isHttps && manifestUrl) {
         iosLink.href = "itms-services://?action=download-manifest&url=" + encodeURIComponent(manifestUrl);
       } else if (fallbackUrl) {
         iosLink.href = fallbackUrl;
       }
 
-      if (status && !isHttps) {
+      if (status && useManifest && !isHttps) {
         status.textContent = "Android may ask for permission to install from this browser. iPhone users should open this page in Safari. Manifest install testing requires HTTPS hosting, so local preview falls back to the raw IPA link.";
       }
     })();
