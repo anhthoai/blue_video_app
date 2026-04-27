@@ -610,7 +610,7 @@
 
         <div class="callout">
           <strong>iPhone 首次安装提示：</strong>请在 Safari 中点击 iPhone 按钮。如果页面跳转到
-          TestFlight，请在 TestFlight 中接受邀请。如果图标出现后 iOS 要求信任开发者，请进入
+          iOS 安装提示，请直接确认安装。如果图标出现后 iOS 要求信任开发者，请进入
           <strong>设置 &gt; 通用 &gt; VPN 与设备管理</strong> 并信任 Blue Video 描述文件。
         </div>
 
@@ -645,7 +645,7 @@
           <p>首次安装不一定通过 App Store，但流程会和普通公开应用稍有不同。</p>
           <ol>
             <li>在 iPhone 的 Safari 中打开本页，然后点击 <strong>打开 iPhone 安装</strong>。</li>
-            <li>如果跳转到 TestFlight，请先安装 TestFlight 并接受邀请；如果 Safari 弹出安装提示，请直接确认。</li>
+            <li>当 iOS 弹出安装提示时，请直接确认安装并等待图标出现。</li>
             <li>如果图标出现后仍提示未受信任，请进入 <strong>设置 &gt; 通用 &gt; VPN 与设备管理</strong> 完成信任。</li>
             <li>返回主屏幕，打开 Blue Video。</li>
           </ol>
@@ -705,8 +705,6 @@
       var iosInstallUrl = iosLink.getAttribute("data-ios-install-url");
       var manifestUrl = manifestPath ? new URL(manifestPath, window.location.href).href : "";
       var isHttps = window.location.protocol === "https:";
-      var search = new URLSearchParams(window.location.search);
-      var useManifest = search.get("ota") === "1";
 
       if (manifestLink && manifestUrl) {
         manifestLink.href = manifestUrl;
@@ -714,13 +712,13 @@
 
       if (iosInstallUrl && iosInstallUrl.trim().length > 0) {
         iosLink.href = iosInstallUrl;
-      } else if (useManifest && isHttps && manifestUrl) {
+      } else if (isHttps && manifestUrl) {
         iosLink.href = "itms-services://?action=download-manifest&url=" + encodeURIComponent(manifestUrl);
       } else if (fallbackUrl) {
         iosLink.href = fallbackUrl;
       }
 
-      if (status && useManifest && !isHttps) {
+      if (status && !isHttps) {
         status.textContent = "Android 可能会要求允许此浏览器安装应用。iPhone 用户请务必使用 Safari 打开此页面。测试 manifest 安装必须通过 HTTPS 部署；本地 file 预览会回退到原始 IPA 链接。";
       }
     })();

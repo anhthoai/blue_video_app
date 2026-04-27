@@ -291,7 +291,7 @@ app.get('/app-version', async (req, res) => {
     ios: {
       latestVersion: process.env['IOS_LATEST_VERSION'] || '1.0.0',
       minVersion: process.env['IOS_MIN_VERSION'] || '1.0.0',
-      downloadUrl: process.env['IOS_DOWNLOAD_URL'] || 'https://onlybl.com/downloads/blue-video.ipa',
+      downloadUrl: process.env['IOS_DOWNLOAD_URL'] || 'itms-services://?action=download-manifest&url=https://onlybl.com/manifest.plist',
       releaseNotes: process.env['IOS_RELEASE_NOTES'] || 'Bug fixes and performance improvements',
       releaseDate: process.env['IOS_RELEASE_DATE'] || new Date().toISOString(),
     },

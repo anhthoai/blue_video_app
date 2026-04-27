@@ -618,7 +618,7 @@
 
         <div class="callout">
           <strong>Important for iPhone first-time install:</strong> tap the iPhone button in Safari. If the install opens in
-          TestFlight, accept the invite there. If iOS asks you to trust the developer after the icon appears, go to
+          the iOS installer prompt, approve it. If iOS asks you to trust the developer after the icon appears, go to
           <strong>Settings &gt; General &gt; VPN &amp; Device Management</strong> and trust the Blue Video profile.
         </div>
 
@@ -653,7 +653,7 @@
           <p>Users do not need the App Store first, but the install path is different from a normal public app install.</p>
           <ol>
             <li>Open this page in Safari on your iPhone and tap <strong>Open iPhone Install</strong>.</li>
-            <li>If TestFlight opens, install TestFlight and accept the invite. If Safari shows an install prompt, approve it.</li>
+            <li>When iOS shows the install prompt, tap install and wait for the icon to appear.</li>
             <li>After the app icon appears, open <strong>Settings &gt; General &gt; VPN &amp; Device Management</strong> if iOS asks you to trust the developer.</li>
             <li>Return to the Home Screen and open Blue Video.</li>
           </ol>
@@ -717,8 +717,6 @@
       var iosInstallUrl = iosLink.getAttribute("data-ios-install-url");
       var manifestUrl = manifestPath ? new URL(manifestPath, window.location.href).href : "";
       var isHttps = window.location.protocol === "https:";
-      var search = new URLSearchParams(window.location.search);
-      var useManifest = search.get("ota") === "1";
 
       if (manifestLink && manifestUrl) {
         manifestLink.href = manifestUrl;
@@ -726,13 +724,13 @@
 
       if (iosInstallUrl && iosInstallUrl.trim().length > 0) {
         iosLink.href = iosInstallUrl;
-      } else if (useManifest && isHttps && manifestUrl) {
+      } else if (isHttps && manifestUrl) {
         iosLink.href = "itms-services://?action=download-manifest&url=" + encodeURIComponent(manifestUrl);
       } else if (fallbackUrl) {
         iosLink.href = fallbackUrl;
       }
 
-      if (status && useManifest && !isHttps) {
+      if (status && !isHttps) {
         status.textContent = "Android may ask for permission to install from this browser. iPhone users should open this page in Safari. Manifest install testing requires HTTPS hosting, so local preview falls back to the raw IPA link.";
       }
     })();
