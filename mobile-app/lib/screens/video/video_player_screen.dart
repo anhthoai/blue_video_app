@@ -344,6 +344,12 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
     WidgetsBinding.instance.removeObserver(this);
     _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
+    if (_isFullscreen) {
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+      SystemChrome.setPreferredOrientations([
+        DeviceOrientation.portraitUp,
+      ]);
+    }
     _disposePlayer();
     super.dispose();
   }
@@ -1234,6 +1240,12 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
   }
 
   Future<void> _enterFullscreen() async {
+    if (!_isFullscreen && mounted) {
+      setState(() {
+        _isFullscreen = true;
+      });
+    }
+
     final player = _player;
     final width = player?.state.width ?? 0;
     final height = player?.state.height ?? 0;
@@ -1257,6 +1269,12 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
   }
 
   Future<void> _exitFullscreen() async {
+    if (_isFullscreen && mounted) {
+      setState(() {
+        _isFullscreen = false;
+      });
+    }
+
     await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     await SystemChrome.setPreferredOrientations(
       [

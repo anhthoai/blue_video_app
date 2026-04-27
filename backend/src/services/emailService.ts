@@ -1,5 +1,7 @@
 import nodemailer from 'nodemailer';
 
+import { buildVerificationUrl } from '../utils/publicUrl';
+
 interface EmailOptions {
   to: string;
   subject: string;
@@ -142,9 +144,7 @@ class EmailService {
     username: string,
     token: string
   ): Promise<boolean> {
-    // Verification URL points to backend API endpoint
-    const apiUrl = process.env['API_URL'] || 'http://localhost:3000';
-    const verificationUrl = `${apiUrl}/api/v1/auth/verify-email?token=${token}`;
+    const verificationUrl = buildVerificationUrl(token);
     const appName = process.env['APP_NAME'] || 'Blue Video';
 
     const html = `

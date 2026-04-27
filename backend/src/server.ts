@@ -27,6 +27,7 @@ import swaggerUi from 'swagger-ui-express';
 import { swaggerSpec } from './config/swagger';
 import movieRoutes from './routes/movies';
 import libraryRoutes from './routes/library';
+import { buildVerificationUrl } from './utils/publicUrl';
 
 // Initialize Prisma Client
 const prisma = new PrismaClient();
@@ -633,8 +634,7 @@ app.post('/api/v1/auth/register', async (req, res) => {
       console.log(`📧 Sending verification email to ${email}...`);
       
       // DEVELOPMENT WORKAROUND: Log verification URL to console
-      const apiUrl = process.env['API_URL'] || 'http://localhost:3000';
-      const verificationUrl = `${apiUrl}/api/v1/auth/verify-email?token=${verificationToken}`;
+      const verificationUrl = buildVerificationUrl(verificationToken);
       console.log('\n' + '='.repeat(80));
       console.log('📧 EMAIL VERIFICATION LINK (Copy this to verify):');
       console.log(verificationUrl);

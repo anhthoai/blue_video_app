@@ -23,6 +23,7 @@ Add the following secrets to your GitHub repository:
 | `VPS_SSH_KEY` | Private SSH key for authentication | *Your private key content* |
 | `VPS_SSH_PORT` | SSH port (optional, default: 22) | `22` |
 | `API_URL` | Your API base URL for health checks | `https://api.example.com` |
+| `PUBLIC_API_URL` | Public API base URL used in verification emails | `https://api.example.com` |
 
 #### Generate SSH Key Pair
 
