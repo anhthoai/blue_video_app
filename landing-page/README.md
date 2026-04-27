@@ -5,7 +5,9 @@ Static HTML landing page for quick deployment.
 ## Files
 
 - `index.html` - responsive install page with Android and iPhone calls to action
+- `privacy-policy.html` - public privacy policy page used by the app settings link
 - `zh/index.html` - Chinese version of the same install page
+- `zh/privacy-policy.html` - Chinese version of the privacy policy
 - `assets/logo-transparent.png` - real app logo used for the favicon and hero branding
 - `manifest.plist` - sample OTA manifest for iPhone install testing
 
@@ -15,6 +17,7 @@ Static HTML landing page for quick deployment.
 2. Keep HTTPS enabled. iPhone install flows need HTTPS.
 3. Update the Android and iPhone download URLs in `index.html` for each release.
 4. If you use the Chinese page, deploy `zh/index.html` with the same folder structure.
+5. Keep `privacy-policy.html` at the site root if the app should continue opening `https://onlybl.com/privacy-policy.html`.
 
 ## iPhone Link Guidance
 

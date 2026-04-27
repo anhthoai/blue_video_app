@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Blue Video | 隐私政策</title>
+  <meta name="description" content="Blue Video 与 OnlyBL 服务的隐私政策。">
+  <meta name="theme-color" content="#157df2">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&family=Space+Grotesk:wght@500;700&display=swap"
+    rel="stylesheet"
+  >
+  <link rel="icon" type="image/png" href="../assets/logo-transparent.png">
+  <style>
+    :root {
+      --bg-top: #f6fbff;
+      --bg-bottom: #fff7fb;
+      --surface: rgba(255, 255, 255, 0.88);
+      --text: #08172d;
+      --muted: #50627d;
+      --line: rgba(12, 44, 86, 0.1);
+      --shadow: 0 28px 80px rgba(19, 61, 121, 0.12);
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      color: var(--text);
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      background:
+        radial-gradient(circle at top left, rgba(27, 197, 232, 0.2), transparent 35%),
+        radial-gradient(circle at 85% 0%, rgba(255, 80, 215, 0.18), transparent 28%),
+        linear-gradient(180deg, var(--bg-top) 0%, #eef6ff 48%, var(--bg-bottom) 100%);
+    }
+
+    a { color: inherit; text-decoration: none; }
+    .page {
+      width: min(920px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 28px 0 64px;
+    }
+
+    .topbar,
+    .footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .brand img {
+      width: 56px;
+      height: 56px;
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.82);
+      box-shadow: 0 18px 40px rgba(24, 95, 214, 0.18);
+    }
+
+    .brand-name {
+      display: block;
+      font-weight: 700;
+      font-size: 1.05rem;
+    }
+
+    .brand-subtitle {
+      display: block;
+      color: var(--muted);
+      font-size: 0.92rem;
+    }
+
+    .nav {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.72);
+    }
+
+    .nav a {
+      padding: 10px 14px;
+      border-radius: 999px;
+      color: var(--muted);
+      font-size: 0.9rem;
+      font-weight: 800;
+    }
+
+    .nav a.is-active {
+      background: rgba(26, 127, 246, 0.12);
+      color: var(--text);
+    }
+
+    .panel {
+      margin-top: 24px;
+      padding: 36px;
+      border: 1px solid var(--line);
+      border-radius: 32px;
+      background: var(--surface);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(18px);
+    }
+
+    h1 {
+      margin: 0 0 12px;
+      font-family: "Space Grotesk", sans-serif;
+      font-size: clamp(2.2rem, 5vw, 3.8rem);
+      line-height: 1.02;
+      letter-spacing: -0.04em;
+    }
+
+    .lead,
+    .meta,
+    p,
+    li {
+      color: var(--muted);
+      line-height: 1.75;
+    }
+
+    .meta {
+      margin: 0 0 24px;
+      font-size: 0.95rem;
+    }
+
+    h2 {
+      margin: 28px 0 10px;
+      font-family: "Space Grotesk", sans-serif;
+      font-size: 1.35rem;
+      letter-spacing: -0.02em;
+    }
+
+    ul {
+      margin: 0;
+      padding-left: 1.2rem;
+    }
+
+    .callout {
+      margin-top: 24px;
+      padding: 18px 20px;
+      border: 1px solid rgba(26, 127, 246, 0.12);
+      border-radius: 24px;
+      background: linear-gradient(135deg, rgba(27, 197, 232, 0.08), rgba(255, 255, 255, 0.92));
+    }
+
+    .text-link {
+      color: #0f56a9;
+      font-weight: 800;
+    }
+
+    .footer {
+      margin-top: 20px;
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    @media (max-width: 640px) {
+      .page { width: min(100% - 20px, 100%); padding: 18px 0 42px; }
+      .panel { padding: 22px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header class="topbar">
+      <div class="brand">
+        <img src="../assets/logo-transparent.png" alt="Blue Video logo">
+        <div>
+          <span class="brand-name">Blue Video</span>
+          <span class="brand-subtitle">隐私政策</span>
+        </div>
+      </div>
+      <nav class="nav" aria-label="政策导航">
+        <a href="./index.html">安装页</a>
+        <a href="../privacy-policy.html">English</a>
+        <a class="is-active" href="./privacy-policy.html">中文</a>
+      </nav>
+    </header>
+
+    <section class="panel">
+      <h1>隐私政策</h1>
+      <p class="meta">生效日期：2026 年 4 月 27 日</p>
+      <p class="lead">
+        本隐私政策说明 Blue Video 与 OnlyBL 在您使用应用、网站及支持渠道时，如何收集、使用、保存和共享相关信息。
+      </p>
+
+      <h2>我们收集的信息</h2>
+      <ul>
+        <li>您主动提供的账户信息，例如邮箱、用户名和个人资料信息。</li>
+        <li>设备与日志信息，例如应用版本、设备类型、语言、IP 地址和诊断事件。</li>
+        <li>为提供服务所需的使用信息，例如设置选择、支持请求和应用内活动记录。</li>
+        <li>购买、订阅或支付校验过程中涉及的交易相关信息。</li>
+      </ul>
+
+      <h2>我们如何使用这些信息</h2>
+      <ul>
+        <li>提供应用功能、账户访问、内容分发和客户支持。</li>
+        <li>维护安全、预防滥用、排查问题并提升应用稳定性。</li>
+        <li>发送服务相关通知，例如登录验证、政策更新和重要账户消息。</li>
+        <li>履行法律义务并执行平台规则。</li>
+      </ul>
+
+      <h2>信息共享情形</h2>
+      <ul>
+        <li>与协助提供托管、存储、分析、通知或支付服务的基础设施和服务提供商共享。</li>
+        <li>在法律、法规、法院命令或有效政府要求下进行披露。</li>
+        <li>在涉及欺诈、滥用或安全事件时，为保护用户、平台及我们的合法权益而披露。</li>
+      </ul>
+
+      <h2>数据保存</h2>
+      <p>
+        我们会在为提供服务、维护记录、解决争议、履行法律义务及执行协议所合理必要的时间内保存信息。不同类型的数据，其保存期限可能不同。
+      </p>
+
+      <h2>您的选择</h2>
+      <ul>
+        <li>您可以在应用内查看和更新部分个人资料信息。</li>
+        <li>如需账户访问帮助或隐私相关请求，您可以联系支持团队。</li>
+        <li>您可以随时停止使用服务，但某些记录在法律要求下仍可能继续保存。</li>
+      </ul>
+
+      <h2>未成年人</h2>
+      <p>
+        Blue Video 仅面向成年人使用。该服务不面向未成年人，我们也不打算故意收集未成年人的个人信息。
+      </p>
+
+      <h2>联系方式</h2>
+      <p>
+        如有隐私问题或支持请求，请联系
+        <a class="text-link" href="https://x.com/onlyblcom" target="_blank" rel="noopener">x.com/onlyblcom</a>
+        ，或在服务内可用时使用 App Support。
+      </p>
+
+      <div class="callout">
+        <p>
+          本页面是应用设置页使用的公开隐私政策地址，对应路径为
+          <strong>/privacy-policy.html</strong>。如果上线前需要更严格的法务或合规措辞，请再做一次内容审阅。
+        </p>
+      </div>
+    </section>
+
+    <div class="footer">
+      <span>Blue Video 隐私政策</span>
+      <a class="text-link" href="./index.html">返回安装页</a>
+      <a class="text-link" href="../privacy-policy.html">English version</a>
+    </div>
+  </main>
+</body>
+</html>

@@ -328,6 +328,29 @@
       line-height: 1.65;
     }
 
+    .intro-block {
+      margin-top: 20px;
+      padding: 18px 20px;
+      border-radius: 24px;
+      border: 1px solid rgba(12, 44, 86, 0.08);
+      background: rgba(8, 23, 45, 0.035);
+    }
+
+    .intro-title {
+      display: block;
+      margin-bottom: 8px;
+      color: var(--text);
+      font-size: 1rem;
+      font-weight: 800;
+    }
+
+    .intro-text {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.98rem;
+      line-height: 1.72;
+    }
+
     .highlights {
       display: grid;
       grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -544,14 +567,22 @@
       </div>
     </header>
 
-    <section class="hero" aria-label="Blue Video install hero">
+    <section class="hero" aria-label="Blue Video home hero">
       <div class="panel copy-panel">
         <div class="eyebrow">Official release</div>
-        <h1>Install Blue Video in minutes.</h1>
+        <h1>Video social for the LGBT community.</h1>
         <p class="lead">
-          One clean page for the official Android APK, the first-time iPhone install flow,
-          and the exact steps users need when they install Blue Video before the App Store release.
+          Blue Video is a social video platform built mainly for LGBT users, with a focus on content sharing,
+          friendship, direct chat, and creator growth.
         </p>
+
+        <div class="intro-block">
+          <span class="intro-title">App introduction</span>
+          <p class="intro-text">
+            Users can watch and post video updates, make new friends, start private conversations, and build creator momentum through strong posts,
+            sustained engagement, and monetization opportunities.
+          </p>
+        </div>
 
         <div class="actions">
           <a
@@ -579,6 +610,7 @@
 
         <div class="micro-links">
           <a class="text-link" id="manifest-preview-link" href="./manifest.plist" target="_blank" rel="noopener">Preview manifest.plist</a>
+          <a class="text-link" href="./privacy-policy.html">Privacy Policy</a>
           <a class="text-link" href="https://x.com/onlyblcom" target="_blank" rel="noopener">x.com/onlyblcom</a>
           <span>Need help? Open App Support after you sign in.</span>
         </div>
@@ -591,16 +623,16 @@
 
         <div class="highlights">
           <div class="highlight">
-            <strong>Official link only</strong>
-            <span>Install only from the download buttons on this page.</span>
+            <strong>LGBT-first community</strong>
+            <span>Built mainly for LGBT users who want a safer, more relevant social video space.</span>
           </div>
           <div class="highlight">
-            <strong>Fast updates</strong>
-            <span>Direct delivery lets new versions go live without store review delay.</span>
+            <strong>Make friends and chat</strong>
+            <span>Meet new people, start conversations, and stay connected through direct chat.</span>
           </div>
           <div class="highlight">
-            <strong>Simple setup</strong>
-            <span>Android is one direct download. iPhone users get a clear first-run guide below.</span>
+            <strong>Earn from posts</strong>
+            <span>Creators can build an audience and turn strong posts into income opportunities.</span>
           </div>
         </div>
       </div>
@@ -628,42 +660,43 @@
       </div>
     </section>
 
-    <section class="cards" aria-label="Install notes">
+    <section class="cards" aria-label="Blue Video overview">
       <article class="info-card">
-        <h3>Android install</h3>
+        <h3>Video social feed</h3>
         <p>
-          Tap the APK button, allow the download to complete, then enable install permission for this browser if Android asks.
-          Open the downloaded file to finish setup.
+          Blue Video combines discovery, sharing, and community into one app so users can browse content, post updates,
+          and interact around the moments they care about.
         </p>
       </article>
 
       <article class="info-card">
-        <h3>What users should expect</h3>
+        <h3>Friends and messaging</h3>
         <p>
-          Direct installs can look different from store installs. That is normal as long as the file came from this official
-          Blue Video page and the user followed the install steps above.
+          The app is not just for watching videos. Users can make friends, chat one to one, and build ongoing relationships
+          inside the platform.
         </p>
       </article>
 
       <article class="info-card">
-        <h3>If the iPhone install does not start</h3>
+        <h3>Creator earning potential</h3>
         <p>
-          Reopen the page in Safari and try again. If the button only downloads a file or the invite has expired, ask for the
-          latest Blue Video iPhone install link before continuing.
+          Posts and creator activity are part of the product value. Blue Video supports growth and monetization-oriented usage,
+          giving creators room to turn attention into income.
         </p>
       </article>
 
       <article class="info-card">
-        <h3>Support contact</h3>
+        <h3>Direct install</h3>
         <p>
-          Contact <a class="text-link" href="https://x.com/onlyblcom" target="_blank" rel="noopener">x.com/onlyblcom</a>
-          or use App Support after you sign in.
+          Android installs directly from the APK button. iPhone users should open this page in Safari and follow the install
+          steps shown above for first-time setup.
         </p>
       </article>
     </section>
 
     <div class="footer">
       <span>Blue Video direct install page</span>
+      <a class="text-link" href="./privacy-policy.html">Privacy Policy</a>
       <a class="text-link" href="https://x.com/onlyblcom" target="_blank" rel="noopener">Support on X</a>
       <a class="text-link" href="./zh/index.html">Chinese version</a>
     </div>
