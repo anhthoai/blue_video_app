@@ -6,6 +6,8 @@ import 'package:mime/mime.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
+import '../../models/community_hub_models.dart';
+
 class ApiService {
   static String get baseUrl {
     try {
@@ -377,6 +379,221 @@ class ApiService {
     );
     return await _handleResponse(response);
   }
+
+      Future<Map<String, dynamic>> getCommunityHubOverview() async {
+        final response = await http.get(
+          Uri.parse('$baseUrl/community/hub/overview'),
+          headers: await _getHeaders(),
+        );
+
+        return await _handleResponse(response);
+      }
+
+      Future<Map<String, dynamic>> getCommunityForums({
+        String scope = 'all',
+      }) async {
+        final uri = Uri.parse('$baseUrl/community/forums').replace(
+          queryParameters: <String, String>{
+            if (scope.isNotEmpty) 'scope': scope,
+          },
+        );
+
+        final response = await http.get(
+          uri,
+          headers: await _getHeaders(),
+        );
+
+        return await _handleResponse(response);
+      }
+
+      Future<Map<String, dynamic>> toggleCommunityForumFollow(String forumId) async {
+        final response = await http.post(
+          Uri.parse('$baseUrl/community/forums/$forumId/follow'),
+          headers: await _getHeaders(),
+        );
+
+        return await _handleResponse(response);
+      }
+
+      Future<Map<String, dynamic>> getCommunityForumDetail(
+        String forumId, {
+        String feed = 'recommended',
+        int page = 1,
+        int limit = 20,
+      }) async {
+        final uri = Uri.parse('$baseUrl/community/forums/$forumId').replace(
+          queryParameters: <String, String>{
+            'feed': feed,
+            'page': page.toString(),
+            'limit': limit.toString(),
+          },
+        );
+
+        final response = await http.get(
+          uri,
+          headers: await _getHeaders(),
+        );
+
+        return await _handleResponse(response);
+      }
+
+      Future<Map<String, dynamic>> getCommunityCreatorRanking() async {
+        final response = await http.get(
+          Uri.parse('$baseUrl/community/creators/ranking'),
+          headers: await _getHeaders(),
+        );
+
+        return await _handleResponse(response);
+      }
+
+      Future<Map<String, dynamic>> getCommunityRequests() async {
+        final response = await http.get(
+          Uri.parse('$baseUrl/community/requests'),
+          headers: await _getHeaders(),
+        );
+
+        return await _handleResponse(response);
+      }
+
+      Future<Map<String, dynamic>> createCommunityRequest({
+        required String title,
+        required String description,
+        required int coins,
+        required List<String> keywords,
+        String boardLabel = 'Latest',
+        List<String>? previewHints,
+        List<File>? imageFiles,
+      }) async {
+        final request = http.MultipartRequest(
+          'POST',
+          Uri.parse('$baseUrl/community/requests'),
+        );
+        final headers = await _getHeaders();
+        headers.remove('Content-Type');
+        request.headers.addAll(headers);
+
+        request.fields['title'] = title;
+        request.fields['description'] = description;
+        request.fields['coins'] = coins.toString();
+        request.fields['keywords'] = json.encode(keywords);
+        request.fields['boardLabel'] = boardLabel;
+        if (previewHints != null) {
+          request.fields['previewHints'] = json.encode(previewHints);
+        }
+
+        if (imageFiles != null) {
+          for (final file in imageFiles) {
+            final mimeType = lookupMimeType(file.path) ?? 'application/octet-stream';
+            request.files.add(
+              await http.MultipartFile.fromPath(
+                'images',
+                file.path,
+                contentType: MediaType.parse(mimeType),
+              ),
+            );
+          }
+        }
+
+        final streamedResponse = await request.send();
+        final response = await http.Response.fromStream(streamedResponse);
+        return await _handleResponse(response);
+      }
+
+      Future<Map<String, dynamic>> getCommunityRequestDetail(String requestId) async {
+        final response = await http.get(
+          Uri.parse('$baseUrl/community/requests/$requestId'),
+          headers: await _getHeaders(),
+        );
+
+        return await _handleResponse(response);
+      }
+
+      Future<Map<String, dynamic>> toggleCommunityRequestWant(
+        String requestId,
+      ) async {
+        final response = await http.post(
+          Uri.parse('$baseUrl/community/requests/$requestId/want'),
+          headers: await _getHeaders(),
+        );
+
+        return await _handleResponse(response);
+      }
+
+      Future<Map<String, dynamic>> supportCommunityRequest(
+        String requestId, {
+        required int coins,
+      }) async {
+        final response = await http.post(
+          Uri.parse('$baseUrl/community/requests/$requestId/support'),
+          headers: await _getHeaders(),
+          body: json.encode(<String, dynamic>{
+            'coins': coins,
+          }),
+        );
+
+        return await _handleResponse(response);
+      }
+
+      Future<Map<String, dynamic>> submitCommunityRequest({
+        required String requestId,
+        required String title,
+        required String description,
+        required String type,
+        String? linkedVideoUrl,
+        CommunityLinkedMedia? linkedMedia,
+        String? searchKeyword,
+        File? file,
+      }) async {
+        final request = http.MultipartRequest(
+          'POST',
+          Uri.parse('$baseUrl/community/requests/$requestId/submissions'),
+        );
+        final headers = await _getHeaders();
+        headers.remove('Content-Type');
+        request.headers.addAll(headers);
+
+        request.fields['title'] = title;
+        request.fields['description'] = description;
+        request.fields['type'] = type;
+        if (linkedVideoUrl != null && linkedVideoUrl.trim().isNotEmpty) {
+          request.fields['linkedVideoUrl'] = linkedVideoUrl.trim();
+        }
+        if (linkedMedia != null) {
+          request.fields['linkedMedia'] = json.encode(linkedMedia.toJson());
+        }
+        if (searchKeyword != null && searchKeyword.trim().isNotEmpty) {
+          request.fields['searchKeyword'] = searchKeyword.trim();
+        }
+
+        if (file != null) {
+          final mimeType = lookupMimeType(file.path) ?? 'application/octet-stream';
+          request.files.add(
+            await http.MultipartFile.fromPath(
+              'file',
+              file.path,
+              contentType: MediaType.parse(mimeType),
+            ),
+          );
+        }
+
+        final streamedResponse = await request.send();
+        final response = await http.Response.fromStream(streamedResponse);
+        return await _handleResponse(response);
+      }
+
+      Future<Map<String, dynamic>> approveCommunityRequestSubmission(
+        String requestId,
+        String submissionId,
+      ) async {
+        final response = await http.post(
+          Uri.parse(
+            '$baseUrl/community/requests/$requestId/submissions/$submissionId/approve',
+          ),
+          headers: await _getHeaders(),
+        );
+
+        return await _handleResponse(response);
+      }
 
   // Get user's liked videos
   Future<Map<String, dynamic>> getUserLikedVideos({
@@ -750,6 +967,95 @@ class ApiService {
       body: json.encode({
         'contentProtectionEnabled': contentProtectionEnabled,
       }),
+    );
+
+    return await _handleResponse(response);
+  }
+
+  Future<Map<String, dynamic>> getAdminForums({
+    int page = 1,
+    int limit = 50,
+  }) async {
+    final uri = Uri.parse('$baseUrl/admin/forums').replace(
+      queryParameters: {
+        'page': page.toString(),
+        'limit': limit.toString(),
+      },
+    );
+
+    final response = await http.get(
+      uri,
+      headers: await _getHeaders(),
+    );
+
+    return await _handleResponse(response);
+  }
+
+  Future<Map<String, dynamic>> createAdminForum({
+    required String title,
+    required String subtitle,
+    String? description,
+    String? slug,
+    List<String>? keywords,
+    bool? isHot,
+    int? sortOrder,
+    String? accentStart,
+    String? accentEnd,
+  }) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/admin/forums'),
+      headers: await _getHeaders(),
+      body: json.encode({
+        'title': title,
+        'subtitle': subtitle,
+        'description': description,
+        'slug': slug,
+        'keywords': keywords,
+        'isHot': isHot,
+        'sortOrder': sortOrder,
+        'accentStart': accentStart,
+        'accentEnd': accentEnd,
+      }),
+    );
+
+    return await _handleResponse(response);
+  }
+
+  Future<Map<String, dynamic>> updateAdminForum({
+    required String forumId,
+    String? title,
+    String? subtitle,
+    String? description,
+    String? slug,
+    List<String>? keywords,
+    bool? isHot,
+    int? sortOrder,
+    String? accentStart,
+    String? accentEnd,
+  }) async {
+    final response = await http.patch(
+      Uri.parse('$baseUrl/admin/forums/$forumId'),
+      headers: await _getHeaders(),
+      body: json.encode({
+        if (title != null) 'title': title,
+        if (subtitle != null) 'subtitle': subtitle,
+        'description': description,
+        if (slug != null) 'slug': slug,
+        'keywords': keywords,
+        'isHot': isHot,
+        'sortOrder': sortOrder,
+        'accentStart': accentStart,
+        'accentEnd': accentEnd,
+      }),
+    );
+
+    return await _handleResponse(response);
+  }
+
+  Future<Map<String, dynamic>> deleteAdminForum(String forumId) async {
+    final response = await http.delete(
+      Uri.parse('$baseUrl/admin/forums/$forumId'),
+      headers: await _getHeaders(),
     );
 
     return await _handleResponse(response);

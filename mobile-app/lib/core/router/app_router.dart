@@ -28,8 +28,14 @@ import '../../screens/settings/theme_selection_screen.dart';
 import '../../screens/search/search_screen.dart';
 import '../../screens/test/test_instructions_screen.dart';
 import '../../screens/community/create_post_screen.dart';
+import '../../screens/community/create_request_screen.dart';
+import '../../screens/community/content_creator_screen.dart';
+import '../../screens/community/forum_detail_screen.dart';
+import '../../screens/community/hot_forums_screen.dart';
 import '../../screens/community/tag_posts_screen.dart';
 import '../../screens/community/post_detail_screen.dart';
+import '../../screens/community/request_detail_screen.dart';
+import '../../screens/community/request_submission_screen.dart';
 import '../../screens/community/search_results_screen.dart';
 import '../../screens/coin/coin_recharge_screen.dart';
 import '../../screens/coin/coin_history_screen.dart';
@@ -134,6 +140,41 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: 'create-post',
             builder: (context, state) => const CreatePostScreen(),
+          ),
+          GoRoute(
+            path: 'content-creators',
+            builder: (context, state) => const ContentCreatorScreen(),
+          ),
+          GoRoute(
+            path: 'forums/hot',
+            builder: (context, state) => const HotForumsScreen(),
+          ),
+          GoRoute(
+            path: 'forums/:forumId',
+            builder: (context, state) {
+              final forumId = state.pathParameters['forumId']!;
+              return ForumDetailScreen(forumId: forumId);
+            },
+          ),
+          GoRoute(
+            path: 'request/create',
+            builder: (context, state) => const CreateRequestScreen(),
+          ),
+          GoRoute(
+            path: 'request/:requestId',
+            builder: (context, state) {
+              final requestId = state.pathParameters['requestId']!;
+              return RequestDetailScreen(requestId: requestId);
+            },
+            routes: [
+              GoRoute(
+                path: 'submit',
+                builder: (context, state) {
+                  final requestId = state.pathParameters['requestId']!;
+                  return RequestSubmissionScreen(requestId: requestId);
+                },
+              ),
+            ],
           ),
           GoRoute(
             path: 'post/:postId',

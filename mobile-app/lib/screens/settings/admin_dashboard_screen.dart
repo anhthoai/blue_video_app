@@ -26,6 +26,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
   String? _error;
   Map<String, dynamic> _dashboard = const {};
   List<Map<String, dynamic>> _videos = const [];
+  List<Map<String, dynamic>> _forums = const [];
   List<Map<String, dynamic>> _users = const [];
   List<Map<String, dynamic>> _categories = const [];
   List<Map<String, dynamic>> _reports = const [];
@@ -36,8 +37,8 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
     if (widget.initialTab < 0) {
       return 0;
     }
-    if (widget.initialTab > 5) {
-      return 5;
+    if (widget.initialTab > 6) {
+      return 6;
     }
     return widget.initialTab;
   }
@@ -132,6 +133,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
       final results = await Future.wait<dynamic>([
         _apiService.getAdminDashboard(),
         _apiService.getAdminVideos(page: 1, limit: 50),
+        _apiService.getAdminForums(page: 1, limit: 50),
         _apiService.getAdminUsers(page: 1, limit: 50),
         _apiService.getCategories(),
         _apiService.getAdminReports(limit: 20),
@@ -140,10 +142,11 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
 
       final dashboardResponse = results[0] as Map<String, dynamic>;
       final videosResponse = results[1] as Map<String, dynamic>;
-      final usersResponse = results[2] as Map<String, dynamic>;
-      final categoriesResponse = results[3] as List<Map<String, dynamic>>;
-      final reportsResponse = results[4] as Map<String, dynamic>;
-      final feedbackResponse = results[5] as Map<String, dynamic>;
+      final forumsResponse = results[2] as Map<String, dynamic>;
+      final usersResponse = results[3] as Map<String, dynamic>;
+      final categoriesResponse = results[4] as List<Map<String, dynamic>>;
+      final reportsResponse = results[5] as Map<String, dynamic>;
+      final feedbackResponse = results[6] as Map<String, dynamic>;
 
       if (!mounted) {
         return;
@@ -155,6 +158,9 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
         );
         _videos = List<Map<String, dynamic>>.from(
           videosResponse['data'] as List? ?? const [],
+        );
+        _forums = List<Map<String, dynamic>>.from(
+          forumsResponse['data'] as List? ?? const [],
         );
         _users = List<Map<String, dynamic>>.from(
           usersResponse['data'] as List? ?? const [],
@@ -434,6 +440,123 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
           return;
         }
         _showMessage('Failed to update app settings: $error');
+      }
+    });
+  }
+
+  Future<void> _createForum() async {
+    final values = await _showForumEditorDialog();
+    if (values == null) {
+      return;
+    }
+
+    await _runBusyAction('forum:create', () async {
+      try {
+        final response = await _apiService.createAdminForum(
+          title: values['title'] as String,
+          subtitle: values['subtitle'] as String,
+          description: values['description'] as String?,
+          slug: values['slug'] as String?,
+          keywords: values['keywords'] as List<String>?,
+          isHot: values['isHot'] as bool?,
+          sortOrder: values['sortOrder'] as int?,
+          accentStart: values['accentStart'] as String?,
+          accentEnd: values['accentEnd'] as String?,
+        );
+
+        if (!mounted) {
+          return;
+        }
+
+        if (response['success'] == true) {
+          _showMessage(response['message'] ?? 'Forum created');
+          await _loadAll();
+        } else {
+          _showMessage(response['message'] ?? 'Failed to create forum');
+        }
+      } catch (error) {
+        if (!mounted) {
+          return;
+        }
+        _showMessage('Failed to create forum: $error');
+      }
+    });
+  }
+
+  Future<void> _editForum(Map<String, dynamic> forum) async {
+    final edits = await _showForumEditorDialog(forum: forum);
+    if (edits == null) {
+      return;
+    }
+
+    final busyKey = 'forum:${forum['id']}';
+    await _runBusyAction(busyKey, () async {
+      try {
+        final response = await _apiService.updateAdminForum(
+          forumId: '${forum['id']}',
+          title: edits['title'] as String?,
+          subtitle: edits['subtitle'] as String?,
+          description: edits['description'] as String?,
+          slug: edits['slug'] as String?,
+          keywords: edits['keywords'] as List<String>?,
+          isHot: edits['isHot'] as bool?,
+          sortOrder: edits['sortOrder'] as int?,
+          accentStart: edits['accentStart'] as String?,
+          accentEnd: edits['accentEnd'] as String?,
+        );
+
+        if (!mounted) {
+          return;
+        }
+
+        if (response['success'] == true) {
+          _showMessage(response['message'] ?? 'Forum updated');
+          await _loadAll();
+        } else {
+          _showMessage(response['message'] ?? 'Failed to update forum');
+        }
+      } catch (error) {
+        if (!mounted) {
+          return;
+        }
+        _showMessage('Failed to update forum: $error');
+      }
+    });
+  }
+
+  Future<void> _deleteForum(Map<String, dynamic> forum) async {
+    final confirmed = await _confirmAction(
+      title: 'Delete forum?',
+      message:
+          'Delete "${forum['title'] ?? 'this forum'}" permanently? Posts will remain but lose their forum assignment.',
+      confirmLabel: 'Delete',
+      destructive: true,
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    final busyKey = 'forum:${forum['id']}';
+    await _runBusyAction(busyKey, () async {
+      try {
+        final response = await _apiService.deleteAdminForum('${forum['id']}');
+
+        if (!mounted) {
+          return;
+        }
+
+        if (response['success'] == true) {
+          _showMessage(response['message'] ?? 'Forum deleted');
+          await _loadAll();
+        } else {
+          _showMessage(response['message'] ?? 'Failed to delete forum');
+        }
+      } catch (error) {
+        if (!mounted) {
+          return;
+        }
+        _showMessage('Failed to delete forum: $error');
       }
     });
   }
@@ -836,6 +959,194 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
 
     titleController.dispose();
     descriptionController.dispose();
+    return result;
+  }
+
+  Future<Map<String, dynamic>?> _showForumEditorDialog({
+    Map<String, dynamic>? forum,
+  }) async {
+    final titleController = TextEditingController(
+      text: '${forum?['title'] ?? ''}',
+    );
+    final subtitleController = TextEditingController(
+      text: '${forum?['subtitle'] ?? ''}',
+    );
+    final descriptionController = TextEditingController(
+      text: '${forum?['description'] ?? ''}',
+    );
+    final slugController = TextEditingController(
+      text: '${forum?['slug'] ?? ''}',
+    );
+    final keywordsController = TextEditingController(
+      text: List<String>.from(forum?['keywords'] as List? ?? const [])
+          .join(', '),
+    );
+    final orderController = TextEditingController(
+      text: '${forum?['sortOrder'] ?? _forums.length}',
+    );
+    final accentStartController = TextEditingController(
+      text: '${forum?['accentStart'] ?? '#4F7DFF'}',
+    );
+    final accentEndController = TextEditingController(
+      text: '${forum?['accentEnd'] ?? '#5FD4FF'}',
+    );
+    var isHot = forum?['isHot'] == true;
+    String? validationMessage;
+    final isEditing = forum != null;
+
+    final result = await showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (dialogContext, setDialogState) => AlertDialog(
+          title: Text(isEditing ? 'Edit forum' : 'Create forum'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: titleController,
+                  decoration: const InputDecoration(
+                    labelText: 'Forum title',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: subtitleController,
+                  decoration: const InputDecoration(
+                    labelText: 'Subtitle',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: descriptionController,
+                  minLines: 2,
+                  maxLines: 4,
+                  decoration: const InputDecoration(
+                    labelText: 'Description',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: slugController,
+                  decoration: const InputDecoration(
+                    labelText: 'Slug',
+                    helperText: 'Optional. Leave blank to derive from the title.',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: keywordsController,
+                  decoration: const InputDecoration(
+                    labelText: 'Keywords',
+                    helperText: 'Separate keywords with commas.',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: orderController,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: 'Sort order',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: accentStartController,
+                  decoration: const InputDecoration(
+                    labelText: 'Accent start',
+                    helperText: 'Hex color like #4F7DFF',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: accentEndController,
+                  decoration: const InputDecoration(
+                    labelText: 'Accent end',
+                    helperText: 'Hex color like #5FD4FF',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                SwitchListTile.adaptive(
+                  value: isHot,
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Show in Hot Forums'),
+                  onChanged: (value) {
+                    setDialogState(() {
+                      isHot = value;
+                    });
+                  },
+                ),
+                if (validationMessage != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Text(
+                      validationMessage!,
+                      style: TextStyle(
+                        color: Theme.of(dialogContext).colorScheme.error,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () {
+                final title = titleController.text.trim();
+                final subtitle = subtitleController.text.trim();
+                if (title.isEmpty || subtitle.isEmpty) {
+                  setDialogState(() {
+                    validationMessage = 'Title and subtitle are required.';
+                  });
+                  return;
+                }
+
+                Navigator.pop(dialogContext, {
+                  'title': title,
+                  'subtitle': subtitle,
+                  'description': descriptionController.text.trim(),
+                  'slug': slugController.text.trim().isEmpty
+                      ? null
+                      : slugController.text.trim(),
+                  'keywords': keywordsController.text
+                      .split(',')
+                      .map((value) => value.trim())
+                      .where((value) => value.isNotEmpty)
+                      .toList(growable: false),
+                  'sortOrder': int.tryParse(orderController.text.trim()) ?? 0,
+                  'accentStart': accentStartController.text.trim(),
+                  'accentEnd': accentEndController.text.trim(),
+                  'isHot': isHot,
+                });
+              },
+              child: Text(isEditing ? 'Save changes' : 'Create'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    titleController.dispose();
+    subtitleController.dispose();
+    descriptionController.dispose();
+    slugController.dispose();
+    keywordsController.dispose();
+    orderController.dispose();
+    accentStartController.dispose();
+    accentEndController.dispose();
     return result;
   }
 
@@ -1378,7 +1689,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
 
     return DefaultTabController(
       initialIndex: _initialTabIndex,
-      length: 6,
+      length: 7,
       child: Scaffold(
         appBar: AppBar(
           backgroundColor: colorScheme.primary,
@@ -1400,6 +1711,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
             tabs: const [
               Tab(text: 'Overview'),
               Tab(text: 'Videos'),
+              Tab(text: 'Forums'),
               Tab(text: 'Categories'),
               Tab(text: 'Users'),
               Tab(text: 'Reports'),
@@ -1417,6 +1729,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
                         children: [
                           _buildOverviewTab(),
                           _buildVideosTab(),
+                          _buildForumsTab(),
                           _buildCategoriesTab(),
                           _buildUsersTab(),
                           _buildReportsTab(),
@@ -1506,6 +1819,12 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
         value: statistics['totalCategories'] ?? 0,
         icon: Icons.category_outlined,
         color: Colors.green,
+      ),
+      _DashboardMetric(
+        label: 'Forums',
+        value: statistics['totalForums'] ?? 0,
+        icon: Icons.forum_outlined,
+        color: Colors.indigo,
       ),
       _DashboardMetric(
         label: 'Posts',
@@ -1772,6 +2091,144 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
                               onPressed: _isBusy(busyKey)
                                   ? null
                                   : () => _deleteVideo(video),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor:
+                                    Theme.of(context).colorScheme.error,
+                              ),
+                              child: const Text('Delete'),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            }),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildForumsTab() {
+    return RefreshIndicator(
+      onRefresh: _loadAll,
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(16),
+        children: [
+          _buildTabActionBar(
+            title: 'Forums',
+            createLabel: 'Create forum',
+            createIcon: Icons.forum_outlined,
+            onCreate: _createForum,
+          ),
+          const SizedBox(height: 12),
+          if (_forums.isEmpty)
+            _buildInlineEmptyCard('No forums available')
+          else
+            ..._forums.map((forum) {
+              final busyKey = 'forum:${forum['id']}';
+              final keywords = List<String>.from(
+                forum['keywords'] as List? ?? const [],
+              );
+              final description = '${forum['description'] ?? ''}'.trim();
+
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const CircleAvatar(
+                              child: Icon(Icons.forum_outlined),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    '${forum['title'] ?? 'Untitled forum'}',
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .titleMedium
+                                        ?.copyWith(fontWeight: FontWeight.w700),
+                                  ),
+                                  const SizedBox(height: 6),
+                                  Text(
+                                    '${forum['subtitle'] ?? ''}',
+                                    style: TextStyle(
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .onSurfaceVariant,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Wrap(
+                                    spacing: 8,
+                                    runSpacing: 8,
+                                    children: [
+                                      _buildInfoChip(
+                                        '${forum['postCount'] ?? 0} posts',
+                                        Icons.article_outlined,
+                                      ),
+                                      _buildInfoChip(
+                                        '${forum['followerCount'] ?? 0} followers',
+                                        Icons.people_outline,
+                                      ),
+                                      _buildInfoChip(
+                                        'Order ${forum['sortOrder'] ?? 0}',
+                                        Icons.sort,
+                                      ),
+                                      if (forum['isHot'] == true)
+                                        _buildStatusChip('HOT'),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        Text('Slug: ${forum['slug'] ?? '-'}'),
+                        if (description.isNotEmpty) ...[
+                          const SizedBox(height: 8),
+                          Text(description),
+                        ],
+                        if (keywords.isNotEmpty) ...[
+                          const SizedBox(height: 12),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: keywords
+                                .map(
+                                  (keyword) => _buildInfoChip(
+                                    keyword,
+                                    Icons.tag_outlined,
+                                  ),
+                                )
+                                .toList(growable: false),
+                          ),
+                        ],
+                        const SizedBox(height: 16),
+                        _buildResponsiveActions(
+                          children: [
+                            FilledButton.tonal(
+                              onPressed: _isBusy(busyKey)
+                                  ? null
+                                  : () => _editForum(forum),
+                              child: const Text('Edit'),
+                            ),
+                            OutlinedButton(
+                              onPressed: _isBusy(busyKey)
+                                  ? null
+                                  : () => _deleteForum(forum),
                               style: OutlinedButton.styleFrom(
                                 foregroundColor:
                                     Theme.of(context).colorScheme.error,

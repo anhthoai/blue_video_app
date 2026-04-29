@@ -71,6 +71,14 @@ model User {
   // Payments
   payments       Payment[]
   unlockedPosts  UnlockedPost[]
+
+  // Community hub
+  communityForumsCreated   CommunityForum[]             @relation("CommunityForumCreator")
+  communityForumFollows    CommunityForumFollow[]
+  communityRequests        CommunityRequest[]           @relation("CommunityRequestAuthor")
+  communityRequestWants    CommunityRequestWant[]
+  communityRequestSupports CommunityRequestSupport[]
+  communityRequestSubmissions CommunityRequestSubmission[] @relation("CommunityRequestContributor")
   
   // Coin Transactions
   coinTransactions CoinTransaction[]
@@ -138,6 +146,7 @@ model Video {
 model CommunityPost {
   id              String   @id @default(uuid())
   userId          String   @map("user_id")
+  forumId         String?  @map("forum_id")
   title           String?
   content         String?
   type            PostType
@@ -173,7 +182,8 @@ model CommunityPost {
   updatedAt       DateTime @updatedAt @map("updated_at")
 
   // Relations
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user  User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  forum CommunityForum? @relation(fields: [forumId], references: [id], onDelete: SetNull)
   
   // Social interactions
   likesList     CommunityPostLike[] @relation("PostLikes")
@@ -184,7 +194,139 @@ model CommunityPost {
   // Coin transactions
   coinTransactions CoinTransaction[]
 
+  @@index([forumId])
   @@map("community_posts")
+}
+
+model CommunityForum {
+  id          String   @id @default(uuid())
+  slug        String   @unique
+  title       String
+  subtitle    String
+  description String?
+  accentStart String   @default("#4F7DFF") @map("accent_start")
+  accentEnd   String   @default("#5FD4FF") @map("accent_end")
+  keywords    String[] @default([])
+  postCount   Int      @default(0) @map("post_count")
+  isHot       Boolean  @default(false) @map("is_hot")
+  sortOrder   Int      @default(0) @map("sort_order")
+  createdById String?  @map("created_by_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  createdBy User?                  @relation("CommunityForumCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  posts     CommunityPost[]
+  follows   CommunityForumFollow[]
+
+  @@index([isHot, sortOrder])
+  @@index([createdById])
+  @@map("community_forums")
+}
+
+model CommunityForumFollow {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  forumId   String   @map("forum_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user  User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  forum CommunityForum @relation(fields: [forumId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, forumId])
+  @@index([forumId])
+  @@map("community_forum_follows")
+}
+
+model CommunityRequest {
+  id                 String                 @id @default(uuid())
+  authorId           String                 @map("author_id")
+  title              String
+  description        String
+  boardLabel         String                 @default("Latest") @map("board_label")
+  keywords           String[]               @default([])
+  previewHints       String[]               @default([]) @map("preview_hints")
+  referenceImages    String[]               @default([]) @map("reference_images")
+  fileDirectory      String?                @map("file_directory")
+  s3StorageId        Int                    @default(1) @map("s3_storage_id")
+  baseCoins          Int                    @default(0) @map("base_coins")
+  bonusCoins         Int                    @default(0) @map("bonus_coins")
+  wantCount          Int                    @default(0) @map("want_count")
+  replyCount         Int                    @default(0) @map("reply_count")
+  supporterCount     Int                    @default(0) @map("supporter_count")
+  isFeatured         Boolean                @default(false) @map("is_featured")
+  status             CommunityRequestStatus @default(OPEN)
+  approvedSubmissionId String?              @map("approved_submission_id")
+  createdAt          DateTime               @default(now()) @map("created_at")
+  updatedAt          DateTime               @updatedAt @map("updated_at")
+
+  author      User                         @relation("CommunityRequestAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+  wants       CommunityRequestWant[]
+  supports    CommunityRequestSupport[]
+  submissions CommunityRequestSubmission[]
+
+  @@index([authorId])
+  @@index([status])
+  @@index([isFeatured, createdAt])
+  @@map("community_requests")
+}
+
+model CommunityRequestWant {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  requestId String   @map("request_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user    User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  request CommunityRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, requestId])
+  @@index([requestId])
+  @@map("community_request_wants")
+}
+
+model CommunityRequestSupport {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  requestId String   @map("request_id")
+  coins     Int
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user    User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  request CommunityRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([requestId])
+  @@map("community_request_supports")
+}
+
+model CommunityRequestSubmission {
+  id            String                         @id @default(uuid())
+  requestId     String                         @map("request_id")
+  contributorId String                         @map("contributor_id")
+  title         String
+  description   String
+  type          CommunityRequestSubmissionType
+  linkedVideoUrl String?                       @map("linked_video_url")
+  searchKeyword String?                        @map("search_keyword")
+  linkedMediaMetadata Json?                    @map("linked_media_metadata")
+  fileName      String?                        @map("file_name")
+  fileDirectory String?                        @map("file_directory")
+  s3StorageId   Int                            @default(1) @map("s3_storage_id")
+  mimeType      String?                        @map("mime_type")
+  likes         Int                            @default(0)
+  comments      Int                            @default(0)
+  playCount     Int                            @default(0) @map("play_count")
+  isApproved    Boolean                        @default(false) @map("is_approved")
+  createdAt     DateTime                       @default(now()) @map("created_at")
+  updatedAt     DateTime                       @updatedAt @map("updated_at")
+
+  request     CommunityRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  contributor User             @relation("CommunityRequestContributor", fields: [contributorId], references: [id], onDelete: Cascade)
+
+  @@index([requestId])
+  @@index([contributorId])
+  @@index([isApproved])
+  @@map("community_request_submissions")
 }
 
 model CommunityPostLike {
@@ -501,6 +643,20 @@ enum ReplyRestriction {
   NO_ONE
 
   @@map("reply_restriction")
+}
+
+enum CommunityRequestStatus {
+  OPEN
+  ENDED
+
+  @@map("community_request_status")
+}
+
+enum CommunityRequestSubmissionType {
+  FILE_UPLOAD
+  LINKED_VIDEO
+
+  @@map("community_request_submission_type")
 }
 
 model Category {

@@ -16,11 +16,11 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { emailService } from './services/emailService';
 import { sendPushNotification } from './services/fcmService';
-import { upload, deleteFromS3, chatFileStorage, chatFileFilter, videoUpload, communityPostUpload, uploadCommunityPostFiles } from './services/s3Service';
+import { upload, deleteFromS3, chatFileStorage, chatFileFilter, videoUpload, communityPostUpload, requestReferenceUpload, requestSubmissionUpload, uploadCommunityPostFiles, uploadCommunityRequestImages, uploadRequestSubmissionFile } from './services/s3Service';
 import { processVideo } from './services/videoProcessingService';
 import { promises as fs } from 'fs';
 import { serializeUserWithUrls, buildAvatarUrl, buildFileUrlSync, buildFileUrl, buildCommunityPostFileUrl, serializeUserWithUrlsAsync, buildAvatarUrlAsync } from './utils/fileUrl';
-import { PrismaClient, ReportStatus, UserRole, VideoStatus } from '@prisma/client';
+import { CommunityRequestStatus, CommunityRequestSubmissionType, Prisma, PrismaClient, ReportStatus, UserRole, VideoStatus } from '@prisma/client';
 import multer from 'multer';
 import { paymentService, IPNNotification } from './services/paymentService';
 import swaggerUi from 'swagger-ui-express';
@@ -437,6 +437,682 @@ const getCurrentUserId = async (req: any): Promise<string | null> => {
     return null;
   }
 };
+
+const communityUserSelect = {
+  id: true,
+  username: true,
+  firstName: true,
+  lastName: true,
+  avatar: true,
+  avatarUrl: true,
+  fileDirectory: true,
+  s3StorageId: true,
+  isVerified: true,
+} as const;
+
+const defaultCommunityForums = [
+  {
+    slug: 'blue-friends-hub',
+    title: 'Blue Friends Hub',
+    subtitle: 'Daily clues and fresh finds',
+    description: 'Tips, tags, and community finds from the main feed.',
+    accentStart: '#FFB96A',
+    accentEnd: '#FF7B6D',
+    keywords: ['community', 'friends', 'daily', 'finds'],
+    postCount: 7169,
+    isHot: true,
+    sortOrder: 1,
+  },
+  {
+    slug: 'g-manga-lane',
+    title: 'G Manga Lane',
+    subtitle: 'Shortcuts, tags and archive notes',
+    description: 'Source notes, archive tags, and browsing shortcuts.',
+    accentStart: '#4F7DFF',
+    accentEnd: '#5FD4FF',
+    keywords: ['archive', 'tag', 'source', 'index'],
+    postCount: 12956,
+    isHot: true,
+    sortOrder: 2,
+  },
+  {
+    slug: 'scene-hunters',
+    title: 'Scene Hunters',
+    subtitle: 'Requests, edits and source matching',
+    description: 'Help find clips, match source videos, and compare edits.',
+    accentStart: '#6A5EFF',
+    accentEnd: '#B366FF',
+    keywords: ['scene', 'clip', 'request', 'match'],
+    postCount: 4821,
+    isHot: true,
+    sortOrder: 3,
+  },
+  {
+    slug: 'archive-notes',
+    title: 'Archive Notes',
+    subtitle: 'Keywords, mirrors and naming help',
+    description: 'Mirror references, naming fixes, and catalog breadcrumbs.',
+    accentStart: '#1FB694',
+    accentEnd: '#82E7C5',
+    keywords: ['mirror', 'archive', 'keyword', 'catalog'],
+    postCount: 3840,
+    isHot: false,
+    sortOrder: 4,
+  },
+];
+
+const getCommunityDisplayName = (user: any): string => {
+  const firstName = typeof user?.firstName === 'string' ? user.firstName.trim() : '';
+  const lastName = typeof user?.lastName === 'string' ? user.lastName.trim() : '';
+  const fullName = [firstName, lastName].filter(Boolean).join(' ').trim();
+  if (fullName) {
+    return fullName;
+  }
+
+  if (firstName) {
+    return firstName;
+  }
+
+  return user?.username || 'User';
+};
+
+const buildCommunityForumInclude = (currentUserId?: string | null) => {
+  const include: any = {
+    posts: {
+      where: {
+        isPublic: true,
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+      take: 3,
+      include: {
+        user: {
+          select: communityUserSelect,
+        },
+      },
+    },
+    _count: {
+      select: {
+        follows: true,
+        posts: true,
+      },
+    },
+  };
+
+  if (currentUserId) {
+    include.follows = {
+      where: {
+        userId: currentUserId,
+      },
+      select: {
+        id: true,
+      },
+    };
+  }
+
+  return include;
+};
+
+const buildCommunityRequestInclude = (currentUserId?: string | null) => {
+  const include: any = {
+    author: {
+      select: communityUserSelect,
+    },
+    submissions: {
+      orderBy: {
+        createdAt: 'desc',
+      },
+      include: {
+        contributor: {
+          select: communityUserSelect,
+        },
+      },
+    },
+    _count: {
+      select: {
+        wants: true,
+        supports: true,
+        submissions: true,
+      },
+    },
+  };
+
+  if (currentUserId) {
+    include.wants = {
+      where: {
+        userId: currentUserId,
+      },
+      select: {
+        id: true,
+      },
+    };
+  }
+
+  return include;
+};
+
+const buildCommunityPostOrderBy = (
+  feed?: string
+): Prisma.CommunityPostOrderByWithRelationInput[] => {
+  switch ((feed || '').toLowerCase()) {
+    case 'newest':
+      return [{ createdAt: 'desc' }];
+    case 'highlights':
+      return [{ isPinned: 'desc' }, { likes: 'desc' }, { views: 'desc' }, { createdAt: 'desc' }];
+    case 'videos':
+      return [{ isPinned: 'desc' }, { createdAt: 'desc' }];
+    default:
+      return [{ isPinned: 'desc' }, { likes: 'desc' }, { comments: 'desc' }, { createdAt: 'desc' }];
+  }
+};
+
+const buildCreatorStatsForWindow = (posts: any[], days: number) => {
+  const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+  const scopedPosts = posts.filter((post) => post.createdAt >= cutoff);
+
+  return {
+    likes: scopedPosts.reduce((sum, post) => sum + (post.likes || 0), 0),
+    uploads: scopedPosts.length,
+    earnings: scopedPosts.reduce((sum, post) => sum + (post.cost || 0), 0),
+  };
+};
+
+const buildCreatorHighlight = (monthlyStats: { likes: number; uploads: number; earnings: number }) => {
+  if (monthlyStats.uploads > 0) {
+    return `${monthlyStats.uploads} uploads in the last month`;
+  }
+
+  if (monthlyStats.likes > 0) {
+    return `${monthlyStats.likes} likes in the last month`;
+  }
+
+  return 'Fresh activity from the community feed';
+};
+
+const normalizeCommunityRequestStatus = (status: CommunityRequestStatus) => {
+  return status === CommunityRequestStatus.ENDED ? 'ended' : 'open';
+};
+
+const normalizeCommunityRequestSubmissionType = (
+  type: CommunityRequestSubmissionType
+) => {
+  return type === CommunityRequestSubmissionType.FILE_UPLOAD
+    ? 'fileUpload'
+    : 'linkedVideo';
+};
+
+const buildCommunityRequestPreviewHints = (
+  previewHints: unknown,
+  keywords: string[]
+) => {
+  if (Array.isArray(previewHints)) {
+    const normalized = previewHints
+      .map((value) => (typeof value === 'string' ? value.trim() : ''))
+      .filter(Boolean);
+    if (normalized.length > 0) {
+      return normalized.slice(0, 4);
+    }
+  }
+
+  return keywords.slice(0, 2);
+};
+
+const parseStringArrayInput = (value: unknown): string[] => {
+  if (Array.isArray(value)) {
+    return value
+      .map((entry) => (typeof entry === 'string' ? entry.trim() : ''))
+      .filter(Boolean);
+  }
+
+  if (typeof value === 'string') {
+    const trimmedValue = value.trim();
+    if (!trimmedValue) {
+      return [];
+    }
+
+    try {
+      const parsed = JSON.parse(trimmedValue);
+      if (Array.isArray(parsed)) {
+        return parsed
+          .map((entry) => (typeof entry === 'string' ? entry.trim() : ''))
+          .filter(Boolean);
+      }
+    } catch (_error) {
+      return trimmedValue
+        .split(',')
+        .map((entry) => entry.trim())
+        .filter(Boolean);
+    }
+  }
+
+  return [];
+};
+
+const parseJsonObjectInput = (value: unknown): Prisma.JsonObject | null => {
+  if (value && typeof value === 'object' && !Array.isArray(value)) {
+    return value as Prisma.JsonObject;
+  }
+
+  if (typeof value !== 'string') {
+    return null;
+  }
+
+  const trimmedValue = value.trim();
+  if (!trimmedValue) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(trimmedValue);
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+      return parsed as Prisma.JsonObject;
+    }
+  } catch (_error) {
+    return null;
+  }
+
+  return null;
+};
+
+async function serializeCommunityPostRecord(post: any, currentUserId?: string | null) {
+  const [imageUrls, videoUrls, videoThumbnailUrls, userAvatar, isLiked, isBookmarked, isFollowing] =
+    await Promise.all([
+      Promise.all(
+        (post.images || []).map((fileName: string) =>
+          buildCommunityPostFileUrl(post.fileDirectory, fileName, (post as any).s3StorageId || 1)
+        )
+      ),
+      Promise.all(
+        (post.videos || []).map((fileName: string) =>
+          buildCommunityPostFileUrl(post.fileDirectory, fileName, (post as any).s3StorageId || 1)
+        )
+      ),
+      Promise.all(
+        (post.videoThumbnails || []).map((fileName: string) =>
+          buildCommunityPostFileUrl(post.fileDirectory, fileName, (post as any).s3StorageId || 1)
+        )
+      ),
+      post.user?.avatar && post.user?.fileDirectory
+        ? buildFileUrl(
+            post.user.fileDirectory,
+            post.user.avatar,
+            'avatars',
+            (post.user as any).s3StorageId || 1
+          )
+        : Promise.resolve(post.user?.avatarUrl || null),
+      currentUserId
+        ? prisma.communityPostLike.findUnique({
+            where: {
+              userId_postId: {
+                userId: currentUserId,
+                postId: post.id,
+              },
+            },
+          })
+        : Promise.resolve(null),
+      currentUserId
+        ? prisma.communityPostBookmark.findUnique({
+            where: {
+              userId_postId: {
+                userId: currentUserId,
+                postId: post.id,
+              },
+            },
+          })
+        : Promise.resolve(null),
+      currentUserId
+        ? prisma.follow.findUnique({
+            where: {
+              followerId_followingId: {
+                followerId: currentUserId,
+                followingId: post.userId,
+              },
+            },
+          })
+        : Promise.resolve(null),
+    ]);
+
+  return {
+    ...post,
+    username: post.user?.username,
+    firstName: post.user?.firstName,
+    lastName: post.user?.lastName,
+    isVerified: post.user?.isVerified || false,
+    userAvatar,
+    imageUrls: imageUrls.filter((url) => url != null),
+    videoUrls: videoUrls.filter((url) => url != null),
+    videoThumbnailUrls: videoThumbnailUrls.filter((url) => url != null),
+    isLiked: isLiked != null,
+    isBookmarked: isBookmarked != null,
+    isFollowing: isFollowing != null,
+  };
+}
+
+async function serializeCommunityPosts(posts: any[], currentUserId?: string | null) {
+  return Promise.all(posts.map((post) => serializeCommunityPostRecord(post, currentUserId)));
+}
+
+function getRequiredAuthenticatedUserId(req: any, res: any): string | null {
+  const currentUserId = typeof req.user?.id === 'string' ? req.user.id : null;
+  if (currentUserId) {
+    return currentUserId;
+  }
+
+  res.status(401).json({
+    success: false,
+    message: 'Authentication required',
+  });
+  return null;
+}
+
+function getRequiredRouteParam(req: any, res: any, paramName: string): string | null {
+  const value = typeof req.params?.[paramName] === 'string' ? req.params[paramName] : null;
+  if (value) {
+    return value;
+  }
+
+  res.status(400).json({
+    success: false,
+    message: `Missing route parameter: ${paramName}`,
+  });
+  return null;
+}
+
+function serializeCommunityForumRecord(forum: any) {
+  const forumPosts = Array.isArray(forum['posts']) ? forum['posts'] : [];
+  const forumCounts =
+    forum['_count'] && typeof forum['_count'] === 'object'
+      ? (forum['_count'] as { posts?: number; follows?: number })
+      : undefined;
+  const forumFollows = Array.isArray(forum['follows']) ? forum['follows'] : [];
+
+  const memberNames = Array.from(
+    new Set(
+      forumPosts
+        .map((post: any) => getCommunityDisplayName(post.user))
+        .filter(Boolean)
+    )
+  ).slice(0, 3);
+
+  return {
+    id: forum.id,
+    slug: forum.slug,
+    title: forum.title,
+    subtitle: forum.subtitle,
+    description: forum.description || '',
+    accentStart: forum.accentStart,
+    accentEnd: forum.accentEnd,
+    keywords: forum.keywords || [],
+    postCount: forum.postCount > 0 ? forum.postCount : forumCounts?.posts || 0,
+    followerCount: forumCounts?.follows || 0,
+    memberNames,
+    isFollowing: forumFollows.length > 0,
+    isHot: forum.isHot,
+    sortOrder: forum.sortOrder ?? 0,
+    createdAt:
+      forum.createdAt && typeof forum.createdAt.toISOString === 'function'
+        ? forum.createdAt.toISOString()
+        : null,
+    updatedAt:
+      forum.updatedAt && typeof forum.updatedAt.toISOString === 'function'
+        ? forum.updatedAt.toISOString()
+        : null,
+  };
+}
+
+function normalizeCommunityForumSlug(value: string) {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .replace(/-{2,}/g, '-');
+}
+
+async function ensureCommunityForums() {
+  const forumCount = await prisma.communityForum.count();
+  if (forumCount > 0) {
+    return;
+  }
+
+  await prisma.communityForum.createMany({
+    data: defaultCommunityForums,
+  });
+}
+
+async function getCommunityForums(currentUserId?: string | null, scope: 'all' | 'hot' | 'following' = 'all') {
+  await ensureCommunityForums();
+
+  const where: any = {};
+  if (scope === 'hot') {
+    where.isHot = true;
+  }
+  if (scope === 'following') {
+    if (!currentUserId) {
+      return [];
+    }
+    where.follows = {
+      some: {
+        userId: currentUserId,
+      },
+    };
+  }
+
+  const forums = await prisma.communityForum.findMany({
+    where,
+    include: buildCommunityForumInclude(currentUserId),
+    orderBy: [{ isHot: 'desc' }, { sortOrder: 'asc' }, { title: 'asc' }],
+  });
+
+  return forums.map((forum: any) => serializeCommunityForumRecord(forum));
+}
+
+async function getCommunityCreators(currentUserId?: string | null) {
+  const users = await prisma.user.findMany({
+    where: {
+      OR: [{ posts: { some: { isPublic: true } } }, { followers: { some: {} } }],
+    },
+    select: {
+      ...communityUserSelect,
+      posts: {
+        where: {
+          isPublic: true,
+        },
+        select: {
+          id: true,
+          createdAt: true,
+          likes: true,
+          cost: true,
+        },
+      },
+      _count: {
+        select: {
+          followers: true,
+          posts: true,
+        },
+      },
+    },
+  });
+
+  const followingIds = new Set<string>();
+  if (currentUserId && users.length > 0) {
+    const rows = await prisma.follow.findMany({
+      where: {
+        followerId: currentUserId,
+        followingId: {
+          in: users.map((user) => user.id),
+        },
+      },
+      select: {
+        followingId: true,
+      },
+    });
+
+    for (const row of rows) {
+      followingIds.add(row.followingId);
+    }
+  }
+
+  const creators = await Promise.all(
+    users.map(async (user) => {
+      const daily = buildCreatorStatsForWindow(user.posts, 1);
+      const weekly = buildCreatorStatsForWindow(user.posts, 7);
+      const monthly = buildCreatorStatsForWindow(user.posts, 30);
+
+      return {
+        id: user.id,
+        displayName: getCommunityDisplayName(user),
+        handle: `@${user.username}`,
+        avatarUrl: await buildAvatarUrlAsync(user),
+        followers: user._count.followers,
+        isFollowing: followingIds.has(user.id),
+        highlight: buildCreatorHighlight(monthly),
+        stats: {
+          daily,
+          weekly,
+          monthly,
+        },
+      };
+    })
+  );
+
+  creators.sort((left, right) => {
+    const monthlyLikes = right.stats.monthly.likes - left.stats.monthly.likes;
+    if (monthlyLikes !== 0) {
+      return monthlyLikes;
+    }
+
+    const monthlyUploads = right.stats.monthly.uploads - left.stats.monthly.uploads;
+    if (monthlyUploads !== 0) {
+      return monthlyUploads;
+    }
+
+    return right.followers - left.followers;
+  });
+
+  return creators;
+}
+
+async function serializeCommunityRequestSubmission(
+  submission: any,
+  followedContributorIds: Set<string>
+) {
+  const linkedMedia =
+    submission.linkedMediaMetadata &&
+    typeof submission.linkedMediaMetadata === 'object' &&
+    !Array.isArray(submission.linkedMediaMetadata)
+      ? submission.linkedMediaMetadata
+      : null;
+
+  return {
+    id: submission.id,
+    requestId: submission.requestId,
+    contributorId: submission.contributorId,
+    contributorName: getCommunityDisplayName(submission.contributor),
+    contributorAvatarUrl: await buildAvatarUrlAsync(submission.contributor),
+    title: submission.title,
+    description: submission.description,
+    type: normalizeCommunityRequestSubmissionType(submission.type),
+    linkedVideoUrl: submission.linkedVideoUrl,
+    linkedMedia,
+    searchKeyword: submission.searchKeyword,
+    fileName: submission.fileName,
+    fileUrl: submission.fileName
+      ? await buildFileUrl(
+          submission.fileDirectory,
+          submission.fileName,
+          'community-requests',
+          (submission as any).s3StorageId || 1
+        )
+      : null,
+    mimeType: submission.mimeType,
+    likes: submission.likes,
+    comments: submission.comments,
+    playCount: submission.playCount,
+    isApproved: submission.isApproved,
+    isFollowingContributor: followedContributorIds.has(submission.contributorId),
+    createdAt: submission.createdAt.toISOString(),
+  };
+}
+
+async function serializeCommunityRequest(request: any, followedContributorIds: Set<string>) {
+  const referenceImageUrls = await Promise.all(
+    (request.referenceImages || []).map((fileName: string) =>
+      request.fileDirectory
+        ? buildFileUrl(
+            request.fileDirectory,
+            fileName,
+            'community-requests',
+            (request as any).s3StorageId || 1
+          )
+        : Promise.resolve(null)
+    )
+  );
+
+  return {
+    id: request.id,
+    authorId: request.authorId,
+    authorName: getCommunityDisplayName(request.author),
+    authorAvatarUrl: await buildAvatarUrlAsync(request.author),
+    title: request.title,
+    description: request.description,
+    boardLabel: request.boardLabel,
+    keywords: request.keywords || [],
+    previewHints: request.previewHints || [],
+    referenceImageUrls: referenceImageUrls.filter((url) => url != null),
+    baseCoins: request.baseCoins,
+    bonusCoins: request.bonusCoins,
+    totalCoins: request.baseCoins + request.bonusCoins,
+    wantCount: request.wantCount > 0 ? request.wantCount : request._count?.wants || 0,
+    replyCount: request.replyCount > 0 ? request.replyCount : request._count?.submissions || 0,
+    supporterCount:
+      request.supporterCount > 0 ? request.supporterCount : request._count?.supports || 0,
+    isFeatured: request.isFeatured,
+    isWantedByCurrentUser: Array.isArray(request.wants) ? request.wants.length > 0 : false,
+    status: normalizeCommunityRequestStatus(request.status),
+    createdAt: request.createdAt.toISOString(),
+    approvedSubmissionId: request.approvedSubmissionId,
+    submissions: await Promise.all(
+      (request.submissions || []).map((submission: any) =>
+        serializeCommunityRequestSubmission(submission, followedContributorIds)
+      )
+    ),
+  };
+}
+
+async function serializeCommunityRequests(requests: any[], currentUserId?: string | null) {
+  const contributorIds = Array.from(
+    new Set(
+      requests.flatMap((request) =>
+        (request.submissions || []).map((submission: any) => submission.contributorId)
+      )
+    )
+  );
+
+  const followedContributorIds = new Set<string>();
+  if (currentUserId && contributorIds.length > 0) {
+    const rows = await prisma.follow.findMany({
+      where: {
+        followerId: currentUserId,
+        followingId: {
+          in: contributorIds,
+        },
+      },
+      select: {
+        followingId: true,
+      },
+    });
+
+    for (const row of rows) {
+      followedContributorIds.add(row.followingId);
+    }
+  }
+
+  return Promise.all(
+    requests.map((request) => serializeCommunityRequest(request, followedContributorIds))
+  );
+}
 
 // Authentication endpoints
 app.post('/api/v1/auth/login', async (req, res) => {
@@ -4870,6 +5546,7 @@ app.get('/api/v1/admin/dashboard', authenticateToken, requireAdmin, async (_req,
       totalVideos,
       totalCategories,
       totalPosts,
+      totalForums,
       pendingUserReports,
       pendingPostReports,
       pendingVideoReports,
@@ -4881,6 +5558,7 @@ app.get('/api/v1/admin/dashboard', authenticateToken, requireAdmin, async (_req,
       prisma.video.count(),
       prisma.category.count(),
       prisma.communityPost.count(),
+      prisma.communityForum.count(),
       prisma.userReport.count({ where: { status: 'PENDING' } }),
       prisma.communityPostReport.count({ where: { status: 'PENDING' } }),
       prisma.videoReport.count({ where: { status: 'PENDING' } }),
@@ -4909,6 +5587,7 @@ app.get('/api/v1/admin/dashboard', authenticateToken, requireAdmin, async (_req,
           totalVideos,
           totalCategories,
           totalPosts,
+          totalForums,
         },
         moderation: {
           pendingReports: pendingUserReports + pendingPostReports + pendingVideoReports,
@@ -5619,6 +6298,326 @@ app.delete('/api/v1/admin/users/:userId', authenticateToken, requireAdmin, async
     return res.status(500).json({
       success: false,
       message: 'Failed to delete user',
+    });
+  }
+});
+
+app.get('/api/v1/admin/forums', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const page = Number(req.query['page'] || 1);
+    const limit = Number(req.query['limit'] || 50);
+    const offset = (page - 1) * limit;
+
+    const [forums, total] = await Promise.all([
+      prisma.communityForum.findMany({
+        include: {
+          posts: {
+            take: 3,
+            orderBy: { createdAt: 'desc' },
+            include: {
+              user: {
+                select: {
+                  username: true,
+                  firstName: true,
+                  lastName: true,
+                },
+              },
+            },
+          },
+          _count: {
+            select: {
+              posts: true,
+              follows: true,
+            },
+          },
+        },
+        orderBy: [{ sortOrder: 'asc' }, { createdAt: 'desc' }],
+        skip: offset,
+        take: limit,
+      }),
+      prisma.communityForum.count(),
+    ]);
+
+    return res.json({
+      success: true,
+      data: forums.map((forum) => serializeCommunityForumRecord(forum)),
+      pagination: {
+        page,
+        limit,
+        total,
+      },
+    });
+  } catch (error) {
+    console.error('Error fetching admin forums:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to fetch forums',
+    });
+  }
+});
+
+app.post('/api/v1/admin/forums', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const currentUserId = getRequiredAuthenticatedUserId(req, res);
+    if (!currentUserId) {
+      return;
+    }
+
+    const title = typeof req.body?.title === 'string' ? req.body.title.trim() : '';
+    const subtitle = typeof req.body?.subtitle === 'string' ? req.body.subtitle.trim() : '';
+    const description = typeof req.body?.description === 'string' ? req.body.description.trim() : null;
+    const slugSource = typeof req.body?.slug === 'string' && req.body.slug.trim()
+      ? req.body.slug.trim()
+      : title;
+    const slug = normalizeCommunityForumSlug(slugSource);
+    const keywords = parseStringArrayInput(req.body?.keywords);
+    const sortOrder = Number.isFinite(Number(req.body?.sortOrder)) ? Number(req.body?.sortOrder) : 0;
+    const isHot = req.body?.isHot === true;
+    const accentStart = typeof req.body?.accentStart === 'string' && req.body.accentStart.trim()
+      ? req.body.accentStart.trim()
+      : '#4F7DFF';
+    const accentEnd = typeof req.body?.accentEnd === 'string' && req.body.accentEnd.trim()
+      ? req.body.accentEnd.trim()
+      : '#5FD4FF';
+
+    if (!title || !subtitle || !slug) {
+      return res.status(400).json({
+        success: false,
+        message: 'Title, subtitle, and a valid slug are required',
+      });
+    }
+
+    const duplicate = await prisma.communityForum.findUnique({
+      where: { slug },
+      select: { id: true },
+    });
+
+    if (duplicate) {
+      return res.status(409).json({
+        success: false,
+        message: 'Forum slug is already in use',
+      });
+    }
+
+    const forum = await prisma.communityForum.create({
+      data: {
+        slug,
+        title,
+        subtitle,
+        description,
+        keywords,
+        sortOrder,
+        isHot,
+        accentStart,
+        accentEnd,
+        createdById: currentUserId,
+      },
+      include: {
+        posts: {
+          take: 3,
+          include: {
+            user: {
+              select: {
+                username: true,
+                firstName: true,
+                lastName: true,
+              },
+            },
+          },
+        },
+        _count: {
+          select: {
+            posts: true,
+            follows: true,
+          },
+        },
+      },
+    });
+
+    return res.status(201).json({
+      success: true,
+      message: 'Forum created successfully',
+      data: serializeCommunityForumRecord(forum),
+    });
+  } catch (error) {
+    console.error('Error creating admin forum:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to create forum',
+    });
+  }
+});
+
+app.patch('/api/v1/admin/forums/:forumId', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const forumId = getRequiredRouteParam(req, res, 'forumId');
+    if (!forumId) {
+      return;
+    }
+
+    const updateData: Record<string, unknown> = {};
+
+    if (typeof req.body?.title === 'string') {
+      const title = req.body.title.trim();
+      if (!title) {
+        return res.status(400).json({
+          success: false,
+          message: 'Forum title cannot be empty',
+        });
+      }
+      updateData['title'] = title;
+    }
+
+    if (typeof req.body?.subtitle === 'string') {
+      const subtitle = req.body.subtitle.trim();
+      if (!subtitle) {
+        return res.status(400).json({
+          success: false,
+          message: 'Forum subtitle cannot be empty',
+        });
+      }
+      updateData['subtitle'] = subtitle;
+    }
+
+    if (Object.prototype.hasOwnProperty.call(req.body, 'description')) {
+      updateData['description'] =
+        typeof req.body.description === 'string' && req.body.description.trim().length > 0
+          ? req.body.description.trim()
+          : null;
+    }
+
+    if (Object.prototype.hasOwnProperty.call(req.body, 'keywords')) {
+      updateData['keywords'] = parseStringArrayInput(req.body.keywords);
+    }
+
+    if (Object.prototype.hasOwnProperty.call(req.body, 'sortOrder')) {
+      const sortOrder = Number(req.body.sortOrder);
+      if (!Number.isFinite(sortOrder)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Forum sort order must be a valid number',
+        });
+      }
+      updateData['sortOrder'] = sortOrder;
+    }
+
+    if (typeof req.body?.isHot === 'boolean') {
+      updateData['isHot'] = req.body.isHot;
+    }
+
+    if (typeof req.body?.accentStart === 'string' && req.body.accentStart.trim()) {
+      updateData['accentStart'] = req.body.accentStart.trim();
+    }
+
+    if (typeof req.body?.accentEnd === 'string' && req.body.accentEnd.trim()) {
+      updateData['accentEnd'] = req.body.accentEnd.trim();
+    }
+
+    if (typeof req.body?.slug === 'string') {
+      const slug = normalizeCommunityForumSlug(req.body.slug);
+      if (!slug) {
+        return res.status(400).json({
+          success: false,
+          message: 'Forum slug cannot be empty',
+        });
+      }
+
+      const duplicate = await prisma.communityForum.findFirst({
+        where: {
+          slug,
+          NOT: { id: forumId },
+        },
+        select: { id: true },
+      });
+
+      if (duplicate) {
+        return res.status(409).json({
+          success: false,
+          message: 'Forum slug is already in use',
+        });
+      }
+
+      updateData['slug'] = slug;
+    }
+
+    if (Object.keys(updateData).length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'No forum changes were provided',
+      });
+    }
+
+    const forum = await prisma.communityForum.update({
+      where: { id: forumId },
+      data: updateData,
+      include: {
+        posts: {
+          take: 3,
+          include: {
+            user: {
+              select: {
+                username: true,
+                firstName: true,
+                lastName: true,
+              },
+            },
+          },
+        },
+        _count: {
+          select: {
+            posts: true,
+            follows: true,
+          },
+        },
+      },
+    });
+
+    return res.json({
+      success: true,
+      message: 'Forum updated successfully',
+      data: serializeCommunityForumRecord(forum),
+    });
+  } catch (error) {
+    console.error('Error updating admin forum:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to update forum',
+    });
+  }
+});
+
+app.delete('/api/v1/admin/forums/:forumId', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const forumId = getRequiredRouteParam(req, res, 'forumId');
+    if (!forumId) {
+      return;
+    }
+
+    const existingForum = await prisma.communityForum.findUnique({
+      where: { id: forumId },
+      select: { id: true, title: true },
+    });
+
+    if (!existingForum) {
+      return res.status(404).json({
+        success: false,
+        message: 'Forum not found',
+      });
+    }
+
+    await prisma.communityForum.delete({
+      where: { id: forumId },
+    });
+
+    return res.json({
+      success: true,
+      message: `Forum "${existingForum.title}" deleted successfully`,
+    });
+  } catch (error) {
+    console.error('Error deleting admin forum:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to delete forum',
     });
   }
 });
@@ -6489,16 +7488,7 @@ app.get('/api/v1/community/posts/tag/:tag', authenticateToken, async (req, res) 
       },
       include: {
         user: {
-          select: {
-            id: true,
-            username: true,
-            firstName: true,
-            lastName: true,
-            isVerified: true,
-            avatar: true,
-            fileDirectory: true,
-            s3StorageId: true,
-          },
+          select: communityUserSelect,
         },
       },
       orderBy: [
@@ -6509,70 +7499,7 @@ app.get('/api/v1/community/posts/tag/:tag', authenticateToken, async (req, res) 
       take: Number(limit),
     });
 
-    // Build URLs for each post
-    const postsWithUrls = await Promise.all(
-      posts.map(async (post) => {
-        // Build image URLs
-        const imageUrls = await Promise.all(
-          post.images.map((fileName) =>
-            buildCommunityPostFileUrl(post.fileDirectory, fileName, (post as any).s3StorageId || 1)
-          )
-        );
-
-        // Build video URLs
-        const videoUrls = await Promise.all(
-          post.videos.map((fileName) =>
-            buildCommunityPostFileUrl(post.fileDirectory, fileName, (post as any).s3StorageId || 1)
-          )
-        );
-
-        // Build video thumbnail URLs from database
-        const videoThumbnailUrls = await Promise.all(
-          post.videoThumbnails.map((fileName) =>
-            buildCommunityPostFileUrl(post.fileDirectory, fileName, (post as any).s3StorageId || 1)
-          )
-        );
-
-        // Build avatar URL (async)
-        const avatarUrl = post.user.avatar && post.user.fileDirectory
-          ? await buildFileUrl(post.user.fileDirectory, post.user.avatar, 'avatars', (post.user as any).s3StorageId || 1)
-          : null;
-
-        // Check if current user has liked this post
-        const isLiked = currentUserId ? await prisma.communityPostLike.findUnique({
-          where: {
-            userId_postId: {
-              userId: currentUserId,
-              postId: post.id,
-            },
-          },
-        }) : null;
-
-        // Check if current user has bookmarked this post
-        const isBookmarked = currentUserId ? await prisma.communityPostBookmark.findUnique({
-          where: {
-            userId_postId: {
-              userId: currentUserId,
-              postId: post.id,
-            },
-          },
-        }) : null;
-
-        return {
-          ...post,
-          username: post.user.username,
-          firstName: post.user.firstName,
-          lastName: post.user.lastName,
-          isVerified: post.user.isVerified,
-          userAvatar: avatarUrl,
-          imageUrls: imageUrls.filter((url) => url != null),
-          videoUrls: videoUrls.filter((url) => url != null),
-          videoThumbnailUrls: videoThumbnailUrls.filter((url) => url != null),
-          isLiked: isLiked != null,
-          isBookmarked: isBookmarked != null,
-        };
-      })
-    );
+    const postsWithUrls = await serializeCommunityPosts(posts, currentUserId);
 
     return res.json({
       success: true,
@@ -6593,6 +7520,943 @@ app.get('/api/v1/community/posts/tag/:tag', authenticateToken, async (req, res) 
   });
 
 // Community posts endpoint using real database data
+app.get('/api/v1/community/hub/overview', authenticateToken, async (req, res) => {
+  try {
+    const currentUserId = req.user?.id;
+    const [forums, creators, requestRows] = await Promise.all([
+      getCommunityForums(currentUserId, 'all'),
+      getCommunityCreators(currentUserId),
+      prisma.communityRequest.findMany({
+        include: buildCommunityRequestInclude(currentUserId),
+        orderBy: [{ isFeatured: 'desc' }, { createdAt: 'desc' }],
+        take: 50,
+      }),
+    ]);
+
+    const requests = await serializeCommunityRequests(requestRows, currentUserId);
+
+    return res.json({
+      success: true,
+      data: {
+        forums,
+        creators,
+        requests,
+      },
+    });
+  } catch (error) {
+    console.error('Error loading community hub overview:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to load community hub overview',
+    });
+  }
+});
+
+app.get('/api/v1/community/forums', authenticateToken, async (req, res) => {
+  try {
+    const currentUserId = req.user?.id;
+    const scopeParam = typeof req.query['scope'] === 'string'
+      ? req.query['scope'].toLowerCase()
+      : 'all';
+    const scope = scopeParam === 'hot' || scopeParam === 'following'
+      ? (scopeParam as 'hot' | 'following')
+      : 'all';
+    const forums = await getCommunityForums(currentUserId, scope);
+
+    return res.json({
+      success: true,
+      data: forums,
+    });
+  } catch (error) {
+    console.error('Error loading community forums:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to load forums',
+    });
+  }
+});
+
+app.post('/api/v1/community/forums/:forumId/follow', authenticateToken, async (req, res) => {
+  try {
+    const currentUserId = getRequiredAuthenticatedUserId(req, res);
+    if (!currentUserId) {
+      return;
+    }
+
+    const forumId = getRequiredRouteParam(req, res, 'forumId');
+    if (!forumId) {
+      return;
+    }
+
+    const forum = await prisma.communityForum.findUnique({
+      where: { id: forumId },
+      select: { id: true },
+    });
+
+    if (!forum) {
+      return res.status(404).json({
+        success: false,
+        message: 'Forum not found',
+      });
+    }
+
+    const existingFollow = await prisma.communityForumFollow.findUnique({
+      where: {
+        userId_forumId: {
+          userId: currentUserId,
+          forumId,
+        },
+      },
+    });
+
+    let following = false;
+    if (existingFollow) {
+      await prisma.communityForumFollow.delete({
+        where: {
+          userId_forumId: {
+            userId: currentUserId,
+            forumId,
+          },
+        },
+      });
+    } else {
+      await prisma.communityForumFollow.create({
+        data: {
+          userId: currentUserId,
+          forumId,
+        },
+      });
+      following = true;
+    }
+
+    const forums = await getCommunityForums(currentUserId, 'all');
+    const updatedForum = forums.find((item: any) => item.id === forumId) || null;
+
+    return res.json({
+      success: true,
+      following,
+      data: updatedForum,
+    });
+  } catch (error) {
+    console.error('Error toggling forum follow:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to update forum follow state',
+    });
+  }
+});
+
+app.get('/api/v1/community/forums/:forumId', authenticateToken, async (req, res) => {
+  try {
+    const currentUserId = req.user?.id;
+    const forumId = getRequiredRouteParam(req, res, 'forumId');
+    if (!forumId) {
+      return;
+    }
+
+    const feed = typeof req.query['feed'] === 'string' ? req.query['feed'] : 'recommended';
+    const page = Math.max(Number(req.query['page'] || 1), 1);
+    const limit = Math.min(Math.max(Number(req.query['limit'] || 20), 1), 40);
+
+    await ensureCommunityForums();
+
+    const forum = await prisma.communityForum.findUnique({
+      where: { id: forumId },
+      include: buildCommunityForumInclude(currentUserId),
+    });
+
+    if (!forum) {
+      return res.status(404).json({
+        success: false,
+        message: 'Forum not found',
+      });
+    }
+
+    const serializedForum = serializeCommunityForumRecord(forum);
+
+    const postWhere: any = {
+      isPublic: true,
+      OR: [{ forumId: forum.id }],
+    };
+    if ((forum.keywords || []).length > 0) {
+      postWhere.OR.push({
+        tags: {
+          hasSome: forum.keywords,
+        },
+      });
+    }
+
+    let posts = await prisma.communityPost.findMany({
+      where: postWhere,
+      include: {
+        user: {
+          select: communityUserSelect,
+        },
+      },
+      orderBy: buildCommunityPostOrderBy(feed),
+      skip: (page - 1) * limit,
+      take: feed.toLowerCase() === 'videos' ? limit * 4 : limit,
+    });
+
+    if (feed.toLowerCase() === 'videos') {
+      posts = posts.filter((post) => Array.isArray(post.videos) && post.videos.length > 0).slice(0, limit);
+    }
+
+    if (posts.length === 0) {
+      posts = await prisma.communityPost.findMany({
+        where: {
+          isPublic: true,
+        },
+        include: {
+          user: {
+            select: communityUserSelect,
+          },
+        },
+        orderBy: buildCommunityPostOrderBy(feed),
+        take: feed.toLowerCase() === 'videos' ? limit * 4 : limit,
+      });
+
+      if (feed.toLowerCase() === 'videos') {
+        posts = posts.filter((post) => Array.isArray(post.videos) && post.videos.length > 0).slice(0, limit);
+      }
+    }
+
+    return res.json({
+      success: true,
+      data: {
+        forum: serializedForum,
+        posts: await serializeCommunityPosts(posts, currentUserId),
+        feed: feed.toLowerCase(),
+      },
+    });
+  } catch (error) {
+    console.error('Error loading forum detail:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to load forum detail',
+    });
+  }
+});
+
+app.get('/api/v1/community/creators/ranking', authenticateToken, async (req, res) => {
+  try {
+    const currentUserId = req.user?.id;
+    const creators = await getCommunityCreators(currentUserId);
+
+    return res.json({
+      success: true,
+      data: creators,
+    });
+  } catch (error) {
+    console.error('Error loading community creators:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to load creators',
+    });
+  }
+});
+
+app.get('/api/v1/community/requests', authenticateToken, async (req, res) => {
+  try {
+    const currentUserId = req.user?.id;
+    const requests = await prisma.communityRequest.findMany({
+      include: buildCommunityRequestInclude(currentUserId),
+      orderBy: [{ isFeatured: 'desc' }, { createdAt: 'desc' }],
+      take: 100,
+    });
+
+    return res.json({
+      success: true,
+      data: await serializeCommunityRequests(requests, currentUserId),
+    });
+  } catch (error) {
+    console.error('Error loading community requests:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to load requests',
+    });
+  }
+});
+
+app.post(
+  '/api/v1/community/requests',
+  authenticateToken,
+  requestReferenceUpload.array('images', 6),
+  async (req, res) => {
+  try {
+    const currentUserId = getRequiredAuthenticatedUserId(req, res);
+    if (!currentUserId) {
+      return;
+    }
+
+    const title = typeof req.body?.title === 'string' ? req.body.title.trim() : '';
+    const description = typeof req.body?.description === 'string' ? req.body.description.trim() : '';
+    const coins = Number(req.body?.coins || 0);
+    const boardLabel = typeof req.body?.boardLabel === 'string' && req.body.boardLabel.trim()
+      ? req.body.boardLabel.trim()
+      : 'Latest';
+    const keywords = parseStringArrayInput(req.body?.keywords);
+    const previewHintsInput = parseStringArrayInput(req.body?.previewHints);
+    const uploadedImages = Array.isArray(req.files)
+      ? (req.files as Express.Multer.File[])
+      : [];
+
+    if (!title || !description || !Number.isFinite(coins) || coins < 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Title, description, and a non-negative coin amount are required',
+      });
+    }
+
+    const currentUser = await prisma.user.findUnique({
+      where: { id: currentUserId },
+      select: {
+        id: true,
+        coinBalance: true,
+      },
+    });
+
+    if (!currentUser) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found',
+      });
+    }
+
+    if (currentUser.coinBalance < coins) {
+      return res.status(400).json({
+        success: false,
+        message: 'Not enough coins to create this request',
+      });
+    }
+
+    const requestId = require('crypto').randomUUID();
+    const uploadResult = uploadedImages.length > 0
+      ? await uploadCommunityRequestImages(uploadedImages, requestId, req)
+      : null;
+
+    const createdRequest = await prisma.$transaction(async (tx) => {
+      if (coins > 0) {
+        await tx.user.update({
+          where: { id: currentUser.id },
+          data: {
+            coinBalance: {
+              decrement: coins,
+            },
+          },
+        });
+      }
+
+      const request = await tx.communityRequest.create({
+        data: {
+          id: requestId,
+          authorId: currentUser.id,
+          title,
+          description,
+          boardLabel,
+          keywords,
+          previewHints: buildCommunityRequestPreviewHints(previewHintsInput, keywords),
+          referenceImages: uploadResult?.images ?? [],
+          fileDirectory: uploadResult?.fileDirectory ?? null,
+          s3StorageId: uploadResult?.storageId ?? 1,
+          baseCoins: coins,
+          status: CommunityRequestStatus.OPEN,
+        },
+        include: buildCommunityRequestInclude(currentUserId),
+      });
+
+      if (coins > 0) {
+        await tx.coinTransaction.create({
+          data: {
+            userId: currentUser.id,
+            type: 'USED',
+            amount: -coins,
+            status: 'COMPLETED',
+            description: `Created request bounty: ${title}`,
+            metadata: {
+              requestId: request.id,
+            },
+          },
+        });
+      }
+
+      return request;
+    });
+
+    const [serializedRequest] = await serializeCommunityRequests([createdRequest], currentUserId);
+
+    return res.status(201).json({
+      success: true,
+      data: serializedRequest,
+    });
+  } catch (error) {
+    console.error('Error creating community request:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to create request',
+    });
+  }
+});
+
+app.get('/api/v1/community/requests/:requestId', authenticateToken, async (req, res) => {
+  try {
+    const currentUserId = req.user?.id;
+    const { requestId } = req.params;
+
+    const request = await prisma.communityRequest.findUnique({
+      where: { id: requestId },
+      include: buildCommunityRequestInclude(currentUserId),
+    });
+
+    if (!request) {
+      return res.status(404).json({
+        success: false,
+        message: 'Request not found',
+      });
+    }
+
+    const [serializedRequest] = await serializeCommunityRequests([request], currentUserId);
+
+    return res.json({
+      success: true,
+      data: serializedRequest,
+    });
+  } catch (error) {
+    console.error('Error loading request detail:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to load request detail',
+    });
+  }
+});
+
+app.post('/api/v1/community/requests/:requestId/want', authenticateToken, async (req, res) => {
+  try {
+    const currentUserId = getRequiredAuthenticatedUserId(req, res);
+    if (!currentUserId) {
+      return;
+    }
+
+    const requestId = getRequiredRouteParam(req, res, 'requestId');
+    if (!requestId) {
+      return;
+    }
+
+    const request = await prisma.communityRequest.findUnique({
+      where: { id: requestId },
+      select: { id: true, wantCount: true },
+    });
+
+    if (!request) {
+      return res.status(404).json({
+        success: false,
+        message: 'Request not found',
+      });
+    }
+
+    const existingWant = await prisma.communityRequestWant.findUnique({
+      where: {
+        userId_requestId: {
+          userId: currentUserId,
+          requestId,
+        },
+      },
+    });
+
+    let wanted = false;
+    await prisma.$transaction(async (tx) => {
+      if (existingWant) {
+        await tx.communityRequestWant.delete({
+          where: {
+            userId_requestId: {
+              userId: currentUserId,
+              requestId,
+            },
+          },
+        });
+
+        await tx.communityRequest.update({
+          where: { id: requestId },
+          data: {
+            wantCount: Math.max(request.wantCount - 1, 0),
+          },
+        });
+      } else {
+        await tx.communityRequestWant.create({
+          data: {
+            userId: currentUserId,
+            requestId,
+          },
+        });
+
+        await tx.communityRequest.update({
+          where: { id: requestId },
+          data: {
+            wantCount: request.wantCount + 1,
+          },
+        });
+        wanted = true;
+      }
+    });
+
+    const updatedRequest = await prisma.communityRequest.findUnique({
+      where: { id: requestId },
+      include: buildCommunityRequestInclude(currentUserId),
+    });
+
+    if (!updatedRequest) {
+      return res.status(404).json({
+        success: false,
+        message: 'Request not found after update',
+      });
+    }
+
+    const [serializedRequest] = await serializeCommunityRequests([updatedRequest], currentUserId);
+
+    return res.json({
+      success: true,
+      wanted,
+      data: serializedRequest,
+    });
+  } catch (error) {
+    console.error('Error toggling request want state:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to update request watch state',
+    });
+  }
+});
+
+app.post('/api/v1/community/requests/:requestId/support', authenticateToken, async (req, res) => {
+  try {
+    const currentUserId = getRequiredAuthenticatedUserId(req, res);
+    if (!currentUserId) {
+      return;
+    }
+
+    const requestId = getRequiredRouteParam(req, res, 'requestId');
+    if (!requestId) {
+      return;
+    }
+
+    const coins = Number(req.body?.coins || 0);
+
+    if (!Number.isFinite(coins) || coins <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'A positive coin amount is required',
+      });
+    }
+
+    const [currentUser, request] = await Promise.all([
+      prisma.user.findUnique({
+        where: { id: currentUserId },
+        select: { id: true, coinBalance: true },
+      }),
+      prisma.communityRequest.findUnique({
+        where: { id: requestId },
+        select: {
+          id: true,
+          title: true,
+          bonusCoins: true,
+          supporterCount: true,
+          status: true,
+        },
+      }),
+    ]);
+
+    if (!currentUser) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found',
+      });
+    }
+
+    if (!request) {
+      return res.status(404).json({
+        success: false,
+        message: 'Request not found',
+      });
+    }
+
+    if (request.status === CommunityRequestStatus.ENDED) {
+      return res.status(400).json({
+        success: false,
+        message: 'This request is already closed',
+      });
+    }
+
+    if (currentUser.coinBalance < coins) {
+      return res.status(400).json({
+        success: false,
+        message: 'Not enough coins to support this request',
+      });
+    }
+
+    await prisma.$transaction(async (tx) => {
+      await tx.user.update({
+        where: { id: currentUser.id },
+        data: {
+          coinBalance: {
+            decrement: coins,
+          },
+        },
+      });
+
+      await tx.communityRequestSupport.create({
+        data: {
+          userId: currentUser.id,
+          requestId,
+          coins,
+        },
+      });
+
+      await tx.communityRequest.update({
+        where: { id: requestId },
+        data: {
+          bonusCoins: request.bonusCoins + coins,
+          supporterCount: request.supporterCount + 1,
+        },
+      });
+
+      await tx.coinTransaction.create({
+        data: {
+          userId: currentUser.id,
+          type: 'USED',
+          amount: -coins,
+          status: 'COMPLETED',
+          description: `Supported request: ${request.title}`,
+          metadata: {
+            requestId,
+          },
+        },
+      });
+    });
+
+    const updatedRequest = await prisma.communityRequest.findUnique({
+      where: { id: requestId },
+      include: buildCommunityRequestInclude(currentUserId),
+    });
+
+    if (!updatedRequest) {
+      return res.status(404).json({
+        success: false,
+        message: 'Request not found after update',
+      });
+    }
+
+    const [serializedRequest] = await serializeCommunityRequests([updatedRequest], currentUserId);
+
+    return res.json({
+      success: true,
+      data: serializedRequest,
+    });
+  } catch (error) {
+    console.error('Error supporting request:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to support request',
+    });
+  }
+});
+
+app.post(
+  '/api/v1/community/requests/:requestId/submissions',
+  authenticateToken,
+  requestSubmissionUpload.single('file'),
+  async (req, res) => {
+    try {
+      const currentUserId = getRequiredAuthenticatedUserId(req, res);
+      if (!currentUserId) {
+        return;
+      }
+
+      const requestId = getRequiredRouteParam(req, res, 'requestId');
+      if (!requestId) {
+        return;
+      }
+
+      const title = typeof req.body?.title === 'string' ? req.body.title.trim() : '';
+      const description = typeof req.body?.description === 'string' ? req.body.description.trim() : '';
+      const linkedVideoUrl = typeof req.body?.linkedVideoUrl === 'string'
+        ? req.body.linkedVideoUrl.trim()
+        : '';
+      const linkedMedia = parseJsonObjectInput(req.body?.linkedMedia);
+      const searchKeyword = typeof req.body?.searchKeyword === 'string'
+        ? req.body.searchKeyword.trim()
+        : '';
+      const rawType = typeof req.body?.type === 'string' ? req.body.type.trim().toLowerCase() : '';
+      const submissionType =
+        rawType == 'fileupload' ||
+        rawType == 'file_upload' ||
+        rawType == 'file'
+          ? CommunityRequestSubmissionType.FILE_UPLOAD
+          : CommunityRequestSubmissionType.LINKED_VIDEO;
+
+      if (!title || !description) {
+        return res.status(400).json({
+          success: false,
+          message: 'Submission title and description are required',
+        });
+      }
+
+      if (
+        submissionType === CommunityRequestSubmissionType.FILE_UPLOAD &&
+        !req.file
+      ) {
+        return res.status(400).json({
+          success: false,
+          message: 'A file is required for file uploads',
+        });
+      }
+
+      if (
+        submissionType === CommunityRequestSubmissionType.LINKED_VIDEO &&
+        !linkedVideoUrl &&
+        !searchKeyword &&
+        linkedMedia === null
+      ) {
+        return res.status(400).json({
+          success: false,
+          message: 'Provide a linked media selection, URL, or the search keyword used',
+        });
+      }
+
+      const request = await prisma.communityRequest.findUnique({
+        where: { id: requestId },
+        select: {
+          id: true,
+          replyCount: true,
+          status: true,
+        },
+      });
+
+      if (!request) {
+        return res.status(404).json({
+          success: false,
+          message: 'Request not found',
+        });
+      }
+
+      if (request.status === CommunityRequestStatus.ENDED) {
+        return res.status(400).json({
+          success: false,
+          message: 'This request is already closed',
+        });
+      }
+
+      const submissionId = require('crypto').randomUUID();
+      const uploadedFile = req.file
+        ? await uploadRequestSubmissionFile(req.file, requestId, submissionId, req)
+        : null;
+
+      const submissionCreateData: Prisma.CommunityRequestSubmissionUncheckedCreateInput = {
+        id: submissionId,
+        requestId,
+        contributorId: currentUserId,
+        title,
+        description,
+        type: submissionType,
+        linkedVideoUrl: linkedVideoUrl || null,
+        searchKeyword: searchKeyword || null,
+        fileName: uploadedFile?.fileName || null,
+        fileDirectory: uploadedFile?.fileDirectory || null,
+        s3StorageId: uploadedFile?.storageId || 1,
+        mimeType: uploadedFile?.mimeType || null,
+      };
+
+      if (linkedMedia !== null) {
+        submissionCreateData.linkedMediaMetadata = linkedMedia;
+      }
+
+      await prisma.$transaction(async (tx) => {
+        await tx.communityRequestSubmission.create({
+          data: submissionCreateData,
+        });
+
+        await tx.communityRequest.update({
+          where: { id: requestId },
+          data: {
+            replyCount: request.replyCount + 1,
+          },
+        });
+      });
+
+      const updatedRequest = await prisma.communityRequest.findUnique({
+        where: { id: requestId },
+        include: buildCommunityRequestInclude(currentUserId),
+      });
+
+      if (!updatedRequest) {
+        return res.status(404).json({
+          success: false,
+          message: 'Request not found after submission',
+        });
+      }
+
+      const [serializedRequest] = await serializeCommunityRequests([updatedRequest], currentUserId);
+
+      return res.status(201).json({
+        success: true,
+        data: serializedRequest,
+      });
+    } catch (error) {
+      console.error('Error creating request submission:', error);
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to create request submission',
+      });
+    }
+  }
+);
+
+app.post(
+  '/api/v1/community/requests/:requestId/submissions/:submissionId/approve',
+  authenticateToken,
+  async (req, res) => {
+    try {
+      const currentUserId = getRequiredAuthenticatedUserId(req, res);
+      if (!currentUserId) {
+        return;
+      }
+
+      const requestId = getRequiredRouteParam(req, res, 'requestId');
+      if (!requestId) {
+        return;
+      }
+
+      const submissionId = getRequiredRouteParam(req, res, 'submissionId');
+      if (!submissionId) {
+        return;
+      }
+
+      const request = await prisma.communityRequest.findUnique({
+        where: { id: requestId },
+        select: {
+          id: true,
+          authorId: true,
+          title: true,
+          baseCoins: true,
+          bonusCoins: true,
+          status: true,
+          approvedSubmissionId: true,
+        },
+      });
+
+      if (!request) {
+        return res.status(404).json({
+          success: false,
+          message: 'Request not found',
+        });
+      }
+
+      if (request.authorId !== currentUserId) {
+        return res.status(403).json({
+          success: false,
+          message: 'Only the request author can approve a submission',
+        });
+      }
+
+      if (
+        request.status === CommunityRequestStatus.ENDED ||
+        request.approvedSubmissionId
+      ) {
+        return res.status(400).json({
+          success: false,
+          message: 'This request is already closed',
+        });
+      }
+
+      const submission = await prisma.communityRequestSubmission.findUnique({
+        where: { id: submissionId },
+        select: {
+          id: true,
+          requestId: true,
+          contributorId: true,
+        },
+      });
+
+      if (!submission || submission.requestId !== requestId) {
+        return res.status(404).json({
+          success: false,
+          message: 'Submission not found',
+        });
+      }
+
+      const rewardAmount = request.baseCoins + request.bonusCoins;
+
+      await prisma.$transaction(async (tx) => {
+        await tx.communityRequestSubmission.updateMany({
+          where: { requestId },
+          data: { isApproved: false },
+        });
+
+        await tx.communityRequestSubmission.update({
+          where: { id: submissionId },
+          data: { isApproved: true },
+        });
+
+        await tx.communityRequest.update({
+          where: { id: requestId },
+          data: {
+            status: CommunityRequestStatus.ENDED,
+            approvedSubmissionId: submissionId,
+          },
+        });
+
+        await tx.user.update({
+          where: { id: submission.contributorId },
+          data: {
+            coinBalance: {
+              increment: rewardAmount,
+            },
+          },
+        });
+
+        await tx.coinTransaction.create({
+          data: {
+            userId: submission.contributorId,
+            relatedUserId: request.authorId,
+            type: 'EARNED',
+            amount: rewardAmount,
+            status: 'COMPLETED',
+            description: `Approved request reward: ${request.title}`,
+            metadata: {
+              requestId,
+              submissionId,
+            },
+          },
+        });
+      });
+
+      const updatedRequest = await prisma.communityRequest.findUnique({
+        where: { id: requestId },
+        include: buildCommunityRequestInclude(currentUserId),
+      });
+
+      if (!updatedRequest) {
+        return res.status(404).json({
+          success: false,
+          message: 'Request not found after approval',
+        });
+      }
+
+      const [serializedRequest] = await serializeCommunityRequests([updatedRequest], currentUserId);
+
+      return res.json({
+        success: true,
+        data: serializedRequest,
+      });
+    } catch (error) {
+      console.error('Error approving request submission:', error);
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to approve request submission',
+      });
+    }
+  }
+);
+
 app.get('/api/v1/community/posts', authenticateToken, async (req, res) => {
   try {
     const { page = 1, limit = 20 } = req.query;
@@ -6606,16 +8470,7 @@ app.get('/api/v1/community/posts', authenticateToken, async (req, res) => {
       },
       include: {
         user: {
-          select: {
-            id: true,
-            username: true,
-            firstName: true,
-            lastName: true,
-            avatar: true,
-            avatarUrl: true,
-            fileDirectory: true,
-            isVerified: true,
-          },
+          select: communityUserSelect,
         },
       },
       orderBy: {
@@ -6625,70 +8480,7 @@ app.get('/api/v1/community/posts', authenticateToken, async (req, res) => {
       take: Number(limit),
     });
 
-    // Add file URLs and user interaction status to posts
-    const postsWithUrls = await Promise.all(
-      posts.map(async (post) => {
-        // Build image URLs
-        const imageUrls = await Promise.all(
-          post.images.map((fileName) =>
-            buildCommunityPostFileUrl(post.fileDirectory, fileName, (post as any).s3StorageId || 1)
-          )
-        );
-
-        // Build video URLs
-        const videoUrls = await Promise.all(
-          post.videos.map((fileName) =>
-            buildCommunityPostFileUrl(post.fileDirectory, fileName, (post as any).s3StorageId || 1)
-          )
-        );
-
-        // Build video thumbnail URLs from database
-        const videoThumbnailUrls = await Promise.all(
-          post.videoThumbnails.map((fileName) =>
-            buildCommunityPostFileUrl(post.fileDirectory, fileName, (post as any).s3StorageId || 1)
-          )
-        );
-
-        // Build avatar URL (async)
-        const avatarUrl = post.user.avatar && post.user.fileDirectory
-          ? await buildFileUrl(post.user.fileDirectory, post.user.avatar, 'avatars', (post.user as any).s3StorageId || 1)
-          : null;
-
-        // Check if current user has liked this post
-        const isLiked = currentUserId ? await prisma.communityPostLike.findUnique({
-          where: {
-            userId_postId: {
-              userId: currentUserId,
-              postId: post.id,
-            },
-          },
-        }) : null;
-
-        // Check if current user has bookmarked this post
-        const isBookmarked = currentUserId ? await prisma.communityPostBookmark.findUnique({
-          where: {
-            userId_postId: {
-              userId: currentUserId,
-              postId: post.id,
-            },
-          },
-        }) : null;
-
-        return {
-          ...post,
-          username: post.user.username,
-          firstName: post.user.firstName,
-          lastName: post.user.lastName,
-          isVerified: post.user.isVerified,
-          userAvatar: avatarUrl,
-          imageUrls: imageUrls.filter((url) => url != null),
-          videoUrls: videoUrls.filter((url) => url != null),
-          videoThumbnailUrls: videoThumbnailUrls.filter((url) => url != null),
-          isLiked: isLiked != null,
-          isBookmarked: isBookmarked != null,
-        };
-      })
-    );
+    const postsWithUrls = await serializeCommunityPosts(posts, currentUserId);
 
     res.json({
       success: true,
@@ -6722,16 +8514,7 @@ app.get('/api/v1/community/posts/trending', authenticateToken, async (req, res) 
       },
       include: {
         user: {
-          select: {
-            id: true,
-            username: true,
-            firstName: true,
-            lastName: true,
-            avatar: true,
-            avatarUrl: true,
-            fileDirectory: true,
-            isVerified: true,
-          },
+          select: communityUserSelect,
         },
       },
       orderBy: {
@@ -6740,72 +8523,7 @@ app.get('/api/v1/community/posts/trending', authenticateToken, async (req, res) 
       skip: offset,
       take: Number(limit),
     });
-
-
-    // Add file URLs and user interaction status to posts
-    const postsWithUrls = await Promise.all(
-      posts.map(async (post) => {
-        // Build image URLs
-        const imageUrls = await Promise.all(
-          post.images.map((fileName) =>
-            buildCommunityPostFileUrl(post.fileDirectory, fileName, (post as any).s3StorageId || 1)
-          )
-        );
-
-        // Build video URLs
-        const videoUrls = await Promise.all(
-          post.videos.map((fileName) =>
-            buildCommunityPostFileUrl(post.fileDirectory, fileName, (post as any).s3StorageId || 1)
-          )
-        );
-
-        // Build video thumbnail URLs from database
-        const videoThumbnailUrls = await Promise.all(
-          post.videoThumbnails.map((fileName) =>
-            buildCommunityPostFileUrl(post.fileDirectory, fileName, (post as any).s3StorageId || 1)
-          )
-        );
-
-        // Build avatar URL (async)
-        const avatarUrl = post.user.avatar && post.user.fileDirectory
-          ? await buildFileUrl(post.user.fileDirectory, post.user.avatar, 'avatars', (post.user as any).s3StorageId || 1)
-          : null;
-
-        // Check if current user has liked this post
-        const isLiked = currentUserId ? await prisma.communityPostLike.findUnique({
-          where: {
-            userId_postId: {
-              userId: currentUserId,
-              postId: post.id,
-            },
-          },
-        }) : null;
-
-        // Check if current user has bookmarked this post
-        const isBookmarked = currentUserId ? await prisma.communityPostBookmark.findUnique({
-          where: {
-            userId_postId: {
-              userId: currentUserId,
-              postId: post.id,
-            },
-          },
-        }) : null;
-
-        return {
-          ...post,
-          username: post.user.username,
-          firstName: post.user.firstName,
-          lastName: post.user.lastName,
-          isVerified: post.user.isVerified,
-          userAvatar: avatarUrl,
-          imageUrls: imageUrls.filter((url) => url != null),
-          videoUrls: videoUrls.filter((url) => url != null),
-          videoThumbnailUrls: videoThumbnailUrls.filter((url) => url != null),
-          isLiked: isLiked != null,
-          isBookmarked: isBookmarked != null,
-        };
-      })
-    );
+    const postsWithUrls = await serializeCommunityPosts(posts, currentUserId);
 
     res.json({
       success: true,
@@ -6831,8 +8549,66 @@ app.get('/api/v1/community/posts/search', authenticateToken, async (req, res) =>
     const { q: query, page = 1, limit = 20 } = req.query;
     const offset = (Number(page) - 1) * Number(limit);
     const currentUserId = req.user?.id;
+    const normalizedQuery = query?.toString().trim() || '';
 
-    if (!query || query.toString().trim() === '') {
+    if (!normalizedQuery) {
+      return res.status(400).json({
+        success: false,
+        message: 'Search query is required',
+      });
+    }
+
+    const posts = await prisma.communityPost.findMany({
+      where: {
+        AND: [
+          { isPublic: true },
+          {
+            OR: [
+              { content: { contains: normalizedQuery, mode: 'insensitive' } },
+              { title: { contains: normalizedQuery, mode: 'insensitive' } },
+              { tags: { has: normalizedQuery } },
+              { tags: { hasSome: [normalizedQuery, normalizedQuery.toLowerCase()] } },
+              { user: { firstName: { contains: normalizedQuery, mode: 'insensitive' } } },
+              { user: { lastName: { contains: normalizedQuery, mode: 'insensitive' } } },
+              { user: { username: { contains: normalizedQuery, mode: 'insensitive' } } },
+            ],
+          },
+        ],
+      },
+      include: {
+        user: {
+          select: communityUserSelect,
+        },
+      },
+      orderBy: [
+        { user: { firstName: 'asc' } },
+        { user: { lastName: 'asc' } },
+        { createdAt: 'desc' },
+      ],
+      skip: offset,
+      take: Number(limit),
+    });
+
+    const postsWithUrls = await serializeCommunityPosts(posts, currentUserId);
+
+    return res.json({
+      success: true,
+      data: postsWithUrls,
+      pagination: {
+        page: Number(page),
+        limit: Number(limit),
+        total: posts.length,
+      },
+      query: normalizedQuery,
+    });
+  } catch (error) {
+    console.error('Error searching community posts:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to search posts',
+    });
+  }
+});
 
 app.get('/api/v1/community/posts/:postId', authenticateToken, async (req, res) => {
   try {
@@ -6846,16 +8622,7 @@ app.get('/api/v1/community/posts/:postId', authenticateToken, async (req, res) =
       },
       include: {
         user: {
-          select: {
-            id: true,
-            username: true,
-            firstName: true,
-            lastName: true,
-            avatar: true,
-            avatarUrl: true,
-            fileDirectory: true,
-            isVerified: true,
-          },
+          select: communityUserSelect,
         },
       },
     });
@@ -6867,207 +8634,15 @@ app.get('/api/v1/community/posts/:postId', authenticateToken, async (req, res) =
       });
     }
 
-    const imageUrls = await Promise.all(
-      post.images.map((fileName) =>
-        buildCommunityPostFileUrl(post.fileDirectory, fileName, (post as any).s3StorageId || 1)
-      )
-    );
-
-    const videoUrls = await Promise.all(
-      post.videos.map((fileName) =>
-        buildCommunityPostFileUrl(post.fileDirectory, fileName, (post as any).s3StorageId || 1)
-      )
-    );
-
-    const videoThumbnailUrls = await Promise.all(
-      post.videoThumbnails.map((fileName) =>
-        buildCommunityPostFileUrl(post.fileDirectory, fileName, (post as any).s3StorageId || 1)
-      )
-    );
-
-    const avatarUrl = post.user.avatar && post.user.fileDirectory
-      ? await buildFileUrl(post.user.fileDirectory, post.user.avatar, 'avatars', (post.user as any).s3StorageId || 1)
-      : post.user.avatarUrl;
-
-    const isLiked = currentUserId ? await prisma.communityPostLike.findUnique({
-      where: {
-        userId_postId: {
-          userId: currentUserId,
-          postId: post.id,
-        },
-      },
-    }) : null;
-
-    const isBookmarked = currentUserId ? await prisma.communityPostBookmark.findUnique({
-      where: {
-        userId_postId: {
-          userId: currentUserId,
-          postId: post.id,
-        },
-      },
-    }) : null;
-
     return res.json({
       success: true,
-      data: {
-        ...post,
-        username: post.user.username,
-        firstName: post.user.firstName,
-        lastName: post.user.lastName,
-        isVerified: post.user.isVerified,
-        userAvatar: avatarUrl,
-        imageUrls: imageUrls.filter((url) => url != null),
-        videoUrls: videoUrls.filter((url) => url != null),
-        videoThumbnailUrls: videoThumbnailUrls.filter((url) => url != null),
-        isLiked: isLiked != null,
-        isBookmarked: isBookmarked != null,
-      },
+      data: await serializeCommunityPostRecord(post, currentUserId),
     });
   } catch (error) {
     console.error('Get community post error:', error);
     return res.status(500).json({
       success: false,
       message: 'Failed to get post',
-    });
-  }
-});
-      return res.status(400).json({
-        success: false,
-        message: 'Search query is required',
-      });
-    }
-
-    const searchTerm = `%${query.toString().trim()}%`;
-
-    // Search across multiple fields using Prisma's OR condition
-    const posts = await prisma.communityPost.findMany({
-      where: {
-        AND: [
-          { isPublic: true },
-          {
-            OR: [
-              // Search in post content
-              { content: { contains: searchTerm, mode: 'insensitive' } },
-              // Search in post title
-              { title: { contains: searchTerm, mode: 'insensitive' } },
-              // Search in tags array
-              { tags: { has: query.toString().trim() } },
-              // Search in tags array (case insensitive - need to check each tag)
-              { tags: { hasSome: [query.toString().trim().toLowerCase()] } },
-              // Search in user's first name
-              { user: { firstName: { contains: searchTerm, mode: 'insensitive' } } },
-              // Search in user's last name
-              { user: { lastName: { contains: searchTerm, mode: 'insensitive' } } },
-              // Search in username
-              { user: { username: { contains: searchTerm, mode: 'insensitive' } } },
-            ],
-          },
-        ],
-      },
-      include: {
-        user: {
-          select: {
-            id: true,
-            username: true,
-            firstName: true,
-            lastName: true,
-            avatar: true,
-            avatarUrl: true,
-            fileDirectory: true,
-            isVerified: true,
-          },
-        },
-      },
-      orderBy: [
-        // Order by user name first (author), then by post creation date, then by tag relevance
-        { user: { firstName: 'asc' } },
-        { user: { lastName: 'asc' } },
-        { createdAt: 'desc' },
-      ],
-      skip: offset,
-      take: Number(limit),
-    });
-
-    // Add file URLs and user interaction status to posts
-    const postsWithUrls = await Promise.all(
-      posts.map(async (post) => {
-        // Build image URLs
-        const imageUrls = await Promise.all(
-          post.images.map((fileName) =>
-            buildCommunityPostFileUrl(post.fileDirectory, fileName, (post as any).s3StorageId || 1)
-          )
-        );
-
-        // Build video URLs
-        const videoUrls = await Promise.all(
-          post.videos.map((fileName) =>
-            buildCommunityPostFileUrl(post.fileDirectory, fileName, (post as any).s3StorageId || 1)
-          )
-        );
-
-        // Build video thumbnail URLs from database
-        const videoThumbnailUrls = await Promise.all(
-          post.videoThumbnails.map((fileName) =>
-            buildCommunityPostFileUrl(post.fileDirectory, fileName, (post as any).s3StorageId || 1)
-          )
-        );
-
-        // Build avatar URL (async)
-        const avatarUrl = post.user.avatar && post.user.fileDirectory
-          ? await buildFileUrl(post.user.fileDirectory, post.user.avatar, 'avatars', (post.user as any).s3StorageId || 1)
-          : null;
-
-        // Check if current user has liked this post
-        const isLiked = currentUserId ? await prisma.communityPostLike.findUnique({
-          where: {
-            userId_postId: {
-              userId: currentUserId,
-              postId: post.id,
-            },
-          },
-        }) : null;
-
-        // Check if current user has bookmarked this post
-        const isBookmarked = currentUserId ? await prisma.communityPostBookmark.findUnique({
-          where: {
-            userId_postId: {
-              userId: currentUserId,
-              postId: post.id,
-            },
-          },
-        }) : null;
-
-        return {
-          ...post,
-          username: post.user.username,
-          firstName: post.user.firstName,
-          lastName: post.user.lastName,
-          isVerified: post.user.isVerified,
-          userAvatar: avatarUrl,
-          imageUrls: imageUrls.filter((url) => url != null),
-          videoUrls: videoUrls.filter((url) => url != null),
-          videoThumbnailUrls: videoThumbnailUrls.filter((url) => url != null),
-          isLiked: isLiked != null,
-          isBookmarked: isBookmarked != null,
-        };
-      })
-    );
-
-    return res.json({
-      success: true,
-      data: postsWithUrls,
-      pagination: {
-        page: Number(page),
-        limit: Number(limit),
-        total: posts.length,
-      },
-      query: query.toString().trim(),
-    });
-  } catch (error) {
-    console.error('Error searching community posts:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Failed to search posts',
     });
   }
 });

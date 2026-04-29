@@ -174,6 +174,16 @@ class CommunityService {
     }
   }
 
+  Future<bool> unfollowUser(String userId) async {
+    try {
+      final response = await _apiService.unfollowUser(userId);
+      return response['following'] as bool;
+    } catch (e) {
+      print('Error unfollowing user: $e');
+      rethrow;
+    }
+  }
+
   // Increment post views
   Future<void> incrementViews(String postId) async {
     try {
@@ -743,6 +753,15 @@ class CommunityServiceNotifier extends StateNotifier<CommunityServiceState> {
       final service = CommunityService();
       await service.followUser(userId);
       // You could add follow state tracking here if needed
+    } catch (e) {
+      state = state.copyWith(error: e.toString());
+    }
+  }
+
+  Future<void> unfollowUser(String userId) async {
+    try {
+      final service = CommunityService();
+      await service.unfollowUser(userId);
     } catch (e) {
       state = state.copyWith(error: e.toString());
     }

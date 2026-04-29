@@ -43,11 +43,26 @@ class _CommunityPostWidgetState extends ConsumerState<CommunityPostWidget> {
     super.initState();
     _isLiked = widget.post.isLiked;
     _isBookmarked = widget.post.isBookmarked;
+    _isFollowing = widget.post.isFollowing;
 
     // Track view when post is first displayed
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _trackView();
     });
+  }
+
+  @override
+  void didUpdateWidget(covariant CommunityPostWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    if (oldWidget.post.id != widget.post.id ||
+        oldWidget.post.isLiked != widget.post.isLiked ||
+        oldWidget.post.isBookmarked != widget.post.isBookmarked ||
+        oldWidget.post.isFollowing != widget.post.isFollowing) {
+      _isLiked = widget.post.isLiked;
+      _isBookmarked = widget.post.isBookmarked;
+      _isFollowing = widget.post.isFollowing;
+    }
   }
 
   void _trackView() {
@@ -86,7 +101,6 @@ class _CommunityPostWidgetState extends ConsumerState<CommunityPostWidget> {
       await ref
           .read(communityServiceStateProvider.notifier)
           .bookmarkPost(widget.post.id);
-      final l10n = AppLocalizations.of(context);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
             content:
@@ -104,15 +118,21 @@ class _CommunityPostWidgetState extends ConsumerState<CommunityPostWidget> {
   }
 
   void _toggleFollow() async {
+    final wasFollowing = _isFollowing;
     setState(() {
       _isFollowing = !_isFollowing;
     });
 
     try {
-      await ref
-          .read(communityServiceStateProvider.notifier)
-          .followUser(widget.post.userId);
-      final l10n = AppLocalizations.of(context);
+      if (wasFollowing) {
+        await ref
+            .read(communityServiceStateProvider.notifier)
+            .unfollowUser(widget.post.userId);
+      } else {
+        await ref
+            .read(communityServiceStateProvider.notifier)
+            .followUser(widget.post.userId);
+      }
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
             content: Text(_isFollowing
@@ -150,7 +170,6 @@ class _CommunityPostWidgetState extends ConsumerState<CommunityPostWidget> {
   void _showReportDialog() {
     String selectedReason = 'spam';
     final TextEditingController descriptionController = TextEditingController();
-    final l10n = AppLocalizations.of(context);
 
     showDialog(
       context: context,
@@ -245,16 +264,8 @@ class _CommunityPostWidgetState extends ConsumerState<CommunityPostWidget> {
 
   @override
   Widget build(BuildContext context) {
-    // Debug logging
-    print('Build - Current user ID: ${widget.currentUserId}');
-    print('Build - Post user ID: ${widget.post.userId}');
-    print(
-        'Build - Should show follow: ${widget.currentUserId != null && widget.currentUserId != widget.post.userId}');
-    print(
-        'Build - Should show pin: ${widget.currentUserId != null && widget.currentUserId == widget.post.userId}');
-
     return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       elevation: 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: InkWell(

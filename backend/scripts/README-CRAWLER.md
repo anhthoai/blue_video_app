@@ -25,7 +25,7 @@ npx ts-node scripts/crawl-b4watch.ts --maxPages=292 --output=movies.json
 ```bash
 npx ts-node scripts/crawl-b4watch.ts \
   --start=https://b4watch.com/movies/ \
-  --maxPages=292 \
+  --maxPages=298 \
   --output=movies.json \
   --delay=2000 \
   --retries=3 \

@@ -16,11 +16,8 @@ class VideoCardWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    print('🎬 VideoCardWidget building for post: ${post.id}');
-    print('   💰 Cost: ${post.cost}, VIP: ${post.requiresVip}');
-
     return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       clipBehavior: Clip.antiAlias,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),

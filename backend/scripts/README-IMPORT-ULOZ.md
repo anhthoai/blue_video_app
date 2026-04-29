@@ -72,7 +72,23 @@ npx ts-node scripts/import-uloz-library.ts \
 npx ts-node scripts/import-uloz-library.ts \
   --folder M7cb5igDiQOA \
   --section "short movies" \
-  --name "Short Movies"
+  --name "Shorts"
+
+npx ts-node scripts/import-uloz-library.ts \
+  --folder Hfc71Y9ADrOX \
+  --section "series" \
+  --name "Series"
+
+npx ts-node scripts/import-uloz-library.ts   --folder Vpi8I1LCJLi9   --section "movies"   --name "Movies"
+
+npx ts-node scripts/import-uloz-library.ts   --folder 3C7c2EjZ1zrA   --section "audio"   --name "Audio"
+
+npx ts-node scripts/import-uloz-library.ts   --folder tF9uxN3Tq1xK   --section "ebooks"   --name "eBooks"
+
+npx ts-node scripts/import-uloz-library.ts   --folder SCgOr5LPgmNV   --section "western"   --name "Western"
+
+npx ts-node scripts/import-uloz-library.ts   --folder M7cb5igDiQOA   --section "shorts"   --name "Shorts"
+
 
 # Use uloz account #2 (requires ULOZ_2_USERNAME / ULOZ_2_PASSWORD / ULOZ_2_API_KEY in .env)
 npx ts-node scripts/import-uloz-library.ts \

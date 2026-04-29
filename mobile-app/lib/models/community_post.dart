@@ -240,6 +240,8 @@ class CommunityPost {
 
   factory CommunityPost.fromJson(Map<String, dynamic> json) {
     final pollPayload = json['pollData'] ?? json['pollOptions'];
+    final typeValue = json['type']?.toString();
+    final statusValue = json['status']?.toString();
 
     return CommunityPost(
       id: (json['id'] ?? '').toString(),
@@ -247,48 +249,46 @@ class CommunityPost {
       username: json['username'] as String? ?? 'User',
       firstName: json['firstName'] as String?,
       lastName: json['lastName'] as String?,
-      isVerified: json['isVerified'] as bool? ?? false,
+      isVerified: _coerceBool(json['isVerified']),
       userAvatar: json['userAvatar'] as String? ?? '',
       title: json['title'] as String?,
       content: json['content'] as String? ?? '',
       type: PostType.values.firstWhere(
-        (e) => e.name.toLowerCase() == (json['type'] as String?)?.toLowerCase(),
+        (e) => e.name.toLowerCase() == typeValue?.toLowerCase(),
         orElse: () => PostType.text,
       ),
       status: PostStatus.values.firstWhere(
-        (e) =>
-            e.name.toLowerCase() == (json['status'] as String?)?.toLowerCase(),
+        (e) => e.name.toLowerCase() == statusValue?.toLowerCase(),
         orElse: () => PostStatus.published,
       ),
-      images: (json['images'] as List<dynamic>?)?.cast<String>() ?? [],
-      videos: (json['videos'] as List<dynamic>?)?.cast<String>() ?? [],
-      imageUrls: (json['imageUrls'] as List<dynamic>?)?.cast<String>() ?? [],
-      videoUrls: (json['videoUrls'] as List<dynamic>?)?.cast<String>() ?? [],
-      videoThumbnailUrls:
-          (json['videoThumbnailUrls'] as List<dynamic>?)?.cast<String>() ?? [],
-      duration: (json['duration'] as List<dynamic>?)?.cast<String>() ?? [],
+      images: _coerceStringList(json['images']),
+      videos: _coerceStringList(json['videos']),
+      imageUrls: _coerceStringList(json['imageUrls']),
+      videoUrls: _coerceStringList(json['videoUrls']),
+      videoThumbnailUrls: _coerceStringList(json['videoThumbnailUrls']),
+      duration: _coerceStringList(json['duration']),
       videoUrl: json['videoUrl'] as String?,
       linkUrl: json['linkUrl'] as String?,
       linkTitle: json['linkTitle'] as String?,
       linkDescription: json['linkDescription'] as String?,
       linkThumbnail: json['linkThumbnail'] as String?,
-        pollData: pollPayload is Map ? Map<String, dynamic>.from(pollPayload) : null,
-      tags: (json['tags'] as List<dynamic>?)?.cast<String>() ?? [],
+      pollData: pollPayload is Map ? Map<String, dynamic>.from(pollPayload) : null,
+      tags: _coerceStringList(json['tags']),
       category: json['category'] as String?,
-        likes: (json['likes'] as num?)?.toInt() ?? 0,
-        comments: (json['comments'] as num?)?.toInt() ?? 0,
-        shares: (json['shares'] as num?)?.toInt() ?? 0,
-        views: (json['views'] as num?)?.toInt() ?? 0,
-      isLiked: json['isLiked'] as bool? ?? false,
-      isBookmarked: json['isBookmarked'] as bool? ?? false,
-      isPinned: json['isPinned'] as bool? ?? false,
-      isFollowing: json['isFollowing'] as bool? ?? false,
-      isFeatured: json['isFeatured'] as bool? ?? false,
-      isNsfw: json['isNsfw'] as bool? ?? false,
-        cost: (json['cost'] as num?)?.toInt() ?? 0,
-      requiresVip: json['requiresVip'] as bool? ?? false,
-      isUnlocked: json['isUnlocked'] as bool? ?? false,
-        createdAt:
+      likes: (json['likes'] as num?)?.toInt() ?? 0,
+      comments: (json['comments'] as num?)?.toInt() ?? 0,
+      shares: (json['shares'] as num?)?.toInt() ?? 0,
+      views: (json['views'] as num?)?.toInt() ?? 0,
+      isLiked: _coerceBool(json['isLiked']),
+      isBookmarked: _coerceBool(json['isBookmarked']),
+      isPinned: _coerceBool(json['isPinned']),
+      isFollowing: _coerceBool(json['isFollowing']),
+      isFeatured: _coerceBool(json['isFeatured']),
+      isNsfw: _coerceBool(json['isNsfw']),
+      cost: (json['cost'] as num?)?.toInt() ?? 0,
+      requiresVip: _coerceBool(json['requiresVip']),
+      isUnlocked: _coerceBool(json['isUnlocked']),
+      createdAt:
           DateTime.tryParse((json['createdAt'] ?? '').toString()) ?? DateTime.now(),
       updatedAt: json['updatedAt'] != null
           ? DateTime.tryParse((json['updatedAt']).toString())
@@ -296,7 +296,7 @@ class CommunityPost {
       publishedAt: json['publishedAt'] != null
           ? DateTime.tryParse((json['publishedAt']).toString())
           : null,
-      metadata: json['metadata'] as Map<String, dynamic>?,
+      metadata: _coerceMap(json['metadata']),
     );
   }
 
@@ -394,4 +394,37 @@ class CommunityPost {
   String toString() {
     return 'CommunityPost(id: $id, title: $title, type: $type, likes: $likes, comments: $comments)';
   }
+}
+
+bool _coerceBool(dynamic value) {
+  if (value is bool) {
+    return value;
+  }
+  if (value is num) {
+    return value != 0;
+  }
+  if (value is String) {
+    final normalized = value.trim().toLowerCase();
+    return normalized == 'true' || normalized == '1' || normalized == 'yes';
+  }
+  return false;
+}
+
+List<String> _coerceStringList(dynamic value) {
+  if (value is! List) {
+    return const <String>[];
+  }
+
+  return value
+      .where((item) => item != null)
+      .map((item) => item.toString())
+      .where((item) => item.isNotEmpty)
+      .toList(growable: false);
+}
+
+Map<String, dynamic>? _coerceMap(dynamic value) {
+  if (value is Map) {
+    return Map<String, dynamic>.from(value);
+  }
+  return null;
 }

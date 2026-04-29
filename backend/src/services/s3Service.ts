@@ -609,6 +609,47 @@ export const communityPostUpload = multer({
   fileFilter: communityPostFileFilter,
 });
 
+// Request submission upload instance - accepts a single arbitrary file
+export const requestSubmissionUpload = multer({
+  storage: communityPostStorage,
+  limits: {
+    fileSize: 250 * 1024 * 1024, // 250MB limit for request submissions
+    files: 1,
+  },
+  fileFilter: (_req, _file, cb) => {
+    cb(null, true);
+  },
+});
+
+export const requestReferenceUpload = multer({
+  storage: communityPostStorage,
+  limits: {
+    fileSize: 15 * 1024 * 1024,
+    files: 6,
+  },
+  fileFilter: (_req, file, cb) => {
+    const fileExtension = file.originalname.split('.').pop()?.toLowerCase();
+    const allowedMimeTypes = [
+      'image/jpeg',
+      'image/png',
+      'image/webp',
+      'image/gif',
+      'application/octet-stream',
+    ];
+    const allowedExtensions = ['jpg', 'jpeg', 'png', 'webp', 'gif'];
+
+    if (
+      allowedMimeTypes.includes(file.mimetype) ||
+      (fileExtension != null && allowedExtensions.includes(fileExtension))
+    ) {
+      cb(null, true);
+      return;
+    }
+
+    cb(new Error('Only image attachments are allowed for request references.'));
+  },
+});
+
 // Upload community post files to S3
 export const uploadCommunityPostFiles = async (files: Express.Multer.File[], postId: string, req?: any): Promise<{
   fileDirectory: string;
@@ -762,6 +803,100 @@ export const uploadCommunityPostFiles = async (files: Express.Multer.File[], pos
             videoThumbnails,
             durations,
           };
+};
+
+export const uploadRequestSubmissionFile = async (
+  file: Express.Multer.File,
+  requestId: string,
+  submissionId: string,
+  req?: any
+): Promise<{
+  fileDirectory: string;
+  fileName: string;
+  storageId: number;
+  mimeType: string;
+}> => {
+  const { storageId, cfg, client } = getWriteTarget(req);
+  const today = new Date();
+  const fileDirectory = `${today.getFullYear()}/${String(today.getMonth() + 1).padStart(2, '0')}/${String(today.getDate()).padStart(2, '0')}/${requestId}/${submissionId}`;
+  const originalExtension = file.originalname.includes('.')
+    ? `.${file.originalname.split('.').pop()}`
+    : '';
+  const fileName = `${uuidv4()}${originalExtension}`;
+  const s3Key = `community-requests/${fileDirectory}/${fileName}`;
+
+  try {
+    const uploadCommand = new PutObjectCommand({
+      Bucket: cfg.bucketName,
+      Key: s3Key,
+      Body: require('fs').readFileSync(file.path),
+      ContentType: file.mimetype || 'application/octet-stream',
+    });
+
+    await client.send(uploadCommand);
+
+    return {
+      fileDirectory,
+      fileName,
+      storageId,
+      mimeType: file.mimetype || 'application/octet-stream',
+    };
+  } finally {
+    try {
+      require('fs').unlinkSync(file.path);
+    } catch (error) {
+      console.error('Error cleaning up request submission temp file:', error);
+    }
+  }
+};
+
+export const uploadCommunityRequestImages = async (
+  files: Express.Multer.File[],
+  requestId: string,
+  req?: any
+): Promise<{
+  fileDirectory: string;
+  images: string[];
+  storageId: number;
+}> => {
+  const { storageId, cfg, client } = getWriteTarget(req);
+  const today = new Date();
+  const fileDirectory = `${today.getFullYear()}/${String(today.getMonth() + 1).padStart(2, '0')}/${String(today.getDate()).padStart(2, '0')}/${requestId}/reference`;
+  const images: string[] = [];
+
+  try {
+    for (const file of files) {
+      const originalExtension = file.originalname.includes('.')
+        ? `.${file.originalname.split('.').pop()}`
+        : '';
+      const fileName = `${uuidv4()}${originalExtension}`;
+      const s3Key = `community-requests/${fileDirectory}/${fileName}`;
+
+      const uploadCommand = new PutObjectCommand({
+        Bucket: cfg.bucketName,
+        Key: s3Key,
+        Body: require('fs').readFileSync(file.path),
+        ContentType: file.mimetype || 'application/octet-stream',
+      });
+
+      await client.send(uploadCommand);
+      images.push(fileName);
+    }
+
+    return {
+      fileDirectory,
+      images,
+      storageId,
+    };
+  } finally {
+    for (const file of files) {
+      try {
+        require('fs').unlinkSync(file.path);
+      } catch (error) {
+        console.error('Error cleaning up request reference temp file:', error);
+      }
+    }
+  }
 };
 
 export default s3Client;
