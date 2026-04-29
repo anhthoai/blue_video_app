@@ -59,6 +59,8 @@ class _MainScreenState extends ConsumerState<MainScreen> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
+    final homeFeedTabIndex = ref.watch(homeFeedTabIndexProvider);
+    final isShortFeedTab = _currentIndex == 0 && homeFeedTabIndex > 0;
 
     final List<BottomNavigationBarItem> navItems = [
       BottomNavigationBarItem(
@@ -103,9 +105,11 @@ class _MainScreenState extends ConsumerState<MainScreen> {
           });
         },
         type: BottomNavigationBarType.fixed,
-        backgroundColor: Theme.of(context).colorScheme.surface,
+        backgroundColor:
+            isShortFeedTab ? Colors.black : Theme.of(context).colorScheme.surface,
         selectedItemColor: AppTheme.primaryColor,
-        unselectedItemColor: AppTheme.textSecondaryColor,
+        unselectedItemColor:
+            isShortFeedTab ? Colors.white70 : AppTheme.textSecondaryColor,
         selectedLabelStyle: const TextStyle(
           fontWeight: FontWeight.w600,
           fontSize: 12,

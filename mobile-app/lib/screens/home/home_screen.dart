@@ -10,6 +10,9 @@ import '../../core/services/auth_service.dart';
 import '../../models/category_model.dart';
 import '../../models/video_model.dart';
 import '../../l10n/app_localizations.dart';
+import '../video/short_video_feed_screen.dart';
+
+final homeFeedTabIndexProvider = StateProvider<int>((ref) => 0);
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -21,6 +24,7 @@ class HomeScreen extends ConsumerStatefulWidget {
 class _HomeScreenState extends ConsumerState<HomeScreen>
     with SingleTickerProviderStateMixin {
   final ScrollController _scrollController = ScrollController();
+  late final TabController _homeTabController;
   bool _isLoading = false;
 
   // Category and filter state
@@ -39,13 +43,26 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   @override
   void initState() {
     super.initState();
+    _homeTabController = TabController(length: 3, vsync: this)
+      ..addListener(_handleTabChanged);
+    ref.read(homeFeedTabIndexProvider.notifier).state = 0;
     _scrollController.addListener(_onScroll);
   }
 
   @override
   void dispose() {
+    _homeTabController
+      ..removeListener(_handleTabChanged)
+      ..dispose();
     _scrollController.dispose();
     super.dispose();
+  }
+
+  void _handleTabChanged() {
+    ref.read(homeFeedTabIndexProvider.notifier).state = _homeTabController.index;
+    if (mounted) {
+      setState(() {});
+    }
   }
 
   void _onScroll() {
@@ -78,12 +95,48 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       categoryId: _selectedCategoryId,
       sortBy: _selectedFilter,
     )));
+    final isExploreTab = _homeTabController.index == 0;
+    final appBarBackground = isExploreTab
+        ? Theme.of(context).colorScheme.surface
+        : Colors.black;
+    final appBarForeground =
+        isExploreTab ? Theme.of(context).colorScheme.onSurface : Colors.white;
 
     return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.background,
+      backgroundColor:
+          isExploreTab ? Theme.of(context).colorScheme.surface : Colors.black,
       appBar: AppBar(
-        title: Text(l10n.appName),
-        centerTitle: true,
+        backgroundColor: appBarBackground,
+        foregroundColor: appBarForeground,
+        surfaceTintColor: Colors.transparent,
+        titleSpacing: 0,
+        title: TabBar(
+          controller: _homeTabController,
+          isScrollable: true,
+          dividerColor: Colors.transparent,
+          indicatorSize: TabBarIndicatorSize.label,
+          indicatorColor:
+              isExploreTab ? Theme.of(context).colorScheme.primary : Colors.white,
+          indicatorWeight: 2.5,
+          labelPadding: const EdgeInsets.symmetric(horizontal: 12),
+          labelColor: appBarForeground,
+          unselectedLabelColor: isExploreTab
+              ? Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.56)
+              : Colors.white70,
+          labelStyle: const TextStyle(
+            fontSize: 17,
+            fontWeight: FontWeight.w700,
+          ),
+          unselectedLabelStyle: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+          ),
+          tabs: const [
+            Tab(text: 'Explore'),
+            Tab(text: 'Following'),
+            Tab(text: 'For You'),
+          ],
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.search),
@@ -99,69 +152,91 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           ),
         ],
       ),
-      body: Column(
+      body: TabBarView(
+        controller: _homeTabController,
         children: [
-          // Categories horizontal scroll
-          categoriesAsync.when(
-            data: (categories) => _buildCategoriesBar(categories, l10n),
-            loading: () => const SizedBox(
-              height: 50,
-              child: Center(child: CircularProgressIndicator()),
+          _buildExploreTab(l10n, categoriesAsync, videosAsync),
+          const ShortVideoFeedView(
+            query: ShortVideoFeedQuery(
+              scope: ShortVideoFeedScope.following,
+              sortBy: 'newest',
             ),
-            error: (error, stack) => const SizedBox.shrink(),
           ),
-
-          // Filter chips
-          _buildFilterChips(l10n),
-
-          // Video content
-          Expanded(
-            child: RefreshIndicator(
-              onRefresh: () async {
-                ref.invalidate(categoriesProvider);
-                ref.invalidate(videoListProvider(VideoFilterParams(
-                  categoryId: _selectedCategoryId,
-                  sortBy: _selectedFilter,
-                )));
-              },
-              child: videosAsync.when(
-                data: (videos) => _buildVideoContent(videos, l10n),
-                loading: () => const Center(
-                  child: CircularProgressIndicator(),
-                ),
-                error: (error, stack) => Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(Icons.error, size: 64, color: Colors.red),
-                      const SizedBox(height: 16),
-                      Text('${l10n.errorLoadingData}: $error'),
-                      const SizedBox(height: 16),
-                      ElevatedButton(
-                        onPressed: () {
-                          ref.invalidate(videoListProvider(VideoFilterParams(
-                            categoryId: _selectedCategoryId,
-                            sortBy: _selectedFilter,
-                          )));
-                        },
-                        child: Text(l10n.retry),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
+          const ShortVideoFeedView(
+            query: ShortVideoFeedQuery(
+              scope: ShortVideoFeedScope.forYou,
+              sortBy: 'trending',
             ),
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          context.go('/main/upload');
-        },
-        heroTag: 'home_upload',
-        backgroundColor: Theme.of(context).colorScheme.primary,
-        child: const Icon(Icons.add, color: Colors.white),
-      ),
+      floatingActionButton: isExploreTab
+          ? FloatingActionButton(
+              onPressed: () {
+                context.go('/main/upload');
+              },
+              heroTag: 'home_upload',
+              backgroundColor: Theme.of(context).colorScheme.primary,
+              child: const Icon(Icons.add, color: Colors.white),
+            )
+          : null,
+    );
+  }
+
+  Widget _buildExploreTab(
+    AppLocalizations l10n,
+    AsyncValue<List<CategoryModel>> categoriesAsync,
+    AsyncValue<List<VideoModel>> videosAsync,
+  ) {
+    return Column(
+      children: [
+        categoriesAsync.when(
+          data: (categories) => _buildCategoriesBar(categories, l10n),
+          loading: () => const SizedBox(
+            height: 50,
+            child: Center(child: CircularProgressIndicator()),
+          ),
+          error: (error, stack) => const SizedBox.shrink(),
+        ),
+        _buildFilterChips(l10n),
+        Expanded(
+          child: RefreshIndicator(
+            onRefresh: () async {
+              ref.invalidate(categoriesProvider);
+              ref.invalidate(videoListProvider(VideoFilterParams(
+                categoryId: _selectedCategoryId,
+                sortBy: _selectedFilter,
+              )));
+            },
+            child: videosAsync.when(
+              data: (videos) => _buildVideoContent(videos, l10n),
+              loading: () => const Center(
+                child: CircularProgressIndicator(),
+              ),
+              error: (error, stack) => Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.error, size: 64, color: Colors.red),
+                    const SizedBox(height: 16),
+                    Text('${l10n.errorLoadingData}: $error'),
+                    const SizedBox(height: 16),
+                    ElevatedButton(
+                      onPressed: () {
+                        ref.invalidate(videoListProvider(VideoFilterParams(
+                          categoryId: _selectedCategoryId,
+                          sortBy: _selectedFilter,
+                        )));
+                      },
+                      child: Text(l10n.retry),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -172,7 +247,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       decoration: BoxDecoration(
         border: Border(
           bottom: BorderSide(
-            color: Theme.of(context).dividerColor.withOpacity(0.2),
+            color: Theme.of(context).dividerColor.withValues(alpha: 0.2),
             width: 1,
           ),
         ),
@@ -181,13 +256,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 8),
         children: [
-          // "All" category
           _buildCategoryChip(
             id: null,
             name: l10n.all,
             isSelected: _selectedCategoryId == null,
           ),
-          // Other categories
           ...categories.map((category) => _buildCategoryChip(
                 id: category.id,
                 name: category.categoryName,
@@ -235,10 +308,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     return Container(
       height: 50,
       decoration: BoxDecoration(
-        color: Theme.of(context).cardColor.withOpacity(0.3),
+        color: Theme.of(context).cardColor.withValues(alpha: 0.3),
         border: Border(
           bottom: BorderSide(
-            color: Theme.of(context).dividerColor.withOpacity(0.2),
+            color: Theme.of(context).dividerColor.withValues(alpha: 0.2),
             width: 1,
           ),
         ),
@@ -400,7 +473,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                           vertical: 2,
                         ),
                         decoration: BoxDecoration(
-                          color: Colors.black.withOpacity(0.8),
+                          color: Colors.black.withValues(alpha: 0.8),
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Text(

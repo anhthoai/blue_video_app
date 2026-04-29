@@ -12,6 +12,7 @@ import '../../screens/auth/verify_email_screen.dart';
 import '../../screens/main/main_screen.dart';
 import '../../screens/video/video_detail_screen.dart';
 import '../../screens/video/video_player_screen.dart';
+import '../../screens/video/short_video_feed_screen.dart';
 import '../../screens/video/upload_video_screen_new.dart';
 import '../../screens/profile/other_user_profile_screen.dart';
 import '../../screens/profile/edit_profile_screen.dart';
@@ -131,6 +132,25 @@ final routerProvider = Provider<GoRouter>((ref) {
             builder: (context, state) {
               final videoId = state.pathParameters['id']!;
               return VideoPlayerScreen(videoId: videoId);
+            },
+          ),
+          GoRoute(
+            path: 'shorts',
+            builder: (context, state) {
+              final categoryId = state.uri.queryParameters['category'];
+              final scopeParam = state.uri.queryParameters['scope'];
+              final scope = scopeParam == 'following'
+                  ? ShortVideoFeedScope.following
+                  : ShortVideoFeedScope.forYou;
+              final sortBy = state.uri.queryParameters['sort'] ??
+                  (scope == ShortVideoFeedScope.following
+                      ? 'newest'
+                      : 'trending');
+              return ShortVideoFeedScreen(
+                categoryId: categoryId,
+                sortBy: sortBy,
+                scope: scope,
+              );
             },
           ),
           GoRoute(
