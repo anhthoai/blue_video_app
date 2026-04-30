@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -7,12 +9,18 @@ import '../../widgets/common/presigned_image.dart';
 import '../../core/services/video_service.dart';
 import '../../core/services/category_service.dart';
 import '../../core/services/auth_service.dart';
+import '../../core/services/library_service.dart';
+import '../../core/models/library_item_model.dart';
+import '../../core/models/library_navigation.dart';
 import '../../models/category_model.dart';
 import '../../models/video_model.dart';
 import '../../l10n/app_localizations.dart';
 import '../video/short_video_feed_screen.dart';
 
 final homeFeedTabIndexProvider = StateProvider<int>((ref) => 0);
+
+const String _libraryCategoryId = '__home_library__';
+const int _homeLibraryPageSize = 120;
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -25,7 +33,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     with SingleTickerProviderStateMixin {
   final ScrollController _scrollController = ScrollController();
   late final TabController _homeTabController;
-  bool _isLoading = false;
+  final bool _isLoading = false;
+  bool _isLoadingLibraryVideos = false;
+  bool _isLoadingMoreLibraryVideos = false;
+  bool _hasMoreLibraryVideos = true;
+  int _libraryPage = 0;
+  int _libraryRequestVersion = 0;
+  String? _libraryLoadError;
+  List<LibraryItemModel> _libraryVideos = const <LibraryItemModel>[];
 
   // Category and filter state
   String? _selectedCategoryId;
@@ -68,33 +83,102 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   void _onScroll() {
     if (_scrollController.position.pixels >=
         _scrollController.position.maxScrollExtent - 200) {
-      _loadMoreVideos();
+      unawaited(_loadMoreVideos());
     }
   }
 
   Future<void> _loadMoreVideos() async {
-    if (_isLoading) return;
+    if (_selectedCategoryId == _libraryCategoryId) {
+      await _loadLibraryVideos();
+    }
+  }
+
+  Future<void> _refreshLibraryVideos() async {
+    await _loadLibraryVideos(reset: true);
+  }
+
+  Future<void> _loadLibraryVideos({bool reset = false}) async {
+    if (_selectedCategoryId != _libraryCategoryId) {
+      return;
+    }
+
+    if (reset) {
+      _libraryRequestVersion += 1;
+    } else if (_isLoadingLibraryVideos ||
+        _isLoadingMoreLibraryVideos ||
+        !_hasMoreLibraryVideos) {
+      return;
+    }
+
+    final requestVersion = _libraryRequestVersion;
+    final nextPage = reset ? 1 : _libraryPage + 1;
 
     setState(() {
-      _isLoading = true;
+      _libraryLoadError = null;
+      if (reset) {
+        _isLoadingLibraryVideos = true;
+        _isLoadingMoreLibraryVideos = false;
+        _hasMoreLibraryVideos = true;
+        _libraryPage = 0;
+        _libraryVideos = const <LibraryItemModel>[];
+      } else {
+        _isLoadingLibraryVideos = false;
+        _isLoadingMoreLibraryVideos = true;
+      }
     });
 
-    // Simulate API call
-    await Future.delayed(const Duration(seconds: 1));
+    try {
+      final fetchedVideos = await LibraryService().fetchVideoFeed(
+        LibraryVideoFeedRequest(
+          page: nextPage,
+          limit: _homeLibraryPageSize,
+          sortBy: _selectedFilter,
+        ),
+      );
+      final filteredVideos = fetchedVideos
+          .where(_isHomeLibraryVideo)
+          .toList(growable: false);
 
-    setState(() {
-      _isLoading = false;
-    });
+      if (!mounted || requestVersion != _libraryRequestVersion) {
+        return;
+      }
+
+      setState(() {
+        _libraryVideos = reset
+            ? filteredVideos
+            : _mergeHomeLibraryVideos(_libraryVideos, filteredVideos);
+        _libraryPage = nextPage;
+        _hasMoreLibraryVideos = fetchedVideos.length >= _homeLibraryPageSize;
+      });
+    } catch (error) {
+      if (!mounted || requestVersion != _libraryRequestVersion) {
+        return;
+      }
+
+      setState(() {
+        _libraryLoadError = error.toString();
+      });
+    } finally {
+      if (mounted && requestVersion == _libraryRequestVersion) {
+        setState(() {
+          _isLoadingLibraryVideos = false;
+          _isLoadingMoreLibraryVideos = false;
+        });
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
+    final isLibrarySelected = _selectedCategoryId == _libraryCategoryId;
     final categoriesAsync = ref.watch(categoriesProvider);
-    final videosAsync = ref.watch(videoListProvider(VideoFilterParams(
-      categoryId: _selectedCategoryId,
-      sortBy: _selectedFilter,
-    )));
+    final videosAsync = isLibrarySelected
+        ? const AsyncValue<List<VideoModel>>.data(<VideoModel>[])
+        : ref.watch(videoListProvider(VideoFilterParams(
+            categoryId: _selectedCategoryId,
+            sortBy: _selectedFilter,
+          )));
     final isExploreTab = _homeTabController.index == 0;
     final appBarBackground = isExploreTab
         ? Theme.of(context).colorScheme.surface
@@ -155,7 +239,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       body: TabBarView(
         controller: _homeTabController,
         children: [
-          _buildExploreTab(l10n, categoriesAsync, videosAsync),
+          _buildExploreTab(
+            l10n,
+            categoriesAsync,
+            videosAsync,
+          ),
           const ShortVideoFeedView(
             query: ShortVideoFeedQuery(
               scope: ShortVideoFeedScope.following,
@@ -166,6 +254,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             query: ShortVideoFeedQuery(
               scope: ShortVideoFeedScope.forYou,
               sortBy: 'trending',
+              includeLibraryVideos: true,
             ),
           ),
         ],
@@ -203,37 +292,43 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           child: RefreshIndicator(
             onRefresh: () async {
               ref.invalidate(categoriesProvider);
+              if (_selectedCategoryId == _libraryCategoryId) {
+                await _refreshLibraryVideos();
+                return;
+              }
               ref.invalidate(videoListProvider(VideoFilterParams(
                 categoryId: _selectedCategoryId,
                 sortBy: _selectedFilter,
               )));
             },
-            child: videosAsync.when(
-              data: (videos) => _buildVideoContent(videos, l10n),
-              loading: () => const Center(
-                child: CircularProgressIndicator(),
-              ),
-              error: (error, stack) => Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(Icons.error, size: 64, color: Colors.red),
-                    const SizedBox(height: 16),
-                    Text('${l10n.errorLoadingData}: $error'),
-                    const SizedBox(height: 16),
-                    ElevatedButton(
-                      onPressed: () {
-                        ref.invalidate(videoListProvider(VideoFilterParams(
-                          categoryId: _selectedCategoryId,
-                          sortBy: _selectedFilter,
-                        )));
-                      },
-                      child: Text(l10n.retry),
+            child: _selectedCategoryId == _libraryCategoryId
+              ? _buildLibrarySection(l10n)
+                : videosAsync.when(
+                    data: (videos) => _buildVideoContent(videos, l10n),
+                    loading: () => const Center(
+                      child: CircularProgressIndicator(),
                     ),
-                  ],
-                ),
-              ),
-            ),
+                    error: (error, stack) => Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(Icons.error, size: 64, color: Colors.red),
+                          const SizedBox(height: 16),
+                          Text('${l10n.errorLoadingData}: $error'),
+                          const SizedBox(height: 16),
+                          ElevatedButton(
+                            onPressed: () {
+                              ref.invalidate(videoListProvider(VideoFilterParams(
+                                categoryId: _selectedCategoryId,
+                                sortBy: _selectedFilter,
+                              )));
+                            },
+                            child: Text(l10n.retry),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
           ),
         ),
       ],
@@ -261,6 +356,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             name: l10n.all,
             isSelected: _selectedCategoryId == null,
           ),
+          _buildCategoryChip(
+            id: _libraryCategoryId,
+            name: l10n.library,
+            isSelected: _selectedCategoryId == _libraryCategoryId,
+          ),
           ...categories.map((category) => _buildCategoryChip(
                 id: category.id,
                 name: category.categoryName,
@@ -285,6 +385,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           setState(() {
             _selectedCategoryId = id;
           });
+          if (id == _libraryCategoryId) {
+            unawaited(_refreshLibraryVideos());
+          }
         },
         selectedColor: Theme.of(context).colorScheme.primary,
         labelStyle: TextStyle(
@@ -331,6 +434,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 setState(() {
                   _selectedFilter = filterId;
                 });
+                if (_selectedCategoryId == _libraryCategoryId) {
+                  unawaited(_refreshLibraryVideos());
+                }
               },
               selectedColor: Theme.of(context).colorScheme.secondary,
               labelStyle: TextStyle(
@@ -392,6 +498,72 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         },
       );
     }
+  }
+
+  Widget _buildLibrarySection(
+    AppLocalizations l10n,
+  ) {
+    if (_isLoadingLibraryVideos && _libraryVideos.isEmpty) {
+      return const Center(
+        child: CircularProgressIndicator(),
+      );
+    }
+
+    if (_libraryLoadError != null && _libraryVideos.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.error, size: 64, color: Colors.red),
+            const SizedBox(height: 16),
+            Text('${l10n.errorLoadingData}: ${_libraryLoadError!}'),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: () {
+                unawaited(_refreshLibraryVideos());
+              },
+              child: Text(l10n.retry),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return _buildLibraryContent(_libraryVideos, l10n);
+  }
+
+  Widget _buildLibraryContent(
+    List<LibraryItemModel> videos,
+    AppLocalizations l10n,
+  ) {
+    if (videos.isEmpty) {
+      return Center(
+        child: Text(l10n.noVideosYet),
+      );
+    }
+
+    return GridView.builder(
+      controller: _scrollController,
+      padding: const EdgeInsets.all(8),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        childAspectRatio: 0.63,
+        crossAxisSpacing: 8,
+        mainAxisSpacing: 8,
+      ),
+      itemCount: videos.length + (_isLoadingMoreLibraryVideos ? 1 : 0),
+      itemBuilder: (context, index) {
+        if (index >= videos.length) {
+          return const Card(
+            child: Center(
+              child: CircularProgressIndicator(),
+            ),
+          );
+        }
+        final video = videos[index];
+        return _buildLibraryVideoCard(video);
+      },
+    );
   }
 
   Widget _buildListVideoCard(VideoModel video) {
@@ -520,4 +692,238 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       ),
     );
   }
+
+  Widget _buildLibraryVideoCard(LibraryItemModel video) {
+    final previewUrl = video.imageUrl;
+    final viewCount = _libraryMetricInt(
+      video,
+      const ['viewCount', 'views', 'watchCount'],
+    );
+    final subtitleParts = <String>[
+      _formatLibrarySectionLabel(video.section),
+      if (video.formattedDuration.isNotEmpty) video.formattedDuration,
+      if (video.formattedFileSize.isNotEmpty) video.formattedFileSize,
+    ];
+
+    return GestureDetector(
+      onTap: () async {
+        await _openLibraryVideo(video);
+      },
+      child: Card(
+        clipBehavior: Clip.antiAlias,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  if (previewUrl != null && previewUrl.isNotEmpty)
+                    Image.network(
+                      previewUrl,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) {
+                        return Container(
+                          color: Colors.grey[300],
+                          child: const Icon(Icons.video_library, size: 48),
+                        );
+                      },
+                    )
+                  else
+                    Container(
+                      color: Colors.grey[300],
+                      child: const Icon(Icons.video_library, size: 48),
+                    ),
+                  Positioned(
+                    top: 8,
+                    left: 8,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.72),
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: Text(
+                        _formatLibrarySectionLabel(video.section),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ),
+                  if (video.formattedDuration.isNotEmpty)
+                    Positioned(
+                      bottom: 8,
+                      right: 8,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 3,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.72),
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              video.formattedDuration,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(10),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    video.displayTitle,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 13,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    subtitleParts.join(' • '),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: Colors.grey[600],
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    viewCount > 0
+                        ? '$viewCount views'
+                        : (video.filePath ?? video.fileUrl ?? ''),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: Colors.grey[600],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openLibraryVideo(LibraryItemModel video) async {
+    try {
+      final detailedVideo =
+          await LibraryService().fetchItemById(video.id, includeStreams: true) ??
+              video;
+      if (!mounted) {
+        return;
+      }
+
+      context.push(
+        '/main/library/section/${Uri.encodeComponent(detailedVideo.section)}/video-player',
+        extra: LibraryVideoPlayerArgs(
+          section: detailedVideo.section,
+          videos: [detailedVideo],
+          initialIndex: 0,
+          folderTitle: detailedVideo.displayTitle,
+        ),
+      );
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to open video: $error'),
+        ),
+      );
+    }
+  }
+}
+
+List<LibraryItemModel> _mergeHomeLibraryVideos(
+  List<LibraryItemModel> existingVideos,
+  List<LibraryItemModel> incomingVideos,
+) {
+  final mergedVideos = List<LibraryItemModel>.from(existingVideos);
+  final seenIds = existingVideos.map((video) => video.id).toSet();
+
+  for (final video in incomingVideos) {
+    if (seenIds.add(video.id)) {
+      mergedVideos.add(video);
+    }
+  }
+
+  return mergedVideos;
+}
+
+bool _isHomeLibraryVideo(LibraryItemModel item) {
+  if (item.isFolder) {
+    return false;
+  }
+
+  final content = item.contentType.toLowerCase();
+  final mime = item.mimeType?.toLowerCase() ?? '';
+  final path = (item.filePath ?? item.fileUrl ?? '').toLowerCase();
+
+  return content == 'video' ||
+      mime.startsWith('video/') ||
+      ['.mp4', '.m4v', '.mkv', '.mov', '.webm', '.avi']
+          .any((ext) => path.endsWith(ext));
+}
+
+int _libraryMetricInt(LibraryItemModel item, List<String> keys) {
+  for (final key in keys) {
+    final value = item.metadata[key];
+    if (value is int) {
+      return value;
+    }
+    if (value is num) {
+      return value.toInt();
+    }
+    if (value is String) {
+      final parsed = int.tryParse(value);
+      if (parsed != null) {
+        return parsed;
+      }
+    }
+  }
+  return 0;
+}
+
+String _formatLibrarySectionLabel(String section) {
+  if (section.trim().isEmpty) {
+    return 'Library';
+  }
+
+  return section
+      .split(RegExp(r'[-_]+'))
+      .where((part) => part.isNotEmpty)
+      .map(
+        (part) =>
+            part.substring(0, 1).toUpperCase() + part.substring(1).toLowerCase(),
+      )
+      .join(' ');
 }

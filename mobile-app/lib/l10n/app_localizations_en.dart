@@ -950,6 +950,9 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get library => 'Library';
 
+    @override
+    String get database => 'Database';
+
   @override
   String get movies => 'Movies';
 

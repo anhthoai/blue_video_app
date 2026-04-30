@@ -1,6 +1,6 @@
 import nodemailer from 'nodemailer';
 
-import { buildVerificationUrl } from '../utils/publicUrl';
+import { buildPasswordResetUrl, buildVerificationUrl } from '../utils/publicUrl';
 
 interface EmailOptions {
   to: string;
@@ -72,8 +72,7 @@ class EmailService {
   }
 
   async sendPasswordResetEmail(email: string, resetToken: string): Promise<boolean> {
-    const frontendUrl = process.env['FRONTEND_URL'] || 'http://localhost:8080';
-    const resetLink = `${frontendUrl}/auth/reset-password?token=${resetToken}`;
+    const resetLink = buildPasswordResetUrl(resetToken);
 
     const html = `
       <!DOCTYPE html>

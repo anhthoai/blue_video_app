@@ -2,10 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../core/services/api_service.dart';
+import '../../core/services/auth_service.dart';
+import '../../l10n/app_localizations.dart';
 
 class ForgotPasswordScreen extends ConsumerStatefulWidget {
-  const ForgotPasswordScreen({super.key});
+  const ForgotPasswordScreen({
+    super.key,
+    this.initialEmail,
+  });
+
+  final String? initialEmail;
 
   @override
   ConsumerState<ForgotPasswordScreen> createState() =>
@@ -17,6 +23,12 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
   final _emailController = TextEditingController();
   bool _isLoading = false;
   bool _emailSent = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _emailController.text = widget.initialEmail?.trim() ?? '';
+  }
 
   @override
   void dispose() {
@@ -32,19 +44,25 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
     });
 
     try {
-      final apiService = ApiService();
-      final response =
-          await apiService.forgotPassword(_emailController.text.trim());
+      final authService = ref.read(authServiceProvider);
+      final success =
+          await authService.forgotPassword(_emailController.text.trim());
 
-      if (response['success'] == true && mounted) {
+      if (success && mounted) {
         setState(() {
           _emailSent = true;
         });
+      } else if (mounted) {
+        final l10n = AppLocalizations.of(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(l10n.errorTryAgain)),
+        );
       }
     } catch (e) {
       if (mounted) {
+        final l10n = AppLocalizations.of(context);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
+          SnackBar(content: Text(l10n.errorTryAgain)),
         );
       }
     } finally {
@@ -58,20 +76,24 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Forgot Password'),
+        title: Text(l10n.forgotPassword),
       ),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24),
-          child: _emailSent ? _buildSuccessMessage() : _buildForm(),
+          child: _emailSent
+              ? _buildSuccessMessage(l10n)
+              : _buildForm(l10n),
         ),
       ),
     );
   }
 
-  Widget _buildForm() {
+  Widget _buildForm(AppLocalizations l10n) {
     return Form(
       key: _formKey,
       child: Column(
@@ -85,7 +107,8 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
               width: 80,
               height: 80,
               decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                color:
+                    Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(40),
               ),
               child: Icon(
@@ -100,7 +123,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
 
           // Title
           Text(
-            'Reset Password',
+            l10n.resetPassword,
             style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                   fontWeight: FontWeight.bold,
                 ),
@@ -113,7 +136,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
             'Enter your email address and we\'ll send you instructions to reset your password.',
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   color:
-                      Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                      Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
                 ),
             textAlign: TextAlign.center,
           ),
@@ -124,16 +147,16 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
           TextFormField(
             controller: _emailController,
             keyboardType: TextInputType.emailAddress,
-            decoration: const InputDecoration(
-              labelText: 'Email',
-              prefixIcon: Icon(Icons.email),
+            decoration: InputDecoration(
+              labelText: l10n.email,
+              prefixIcon: const Icon(Icons.email),
             ),
             validator: (value) {
               if (value == null || value.isEmpty) {
-                return 'Please enter your email';
+                return l10n.pleaseEnterEmail;
               }
               if (!value.contains('@')) {
-                return 'Please enter a valid email';
+                return l10n.pleaseEnterValidEmail;
               }
               return null;
             },
@@ -159,9 +182,13 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
           Center(
             child: TextButton(
               onPressed: () {
+                if (Navigator.of(context).canPop()) {
+                  context.pop();
+                  return;
+                }
                 context.go('/auth/login');
               },
-              child: const Text('Back to Sign In'),
+              child: Text(l10n.signIn),
             ),
           ),
         ],
@@ -169,7 +196,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
     );
   }
 
-  Widget _buildSuccessMessage() {
+  Widget _buildSuccessMessage(AppLocalizations l10n) {
     return Column(
       children: [
         const SizedBox(height: 64),
@@ -206,9 +233,13 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
           width: double.infinity,
           child: ElevatedButton(
             onPressed: () {
+              if (Navigator.of(context).canPop()) {
+                context.pop();
+                return;
+              }
               context.go('/auth/login');
             },
-            child: const Text('Back to Sign In'),
+            child: Text(l10n.signIn),
           ),
         ),
         const SizedBox(height: 16),

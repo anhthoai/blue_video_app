@@ -2742,4 +2742,35 @@ class ApiService {
     );
     return await _handleResponse(response);
   }
+
+  Future<Map<String, dynamic>> getLibraryVideoFeed({
+    int page = 1,
+    int limit = 60,
+    String sortBy = 'newest',
+    String? section,
+    bool includeStreams = false,
+  }) async {
+    final Map<String, String> queryParams = {
+      'page': page.toString(),
+      'limit': limit.toString(),
+      'sortBy': sortBy,
+    };
+
+    if (section != null && section.isNotEmpty) {
+      queryParams['section'] = section;
+    }
+    if (includeStreams) {
+      queryParams['includeStreams'] = 'true';
+    }
+
+    final uri = Uri.parse('$baseUrl/library/feed/videos').replace(
+      queryParameters: queryParams,
+    );
+
+    final response = await http.get(
+      uri,
+      headers: await _getHeaders(),
+    );
+    return await _handleResponse(response);
+  }
 }

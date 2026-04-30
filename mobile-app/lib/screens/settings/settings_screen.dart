@@ -5,19 +5,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/services/auth_service.dart';
 import '../../core/services/locale_service.dart';
 import '../../core/services/theme_service.dart';
 import '../../l10n/app_localizations.dart';
+import 'privacy_policy_screen.dart';
 import '../../widgets/common/app_logo.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
-
-  static final Uri _privacyPolicyUri =
-      Uri.parse('https://onlybl.com/privacy-policy.html');
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -138,7 +135,7 @@ class SettingsScreen extends ConsumerWidget {
                     icon: Icons.policy_outlined,
                     title: l10n.privacyPolicy,
                     subtitle: l10n.privacyPolicySubtitle,
-                    onTap: () => _openPrivacyPolicy(context, l10n),
+                    onTap: () => _openPrivacyPolicy(context),
                   ),
                   _buildListTile(
                     context,
@@ -320,24 +317,12 @@ class SettingsScreen extends ConsumerWidget {
     );
   }
 
-  Future<void> _openPrivacyPolicy(
-    BuildContext context,
-    AppLocalizations l10n,
-  ) async {
-    final opened = await launchUrl(
-      _privacyPolicyUri,
-      mode: LaunchMode.inAppWebView,
-      webViewConfiguration: const WebViewConfiguration(
-        enableJavaScript: true,
-        enableDomStorage: true,
+  Future<void> _openPrivacyPolicy(BuildContext context) async {
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => const PrivacyPolicyScreen(),
       ),
     );
-
-    if (!opened && context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l10n.openPrivacyPolicyFailed)),
-      );
-    }
   }
 
   Future<void> _confirmClearCache(

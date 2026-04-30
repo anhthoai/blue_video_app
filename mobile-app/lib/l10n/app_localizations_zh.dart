@@ -942,6 +942,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get library => '资料库';
 
   @override
+  String get database => '数据库';
+
+  @override
   String get movies => '电影';
 
   @override

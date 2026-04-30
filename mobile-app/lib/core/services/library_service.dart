@@ -1,3 +1,5 @@
+import 'dart:collection';
+
 import '../models/library_item_model.dart';
 import '../models/library_section_model.dart';
 import 'api_service.dart';
@@ -57,6 +59,45 @@ class LibraryItemsRequest {
       );
 }
 
+class LibraryVideoFeedRequest {
+  const LibraryVideoFeedRequest({
+    this.page = 1,
+    this.limit = 60,
+    this.sortBy = 'newest',
+    this.section,
+    this.includeStreams = false,
+  });
+
+  final int page;
+  final int limit;
+  final String sortBy;
+  final String? section;
+  final bool includeStreams;
+
+  String get normalizedSortBy => sortBy.trim().toLowerCase();
+  String? get normalizedSection => section?.trim().toLowerCase();
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is LibraryVideoFeedRequest &&
+        other.page == page &&
+        other.limit == limit &&
+        other.normalizedSortBy == normalizedSortBy &&
+        other.normalizedSection == normalizedSection &&
+        other.includeStreams == includeStreams;
+  }
+
+  @override
+  int get hashCode => Object.hash(
+        page,
+        limit,
+        normalizedSortBy,
+        normalizedSection,
+        includeStreams,
+      );
+}
+
 class LibraryService {
   LibraryService._();
 
@@ -71,6 +112,8 @@ class LibraryService {
   static _CachedValue<List<LibrarySectionModel>>? _sectionsCache;
   static final Map<LibraryItemsRequest, _CachedValue<List<LibraryItemModel>>>
       _itemsCache = {};
+    static final Map<LibraryVideoFeedRequest, _CachedValue<List<LibraryItemModel>>>
+      _videoFeedCache = {};
   static final Map<String, _CachedValue<LibraryItemModel?>> _itemByIdCache = {};
 
   Future<List<LibrarySectionModel>> fetchSections() async {
@@ -121,6 +164,91 @@ class LibraryService {
           .toList();
 
       _itemsCache[request] = _CachedValue(
+        result,
+        DateTime.now().add(_cacheTtl),
+      );
+
+      return result;
+    }
+    return [];
+  }
+
+  Future<List<LibraryItemModel>> fetchAllSectionItems(
+    String section, {
+    bool includeStreams = false,
+    int limit = 200,
+  }) async {
+    final queue = Queue<String?>()..add(null);
+    final visitedFolders = <String?>{null};
+    final seenIds = <String>{};
+    final collected = <LibraryItemModel>[];
+
+    while (queue.isNotEmpty) {
+      final parentId = queue.removeFirst();
+      var page = 1;
+
+      while (true) {
+        final items = await fetchItems(
+          LibraryItemsRequest(
+            section: section,
+            parentId: parentId,
+            includeStreams: includeStreams,
+            page: page,
+            limit: limit,
+          ),
+        );
+
+        if (items.isEmpty) {
+          break;
+        }
+
+        for (final item in items) {
+          if (!seenIds.add(item.id)) {
+            continue;
+          }
+
+          collected.add(item);
+
+          if (item.isFolder && item.hasChildren && visitedFolders.add(item.id)) {
+            queue.add(item.id);
+          }
+        }
+
+        if (items.length < limit) {
+          break;
+        }
+
+        page += 1;
+      }
+    }
+
+    return collected;
+  }
+
+  Future<List<LibraryItemModel>> fetchVideoFeed(
+    LibraryVideoFeedRequest request,
+  ) async {
+    final cached = _videoFeedCache[request];
+    if (cached != null && cached.isValid) {
+      return cached.value;
+    }
+
+    final response = await _apiService.getLibraryVideoFeed(
+      page: request.page,
+      limit: request.limit,
+      sortBy: request.normalizedSortBy,
+      section: request.normalizedSection,
+      includeStreams: request.includeStreams,
+    );
+    final data = response['data'] as Map<String, dynamic>? ?? {};
+    final items = data['items'];
+    if (items is List) {
+      final result = items
+          .map((item) =>
+              LibraryItemModel.fromJson((item as Map).cast<String, dynamic>()))
+          .toList();
+
+      _videoFeedCache[request] = _CachedValue(
         result,
         DateTime.now().add(_cacheTtl),
       );

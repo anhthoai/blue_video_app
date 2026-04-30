@@ -27,7 +27,7 @@ import swaggerUi from 'swagger-ui-express';
 import { swaggerSpec } from './config/swagger';
 import movieRoutes from './routes/movies';
 import libraryRoutes from './routes/library';
-import { buildVerificationUrl } from './utils/publicUrl';
+import { buildPasswordResetUrl, buildVerificationUrl } from './utils/publicUrl';
 import {
   AppSettingsService,
   AppSettingsStorageUnavailableError,
@@ -58,6 +58,468 @@ type ActiveCallSession = {
 };
 
 const activeCallSessions = new Map<string, ActiveCallSession>();
+
+type PasswordResetTokenPayload = {
+  userId: string;
+  type: string;
+};
+
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function renderPasswordResetPage(options: {
+  token?: string;
+  error?: string;
+  success?: string;
+}): string {
+  const safeToken = escapeHtml(options.token ?? '');
+  const hasToken = safeToken.length > 0;
+  const errorSection = options.error
+      ? `<div class="alert alert-error"><strong>Reset failed.</strong><span>${escapeHtml(options.error)}</span></div>`
+      : '';
+  const successSection = options.success
+      ? `<div class="alert alert-success"><strong>${escapeHtml(options.success)}</strong><span>You can return to Blue Video App and sign in with your new password.</span></div>`
+      : '';
+  const tokenSection = hasToken
+      ? `
+        <input id="token" name="token" type="hidden" value="${safeToken}">
+        <div class="verified-pill">
+          <span class="verified-dot"></span>
+          Secure reset link verified
+        </div>
+      `
+      : `
+        <div class="field-group">
+          <label class="field-label" for="token">Reset token</label>
+          <input
+            id="token"
+            name="token"
+            class="field-input"
+            type="text"
+            value="${safeToken}"
+            placeholder="Paste the reset token from your email"
+            required
+          >
+        </div>
+      `;
+  const formSection = options.success
+      ? '<p class="footer-copy">This page can be closed now.</p>'
+      : `
+        <form method="POST" action="/auth/reset-password" class="reset-form" data-reset-form>
+          ${tokenSection}
+          <div class="field-group">
+            <label class="field-label" for="newPassword">New password</label>
+            <div class="password-shell">
+              <input
+                id="newPassword"
+                name="newPassword"
+                class="field-input"
+                type="password"
+                minlength="6"
+                autocomplete="new-password"
+                placeholder="Enter a new password"
+                required
+              >
+              <button type="button" class="ghost-button" data-toggle-password="newPassword">Show</button>
+            </div>
+          </div>
+          <div class="field-group">
+            <label class="field-label" for="confirmPassword">Confirm new password</label>
+            <div class="password-shell">
+              <input
+                id="confirmPassword"
+                name="confirmPassword"
+                class="field-input"
+                type="password"
+                minlength="6"
+                autocomplete="new-password"
+                placeholder="Re-enter the new password"
+                required
+              >
+              <button type="button" class="ghost-button" data-toggle-password="confirmPassword">Show</button>
+            </div>
+          </div>
+          <p class="helper-copy" data-password-helper>Use at least 6 characters.</p>
+          <button type="submit" class="primary-button">Reset password</button>
+          <p class="footer-copy">This secure page only updates your Blue Video App password.</p>
+        </form>
+      `;
+
+  return `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Reset Password</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #07111f;
+        --panel: rgba(8, 20, 38, 0.86);
+        --panel-border: rgba(120, 170, 225, 0.18);
+        --text: #eef6ff;
+        --muted: #9bb1cb;
+        --accent: #3aa1ff;
+        --accent-strong: #167ee6;
+        --danger-bg: rgba(239, 68, 68, 0.12);
+        --danger-border: rgba(248, 113, 113, 0.35);
+        --danger-text: #fecaca;
+        --success-bg: rgba(16, 185, 129, 0.12);
+        --success-border: rgba(74, 222, 128, 0.32);
+        --success-text: #bbf7d0;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+        background:
+          radial-gradient(circle at top, rgba(58, 161, 255, 0.22), transparent 32%),
+          linear-gradient(160deg, #08101d 0%, #0b1a2e 52%, #050b14 100%);
+        color: var(--text);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+      }
+
+      .shell {
+        width: min(100%, 460px);
+      }
+
+      .brand {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        padding: 8px 12px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.06);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        font-size: 13px;
+        color: var(--muted);
+        margin-bottom: 16px;
+      }
+
+      .brand-mark {
+        width: 10px;
+        height: 10px;
+        border-radius: 999px;
+        background: linear-gradient(135deg, #34d399, #3aa1ff);
+        box-shadow: 0 0 24px rgba(58, 161, 255, 0.45);
+      }
+
+      .card {
+        background: var(--panel);
+        border: 1px solid var(--panel-border);
+        border-radius: 24px;
+        padding: 28px;
+        box-shadow: 0 22px 60px rgba(0, 0, 0, 0.36);
+        backdrop-filter: blur(18px);
+      }
+
+      h1 {
+        margin: 0;
+        font-size: 32px;
+        line-height: 1.05;
+        letter-spacing: -0.02em;
+      }
+
+      .subtitle {
+        margin: 12px 0 0;
+        color: var(--muted);
+        line-height: 1.5;
+        font-size: 15px;
+      }
+
+      .alert {
+        display: grid;
+        gap: 6px;
+        margin-top: 20px;
+        padding: 14px 16px;
+        border-radius: 16px;
+        border: 1px solid transparent;
+        font-size: 14px;
+        line-height: 1.45;
+      }
+
+      .alert strong {
+        font-size: 14px;
+      }
+
+      .alert-error {
+        background: var(--danger-bg);
+        border-color: var(--danger-border);
+        color: var(--danger-text);
+      }
+
+      .alert-success {
+        background: var(--success-bg);
+        border-color: var(--success-border);
+        color: var(--success-text);
+      }
+
+      .reset-form {
+        display: grid;
+        gap: 16px;
+        margin-top: 22px;
+      }
+
+      .field-group {
+        display: grid;
+        gap: 8px;
+      }
+
+      .field-label {
+        font-size: 13px;
+        font-weight: 600;
+        color: #d7e6f8;
+      }
+
+      .field-input {
+        width: 100%;
+        min-height: 52px;
+        padding: 0 16px;
+        border-radius: 16px;
+        border: 1px solid rgba(157, 190, 226, 0.18);
+        background: rgba(6, 16, 30, 0.75);
+        color: var(--text);
+        font: inherit;
+        outline: none;
+        transition: border-color 0.2s ease, box-shadow 0.2s ease;
+      }
+
+      .field-input:focus {
+        border-color: rgba(58, 161, 255, 0.72);
+        box-shadow: 0 0 0 4px rgba(58, 161, 255, 0.14);
+      }
+
+      .field-input::placeholder {
+        color: rgba(155, 177, 203, 0.72);
+      }
+
+      .password-shell {
+        position: relative;
+      }
+
+      .password-shell .field-input {
+        padding-right: 84px;
+      }
+
+      .ghost-button {
+        position: absolute;
+        top: 50%;
+        right: 10px;
+        transform: translateY(-50%);
+        border: 0;
+        background: transparent;
+        color: #8ec9ff;
+        font: inherit;
+        font-size: 13px;
+        font-weight: 600;
+        padding: 8px;
+        cursor: pointer;
+      }
+
+      .verified-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        padding: 12px 14px;
+        border-radius: 16px;
+        background: rgba(16, 185, 129, 0.1);
+        border: 1px solid rgba(74, 222, 128, 0.2);
+        color: #d1fae5;
+        font-size: 14px;
+        font-weight: 600;
+      }
+
+      .verified-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 999px;
+        background: #34d399;
+        box-shadow: 0 0 18px rgba(52, 211, 153, 0.45);
+      }
+
+      .helper-copy,
+      .footer-copy {
+        margin: 0;
+        font-size: 13px;
+        line-height: 1.5;
+        color: var(--muted);
+      }
+
+      .helper-copy[data-state="error"] {
+        color: #fca5a5;
+      }
+
+      .helper-copy[data-state="success"] {
+        color: #86efac;
+      }
+
+      .primary-button {
+        min-height: 52px;
+        border: 0;
+        border-radius: 16px;
+        background: linear-gradient(135deg, var(--accent), var(--accent-strong));
+        color: white;
+        font: inherit;
+        font-size: 15px;
+        font-weight: 700;
+        cursor: pointer;
+        box-shadow: 0 14px 32px rgba(22, 126, 230, 0.34);
+      }
+
+      .primary-button:disabled {
+        opacity: 0.62;
+        cursor: not-allowed;
+        box-shadow: none;
+      }
+
+      @media (max-width: 520px) {
+        body {
+          padding: 16px;
+        }
+
+        .card {
+          padding: 22px;
+          border-radius: 20px;
+        }
+
+        h1 {
+          font-size: 28px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="shell">
+      <div class="brand">
+        <span class="brand-mark"></span>
+        Blue Video App secure password reset
+      </div>
+      <section class="card">
+        <h1>Reset your password</h1>
+        <p class="subtitle">Choose a new password for your account. Once updated, use it the next time you sign in.</p>
+        ${errorSection}
+        ${successSection}
+        ${formSection}
+      </section>
+    </main>
+    <script>
+      (function () {
+        var form = document.querySelector('[data-reset-form]');
+        if (!form) {
+          return;
+        }
+
+        var passwordInput = document.getElementById('newPassword');
+        var confirmInput = document.getElementById('confirmPassword');
+        var helper = document.querySelector('[data-password-helper]');
+        var submitButton = form.querySelector('button[type="submit"]');
+        var toggleButtons = document.querySelectorAll('[data-toggle-password]');
+
+        var validate = function () {
+          if (!passwordInput || !confirmInput || !helper || !submitButton) {
+            return true;
+          }
+
+          var password = passwordInput.value || '';
+          var confirm = confirmInput.value || '';
+          var message = 'Use at least 6 characters.';
+          var state = 'neutral';
+          var valid = true;
+
+          if (password.length > 0 && password.length < 6) {
+            message = 'Password must be at least 6 characters.';
+            state = 'error';
+            valid = false;
+          } else if (confirm.length > 0 && password !== confirm) {
+            message = 'Passwords do not match yet.';
+            state = 'error';
+            valid = false;
+          } else if (password.length >= 6 && confirm.length > 0) {
+            message = 'Passwords match.';
+            state = 'success';
+          }
+
+          helper.textContent = message;
+          helper.setAttribute('data-state', state);
+          submitButton.disabled = !valid;
+          return valid;
+        };
+
+        if (passwordInput) {
+          passwordInput.addEventListener('input', validate);
+        }
+        if (confirmInput) {
+          confirmInput.addEventListener('input', validate);
+        }
+
+        toggleButtons.forEach(function (button) {
+          button.addEventListener('click', function () {
+            var targetId = button.getAttribute('data-toggle-password');
+            if (!targetId) {
+              return;
+            }
+
+            var input = document.getElementById(targetId);
+            if (!input) {
+              return;
+            }
+
+            var nextType = input.getAttribute('type') === 'password' ? 'text' : 'password';
+            input.setAttribute('type', nextType);
+            button.textContent = nextType === 'password' ? 'Show' : 'Hide';
+          });
+        });
+
+        form.addEventListener('submit', function (event) {
+          if (!validate()) {
+            event.preventDefault();
+          }
+        });
+
+        validate();
+      }());
+    </script>
+  </body>
+</html>`;
+}
+
+async function resetPasswordWithToken(
+  token: string,
+  newPassword: string,
+): Promise<string> {
+  const decoded = jwt.verify(
+    token,
+    process.env['JWT_SECRET'] || 'your-secret-key'
+  ) as PasswordResetTokenPayload;
+
+  if (decoded.type !== 'password_reset') {
+    throw new Error('Invalid reset token');
+  }
+
+  const passwordHash = await bcrypt.hash(newPassword, 10);
+
+  await prisma.user.update({
+    where: { id: decoded.userId },
+    data: { passwordHash },
+  });
+
+  console.log(`✅ Password reset successful for user: ${decoded.userId}`);
+  return decoded.userId;
+}
 
 const PORT = process.env['PORT'] || 3000;
 
@@ -1749,7 +2211,7 @@ app.post('/api/v1/auth/forgot-password', async (req, res) => {
       console.log(`${'='.repeat(80)}`);
       console.log(`Email: ${email}`);
       console.log(`Token: ${resetToken}`);
-      console.log(`Reset Link: ${process.env['FRONTEND_URL'] || 'http://localhost:8080'}/auth/reset-password?token=${resetToken}`);
+      console.log(`Reset Link: ${buildPasswordResetUrl(resetToken)}`);
       console.log(`${'='.repeat(80)}\n`);
     }
 
@@ -1768,6 +2230,65 @@ app.post('/api/v1/auth/forgot-password', async (req, res) => {
   }
 });
 
+app.get('/auth/reset-password', (req, res) => {
+  const token =
+    typeof req.query['token'] === 'string' ? req.query['token'].trim() : '';
+  res.status(200).type('html').send(renderPasswordResetPage({ token }));
+});
+
+app.post('/auth/reset-password', async (req, res) => {
+  const token = String(req.body['token'] ?? '').trim();
+  const newPassword = String(req.body['newPassword'] ?? '');
+  const confirmPassword = String(req.body['confirmPassword'] ?? '');
+
+  if (!token || !newPassword || !confirmPassword) {
+    res.status(400).type('html').send(
+      renderPasswordResetPage({
+        token,
+        error: 'Token and both password fields are required.',
+      })
+    );
+    return;
+  }
+
+  if (newPassword.length < 6) {
+    res.status(400).type('html').send(
+      renderPasswordResetPage({
+        token,
+        error: 'Password must be at least 6 characters long.',
+      })
+    );
+    return;
+  }
+
+  if (newPassword !== confirmPassword) {
+    res.status(400).type('html').send(
+      renderPasswordResetPage({
+        token,
+        error: 'Passwords do not match.',
+      })
+    );
+    return;
+  }
+
+  try {
+    await resetPasswordWithToken(token, newPassword);
+    res.status(200).type('html').send(
+      renderPasswordResetPage({
+        success: 'Password reset successful.',
+      })
+    );
+  } catch (error) {
+    console.error('Browser reset password error:', error);
+    res.status(400).type('html').send(
+      renderPasswordResetPage({
+        token,
+        error: 'Invalid or expired reset token.',
+      })
+    );
+  }
+});
+
 // Reset password endpoint
 app.post('/api/v1/auth/reset-password', async (req, res) => {
   try {
@@ -1781,30 +2302,15 @@ app.post('/api/v1/auth/reset-password', async (req, res) => {
       return;
     }
 
-    // Verify reset token
-    const decoded = jwt.verify(
-      token,
-      process.env['JWT_SECRET'] || 'your-secret-key'
-    ) as { userId: string; type: string };
-
-    if (decoded.type !== 'password_reset') {
+    if (String(newPassword).length < 6) {
       res.status(400).json({
         success: false,
-        message: 'Invalid reset token',
+        message: 'Password must be at least 6 characters long',
       });
       return;
     }
 
-    // Hash new password
-    const passwordHash = await bcrypt.hash(newPassword, 10);
-
-    // Update user password
-    await prisma.user.update({
-      where: { id: decoded.userId },
-      data: { passwordHash },
-    });
-
-    console.log(`✅ Password reset successful for user: ${decoded.userId}`);
+    await resetPasswordWithToken(String(token), String(newPassword));
 
     res.json({
       success: true,

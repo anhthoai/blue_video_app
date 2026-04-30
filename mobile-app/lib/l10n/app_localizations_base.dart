@@ -368,6 +368,7 @@ abstract class AppLocalizations {
 
   // Library Feature
   String get library;
+  String get database;
   String get movies;
   String get ebooks;
   String get magazines;

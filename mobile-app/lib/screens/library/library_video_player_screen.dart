@@ -1028,9 +1028,22 @@ class _LibraryVideoPlayerScreenState extends State<LibraryVideoPlayerScreen>
 
     return Scaffold(
       backgroundColor: Colors.black,
+      appBar: _isFullscreen
+          ? null
+          : AppBar(
+              backgroundColor: Colors.black,
+              foregroundColor: Colors.white,
+              surfaceTintColor: Colors.transparent,
+              title: Text(
+                _currentVideo?.displayTitle ?? 'Library Video',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
       body: _isFullscreen
           ? _buildVideoPlayer()
           : SafeArea(
+              top: false,
               bottom: false,
               child: Column(
                 children: [
@@ -1134,6 +1147,26 @@ class _LibraryVideoPlayerScreenState extends State<LibraryVideoPlayerScreen>
                 ),
               ),
 
+            if (_isFullscreen)
+              Positioned(
+                top: 12,
+                left: 12,
+                child: SafeArea(
+                  child: Material(
+                    color: Colors.black.withValues(alpha: 0.38),
+                    shape: const CircleBorder(),
+                    child: IconButton(
+                      tooltip: 'Back',
+                      onPressed: () => Navigator.maybePop(context),
+                      icon: const Icon(
+                        Icons.arrow_back_rounded,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+
             if (_isInitializing)
               Container(
                 color: Colors.black,
@@ -1181,7 +1214,7 @@ class _LibraryVideoPlayerScreenState extends State<LibraryVideoPlayerScreen>
                             vertical: 10,
                           ),
                           decoration: BoxDecoration(
-                            color: Colors.black.withOpacity(0.10),
+                            color: Colors.black.withValues(alpha: 0.10),
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: Text(

@@ -9,9 +9,12 @@ import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 import 'package:share_plus/share_plus.dart';
 
+import '../../core/models/library_item_model.dart';
+import '../../core/models/library_navigation.dart';
 import '../../core/services/api_service.dart';
 import '../../core/services/auth_service.dart';
 import '../../core/services/file_url_service.dart';
+import '../../core/services/library_service.dart';
 import '../../core/services/video_service.dart';
 import '../../models/video_model.dart';
 import '../../utils/media_kit_low_latency.dart';
@@ -19,17 +22,22 @@ import '../../widgets/common/presigned_image.dart';
 
 enum ShortVideoFeedScope { forYou, following }
 
+const int _shortFeedPaginationThreshold = 3;
+const int _shortFeedMaxSequentialPageScan = 4;
+
 class ShortVideoFeedQuery {
   final String? categoryId;
   final String sortBy;
   final ShortVideoFeedScope scope;
   final int limit;
+  final bool includeLibraryVideos;
 
   const ShortVideoFeedQuery({
     this.categoryId,
     this.sortBy = 'newest',
     this.scope = ShortVideoFeedScope.forYou,
     this.limit = 60,
+    this.includeLibraryVideos = false,
   });
 
   @override
@@ -42,29 +50,81 @@ class ShortVideoFeedQuery {
         other.categoryId == categoryId &&
         other.sortBy == sortBy &&
         other.scope == scope &&
-        other.limit == limit;
+        other.limit == limit &&
+        other.includeLibraryVideos == includeLibraryVideos;
   }
 
   @override
   int get hashCode {
-    return Object.hash(categoryId, sortBy, scope, limit);
+    return Object.hash(
+      categoryId,
+      sortBy,
+      scope,
+      limit,
+      includeLibraryVideos,
+    );
   }
 }
 
-final shortVideoFeedProvider =
-    FutureProvider.family<List<VideoModel>, ShortVideoFeedQuery>(
-  (ref, query) async {
-    final videoService = ref.watch(videoServiceProvider);
-    final videos = await videoService.getVideos(
-      limit: query.limit,
-      category: query.categoryId,
-      sortBy: query.sortBy,
+class _ShortVideoFeedPageResult {
+  const _ShortVideoFeedPageResult({
+    required this.videos,
+    required this.hasMore,
+  });
+
+  final List<VideoModel> videos;
+  final bool hasMore;
+}
+
+Future<_ShortVideoFeedPageResult> _loadShortVideoFeedPage({
+  required WidgetRef ref,
+  required ShortVideoFeedQuery query,
+  required int page,
+}) async {
+  final videoService = ref.read(videoServiceProvider);
+  final sourceLimit = query.scope == ShortVideoFeedScope.following
+      ? query.limit * 3
+      : query.limit;
+  final baseVideos = await videoService.getVideos(
+    page: page,
+    limit: sourceLimit,
+    category: query.categoryId,
+    sortBy: query.sortBy,
+  );
+
+  final videos = query.scope == ShortVideoFeedScope.forYou
+      ? baseVideos
+      : await _filterShortVideosByFollowing(baseVideos);
+  final baseHasMore = baseVideos.length >= sourceLimit;
+
+  if (!query.includeLibraryVideos ||
+      query.scope != ShortVideoFeedScope.forYou) {
+    return _ShortVideoFeedPageResult(
+      videos: videos.take(query.limit).toList(growable: false),
+      hasMore: baseHasMore,
     );
+  }
 
-    if (query.scope == ShortVideoFeedScope.forYou) {
-      return videos;
-    }
+  final libraryLimit = query.limit <= 18 ? query.limit : query.limit ~/ 3;
+  final libraryVideos = await _loadLibraryShortVideos(
+    page: page,
+    limit: libraryLimit,
+    sortBy: query.sortBy,
+  );
 
+  return _ShortVideoFeedPageResult(
+    videos: _interleaveShortFeedVideos(
+      videos,
+      libraryVideos,
+      totalLimit: query.limit,
+    ),
+    hasMore: baseHasMore || libraryVideos.length >= libraryLimit,
+  );
+}
+
+Future<List<VideoModel>> _filterShortVideosByFollowing(
+  List<VideoModel> videos,
+) async {
     final apiService = ApiService();
     final userIds =
         videos.map((video) => video.userId).toSet().toList(growable: false);
@@ -91,8 +151,368 @@ final shortVideoFeedProvider =
     return videos
         .where((video) => followedUserIds.contains(video.userId))
         .toList(growable: false);
-  },
-);
+}
+
+Future<List<VideoModel>> _loadLibraryShortVideos({
+  required int page,
+  required int limit,
+  required String sortBy,
+}) async {
+  if (limit <= 0) {
+    return const <VideoModel>[];
+  }
+
+  final videos = await LibraryService().fetchVideoFeed(
+    LibraryVideoFeedRequest(
+      page: page,
+      limit: limit,
+      sortBy: sortBy,
+    ),
+  );
+
+  final sortedVideos = sortBy == 'random'
+      ? _sortShortFeedLibraryVideos(videos, sortBy)
+      : videos;
+  return sortedVideos
+      .take(limit)
+      .map(_libraryItemToShortVideo)
+      .toList(growable: false);
+}
+
+List<VideoModel> _interleaveShortFeedVideos(
+  List<VideoModel> primaryVideos,
+  List<VideoModel> libraryVideos, {
+  required int totalLimit,
+}) {
+  if (libraryVideos.isEmpty) {
+    return primaryVideos.take(totalLimit).toList(growable: false);
+  }
+
+  final mixed = <VideoModel>[];
+  var primaryIndex = 0;
+  var libraryIndex = 0;
+
+  while (mixed.length < totalLimit &&
+      (primaryIndex < primaryVideos.length || libraryIndex < libraryVideos.length)) {
+    for (var count = 0;
+        count < 3 &&
+            primaryIndex < primaryVideos.length &&
+            mixed.length < totalLimit;
+        count++) {
+      mixed.add(primaryVideos[primaryIndex]);
+      primaryIndex += 1;
+    }
+
+    if (libraryIndex < libraryVideos.length && mixed.length < totalLimit) {
+      mixed.add(libraryVideos[libraryIndex]);
+      libraryIndex += 1;
+    }
+
+    if (primaryIndex >= primaryVideos.length) {
+      while (libraryIndex < libraryVideos.length && mixed.length < totalLimit) {
+        mixed.add(libraryVideos[libraryIndex]);
+        libraryIndex += 1;
+      }
+    }
+
+    if (libraryIndex >= libraryVideos.length) {
+      while (primaryIndex < primaryVideos.length && mixed.length < totalLimit) {
+        mixed.add(primaryVideos[primaryIndex]);
+        primaryIndex += 1;
+      }
+    }
+  }
+
+  return mixed;
+}
+
+List<LibraryItemModel> _sortShortFeedLibraryVideos(
+  List<LibraryItemModel> videos,
+  String sortBy,
+) {
+  final sortedVideos = List<LibraryItemModel>.from(videos);
+
+  switch (sortBy) {
+    case 'newest':
+      sortedVideos.sort(
+        (a, b) => _shortFeedLibraryDate(b).compareTo(_shortFeedLibraryDate(a)),
+      );
+      break;
+    case 'trending':
+      sortedVideos.sort((a, b) {
+        final bScore = _shortFeedLibraryMetricInt(
+                  b,
+                  const ['viewCount', 'views', 'watchCount'],
+                ) +
+            _shortFeedLibraryMetricInt(
+              b,
+              const ['likeCount', 'likes'],
+            ) +
+            ((b.duration ?? 0) ~/ 60);
+        final aScore = _shortFeedLibraryMetricInt(
+                  a,
+                  const ['viewCount', 'views', 'watchCount'],
+                ) +
+            _shortFeedLibraryMetricInt(
+              a,
+              const ['likeCount', 'likes'],
+            ) +
+            ((a.duration ?? 0) ~/ 60);
+        return bScore.compareTo(aScore);
+      });
+      break;
+    case 'topRated':
+      sortedVideos.sort((a, b) {
+        final ratingCompare = _shortFeedLibraryMetricDouble(
+          b,
+          const ['rating', 'score'],
+        ).compareTo(
+          _shortFeedLibraryMetricDouble(
+            a,
+            const ['rating', 'score'],
+          ),
+        );
+        if (ratingCompare != 0) {
+          return ratingCompare;
+        }
+        return (b.duration ?? 0).compareTo(a.duration ?? 0);
+      });
+      break;
+    case 'mostViewed':
+      sortedVideos.sort(
+        (a, b) => _shortFeedLibraryMetricInt(
+          b,
+          const ['viewCount', 'views', 'watchCount'],
+        ).compareTo(
+          _shortFeedLibraryMetricInt(
+            a,
+            const ['viewCount', 'views', 'watchCount'],
+          ),
+        ),
+      );
+      break;
+    case 'random':
+      sortedVideos.shuffle();
+      break;
+  }
+
+  return sortedVideos;
+}
+
+VideoModel _libraryItemToShortVideo(LibraryItemModel item) {
+  final creatorName =
+      _shortFeedLibraryString(item, const ['creatorName', 'author', 'uploader']) ??
+          _shortFeedSectionLabel(item.section);
+  final creatorAvatarUrl = _shortFeedLibraryString(
+    item,
+    const ['creatorAvatarUrl', 'avatarUrl', 'authorAvatarUrl'],
+  );
+  final category =
+      _shortFeedLibraryString(item, const ['category', 'genre']) ??
+          _shortFeedSectionLabel(item.section);
+  final tags = _shortFeedLibraryTags(item);
+  final metadata = Map<String, dynamic>.from(item.metadata)
+    ..['shortSource'] = 'library'
+    ..['libraryItemId'] = item.id
+    ..['librarySection'] = item.section
+    ..['libraryCreatorName'] = creatorName
+    ..['libraryCategory'] = category;
+
+  if (creatorAvatarUrl != null && creatorAvatarUrl.isNotEmpty) {
+    metadata['libraryCreatorAvatarUrl'] = creatorAvatarUrl;
+  }
+  if (tags.isNotEmpty) {
+    metadata['libraryTags'] = tags;
+  }
+
+  return VideoModel(
+    id: item.id,
+    userId: '_library_${item.section}',
+    title: item.displayTitle,
+    description: item.description,
+    videoUrl: '',
+    remotePlayUrl: null,
+    thumbnailUrl: item.imageUrl,
+    duration: item.duration ?? 0,
+    viewCount: _shortFeedLibraryMetricInt(
+      item,
+      const ['viewCount', 'views', 'watchCount'],
+    ),
+    likeCount: _shortFeedLibraryMetricInt(
+      item,
+      const ['likeCount', 'likes'],
+    ),
+    commentCount: _shortFeedLibraryMetricInt(
+      item,
+      const ['commentCount', 'comments'],
+    ),
+    shareCount: _shortFeedLibraryMetricInt(
+      item,
+      const ['shareCount', 'shares'],
+    ),
+    isLiked: false,
+    isPublic: true,
+    status: 'PUBLIC',
+    isFeatured: false,
+    createdAt: item.createdAt ?? DateTime.now(),
+    updatedAt: item.updatedAt,
+    tags: tags.isEmpty ? null : tags,
+    category: category,
+    cost: 0,
+    isPaid: true,
+    metadata: metadata,
+    username: creatorName,
+    userAvatarUrl: creatorAvatarUrl,
+  );
+}
+
+String? _shortFeedPlayableLibraryUrl(LibraryItemModel? item) {
+  if (item == null) {
+    return null;
+  }
+
+  final streamUrl = item.streamUrl;
+  if (streamUrl != null && streamUrl.isNotEmpty) {
+    return streamUrl;
+  }
+
+  final fileUrl = item.fileUrl;
+  if (fileUrl != null && fileUrl.startsWith('http')) {
+    return fileUrl;
+  }
+
+  return null;
+}
+
+DateTime _shortFeedLibraryDate(LibraryItemModel item) {
+  return item.updatedAt ??
+      item.createdAt ??
+      DateTime.fromMillisecondsSinceEpoch(0);
+}
+
+int _shortFeedLibraryMetricInt(LibraryItemModel item, List<String> keys) {
+  for (final key in keys) {
+    final value = item.metadata[key];
+    if (value is int) {
+      return value;
+    }
+    if (value is num) {
+      return value.toInt();
+    }
+    if (value is String) {
+      final parsed = int.tryParse(value);
+      if (parsed != null) {
+        return parsed;
+      }
+    }
+  }
+  return 0;
+}
+
+double _shortFeedLibraryMetricDouble(LibraryItemModel item, List<String> keys) {
+  for (final key in keys) {
+    final value = item.metadata[key];
+    if (value is double) {
+      return value;
+    }
+    if (value is num) {
+      return value.toDouble();
+    }
+    if (value is String) {
+      final parsed = double.tryParse(value);
+      if (parsed != null) {
+        return parsed;
+      }
+    }
+  }
+  return 0;
+}
+
+String? _shortFeedLibraryString(LibraryItemModel item, List<String> keys) {
+  for (final key in keys) {
+    final value = item.metadata[key]?.toString().trim();
+    if (value != null && value.isNotEmpty) {
+      return value;
+    }
+  }
+  return null;
+}
+
+List<String> _shortFeedLibraryTags(LibraryItemModel item) {
+  final rawTags = item.metadata['tags'] ?? item.metadata['keywords'];
+  if (rawTags is List) {
+    return rawTags
+        .map((tag) => tag.toString().trim())
+        .where((tag) => tag.isNotEmpty)
+        .take(3)
+        .toList(growable: false);
+  }
+  if (rawTags is String) {
+    return rawTags
+        .split(RegExp(r'[,|#]'))
+        .map((tag) => tag.trim())
+        .where((tag) => tag.isNotEmpty)
+        .take(3)
+        .toList(growable: false);
+  }
+  return const <String>[];
+}
+
+bool _isLibraryShortSource(VideoModel video) {
+  return video.metadata?['shortSource'] == 'library';
+}
+
+String? _libraryShortSourceId(VideoModel video) {
+  final itemId = video.metadata?['libraryItemId']?.toString().trim();
+  if (itemId != null && itemId.isNotEmpty) {
+    return itemId;
+  }
+  return null;
+}
+
+String? _libraryShortSection(VideoModel video) {
+  final section = video.metadata?['librarySection']?.toString().trim();
+  if (section != null && section.isNotEmpty) {
+    return section;
+  }
+  return null;
+}
+
+String? _shortFeedLibraryPlaybackUrl(VideoModel video) {
+  final streamUrl = video.metadata?['libraryStreamUrl']?.toString().trim();
+  if (streamUrl != null && streamUrl.isNotEmpty) {
+    return streamUrl;
+  }
+
+  return null;
+}
+
+String _shortFeedSectionLabel(String section) {
+  if (section.trim().isEmpty) {
+    return 'Library';
+  }
+
+  return section
+      .split(RegExp(r'[-_]+'))
+      .where((part) => part.isNotEmpty)
+      .map(
+        (part) =>
+            part.substring(0, 1).toUpperCase() + part.substring(1).toLowerCase(),
+      )
+      .join(' ');
+}
+
+String _formatShortVideoDuration(Duration duration) {
+  final hours = duration.inHours;
+  final minutes = duration.inMinutes.remainder(60);
+  final seconds = duration.inSeconds.remainder(60);
+
+  if (hours > 0) {
+    return '${hours.toString().padLeft(2, '0')}:${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
+  }
+
+  return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
+}
 
 class ShortVideoFeedScreen extends StatelessWidget {
   final String? categoryId;
@@ -145,11 +565,19 @@ class ShortVideoFeedView extends ConsumerStatefulWidget {
 class _ShortVideoFeedViewState extends ConsumerState<ShortVideoFeedView> {
   late final PageController _pageController;
   int _currentIndex = 0;
+  int _nextPage = 1;
+  int _feedGeneration = 0;
+  bool _isInitialLoading = true;
+  bool _isLoadingMore = false;
+  bool _hasMoreVideos = true;
+  String? _loadErrorMessage;
+  List<VideoModel> _videos = const <VideoModel>[];
 
   @override
   void initState() {
     super.initState();
     _pageController = PageController();
+    unawaited(_refreshFeed());
     if (widget.immersiveMode) {
       SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
       SystemChrome.setPreferredOrientations(
@@ -171,104 +599,265 @@ class _ShortVideoFeedViewState extends ConsumerState<ShortVideoFeedView> {
   }
 
   @override
+  void didUpdateWidget(covariant ShortVideoFeedView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    if (oldWidget.query != widget.query) {
+      unawaited(_refreshFeed());
+    }
+  }
+
+  Future<void> _refreshFeed() async {
+    _feedGeneration += 1;
+    final generation = _feedGeneration;
+
+    if (_pageController.hasClients) {
+      _pageController.jumpToPage(0);
+    }
+
+    if (mounted) {
+      setState(() {
+        _currentIndex = 0;
+        _nextPage = 1;
+        _isInitialLoading = true;
+        _isLoadingMore = false;
+        _hasMoreVideos = true;
+        _loadErrorMessage = null;
+        _videos = const <VideoModel>[];
+      });
+    }
+
+    await _loadNextPage(generation: generation, reset: true);
+  }
+
+  Future<void> _loadNextPage({
+    int? generation,
+    bool reset = false,
+  }) async {
+    final activeGeneration = generation ?? _feedGeneration;
+
+    if (!reset) {
+      if (_isInitialLoading || _isLoadingMore || !_hasMoreVideos) {
+        return;
+      }
+
+      setState(() {
+        _isLoadingMore = true;
+      });
+    }
+
+    var requestedPage = reset ? 1 : _nextPage;
+    var nextPage = requestedPage;
+    var hasMore = _hasMoreVideos;
+    var appendedVideos = const <VideoModel>[];
+
+    try {
+      for (var scanCount = 0;
+          scanCount < _shortFeedMaxSequentialPageScan;
+          scanCount++) {
+        final pageResult = await _loadShortVideoFeedPage(
+          ref: ref,
+          query: widget.query,
+          page: requestedPage,
+        );
+
+        if (!mounted || activeGeneration != _feedGeneration) {
+          return;
+        }
+
+        nextPage = requestedPage + 1;
+        appendedVideos = pageResult.videos;
+        hasMore = pageResult.hasMore;
+
+        if (appendedVideos.isNotEmpty || !hasMore) {
+          break;
+        }
+
+        requestedPage += 1;
+      }
+
+      if (!mounted || activeGeneration != _feedGeneration) {
+        return;
+      }
+
+      setState(() {
+        _videos = reset
+            ? appendedVideos
+            : _mergeShortFeedVideos(_videos, appendedVideos);
+        _nextPage = nextPage;
+        _hasMoreVideos = hasMore;
+        _loadErrorMessage = null;
+        _isInitialLoading = false;
+        _isLoadingMore = false;
+        if (_videos.isNotEmpty && _currentIndex >= _videos.length) {
+          _currentIndex = _videos.length - 1;
+        }
+      });
+    } catch (error) {
+      if (!mounted || activeGeneration != _feedGeneration) {
+        return;
+      }
+
+      setState(() {
+        if (reset) {
+          _videos = const <VideoModel>[];
+        }
+        _loadErrorMessage = error.toString();
+        _isInitialLoading = false;
+        _isLoadingMore = false;
+      });
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final videosAsync = ref.watch(shortVideoFeedProvider(widget.query));
+    final videos = _videos;
+
+    if (_isInitialLoading && videos.isEmpty) {
+      return const ColoredBox(
+        color: Colors.black,
+        child: Center(
+          child: CircularProgressIndicator(color: Colors.white),
+        ),
+      );
+    }
+
+    if (_loadErrorMessage != null && videos.isEmpty) {
+      return ColoredBox(
+        color: Colors.black,
+        child: _buildErrorState(_loadErrorMessage!),
+      );
+    }
+
+    if (videos.isEmpty) {
+      return ColoredBox(
+        color: Colors.black,
+        child: _buildEmptyState(),
+      );
+    }
+
+    final safeIndex = _currentIndex.clamp(0, videos.length - 1);
 
     return ColoredBox(
       color: Colors.black,
-      child: videosAsync.when(
-        data: (videos) {
-          if (videos.isEmpty) {
-            return _buildEmptyState();
-          }
-
-          final safeIndex = _currentIndex.clamp(0, videos.length - 1);
-
-          return Stack(
-            fit: StackFit.expand,
-            children: [
-              PageView.builder(
-                controller: _pageController,
-                scrollDirection: Axis.vertical,
-                dragStartBehavior: DragStartBehavior.down,
-                itemCount: videos.length,
-                onPageChanged: (index) {
-                  setState(() {
-                    _currentIndex = index;
-                  });
-                },
-                itemBuilder: (context, index) {
-                  final video = videos[index];
-                  return _ShortVideoPage(
-                    key: ValueKey('${video.id}-$index'),
-                    video: video,
-                    isActive: index == _currentIndex,
-                    shouldPreload: index == _currentIndex + 1,
-                    immersiveMode: widget.immersiveMode,
-                  );
-                },
-              ),
-              if (widget.showHeader)
-                SafeArea(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          PageView.builder(
+            controller: _pageController,
+            scrollDirection: Axis.vertical,
+            dragStartBehavior: DragStartBehavior.down,
+            itemCount: videos.length,
+            onPageChanged: (index) {
+              setState(() {
+                _currentIndex = index;
+              });
+              if (index >= videos.length - _shortFeedPaginationThreshold) {
+                unawaited(_loadNextPage());
+              }
+            },
+            itemBuilder: (context, index) {
+              final video = videos[index];
+              return _ShortVideoPage(
+                key: ValueKey('${video.id}-$index'),
+                video: video,
+                isActive: index == _currentIndex,
+                shouldPreload: index == _currentIndex + 1,
+                immersiveMode: widget.immersiveMode,
+              );
+            },
+          ),
+          if (_isLoadingMore)
+            Positioned(
+              top: widget.showHeader ? 72 : 24,
+              right: 16,
+              child: SafeArea(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.54),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                     child: Row(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        if (widget.showBackButton)
-                          IconButton(
-                            onPressed: () => context.pop(),
-                            style: IconButton.styleFrom(
-                              backgroundColor:
-                                  Colors.black.withValues(alpha: 0.28),
-                            ),
-                            icon: const Icon(
-                              Icons.arrow_back_rounded,
-                              color: Colors.white,
-                            ),
-                          ),
-                        if (widget.showBackButton) const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                widget.query.scope == ShortVideoFeedScope.forYou
-                                    ? 'For You'
-                                    : 'Following',
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                              Text(
-                                '${safeIndex + 1}/${videos.length}  •  ${_labelForSort(widget.query.sortBy)}',
-                                style: TextStyle(
-                                  color: Colors.white.withValues(alpha: 0.78),
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ],
+                        SizedBox(
+                          width: 12,
+                          height: 12,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
                           ),
                         ),
-                        const _TopPillLabel(
-                          icon: Icons.swipe_vertical_rounded,
-                          label: 'Swipe up or down',
+                        SizedBox(width: 8),
+                        Text(
+                          'Loading more',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ],
                     ),
                   ),
                 ),
-            ],
-          );
-        },
-        loading: () => const Center(
-          child: CircularProgressIndicator(color: Colors.white),
-        ),
-        error: (error, stackTrace) {
-          return _buildErrorState(error.toString());
-        },
+              ),
+            ),
+          if (widget.showHeader)
+            SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+                child: Row(
+                  children: [
+                    if (widget.showBackButton)
+                      IconButton(
+                        onPressed: () => context.pop(),
+                        style: IconButton.styleFrom(
+                          backgroundColor:
+                              Colors.black.withValues(alpha: 0.28),
+                        ),
+                        icon: const Icon(
+                          Icons.arrow_back_rounded,
+                          color: Colors.white,
+                        ),
+                      ),
+                    if (widget.showBackButton) const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            widget.query.scope == ShortVideoFeedScope.forYou
+                                ? 'For You'
+                                : 'Following',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          Text(
+                            '${safeIndex + 1}/${videos.length}${_hasMoreVideos ? '+' : ''}  •  ${_labelForSort(widget.query.sortBy)}',
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.78),
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const _TopPillLabel(
+                      icon: Icons.swipe_vertical_rounded,
+                      label: 'Swipe up or down',
+                    ),
+                  ],
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }
@@ -359,9 +948,7 @@ class _ShortVideoFeedViewState extends ConsumerState<ShortVideoFeedView> {
               ),
               const SizedBox(height: 20),
               FilledButton(
-                onPressed: () {
-                  ref.invalidate(shortVideoFeedProvider(widget.query));
-                },
+                onPressed: () => unawaited(_refreshFeed()),
                 child: const Text('Retry'),
               ),
             ],
@@ -370,6 +957,31 @@ class _ShortVideoFeedViewState extends ConsumerState<ShortVideoFeedView> {
       ),
     );
   }
+}
+
+List<VideoModel> _mergeShortFeedVideos(
+  List<VideoModel> existingVideos,
+  List<VideoModel> incomingVideos,
+) {
+  final mergedVideos = List<VideoModel>.from(existingVideos);
+  final seenKeys = existingVideos
+      .map(_shortFeedVideoUniqueKey)
+      .toSet();
+
+  for (final video in incomingVideos) {
+    if (seenKeys.add(_shortFeedVideoUniqueKey(video))) {
+      mergedVideos.add(video);
+    }
+  }
+
+  return mergedVideos;
+}
+
+String _shortFeedVideoUniqueKey(VideoModel video) {
+  if (_isLibraryShortSource(video)) {
+    return 'library:${_libraryShortSourceId(video) ?? video.id}';
+  }
+  return 'video:${video.id}';
 }
 
 class _ShortVideoPage extends ConsumerStatefulWidget {
@@ -417,6 +1029,14 @@ class _ShortVideoPageState extends ConsumerState<_ShortVideoPage> {
   late int _likeCount;
   late int _shareCount;
   late bool _isLiked;
+
+  bool get _isLibraryVideo => _isLibraryShortSource(widget.video);
+  String get _durationLabel {
+    if (_isLibraryVideo && _totalDuration.inMilliseconds > 0) {
+      return _formatShortVideoDuration(_totalDuration);
+    }
+    return widget.video.formattedDuration;
+  }
 
   @override
   void initState() {
@@ -479,6 +1099,10 @@ class _ShortVideoPageState extends ConsumerState<_ShortVideoPage> {
   }
 
   bool get _isLockedVideo {
+    if (_isLibraryVideo) {
+      return false;
+    }
+
     final currentUser = ref.read(authServiceProvider).currentUser;
     final isUserVip = currentUser?.isVip ?? false;
     final needsVip =
@@ -488,11 +1112,19 @@ class _ShortVideoPageState extends ConsumerState<_ShortVideoPage> {
   }
 
   bool get _canFollowCreator {
+    if (_isLibraryVideo) {
+      return false;
+    }
+
     final currentUserId = ref.read(authServiceProvider).currentUser?.id;
     return currentUserId != null && currentUserId != widget.video.userId;
   }
 
   Future<void> _loadCreatorFollowStatus() async {
+    if (_isLibraryVideo) {
+      return;
+    }
+
     final creatorId = widget.video.userId;
     if (!_canFollowCreator || _followStatusLoadedForUserId == creatorId) {
       return;
@@ -681,6 +1313,24 @@ class _ShortVideoPageState extends ConsumerState<_ShortVideoPage> {
   }
 
   Future<String?> _resolvePlaybackUrl(VideoModel video) async {
+    if (_isLibraryShortSource(video)) {
+      final directUrl = _shortFeedLibraryPlaybackUrl(video);
+      if (directUrl != null && directUrl.isNotEmpty) {
+        return directUrl;
+      }
+
+      final libraryItemId = _libraryShortSourceId(video);
+      if (libraryItemId != null) {
+        final detailedItem = await LibraryService().fetchItemById(
+          libraryItemId,
+          includeStreams: true,
+        );
+        return _shortFeedPlayableLibraryUrl(detailedItem);
+      }
+
+      return null;
+    }
+
     if (video.remotePlayUrl != null && video.remotePlayUrl!.isNotEmpty) {
       return video.remotePlayUrl;
     }
@@ -702,6 +1352,11 @@ class _ShortVideoPageState extends ConsumerState<_ShortVideoPage> {
       return;
     }
 
+    if (_isLibraryVideo) {
+      _hasTrackedView = true;
+      return;
+    }
+
     try {
       final response = await _apiService.incrementVideoView(widget.video.id);
       if (response['success'] == true) {
@@ -713,6 +1368,10 @@ class _ShortVideoPageState extends ConsumerState<_ShortVideoPage> {
   }
 
   Future<void> _toggleLike({bool preferLikeOnly = false}) async {
+    if (_isLibraryVideo) {
+      return;
+    }
+
     if (preferLikeOnly && _isLiked) {
       return;
     }
@@ -759,6 +1418,10 @@ class _ShortVideoPageState extends ConsumerState<_ShortVideoPage> {
   }
 
   Future<void> _handleDoubleTap() async {
+    if (_isLibraryVideo) {
+      return;
+    }
+
     _triggerLikeBurst(_lastDoubleTapPosition);
     await _toggleLike(preferLikeOnly: true);
   }
@@ -781,9 +1444,28 @@ class _ShortVideoPageState extends ConsumerState<_ShortVideoPage> {
   }
 
   Future<void> _shareVideo() async {
+    final libraryShareUrl = _isLibraryVideo
+        ? (_shortFeedLibraryPlaybackUrl(widget.video) ??
+            await _resolvePlaybackUrl(widget.video))
+        : null;
+
     await SharePlus.instance.share(
-      ShareParams(text: 'Check out "${widget.video.title}" on Blue Video'),
+      ShareParams(
+        text: _isLibraryVideo && libraryShareUrl != null
+            ? 'Check out "${widget.video.title}" from ${widget.video.category ?? 'Library'} on Blue Video\n$libraryShareUrl'
+            : 'Check out "${widget.video.title}" on Blue Video',
+      ),
     );
+
+    if (_isLibraryVideo) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _shareCount += 1;
+      });
+      return;
+    }
 
     try {
       final response = await _apiService.incrementVideoShare(
@@ -881,7 +1563,63 @@ class _ShortVideoPageState extends ConsumerState<_ShortVideoPage> {
     if (!mounted) {
       return;
     }
-    await context.push('/main/video/${widget.video.id}/player');
+
+    if (_isLibraryVideo) {
+      final section = _libraryShortSection(widget.video);
+      final itemId = _libraryShortSourceId(widget.video);
+      if (section == null || itemId == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Library video details are unavailable.')),
+        );
+      } else {
+        try {
+          final detailedVideo = await LibraryService().fetchItemById(
+                itemId,
+                includeStreams: true,
+              ) ??
+              LibraryItemModel(
+                id: itemId,
+                title: widget.video.title,
+                description: widget.video.description,
+                contentType: 'video',
+                section: section,
+                isFolder: false,
+                fileUrl: widget.video.videoUrl.isNotEmpty ? widget.video.videoUrl : null,
+                streamUrl: _shortFeedLibraryPlaybackUrl(widget.video),
+                thumbnailUrl: widget.video.thumbnailUrl,
+                mimeType: 'video/mp4',
+                duration: widget.video.duration,
+                metadata: widget.video.metadata,
+                createdAt: widget.video.createdAt,
+                updatedAt: widget.video.updatedAt,
+              );
+
+          if (!mounted) {
+            return;
+          }
+
+          await context.push(
+            '/main/library/section/${Uri.encodeComponent(section)}/video-player',
+            extra: LibraryVideoPlayerArgs(
+              section: section,
+              videos: [detailedVideo],
+              initialIndex: 0,
+              folderTitle: detailedVideo.displayTitle,
+            ),
+          );
+        } catch (error) {
+          if (!mounted) {
+            return;
+          }
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Failed to open library video: $error')),
+          );
+        }
+      }
+    } else {
+      await context.push('/main/video/${widget.video.id}/player');
+    }
+
     if (!mounted || !widget.immersiveMode) {
       return;
     }
@@ -979,20 +1717,30 @@ class _ShortVideoPageState extends ConsumerState<_ShortVideoPage> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    _ActionBubble(
-                      icon: _isLiked ? Icons.favorite : Icons.favorite_border,
-                      label: _formatCount(_likeCount),
-                      color: _isLiked ? const Color(0xFFFF5C83) : Colors.white,
-                      onTap: _toggleLike,
-                    ),
-                    const SizedBox(height: 6),
-                    _ActionBubble(
-                      icon: Icons.chat_bubble_outline_rounded,
-                      label: _formatCount(widget.video.commentCount),
-                      color: Colors.white,
-                      onTap: _openFullPlayer,
-                    ),
-                    const SizedBox(height: 6),
+                    if (_isLibraryVideo) ...[
+                      _ActionBubble(
+                        icon: Icons.folder_outlined,
+                        label: widget.video.category ?? 'Library',
+                        color: Colors.white,
+                        onTap: _openFullPlayer,
+                      ),
+                      const SizedBox(height: 6),
+                    ] else ...[
+                      _ActionBubble(
+                        icon: _isLiked ? Icons.favorite : Icons.favorite_border,
+                        label: _formatCount(_likeCount),
+                        color: _isLiked ? const Color(0xFFFF5C83) : Colors.white,
+                        onTap: _toggleLike,
+                      ),
+                      const SizedBox(height: 6),
+                      _ActionBubble(
+                        icon: Icons.chat_bubble_outline_rounded,
+                        label: _formatCount(widget.video.commentCount),
+                        color: Colors.white,
+                        onTap: _openFullPlayer,
+                      ),
+                      const SizedBox(height: 6),
+                    ],
                     _ActionBubble(
                       icon: Icons.share_outlined,
                       label: _formatCount(_shareCount),
@@ -1028,6 +1776,8 @@ class _ShortVideoPageState extends ConsumerState<_ShortVideoPage> {
                   constraints: BoxConstraints(maxWidth: captionMaxWidth),
                   child: _BottomVideoCaption(
                     video: widget.video,
+                    durationLabel: _durationLabel,
+                    isLibrarySource: _isLibraryVideo,
                     canFollow: _canFollowCreator,
                     isFollowing: _isFollowingCreator,
                     isLoadingFollow: _isLoadingFollow,
@@ -1257,6 +2007,8 @@ class _ShortVideoPageState extends ConsumerState<_ShortVideoPage> {
 
 class _BottomVideoCaption extends StatelessWidget {
   final VideoModel video;
+  final String durationLabel;
+  final bool isLibrarySource;
   final bool canFollow;
   final bool isFollowing;
   final bool isLoadingFollow;
@@ -1264,6 +2016,8 @@ class _BottomVideoCaption extends StatelessWidget {
 
   const _BottomVideoCaption({
     required this.video,
+    required this.durationLabel,
+    required this.isLibrarySource,
     required this.canFollow,
     required this.isFollowing,
     required this.isLoadingFollow,
@@ -1273,6 +2027,7 @@ class _BottomVideoCaption extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tags = video.tags ?? const <String>[];
+    final creatorLabel = isLibrarySource ? video.displayName : '@${video.displayName}';
 
     return Container(
       padding: const EdgeInsets.fromLTRB(10, 8, 10, 9),
@@ -1318,7 +2073,7 @@ class _BottomVideoCaption extends StatelessWidget {
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
-                  '@${video.displayName}',
+                  creatorLabel,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
@@ -1417,10 +2172,18 @@ class _BottomVideoCaption extends StatelessWidget {
                 icon: Icons.play_arrow_rounded,
                 label: video.formattedViewCount,
               ),
-              _MetaChip(
-                icon: Icons.schedule_rounded,
-                label: video.formattedDuration,
-              ),
+              if (durationLabel.isNotEmpty)
+                _MetaChip(
+                  icon: Icons.schedule_rounded,
+                  label: durationLabel,
+                ),
+              if (isLibrarySource)
+                _MetaChip(
+                  icon: Icons.folder_outlined,
+                  label: _shortFeedSectionLabel(
+                    _libraryShortSection(video) ?? video.category ?? 'Library',
+                  ),
+                ),
               if (video.category != null && video.category!.isNotEmpty)
                 _MetaChip(
                   icon: Icons.category_outlined,

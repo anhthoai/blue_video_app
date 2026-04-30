@@ -38,7 +38,7 @@ class LibraryScreen extends ConsumerWidget {
     return sectionsAsync.when(
       data: (sections) {
         final tabs = <Tab>[
-          Tab(text: l10n.movies),
+          Tab(text: l10n.database),
           ...sections.map((section) => Tab(text: section.displayLabel)),
         ];
 

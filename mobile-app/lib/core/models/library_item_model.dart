@@ -10,6 +10,7 @@ class LibraryItemModel {
   final String? slugPath;
   final String? thumbnailUrl;
   final String? coverUrl;
+  final String? videoPreviewUrl;
   final String? mimeType;
   final String? streamUrl;
   final String? source;
@@ -34,6 +35,7 @@ class LibraryItemModel {
     this.slugPath,
     this.thumbnailUrl,
     this.coverUrl,
+    this.videoPreviewUrl,
     this.mimeType,
     this.streamUrl,
     this.source,
@@ -75,6 +77,7 @@ class LibraryItemModel {
       slugPath: json['slugPath']?.toString(),
       thumbnailUrl: json['thumbnailUrl']?.toString(),
       coverUrl: json['coverUrl']?.toString(),
+      videoPreviewUrl: json['videoPreviewUrl']?.toString(),
       mimeType: json['mimeType']?.toString(),
       source: json['source']?.toString(),
       ulozSlug: json['ulozSlug']?.toString(),
@@ -108,6 +111,9 @@ class LibraryItemModel {
     }
     if (coverUrl != null && coverUrl!.isNotEmpty) {
       return coverUrl;
+    }
+    if (videoPreviewUrl != null && videoPreviewUrl!.isNotEmpty) {
+      return videoPreviewUrl;
     }
     return null;
   }

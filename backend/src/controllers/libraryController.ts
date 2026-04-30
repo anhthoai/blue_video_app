@@ -9,6 +9,44 @@ import { StorageService } from '../config/storage';
 import { getUlozService, getUlozStorageConfig, resolveUlozStorageId } from '../services/ulozRegistry';
 
 const MAX_PAGE_SIZE = 200;
+const MAX_VIDEO_FEED_PAGE_SIZE = 120;
+const LIBRARY_VIDEO_EXTENSIONS = ['mp4', 'm4v', 'mkv', 'mov', 'webm', 'avi'];
+const LIBRARY_VIDEO_EXTENSION_VARIANTS = Array.from(
+  new Set(
+    LIBRARY_VIDEO_EXTENSIONS.flatMap((extension) => [
+      extension,
+      extension.toUpperCase(),
+    ])
+  )
+);
+const LIBRARY_ITEM_BASE_SELECT = {
+  id: true,
+  title: true,
+  description: true,
+  contentType: true,
+  section: true,
+  isFolder: true,
+  extension: true,
+  fileSize: true,
+  fileUrl: true,
+  ulozStorageId: true,
+  filePath: true,
+  slugPath: true,
+  parentId: true,
+  thumbnailUrl: true,
+  coverUrl: true,
+  videoPreviewUrl: true,
+  mimeType: true,
+  duration: true,
+  metadata: true,
+  source: true,
+  ulozSlug: true,
+  author: true,
+  views: true,
+  downloads: true,
+  updatedAt: true,
+  createdAt: true,
+} as const;
 
 // Keep-alive agents for upstream CDN requests.
 // mpv/libmpv tends to issue many Range requests; reusing connections reduces TLS overhead.
@@ -236,6 +274,253 @@ async function buildBreadcrumbs(item: {
   return breadcrumbs;
 }
 
+function normalizeLibraryVideoSort(sortByParam: unknown): string {
+  const value = String(sortByParam || '').trim().toLowerCase();
+  switch (value) {
+    case 'trending':
+    case 'toprated':
+    case 'mostviewed':
+    case 'random':
+    case 'newest':
+      return value;
+    default:
+      return 'newest';
+  }
+}
+
+function parseDurationCandidate(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    if (value <= 0) {
+      return null;
+    }
+
+    if (value > 1000 * 60 * 60 * 24) {
+      return Math.round(value / 1000);
+    }
+
+    return Math.round(value);
+  }
+
+  if (typeof value !== 'string') {
+    return null;
+  }
+
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  const hhmmssMatch = trimmed.match(/^(\d+):(\d{1,2})(?::(\d{1,2}))?$/);
+  if (hhmmssMatch) {
+    const first = parseInt(hhmmssMatch[1] || '0', 10);
+    const second = parseInt(hhmmssMatch[2] || '0', 10);
+    const third = parseInt(hhmmssMatch[3] || '0', 10);
+    if (hhmmssMatch[3] != null) {
+      return first * 3600 + second * 60 + third;
+    }
+    return first * 60 + second;
+  }
+
+  const numeric = Number(trimmed.replace(/s$/i, ''));
+  if (!Number.isFinite(numeric) || numeric <= 0) {
+    return null;
+  }
+
+  if (numeric > 1000 * 60 * 60 * 24) {
+    return Math.round(numeric / 1000);
+  }
+
+  return Math.round(numeric);
+}
+
+function normalizeLibraryDuration(
+  duration: unknown,
+  metadata: unknown,
+): number | null {
+  const objectMetadata =
+    metadata && typeof metadata === 'object'
+      ? (metadata as Record<string, unknown>)
+      : null;
+
+  const primary = parseDurationCandidate(duration);
+  const metadataCandidates = [
+    objectMetadata?.['durationSeconds'],
+    objectMetadata?.['videoDurationSeconds'],
+    objectMetadata?.['duration'],
+    objectMetadata?.['videoDuration'],
+    objectMetadata?.['mediaDuration'],
+    objectMetadata?.['durationMs'],
+    objectMetadata?.['videoDurationMs'],
+    objectMetadata?.['runtime'],
+    objectMetadata?.['length'],
+    objectMetadata?.['ffprobeDuration'],
+    objectMetadata?.['formattedDuration'],
+  ]
+    .map(parseDurationCandidate)
+    .filter((value): value is number => value != null && value > 0);
+
+  if (primary != null && primary !== 43201) {
+    return primary;
+  }
+
+  const alternative = metadataCandidates.find((value) => value !== 43201);
+  if (alternative != null) {
+    return alternative;
+  }
+
+  if (primary === 43201) {
+    return null;
+  }
+
+  return primary;
+}
+
+function buildLibraryVideoWhere(section?: string | null): Record<string, any> {
+  const whereClause: Record<string, any> = {
+    isAvailable: true,
+    isFolder: false,
+    OR: [
+      {
+        contentType: {
+          contains: 'video',
+          mode: 'insensitive',
+        },
+      },
+      {
+        mimeType: {
+          startsWith: 'video/',
+          mode: 'insensitive',
+        },
+      },
+      {
+        extension: {
+          in: LIBRARY_VIDEO_EXTENSION_VARIANTS,
+        },
+      },
+    ],
+  };
+
+  if (section) {
+    whereClause['section'] = section;
+  }
+
+  return whereClause;
+}
+
+function buildLibraryVideoOrderBy(sortBy: string): Array<Record<string, 'asc' | 'desc'>> {
+  switch (sortBy) {
+    case 'trending':
+      return [
+        { views: 'desc' },
+        { downloads: 'desc' },
+        { updatedAt: 'desc' },
+      ];
+    case 'mostviewed':
+      return [
+        { views: 'desc' },
+        { updatedAt: 'desc' },
+      ];
+    case 'toprated':
+      return [
+        { downloads: 'desc' },
+        { views: 'desc' },
+        { updatedAt: 'desc' },
+      ];
+    case 'random':
+      return [
+        { updatedAt: 'desc' },
+        { createdAt: 'desc' },
+      ];
+    case 'newest':
+    default:
+      return [
+        { updatedAt: 'desc' },
+        { createdAt: 'desc' },
+      ];
+  }
+}
+
+async function serializeLibraryItem(
+  item: any,
+  req: Request,
+  options: {
+    includeStreams: boolean;
+    includeChildrenCount?: boolean;
+  },
+) {
+  const thumbnailUrl = item.thumbnailUrl?.startsWith('s3://')
+    ? await resolveMediaUrl(item.thumbnailUrl)
+    : item.thumbnailUrl;
+
+  const coverUrl = item.coverUrl?.startsWith('s3://')
+    ? await resolveMediaUrl(item.coverUrl)
+    : item.coverUrl;
+
+  const videoPreviewUrl = item.videoPreviewUrl?.startsWith('s3://')
+    ? await resolveMediaUrl(item.videoPreviewUrl)
+    : item.videoPreviewUrl;
+
+  const streamUrl = options.includeStreams
+    ? await resolveFileStreamUrl(
+        {
+          id: item.id,
+          fileUrl: item.fileUrl,
+          filePath: item.filePath,
+          isFolder: item.isFolder,
+          source: item.source,
+          ulozStorageId: item.ulozStorageId,
+          ulozSlug: item.ulozSlug ?? null,
+          metadata: item.metadata ?? undefined,
+        },
+        req,
+      )
+    : null;
+
+  const mergedMetadata =
+    item.metadata && typeof item.metadata === 'object'
+      ? { ...(item.metadata as Record<string, unknown>) }
+      : {};
+
+  if (typeof item.author === 'string' && item.author.trim().length > 0) {
+    mergedMetadata['author'] = mergedMetadata['author'] ?? item.author;
+  }
+  if (typeof item.views === 'number') {
+    mergedMetadata['viewCount'] = mergedMetadata['viewCount'] ?? item.views;
+    mergedMetadata['views'] = mergedMetadata['views'] ?? item.views;
+  }
+  if (typeof item.downloads === 'number') {
+    mergedMetadata['downloadCount'] =
+      mergedMetadata['downloadCount'] ?? item.downloads;
+    mergedMetadata['downloads'] = mergedMetadata['downloads'] ?? item.downloads;
+  }
+
+  return {
+    id: item.id,
+    title: item.title,
+    description: item.description,
+    contentType: item.contentType,
+    section: item.section,
+    isFolder: item.isFolder,
+    extension: item.extension,
+    fileSize: item.fileSize ? Number(item.fileSize) : null,
+    fileUrl: item.fileUrl,
+    streamUrl,
+    filePath: item.filePath,
+    slugPath: item.slugPath,
+    mimeType: item.mimeType,
+    duration: normalizeLibraryDuration(item.duration, item.metadata),
+    metadata: mergedMetadata,
+    thumbnailUrl,
+    coverUrl,
+    videoPreviewUrl,
+    source: item.source,
+    ulozSlug: item.ulozSlug,
+    hasChildren: options.includeChildrenCount ? item._count.children > 0 : false,
+    createdAt: item.createdAt,
+    updatedAt: item.updatedAt,
+  };
+}
+
 export async function listLibrarySections(_req: Request, res: Response) {
   try {
     const grouped = await prisma.libraryContent.groupBy({
@@ -399,29 +684,7 @@ export async function listLibraryItems(req: Request, res: Response) {
         skip,
         take: limit,
         select: {
-          id: true,
-          title: true,
-          description: true,
-          contentType: true,
-          section: true,
-          isFolder: true,
-          extension: true,
-          fileSize: true,
-          fileUrl: true,
-          ulozStorageId: true,
-          filePath: true,
-          slugPath: true,
-          parentId: true,
-          thumbnailUrl: true,
-          coverUrl: true,
-          videoPreviewUrl: true,
-          mimeType: true,
-          duration: true,
-          metadata: true,
-          source: true,
-          ulozSlug: true,
-          updatedAt: true,
-          createdAt: true,
+          ...LIBRARY_ITEM_BASE_SELECT,
           _count: {
             select: {
               children: true,
@@ -435,58 +698,12 @@ export async function listLibraryItems(req: Request, res: Response) {
     ]);
 
     const resolvedItems = await Promise.all(
-      items.map(async (item) => {
-        const thumbnailUrl = item.thumbnailUrl?.startsWith('s3://')
-          ? await resolveMediaUrl(item.thumbnailUrl)
-          : item.thumbnailUrl;
-
-        const coverUrl = item.coverUrl?.startsWith('s3://')
-          ? await resolveMediaUrl(item.coverUrl)
-          : item.coverUrl;
-
-        const videoPreviewUrl = item.videoPreviewUrl?.startsWith('s3://')
-          ? await resolveMediaUrl(item.videoPreviewUrl)
-          : item.videoPreviewUrl;
-
-        const streamUrl = includeStreams
-          ? await resolveFileStreamUrl({
-              id: item.id,
-              fileUrl: item.fileUrl,
-              filePath: item.filePath,
-              isFolder: item.isFolder,
-              source: item.source,
-              ulozStorageId: item.ulozStorageId,
-              ulozSlug: item.ulozSlug ?? null,
-              metadata: item.metadata ?? undefined,
-            }, req)
-          : null;
-
-        return {
-          id: item.id,
-          title: item.title,
-          description: item.description,
-          contentType: item.contentType,
-          section: item.section,
-          isFolder: item.isFolder,
-          extension: item.extension,
-          fileSize: item.fileSize ? Number(item.fileSize) : null,
-          fileUrl: item.fileUrl,
-          streamUrl,
-          filePath: item.filePath,
-          slugPath: item.slugPath,
-          mimeType: item.mimeType,
-          duration: item.duration,
-          metadata: item.metadata,
-          thumbnailUrl,
-          coverUrl,
-          videoPreviewUrl,
-          source: item.source,
-          ulozSlug: item.ulozSlug,
-          hasChildren: item._count.children > 0,
-          createdAt: item.createdAt,
-          updatedAt: item.updatedAt,
-        };
-      })
+      items.map((item) =>
+        serializeLibraryItem(item, req, {
+          includeStreams,
+          includeChildrenCount: true,
+        })
+      )
     );
 
     const breadcrumbs = parentItem
@@ -524,6 +741,65 @@ export async function listLibraryItems(req: Request, res: Response) {
   }
 }
 
+export async function listLibraryVideoFeed(req: Request, res: Response) {
+  try {
+    const section = normalizeSection((req.query['section'] as string) || null);
+    const sortBy = normalizeLibraryVideoSort(req.query['sortBy']);
+    const page = Math.max(1, parseInt((req.query['page'] as string) || '1', 10));
+    const limit = Math.min(
+      MAX_VIDEO_FEED_PAGE_SIZE,
+      Math.max(1, parseInt((req.query['limit'] as string) || '60', 10))
+    );
+    const skip = (page - 1) * limit;
+    const includeStreams =
+      (req.query['includeStreams'] as string | undefined)?.toLowerCase() === 'true';
+
+    const whereClause = buildLibraryVideoWhere(section);
+    const orderBy = buildLibraryVideoOrderBy(sortBy);
+
+    const [items, total] = await Promise.all([
+      prisma.libraryContent.findMany({
+        where: whereClause,
+        orderBy,
+        skip,
+        take: limit,
+        select: LIBRARY_ITEM_BASE_SELECT,
+      }),
+      prisma.libraryContent.count({
+        where: whereClause,
+      }),
+    ]);
+
+    const resolvedItems = await Promise.all(
+      items.map((item) =>
+        serializeLibraryItem(item, req, {
+          includeStreams,
+        })
+      )
+    );
+
+    res.json({
+      success: true,
+      data: {
+        items: resolvedItems,
+        pagination: {
+          page,
+          limit,
+          total,
+          totalPages: Math.ceil(total / limit),
+        },
+      },
+    });
+  } catch (error: any) {
+    console.error('Error listing library video feed:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to load library video feed',
+      error: error.message,
+    });
+  }
+}
+
 export async function getLibraryItem(req: Request, res: Response) {
   try {
     const itemId = req.params['id'];
@@ -542,31 +818,7 @@ export async function getLibraryItem(req: Request, res: Response) {
 
     const item = await prisma.libraryContent.findUnique({
       where: { id: itemId },
-      select: {
-        id: true,
-        title: true,
-        description: true,
-        contentType: true,
-        section: true,
-        isFolder: true,
-        extension: true,
-        fileSize: true,
-        fileUrl: true,
-        ulozStorageId: true,
-        filePath: true,
-        slugPath: true,
-        parentId: true,
-        thumbnailUrl: true,
-        coverUrl: true,
-        videoPreviewUrl: true,
-        mimeType: true,
-        duration: true,
-        metadata: true,
-        source: true,
-        ulozSlug: true,
-        createdAt: true,
-        updatedAt: true,
-      },
+      select: LIBRARY_ITEM_BASE_SELECT,
     });
 
     if (!item) {
@@ -577,42 +829,15 @@ export async function getLibraryItem(req: Request, res: Response) {
       return;
     }
 
-    const thumbnailUrl = item.thumbnailUrl?.startsWith('s3://')
-      ? await resolveMediaUrl(item.thumbnailUrl)
-      : item.thumbnailUrl;
-
-    const coverUrl = item.coverUrl?.startsWith('s3://')
-      ? await resolveMediaUrl(item.coverUrl)
-      : item.coverUrl;
-
-    const videoPreviewUrl = item.videoPreviewUrl?.startsWith('s3://')
-      ? await resolveMediaUrl(item.videoPreviewUrl)
-      : item.videoPreviewUrl;
-
-    const streamUrl = includeStreams
-      ? await resolveFileStreamUrl({
-          id: item.id,
-          fileUrl: item.fileUrl,
-          filePath: item.filePath,
-          isFolder: item.isFolder,
-          source: item.source,
-          ulozStorageId: item.ulozStorageId,
-          ulozSlug: item.ulozSlug ?? null,
-          metadata: item.metadata ?? undefined,
-        }, req)
-      : null;
-
     const breadcrumbs = await buildBreadcrumbs(item);
+    const resolvedItem = await serializeLibraryItem(item, req, {
+      includeStreams,
+    });
 
     res.json({
       success: true,
       data: {
-        ...item,
-        fileSize: item.fileSize ? Number(item.fileSize) : null,
-        thumbnailUrl,
-        coverUrl,
-        videoPreviewUrl,
-        streamUrl,
+        ...resolvedItem,
         breadcrumbs,
       },
     });

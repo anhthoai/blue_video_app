@@ -56,3 +56,7 @@ export function getPublicApiOrigin(): string {
 export function buildVerificationUrl(token: string): string {
   return `${getPublicApiOrigin()}/api/v1/auth/verify-email?token=${token}`;
 }
+
+export function buildPasswordResetUrl(token: string): string {
+  return `${getPublicApiOrigin()}/auth/reset-password?token=${encodeURIComponent(token)}`;
+}

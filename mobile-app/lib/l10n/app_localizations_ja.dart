@@ -944,6 +944,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get library => 'ライブラリ';
 
   @override
+  String get database => 'データベース';
+
+  @override
   String get movies => '映画';
 
   @override

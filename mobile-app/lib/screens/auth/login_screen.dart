@@ -139,7 +139,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     const Spacer(),
                     TextButton(
                       onPressed: () {
-                        context.go('/auth/forgot-password');
+                        final email = _emailController.text.trim();
+                        final location = Uri(
+                          path: '/auth/forgot-password',
+                          queryParameters: email.isEmpty
+                              ? null
+                              : {'email': email},
+                        ).toString();
+                        context.push(location);
                       },
                       child: Text(l10n.forgotPassword),
                     ),
