@@ -7144,7 +7144,7 @@ app.get('/api/v1/admin/forums', authenticateToken, requireAdmin, async (req, res
   }
 });
 
-app.post('/api/v1/admin/forums', authenticateToken, requireAdmin, async (req, res) => {
+app.post('/api/v1/admin/forums', authenticateToken, requireAdmin, async (req, res): Promise<void> => {
   try {
     const currentUserId = getRequiredAuthenticatedUserId(req, res);
     if (!currentUserId) {
@@ -7171,10 +7171,11 @@ app.post('/api/v1/admin/forums', authenticateToken, requireAdmin, async (req, re
       : '#5FD4FF';
 
     if (!title || !subtitle || !slug) {
-      return res.status(400).json({
+      res.status(400).json({
         success: false,
         message: 'Title, subtitle, and a valid slug are required',
       });
+      return;
     }
 
     const duplicate = await prisma.communityForum.findUnique({
@@ -7183,10 +7184,11 @@ app.post('/api/v1/admin/forums', authenticateToken, requireAdmin, async (req, re
     });
 
     if (duplicate) {
-      return res.status(409).json({
+      res.status(409).json({
         success: false,
         message: 'Forum slug is already in use',
       });
+      return;
     }
 
     const forum = await prisma.communityForum.create({
@@ -7211,21 +7213,23 @@ app.post('/api/v1/admin/forums', authenticateToken, requireAdmin, async (req, re
       },
     });
 
-    return res.status(201).json({
+    res.status(201).json({
       success: true,
       message: 'Forum created successfully',
       data: await serializeCommunityForumRecord(forum),
     });
+    return;
   } catch (error) {
     console.error('Error creating admin forum:', error);
-    return res.status(500).json({
+    res.status(500).json({
       success: false,
       message: 'Failed to create forum',
     });
+    return;
   }
 });
 
-app.patch('/api/v1/admin/forums/:forumId', authenticateToken, requireAdmin, async (req, res) => {
+app.patch('/api/v1/admin/forums/:forumId', authenticateToken, requireAdmin, async (req, res): Promise<void> => {
   try {
     const forumId = getRequiredRouteParam(req, res, 'forumId');
     if (!forumId) {
@@ -7237,10 +7241,11 @@ app.patch('/api/v1/admin/forums/:forumId', authenticateToken, requireAdmin, asyn
     if (typeof req.body?.title === 'string') {
       const title = req.body.title.trim();
       if (!title) {
-        return res.status(400).json({
+        res.status(400).json({
           success: false,
           message: 'Forum title cannot be empty',
         });
+        return;
       }
       updateData['title'] = title;
     }
@@ -7248,10 +7253,11 @@ app.patch('/api/v1/admin/forums/:forumId', authenticateToken, requireAdmin, asyn
     if (typeof req.body?.subtitle === 'string') {
       const subtitle = req.body.subtitle.trim();
       if (!subtitle) {
-        return res.status(400).json({
+        res.status(400).json({
           success: false,
           message: 'Forum subtitle cannot be empty',
         });
+        return;
       }
       updateData['subtitle'] = subtitle;
     }
@@ -7272,10 +7278,11 @@ app.patch('/api/v1/admin/forums/:forumId', authenticateToken, requireAdmin, asyn
     if (Object.prototype.hasOwnProperty.call(req.body, 'sortOrder')) {
       const sortOrder = Number(req.body.sortOrder);
       if (!Number.isFinite(sortOrder)) {
-        return res.status(400).json({
+        res.status(400).json({
           success: false,
           message: 'Forum sort order must be a valid number',
         });
+        return;
       }
       updateData['sortOrder'] = sortOrder;
     }
@@ -7295,10 +7302,11 @@ app.patch('/api/v1/admin/forums/:forumId', authenticateToken, requireAdmin, asyn
     if (typeof req.body?.slug === 'string') {
       const slug = normalizeCommunityForumSlug(req.body.slug);
       if (!slug) {
-        return res.status(400).json({
+        res.status(400).json({
           success: false,
           message: 'Forum slug cannot be empty',
         });
+        return;
       }
 
       const duplicate = await prisma.communityForum.findFirst({
@@ -7310,20 +7318,22 @@ app.patch('/api/v1/admin/forums/:forumId', authenticateToken, requireAdmin, asyn
       });
 
       if (duplicate) {
-        return res.status(409).json({
+        res.status(409).json({
           success: false,
           message: 'Forum slug is already in use',
         });
+        return;
       }
 
       updateData['slug'] = slug;
     }
 
     if (Object.keys(updateData).length === 0) {
-      return res.status(400).json({
+      res.status(400).json({
         success: false,
         message: 'No forum changes were provided',
       });
+      return;
     }
 
     const forum = await prisma.communityForum.update({
@@ -7338,21 +7348,23 @@ app.patch('/api/v1/admin/forums/:forumId', authenticateToken, requireAdmin, asyn
       },
     });
 
-    return res.json({
+    res.json({
       success: true,
       message: 'Forum updated successfully',
       data: await serializeCommunityForumRecord(forum),
     });
+    return;
   } catch (error) {
     console.error('Error updating admin forum:', error);
-    return res.status(500).json({
+    res.status(500).json({
       success: false,
       message: 'Failed to update forum',
     });
+    return;
   }
 });
 
-app.delete('/api/v1/admin/forums/:forumId', authenticateToken, requireAdmin, async (req, res) => {
+app.delete('/api/v1/admin/forums/:forumId', authenticateToken, requireAdmin, async (req, res): Promise<void> => {
   try {
     const forumId = getRequiredRouteParam(req, res, 'forumId');
     if (!forumId) {
@@ -7365,26 +7377,29 @@ app.delete('/api/v1/admin/forums/:forumId', authenticateToken, requireAdmin, asy
     });
 
     if (!existingForum) {
-      return res.status(404).json({
+      res.status(404).json({
         success: false,
         message: 'Forum not found',
       });
+      return;
     }
 
     await prisma.communityForum.delete({
       where: { id: forumId },
     });
 
-    return res.json({
+    res.json({
       success: true,
       message: `Forum "${existingForum.title}" deleted successfully`,
     });
+    return;
   } catch (error) {
     console.error('Error deleting admin forum:', error);
-    return res.status(500).json({
+    res.status(500).json({
       success: false,
       message: 'Failed to delete forum',
     });
+    return;
   }
 });
 
@@ -8342,7 +8357,7 @@ app.get('/api/v1/community/forums', authenticateToken, async (req, res) => {
   }
 });
 
-app.post('/api/v1/community/forums/:forumId/follow', authenticateToken, async (req, res) => {
+app.post('/api/v1/community/forums/:forumId/follow', authenticateToken, async (req, res): Promise<void> => {
   try {
     const currentUserId = getRequiredAuthenticatedUserId(req, res);
     if (!currentUserId) {
@@ -8360,10 +8375,11 @@ app.post('/api/v1/community/forums/:forumId/follow', authenticateToken, async (r
     });
 
     if (!forum) {
-      return res.status(404).json({
+      res.status(404).json({
         success: false,
         message: 'Forum not found',
       });
+      return;
     }
 
     const existingFollow = await prisma.communityForumFollow.findUnique({
@@ -8398,21 +8414,23 @@ app.post('/api/v1/community/forums/:forumId/follow', authenticateToken, async (r
     const forums = await getCommunityForums(currentUserId, 'all');
     const updatedForum = forums.find((item: any) => item.id === forumId) || null;
 
-    return res.json({
+    res.json({
       success: true,
       following,
       data: updatedForum,
     });
+    return;
   } catch (error) {
     console.error('Error toggling forum follow:', error);
-    return res.status(500).json({
+    res.status(500).json({
       success: false,
       message: 'Failed to update forum follow state',
     });
+    return;
   }
 });
 
-app.get('/api/v1/community/forums/:forumId', authenticateToken, async (req, res) => {
+app.get('/api/v1/community/forums/:forumId', authenticateToken, async (req, res): Promise<void> => {
   try {
     const currentUserId = req.user?.id;
     const forumId = getRequiredRouteParam(req, res, 'forumId');
@@ -8432,10 +8450,11 @@ app.get('/api/v1/community/forums/:forumId', authenticateToken, async (req, res)
     });
 
     if (!forum) {
-      return res.status(404).json({
+      res.status(404).json({
         success: false,
         message: 'Forum not found',
       });
+      return;
     }
 
     const serializedForum = await serializeCommunityForumRecord(forum);
@@ -8457,7 +8476,7 @@ app.get('/api/v1/community/forums/:forumId', authenticateToken, async (req, res)
       posts = posts.filter((post) => Array.isArray(post.videos) && post.videos.length > 0).slice(0, limit);
     }
 
-    return res.json({
+    res.json({
       success: true,
       data: {
         forum: serializedForum,
@@ -8465,12 +8484,14 @@ app.get('/api/v1/community/forums/:forumId', authenticateToken, async (req, res)
         feed: feed.toLowerCase(),
       },
     });
+    return;
   } catch (error) {
     console.error('Error loading forum detail:', error);
-    return res.status(500).json({
+    res.status(500).json({
       success: false,
       message: 'Failed to load forum detail',
     });
+    return;
   }
 });
 
@@ -8518,7 +8539,7 @@ app.post(
   '/api/v1/community/requests',
   authenticateToken,
   requestReferenceUpload.array('images', 6),
-  async (req, res) => {
+  async (req, res): Promise<void> => {
   try {
     const currentUserId = getRequiredAuthenticatedUserId(req, res);
     if (!currentUserId) {
@@ -8538,10 +8559,11 @@ app.post(
       : [];
 
     if (!title || !description || !Number.isFinite(coins) || coins < 0) {
-      return res.status(400).json({
+      res.status(400).json({
         success: false,
         message: 'Title, description, and a non-negative coin amount are required',
       });
+      return;
     }
 
     const currentUser = await prisma.user.findUnique({
@@ -8553,17 +8575,19 @@ app.post(
     });
 
     if (!currentUser) {
-      return res.status(404).json({
+      res.status(404).json({
         success: false,
         message: 'User not found',
       });
+      return;
     }
 
     if (currentUser.coinBalance < coins) {
-      return res.status(400).json({
+      res.status(400).json({
         success: false,
         message: 'Not enough coins to create this request',
       });
+      return;
     }
 
     const requestId = require('crypto').randomUUID();
@@ -8622,16 +8646,18 @@ app.post(
 
     const [serializedRequest] = await serializeCommunityRequests([createdRequest], currentUserId);
 
-    return res.status(201).json({
+    res.status(201).json({
       success: true,
       data: serializedRequest,
     });
+    return;
   } catch (error) {
     console.error('Error creating community request:', error);
-    return res.status(500).json({
+    res.status(500).json({
       success: false,
       message: 'Failed to create request',
     });
+    return;
   }
 });
 
@@ -8667,7 +8693,7 @@ app.get('/api/v1/community/requests/:requestId', authenticateToken, async (req, 
   }
 });
 
-app.post('/api/v1/community/requests/:requestId/want', authenticateToken, async (req, res) => {
+app.post('/api/v1/community/requests/:requestId/want', authenticateToken, async (req, res): Promise<void> => {
   try {
     const currentUserId = getRequiredAuthenticatedUserId(req, res);
     if (!currentUserId) {
@@ -8685,10 +8711,11 @@ app.post('/api/v1/community/requests/:requestId/want', authenticateToken, async 
     });
 
     if (!request) {
-      return res.status(404).json({
+      res.status(404).json({
         success: false,
         message: 'Request not found',
       });
+      return;
     }
 
     const existingWant = await prisma.communityRequestWant.findUnique({
@@ -8742,29 +8769,32 @@ app.post('/api/v1/community/requests/:requestId/want', authenticateToken, async 
     });
 
     if (!updatedRequest) {
-      return res.status(404).json({
+      res.status(404).json({
         success: false,
         message: 'Request not found after update',
       });
+      return;
     }
 
     const [serializedRequest] = await serializeCommunityRequests([updatedRequest], currentUserId);
 
-    return res.json({
+    res.json({
       success: true,
       wanted,
       data: serializedRequest,
     });
+    return;
   } catch (error) {
     console.error('Error toggling request want state:', error);
-    return res.status(500).json({
+    res.status(500).json({
       success: false,
       message: 'Failed to update request watch state',
     });
+    return;
   }
 });
 
-app.post('/api/v1/community/requests/:requestId/support', authenticateToken, async (req, res) => {
+app.post('/api/v1/community/requests/:requestId/support', authenticateToken, async (req, res): Promise<void> => {
   try {
     const currentUserId = getRequiredAuthenticatedUserId(req, res);
     if (!currentUserId) {
@@ -8779,10 +8809,11 @@ app.post('/api/v1/community/requests/:requestId/support', authenticateToken, asy
     const coins = Number(req.body?.coins || 0);
 
     if (!Number.isFinite(coins) || coins <= 0) {
-      return res.status(400).json({
+      res.status(400).json({
         success: false,
         message: 'A positive coin amount is required',
       });
+      return;
     }
 
     const [currentUser, request] = await Promise.all([
@@ -8803,31 +8834,35 @@ app.post('/api/v1/community/requests/:requestId/support', authenticateToken, asy
     ]);
 
     if (!currentUser) {
-      return res.status(404).json({
+      res.status(404).json({
         success: false,
         message: 'User not found',
       });
+      return;
     }
 
     if (!request) {
-      return res.status(404).json({
+      res.status(404).json({
         success: false,
         message: 'Request not found',
       });
+      return;
     }
 
     if (request.status === CommunityRequestStatus.ENDED) {
-      return res.status(400).json({
+      res.status(400).json({
         success: false,
         message: 'This request is already closed',
       });
+      return;
     }
 
     if (currentUser.coinBalance < coins) {
-      return res.status(400).json({
+      res.status(400).json({
         success: false,
         message: 'Not enough coins to support this request',
       });
+      return;
     }
 
     await prisma.$transaction(async (tx) => {
@@ -8877,24 +8912,27 @@ app.post('/api/v1/community/requests/:requestId/support', authenticateToken, asy
     });
 
     if (!updatedRequest) {
-      return res.status(404).json({
+      res.status(404).json({
         success: false,
         message: 'Request not found after update',
       });
+      return;
     }
 
     const [serializedRequest] = await serializeCommunityRequests([updatedRequest], currentUserId);
 
-    return res.json({
+    res.json({
       success: true,
       data: serializedRequest,
     });
+    return;
   } catch (error) {
     console.error('Error supporting request:', error);
-    return res.status(500).json({
+    res.status(500).json({
       success: false,
       message: 'Failed to support request',
     });
+    return;
   }
 });
 
@@ -8905,7 +8943,7 @@ app.post(
     { name: 'file', maxCount: 1 },
     { name: 'thumbnail', maxCount: 1 },
   ]),
-  async (req, res) => {
+  async (req, res): Promise<void> => {
     try {
       const currentUserId = getRequiredAuthenticatedUserId(req, res);
       if (!currentUserId) {
@@ -8941,20 +8979,22 @@ app.post(
       const uploadedThumbnailFile = requestSubmissionFiles['thumbnail']?.[0] ?? null;
 
       if (!title || !description) {
-        return res.status(400).json({
+        res.status(400).json({
           success: false,
           message: 'Submission title and description are required',
         });
+        return;
       }
 
       if (
         submissionType === CommunityRequestSubmissionType.FILE_UPLOAD &&
         !uploadedSubmissionFile
       ) {
-        return res.status(400).json({
+        res.status(400).json({
           success: false,
           message: 'A file is required for file uploads',
         });
+        return;
       }
 
       if (
@@ -8963,10 +9003,11 @@ app.post(
         !searchKeyword &&
         linkedMedia === null
       ) {
-        return res.status(400).json({
+        res.status(400).json({
           success: false,
           message: 'Provide a linked media selection, URL, or the search keyword used',
         });
+        return;
       }
 
       const request = await prisma.communityRequest.findUnique({
@@ -8979,17 +9020,19 @@ app.post(
       });
 
       if (!request) {
-        return res.status(404).json({
+        res.status(404).json({
           success: false,
           message: 'Request not found',
         });
+        return;
       }
 
       if (request.status === CommunityRequestStatus.ENDED) {
-        return res.status(400).json({
+        res.status(400).json({
           success: false,
           message: 'This request is already closed',
         });
+        return;
       }
 
       const submissionId = require('crypto').randomUUID();
@@ -9053,24 +9096,27 @@ app.post(
       });
 
       if (!updatedRequest) {
-        return res.status(404).json({
+        res.status(404).json({
           success: false,
           message: 'Request not found after submission',
         });
+        return;
       }
 
       const [serializedRequest] = await serializeCommunityRequests([updatedRequest], currentUserId);
 
-      return res.status(201).json({
+      res.status(201).json({
         success: true,
         data: serializedRequest,
       });
+      return;
     } catch (error) {
       console.error('Error creating request submission:', error);
-      return res.status(500).json({
+      res.status(500).json({
         success: false,
         message: 'Failed to create request submission',
       });
+      return;
     }
   }
 );
@@ -9078,7 +9124,7 @@ app.post(
 app.post(
   '/api/v1/community/requests/:requestId/submissions/:submissionId/approve',
   authenticateToken,
-  async (req, res) => {
+  async (req, res): Promise<void> => {
     try {
       const currentUserId = getRequiredAuthenticatedUserId(req, res);
       if (!currentUserId) {
@@ -9109,27 +9155,30 @@ app.post(
       });
 
       if (!request) {
-        return res.status(404).json({
+        res.status(404).json({
           success: false,
           message: 'Request not found',
         });
+        return;
       }
 
       if (request.authorId !== currentUserId) {
-        return res.status(403).json({
+        res.status(403).json({
           success: false,
           message: 'Only the request author can approve a submission',
         });
+        return;
       }
 
       if (
         request.status === CommunityRequestStatus.ENDED ||
         request.approvedSubmissionId
       ) {
-        return res.status(400).json({
+        res.status(400).json({
           success: false,
           message: 'This request is already closed',
         });
+        return;
       }
 
       const submission = await prisma.communityRequestSubmission.findUnique({
@@ -9142,10 +9191,11 @@ app.post(
       });
 
       if (!submission || submission.requestId !== requestId) {
-        return res.status(404).json({
+        res.status(404).json({
           success: false,
           message: 'Submission not found',
         });
+        return;
       }
 
       const rewardAmount = request.baseCoins + request.bonusCoins;
@@ -9270,24 +9320,27 @@ app.post(
       });
 
       if (!updatedRequest) {
-        return res.status(404).json({
+        res.status(404).json({
           success: false,
           message: 'Request not found after approval',
         });
+        return;
       }
 
       const [serializedRequest] = await serializeCommunityRequests([updatedRequest], currentUserId);
 
-      return res.json({
+      res.json({
         success: true,
         data: serializedRequest,
       });
+      return;
     } catch (error) {
       console.error('Error approving request submission:', error);
-      return res.status(500).json({
+      res.status(500).json({
         success: false,
         message: 'Failed to approve request submission',
       });
+      return;
     }
   }
 );
