@@ -980,24 +980,9 @@ const getCommunityDisplayName = (user: any): string => {
 
 const buildCommunityForumInclude = (currentUserId?: string | null) => {
   const include: any = {
-    posts: {
-      where: {
-        isPublic: true,
-      },
-      orderBy: {
-        createdAt: 'desc',
-      },
-      take: 3,
-      include: {
-        user: {
-          select: communityUserSelect,
-        },
-      },
-    },
     _count: {
       select: {
         follows: true,
-        posts: true,
       },
     },
   };
@@ -1151,6 +1136,104 @@ const parseStringArrayInput = (value: unknown): string[] => {
   return [];
 };
 
+const normalizeCommunityForumKeywords = (keywords: string[]): string[] => {
+  return Array.from(
+    new Set(
+      keywords
+        .map((keyword) => keyword.trim().toLowerCase())
+        .filter(Boolean)
+    )
+  );
+};
+
+const buildCommunityForumPostWhere = (forum: {
+  id: string;
+  keywords?: string[] | null;
+}) => {
+  const normalizedKeywords = normalizeCommunityForumKeywords(forum.keywords || []);
+
+  if (normalizedKeywords.length === 0) {
+    return {
+      isPublic: true,
+      forumId: forum.id,
+    };
+  }
+
+  const keywordClauses: any[] = [
+    {
+      tags: {
+        hasSome: normalizedKeywords,
+      },
+    },
+  ];
+
+  for (const keyword of normalizedKeywords) {
+    keywordClauses.push(
+      {
+        content: {
+          contains: keyword,
+          mode: 'insensitive',
+        },
+      },
+      {
+        linkTitle: {
+          contains: keyword,
+          mode: 'insensitive',
+        },
+      },
+      {
+        linkDescription: {
+          contains: keyword,
+          mode: 'insensitive',
+        },
+      }
+    );
+  }
+
+  return {
+    isPublic: true,
+    OR: keywordClauses,
+  };
+};
+
+async function buildCommunityForumPostSummary(forum: {
+  id: string;
+  keywords?: string[] | null;
+}) {
+  const postWhere = buildCommunityForumPostWhere(forum);
+
+  const [postCount, previewPosts] = await Promise.all([
+    prisma.communityPost.count({
+      where: postWhere,
+    }),
+    prisma.communityPost.findMany({
+      where: postWhere,
+      orderBy: {
+        createdAt: 'desc',
+      },
+      take: 3,
+      include: {
+        user: {
+          select: communityUserSelect,
+        },
+      },
+    }),
+  ]);
+
+  const memberNames = Array.from(
+    new Set(
+      previewPosts
+        .map((post: any) => getCommunityDisplayName(post.user))
+        .filter(Boolean)
+    )
+  ).slice(0, 3);
+
+  return {
+    postCount,
+    memberNames,
+  };
+}
+
 const parseJsonObjectInput = (value: unknown): Prisma.JsonObject | null => {
   if (value && typeof value === 'object' && !Array.isArray(value)) {
     return value as Prisma.JsonObject;
@@ -1281,21 +1364,13 @@ function getRequiredRouteParam(req: any, res: any, paramName: string): string | 
   return null;
 }
 
-function serializeCommunityForumRecord(forum: any) {
-  const forumPosts = Array.isArray(forum['posts']) ? forum['posts'] : [];
+async function serializeCommunityForumRecord(forum: any) {
   const forumCounts =
     forum['_count'] && typeof forum['_count'] === 'object'
-      ? (forum['_count'] as { posts?: number; follows?: number })
+      ? (forum['_count'] as { follows?: number })
       : undefined;
   const forumFollows = Array.isArray(forum['follows']) ? forum['follows'] : [];
-
-  const memberNames = Array.from(
-    new Set(
-      forumPosts
-        .map((post: any) => getCommunityDisplayName(post.user))
-        .filter(Boolean)
-    )
-  ).slice(0, 3);
+  const summary = await buildCommunityForumPostSummary(forum);
 
   return {
     id: forum.id,
@@ -1305,10 +1380,10 @@ function serializeCommunityForumRecord(forum: any) {
     description: forum.description || '',
     accentStart: forum.accentStart,
     accentEnd: forum.accentEnd,
-    keywords: forum.keywords || [],
-    postCount: forum.postCount > 0 ? forum.postCount : forumCounts?.posts || 0,
+    keywords: normalizeCommunityForumKeywords(forum.keywords || []),
+    postCount: summary.postCount,
     followerCount: forumCounts?.follows || 0,
-    memberNames,
+    memberNames: summary.memberNames,
     isFollowing: forumFollows.length > 0,
     isHot: forum.isHot,
     sortOrder: forum.sortOrder ?? 0,
@@ -1321,6 +1396,12 @@ function serializeCommunityForumRecord(forum: any) {
         ? forum.updatedAt.toISOString()
         : null,
   };
+}
+
+async function serializeCommunityForumRecords(forums: any[]) {
+  return await Promise.all(
+    forums.map((forum: any) => serializeCommunityForumRecord(forum))
+  );
 }
 
 function normalizeCommunityForumSlug(value: string) {
@@ -1367,7 +1448,7 @@ async function getCommunityForums(currentUserId?: string | null, scope: 'all' | 
     orderBy: [{ isHot: 'desc' }, { sortOrder: 'asc' }, { title: 'asc' }],
   });
 
-  return forums.map((forum: any) => serializeCommunityForumRecord(forum));
+  return await serializeCommunityForumRecords(forums);
 }
 
 async function getCommunityCreators(currentUserId?: string | null) {
@@ -6846,7 +6927,7 @@ app.get('/api/v1/admin/forums', authenticateToken, requireAdmin, async (req, res
 
     return res.json({
       success: true,
-      data: forums.map((forum) => serializeCommunityForumRecord(forum)),
+      data: await serializeCommunityForumRecords(forums),
       pagination: {
         page,
         limit,
@@ -6876,7 +6957,9 @@ app.post('/api/v1/admin/forums', authenticateToken, requireAdmin, async (req, re
       ? req.body.slug.trim()
       : title;
     const slug = normalizeCommunityForumSlug(slugSource);
-    const keywords = parseStringArrayInput(req.body?.keywords);
+    const keywords = normalizeCommunityForumKeywords(
+      parseStringArrayInput(req.body?.keywords)
+    );
     const sortOrder = Number.isFinite(Number(req.body?.sortOrder)) ? Number(req.body?.sortOrder) : 0;
     const isHot = req.body?.isHot === true;
     const accentStart = typeof req.body?.accentStart === 'string' && req.body.accentStart.trim()
@@ -6919,21 +7002,8 @@ app.post('/api/v1/admin/forums', authenticateToken, requireAdmin, async (req, re
         createdById: currentUserId,
       },
       include: {
-        posts: {
-          take: 3,
-          include: {
-            user: {
-              select: {
-                username: true,
-                firstName: true,
-                lastName: true,
-              },
-            },
-          },
-        },
         _count: {
           select: {
-            posts: true,
             follows: true,
           },
         },
@@ -6943,7 +7013,7 @@ app.post('/api/v1/admin/forums', authenticateToken, requireAdmin, async (req, re
     return res.status(201).json({
       success: true,
       message: 'Forum created successfully',
-      data: serializeCommunityForumRecord(forum),
+      data: await serializeCommunityForumRecord(forum),
     });
   } catch (error) {
     console.error('Error creating admin forum:', error);
@@ -6993,7 +7063,9 @@ app.patch('/api/v1/admin/forums/:forumId', authenticateToken, requireAdmin, asyn
     }
 
     if (Object.prototype.hasOwnProperty.call(req.body, 'keywords')) {
-      updateData['keywords'] = parseStringArrayInput(req.body.keywords);
+      updateData['keywords'] = normalizeCommunityForumKeywords(
+        parseStringArrayInput(req.body.keywords)
+      );
     }
 
     if (Object.prototype.hasOwnProperty.call(req.body, 'sortOrder')) {
@@ -7057,21 +7129,8 @@ app.patch('/api/v1/admin/forums/:forumId', authenticateToken, requireAdmin, asyn
       where: { id: forumId },
       data: updateData,
       include: {
-        posts: {
-          take: 3,
-          include: {
-            user: {
-              select: {
-                username: true,
-                firstName: true,
-                lastName: true,
-              },
-            },
-          },
-        },
         _count: {
           select: {
-            posts: true,
             follows: true,
           },
         },
@@ -7081,7 +7140,7 @@ app.patch('/api/v1/admin/forums/:forumId', authenticateToken, requireAdmin, asyn
     return res.json({
       success: true,
       message: 'Forum updated successfully',
-      data: serializeCommunityForumRecord(forum),
+      data: await serializeCommunityForumRecord(forum),
     });
   } catch (error) {
     console.error('Error updating admin forum:', error);
@@ -8178,19 +8237,8 @@ app.get('/api/v1/community/forums/:forumId', authenticateToken, async (req, res)
       });
     }
 
-    const serializedForum = serializeCommunityForumRecord(forum);
-
-    const postWhere: any = {
-      isPublic: true,
-      OR: [{ forumId: forum.id }],
-    };
-    if ((forum.keywords || []).length > 0) {
-      postWhere.OR.push({
-        tags: {
-          hasSome: forum.keywords,
-        },
-      });
-    }
+    const serializedForum = await serializeCommunityForumRecord(forum);
+    const postWhere = buildCommunityForumPostWhere(forum);
 
     let posts = await prisma.communityPost.findMany({
       where: postWhere,
@@ -8206,25 +8254,6 @@ app.get('/api/v1/community/forums/:forumId', authenticateToken, async (req, res)
 
     if (feed.toLowerCase() === 'videos') {
       posts = posts.filter((post) => Array.isArray(post.videos) && post.videos.length > 0).slice(0, limit);
-    }
-
-    if (posts.length === 0) {
-      posts = await prisma.communityPost.findMany({
-        where: {
-          isPublic: true,
-        },
-        include: {
-          user: {
-            select: communityUserSelect,
-          },
-        },
-        orderBy: buildCommunityPostOrderBy(feed),
-        take: feed.toLowerCase() === 'videos' ? limit * 4 : limit,
-      });
-
-      if (feed.toLowerCase() === 'videos') {
-        posts = posts.filter((post) => Array.isArray(post.videos) && post.videos.length > 0).slice(0, limit);
-      }
     }
 
     return res.json({
