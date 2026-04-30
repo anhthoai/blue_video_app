@@ -614,7 +614,7 @@ export const requestSubmissionUpload = multer({
   storage: communityPostStorage,
   limits: {
     fileSize: 250 * 1024 * 1024, // 250MB limit for request submissions
-    files: 1,
+    files: 2,
   },
   fileFilter: (_req, _file, cb) => {
     cb(null, true);
@@ -809,12 +809,15 @@ export const uploadRequestSubmissionFile = async (
   file: Express.Multer.File,
   requestId: string,
   submissionId: string,
+  thumbnailFile?: Express.Multer.File | null,
   req?: any
 ): Promise<{
   fileDirectory: string;
   fileName: string;
+  originalFileName: string;
   storageId: number;
   mimeType: string;
+  thumbnailFileName: string | null;
 }> => {
   const { storageId, cfg, client } = getWriteTarget(req);
   const today = new Date();
@@ -824,6 +827,11 @@ export const uploadRequestSubmissionFile = async (
     : '';
   const fileName = `${uuidv4()}${originalExtension}`;
   const s3Key = `community-requests/${fileDirectory}/${fileName}`;
+  const thumbnailFileName = thumbnailFile
+    ? fileName.includes('.')
+      ? fileName.replace(/\.[^.]+$/, '.jpg')
+      : `${fileName}.jpg`
+    : null;
 
   try {
     const uploadCommand = new PutObjectCommand({
@@ -835,17 +843,32 @@ export const uploadRequestSubmissionFile = async (
 
     await client.send(uploadCommand);
 
+    if (thumbnailFile && thumbnailFileName) {
+      const thumbnailUploadCommand = new PutObjectCommand({
+        Bucket: cfg.bucketName,
+        Key: `community-requests/${fileDirectory}/${thumbnailFileName}`,
+        Body: require('fs').readFileSync(thumbnailFile.path),
+        ContentType: thumbnailFile.mimetype || 'image/jpeg',
+      });
+
+      await client.send(thumbnailUploadCommand);
+    }
+
     return {
       fileDirectory,
       fileName,
+      originalFileName: file.originalname,
       storageId,
       mimeType: file.mimetype || 'application/octet-stream',
+      thumbnailFileName,
     };
   } finally {
-    try {
-      require('fs').unlinkSync(file.path);
-    } catch (error) {
-      console.error('Error cleaning up request submission temp file:', error);
+    for (const tempFile of [file, thumbnailFile].filter(Boolean)) {
+      try {
+        require('fs').unlinkSync((tempFile as Express.Multer.File).path);
+      } catch (error) {
+        console.error('Error cleaning up request submission temp file:', error);
+      }
     }
   }
 };

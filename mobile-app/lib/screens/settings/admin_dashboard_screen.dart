@@ -97,6 +97,15 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
 
   bool _isBusy(String key) => _busyKeys.contains(key);
 
+  int _appSettingInt(Map<String, dynamic> appSettings, String key) {
+    final value = appSettings[key];
+    if (value is num) {
+      return value.toInt();
+    }
+
+    return int.tryParse('$value') ?? 0;
+  }
+
   void _setBusy(String key, bool value) {
     if (!mounted) {
       return;
@@ -402,13 +411,19 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
     });
   }
 
-  Future<void> _updateContentProtectionSetting(bool enabled) async {
+  Future<void> _updateAppSettings({
+    bool? contentProtectionEnabled,
+    int? freeCommunityPostBonusCoins,
+    int? freeVideoBonusCoins,
+  }) async {
     const busyKey = 'app-settings';
 
     await _runBusyAction(busyKey, () async {
       try {
         final response = await _apiService.updateAdminAppSettings(
-          contentProtectionEnabled: enabled,
+          contentProtectionEnabled: contentProtectionEnabled,
+          freeCommunityPostBonusCoins: freeCommunityPostBonusCoins,
+          freeVideoBonusCoins: freeVideoBonusCoins,
         );
 
         if (!mounted) {
@@ -416,9 +431,20 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
         }
 
         if (response['success'] == true) {
+          final existingSettings = Map<String, dynamic>.from(
+            _dashboard['appSettings'] as Map? ?? const {},
+          );
           final updatedSettings = Map<String, dynamic>.from(
             response['data'] as Map? ??
-                <String, dynamic>{'contentProtectionEnabled': enabled},
+                <String, dynamic>{
+                  ...existingSettings,
+                  if (contentProtectionEnabled != null)
+                    'contentProtectionEnabled': contentProtectionEnabled,
+                  if (freeCommunityPostBonusCoins != null)
+                    'freeCommunityPostBonusCoins': freeCommunityPostBonusCoins,
+                  if (freeVideoBonusCoins != null)
+                    'freeVideoBonusCoins': freeVideoBonusCoins,
+                },
           );
 
           setState(() {
@@ -442,6 +468,84 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
         _showMessage('Failed to update app settings: $error');
       }
     });
+  }
+
+  Future<void> _updateContentProtectionSetting(bool enabled) async {
+    await _updateAppSettings(contentProtectionEnabled: enabled);
+  }
+
+  Future<void> _editBonusCoinSettings(Map<String, dynamic> appSettings) async {
+    final postBonusController = TextEditingController(
+      text: '${_appSettingInt(appSettings, 'freeCommunityPostBonusCoins')}',
+    );
+    final videoBonusController = TextEditingController(
+      text: '${_appSettingInt(appSettings, 'freeVideoBonusCoins')}',
+    );
+
+    final values = await showDialog<Map<String, int>>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Free Content Bonus Coins'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: postBonusController,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                  labelText: 'Free post media bonus',
+                  helperText: 'Coins awarded for free posts with images/videos',
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: videoBonusController,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                  labelText: 'Free video upload bonus',
+                  helperText: 'Coins awarded for free public video uploads',
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () {
+                final postBonus = int.tryParse(postBonusController.text.trim());
+                final videoBonus = int.tryParse(videoBonusController.text.trim());
+                if (postBonus == null || postBonus < 0 || videoBonus == null || videoBonus < 0) {
+                  _showMessage('Enter non-negative whole numbers for both bonus values');
+                  return;
+                }
+
+                Navigator.of(context).pop(<String, int>{
+                  'freeCommunityPostBonusCoins': postBonus,
+                  'freeVideoBonusCoins': videoBonus,
+                });
+              },
+              child: const Text('Save'),
+            ),
+          ],
+        );
+      },
+    );
+
+    postBonusController.dispose();
+    videoBonusController.dispose();
+
+    if (values == null) {
+      return;
+    }
+
+    await _updateAppSettings(
+      freeCommunityPostBonusCoins: values['freeCommunityPostBonusCoins'],
+      freeVideoBonusCoins: values['freeVideoBonusCoins'],
+    );
   }
 
   Future<void> _createForum() async {
@@ -1798,6 +1902,10 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
     final appSettings = Map<String, dynamic>.from(
       _dashboard['appSettings'] as Map? ?? const {},
     );
+    final freeCommunityPostBonusCoins =
+        _appSettingInt(appSettings, 'freeCommunityPostBonusCoins');
+    final freeVideoBonusCoins =
+        _appSettingInt(appSettings, 'freeVideoBonusCoins');
     final recentFeedback = List<Map<String, dynamic>>.from(
       _dashboard['recentFeedback'] as List? ?? const [],
     );
@@ -1895,6 +2003,103 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
               onChanged: _isBusy('app-settings')
                   ? null
                   : _updateContentProtectionSetting,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.monetization_on_outlined),
+                      const SizedBox(width: 12),
+                      const Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Free Content Bonus Coins',
+                              style: TextStyle(fontWeight: FontWeight.w700),
+                            ),
+                            SizedBox(height: 4),
+                            Text(
+                              'Configure the coin reward for free media posts and free public video uploads.',
+                              style: TextStyle(color: Color(0xFF64748B)),
+                            ),
+                          ],
+                        ),
+                      ),
+                      FilledButton.tonal(
+                        onPressed: _isBusy('app-settings')
+                            ? null
+                            : () => _editBonusCoinSettings(appSettings),
+                        child: const Text('Edit'),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Container(
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF8FAFF),
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Free media post',
+                                style: TextStyle(color: Color(0xFF64748B)),
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                '$freeCommunityPostBonusCoins coins',
+                                style: const TextStyle(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Container(
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF8FAFF),
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Free video upload',
+                                style: TextStyle(color: Color(0xFF64748B)),
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                '$freeVideoBonusCoins coins',
+                                style: const TextStyle(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ),
           const SizedBox(height: 24),

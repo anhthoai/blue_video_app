@@ -201,6 +201,7 @@ class CommunityHubNotifier extends StateNotifier<CommunityHubState> {
     CommunityLinkedMedia? linkedMedia,
     String? searchKeyword,
     String? filePath,
+    File? thumbnailFile,
   }) async {
     final request = await _service.submitRequest(
       requestId: requestId,
@@ -211,6 +212,7 @@ class CommunityHubNotifier extends StateNotifier<CommunityHubState> {
       linkedMedia: linkedMedia,
       searchKeyword: searchKeyword,
       file: filePath != null && filePath.isNotEmpty ? File(filePath) : null,
+      thumbnailFile: thumbnailFile,
     );
     _upsertRequest(request);
     return request.submissions.isNotEmpty ? request.submissions.first.id : '';

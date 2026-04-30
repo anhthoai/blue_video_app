@@ -1,9 +1,13 @@
+import 'dart:io';
+
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:mime/mime.dart';
 
 import '../../core/providers/community_hub_provider.dart';
+import '../../core/utils/video_utils.dart';
 import '../../models/community_hub_models.dart';
 import '../../widgets/community/request_linked_media_picker.dart';
 
@@ -32,8 +36,10 @@ class _RequestSubmissionScreenState
       CommunityRequestSubmissionType.linkedVideo;
   CommunityLinkedMedia? _selectedLinkedMedia;
   PlatformFile? _pickedFile;
+  File? _generatedThumbnailFile;
   bool _isSubmitting = false;
   bool _isBootstrapping = true;
+  bool _isPreparingPreview = false;
 
   @override
   void initState() {
@@ -45,6 +51,7 @@ class _RequestSubmissionScreenState
 
   @override
   void dispose() {
+    _deleteGeneratedThumbnail();
     _titleController.dispose();
     _descriptionController.dispose();
     _searchKeywordController.dispose();
@@ -214,6 +221,24 @@ class _RequestSubmissionScreenState
                                   ? 'Pick a local file to attach to this request.'
                                   : '${_pickedFile!.name} (${_pickedFile!.size} bytes)',
                             ),
+                            if (_isPreparingPreview) ...[
+                              const SizedBox(height: 8),
+                              const Text(
+                                'Generating video preview...',
+                                style: TextStyle(color: Color(0xFF64748B)),
+                              ),
+                            ] else if (_generatedThumbnailFile != null) ...[
+                              const SizedBox(height: 12),
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(14),
+                                child: Image.file(
+                                  _generatedThumbnailFile!,
+                                  height: 120,
+                                  width: double.infinity,
+                                  fit: BoxFit.cover,
+                                ),
+                              ),
+                            ],
                             const SizedBox(height: 12),
                             OutlinedButton.icon(
                               onPressed: _pickFile,
@@ -402,8 +427,91 @@ class _RequestSubmissionScreenState
     );
 
     if (result != null && result.files.isNotEmpty) {
+      final pickedFile = result.files.first;
       setState(() {
-        _pickedFile = result.files.first;
+        _pickedFile = pickedFile;
+      });
+
+      await _prepareThumbnailForPickedFile(pickedFile);
+    }
+  }
+
+  Future<void> _deleteGeneratedThumbnail() async {
+    final thumbnailFile = _generatedThumbnailFile;
+    _generatedThumbnailFile = null;
+
+    if (thumbnailFile == null) {
+      return;
+    }
+
+    try {
+      if (await thumbnailFile.exists()) {
+        await thumbnailFile.delete();
+      }
+    } catch (_) {}
+  }
+
+  bool _isVideoFile(PlatformFile file) {
+    final candidatePath = file.path ?? file.name;
+    final mimeType = lookupMimeType(candidatePath)?.toLowerCase();
+    if (mimeType != null && mimeType.startsWith('video/')) {
+      return true;
+    }
+
+    final normalizedName = file.name.toLowerCase();
+    return normalizedName.endsWith('.mp4') ||
+        normalizedName.endsWith('.m4v') ||
+        normalizedName.endsWith('.mov') ||
+        normalizedName.endsWith('.webm') ||
+        normalizedName.endsWith('.avi') ||
+        normalizedName.endsWith('.mkv');
+  }
+
+  Future<void> _prepareThumbnailForPickedFile(PlatformFile file) async {
+    await _deleteGeneratedThumbnail();
+
+    final filePath = file.path;
+    if (filePath == null || filePath.isEmpty || !_isVideoFile(file)) {
+      if (mounted) {
+        setState(() {
+          _isPreparingPreview = false;
+        });
+      }
+      return;
+    }
+
+    if (mounted) {
+      setState(() {
+        _isPreparingPreview = true;
+      });
+    }
+
+    try {
+      final videoFile = File(filePath);
+      final duration = await VideoUtils.getVideoDuration(videoFile);
+      final previewTimestamp = duration != null && duration > 2
+          ? duration ~/ 2
+          : 0;
+      final thumbnailPath = await VideoUtils.generateThumbnail(
+        videoFile,
+        previewTimestamp,
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _generatedThumbnailFile = File(thumbnailPath);
+        _isPreparingPreview = false;
+      });
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _isPreparingPreview = false;
       });
     }
   }
@@ -440,6 +548,14 @@ class _RequestSubmissionScreenState
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) {
+      return;
+    }
+
+    if (_submissionType == CommunityRequestSubmissionType.fileUpload &&
+        _isPreparingPreview) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please wait for the file preview to finish generating.')),
+      );
       return;
     }
 
@@ -493,6 +609,10 @@ class _RequestSubmissionScreenState
             filePath: _submissionType == CommunityRequestSubmissionType.fileUpload
                 ? _pickedFile?.path
                 : null,
+            thumbnailFile: _submissionType ==
+                CommunityRequestSubmissionType.fileUpload
+              ? _generatedThumbnailFile
+              : null,
           );
 
       if (!mounted) {

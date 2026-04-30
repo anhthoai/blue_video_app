@@ -1,11 +1,21 @@
 import { Prisma, PrismaClient } from '@prisma/client';
 
 const CONTENT_PROTECTION_KEY = 'contentProtectionEnabled';
+const FREE_COMMUNITY_POST_BONUS_COINS_KEY = 'freeCommunityPostBonusCoins';
+const FREE_VIDEO_BONUS_COINS_KEY = 'freeVideoBonusCoins';
 const TRUE_VALUES = new Set(['1', 'true', 'yes', 'on']);
 
 export type PublicAppSettings = {
   contentProtectionEnabled: boolean;
+  freeCommunityPostBonusCoins: number;
+  freeVideoBonusCoins: number;
   updatedAt: string | null;
+};
+
+export type PublicAppSettingsUpdate = {
+  contentProtectionEnabled?: boolean;
+  freeCommunityPostBonusCoins?: number;
+  freeVideoBonusCoins?: number;
 };
 
 export class AppSettingsStorageUnavailableError extends Error {
@@ -26,6 +36,22 @@ function parseBooleanSetting(
   }
 
   return TRUE_VALUES.has(value.trim().toLowerCase());
+}
+
+function parseIntegerSetting(
+  value: string | null | undefined,
+  fallback: number,
+): number {
+  if (value == null) {
+    return fallback;
+  }
+
+  const parsedValue = Number.parseInt(value.trim(), 10);
+  if (!Number.isFinite(parsedValue) || parsedValue < 0) {
+    return fallback;
+  }
+
+  return parsedValue;
 }
 
 function isAppSettingsStorageUnavailable(error: unknown): boolean {
@@ -51,25 +77,59 @@ export class AppSettingsService {
     return parseBooleanSetting(process.env['CONTENT_PROTECTION_ENABLED'], false);
   }
 
+  private get defaultFreeCommunityPostBonusCoins(): number {
+    return parseIntegerSetting(process.env['FREE_COMMUNITY_POST_BONUS_COINS'], 0);
+  }
+
+  private get defaultFreeVideoBonusCoins(): number {
+    return parseIntegerSetting(process.env['FREE_VIDEO_BONUS_COINS'], 0);
+  }
+
   private get defaultPublicSettings(): PublicAppSettings {
     return {
       contentProtectionEnabled: this.defaultContentProtectionEnabled,
+      freeCommunityPostBonusCoins: this.defaultFreeCommunityPostBonusCoins,
+      freeVideoBonusCoins: this.defaultFreeVideoBonusCoins,
       updatedAt: null,
     };
   }
 
   async getPublicSettings(): Promise<PublicAppSettings> {
     try {
-      const contentProtectionSetting = await this.prisma.appSetting.findUnique({
-        where: { key: CONTENT_PROTECTION_KEY },
+      const settings = await this.prisma.appSetting.findMany({
+        where: {
+          key: {
+            in: [
+              CONTENT_PROTECTION_KEY,
+              FREE_COMMUNITY_POST_BONUS_COINS_KEY,
+              FREE_VIDEO_BONUS_COINS_KEY,
+            ],
+          },
+        },
       });
+      const settingsByKey = new Map(settings.map((setting) => [setting.key, setting]));
+      const updatedAt = settings.reduce<Date | null>((latest, setting) => {
+        if (latest == null || setting.updatedAt > latest) {
+          return setting.updatedAt;
+        }
+
+        return latest;
+      }, null);
 
       return {
         contentProtectionEnabled: parseBooleanSetting(
-          contentProtectionSetting?.value,
+          settingsByKey.get(CONTENT_PROTECTION_KEY)?.value,
           this.defaultContentProtectionEnabled,
         ),
-        updatedAt: contentProtectionSetting?.updatedAt.toISOString() ?? null,
+        freeCommunityPostBonusCoins: parseIntegerSetting(
+          settingsByKey.get(FREE_COMMUNITY_POST_BONUS_COINS_KEY)?.value,
+          this.defaultFreeCommunityPostBonusCoins,
+        ),
+        freeVideoBonusCoins: parseIntegerSetting(
+          settingsByKey.get(FREE_VIDEO_BONUS_COINS_KEY)?.value,
+          this.defaultFreeVideoBonusCoins,
+        ),
+        updatedAt: updatedAt?.toISOString() ?? null,
       };
     } catch (error) {
       if (!isAppSettingsStorageUnavailable(error)) {
@@ -87,31 +147,74 @@ export class AppSettingsService {
   async updateContentProtectionEnabled(
     enabled: boolean,
   ): Promise<PublicAppSettings> {
-    try {
-      const contentProtectionSetting = await this.prisma.appSetting.upsert({
-        where: { key: CONTENT_PROTECTION_KEY },
-        update: {
-          value: String(enabled),
-        },
-        create: {
-          key: CONTENT_PROTECTION_KEY,
-          value: String(enabled),
-        },
-      });
+    return this.updatePublicSettings({
+      contentProtectionEnabled: enabled,
+    });
+  }
 
-      return {
-        contentProtectionEnabled: parseBooleanSetting(
-          contentProtectionSetting.value,
-          this.defaultContentProtectionEnabled,
-        ),
-        updatedAt: contentProtectionSetting.updatedAt.toISOString(),
-      };
+  async updatePublicSettings(
+    updates: PublicAppSettingsUpdate,
+  ): Promise<PublicAppSettings> {
+    const operations: Prisma.PrismaPromise<unknown>[] = [];
+
+    if (updates.contentProtectionEnabled !== undefined) {
+      operations.push(
+        this.prisma.appSetting.upsert({
+          where: { key: CONTENT_PROTECTION_KEY },
+          update: {
+            value: String(updates.contentProtectionEnabled),
+          },
+          create: {
+            key: CONTENT_PROTECTION_KEY,
+            value: String(updates.contentProtectionEnabled),
+          },
+        }),
+      );
+    }
+
+    if (updates.freeCommunityPostBonusCoins !== undefined) {
+      operations.push(
+        this.prisma.appSetting.upsert({
+          where: { key: FREE_COMMUNITY_POST_BONUS_COINS_KEY },
+          update: {
+            value: String(updates.freeCommunityPostBonusCoins),
+          },
+          create: {
+            key: FREE_COMMUNITY_POST_BONUS_COINS_KEY,
+            value: String(updates.freeCommunityPostBonusCoins),
+          },
+        }),
+      );
+    }
+
+    if (updates.freeVideoBonusCoins !== undefined) {
+      operations.push(
+        this.prisma.appSetting.upsert({
+          where: { key: FREE_VIDEO_BONUS_COINS_KEY },
+          update: {
+            value: String(updates.freeVideoBonusCoins),
+          },
+          create: {
+            key: FREE_VIDEO_BONUS_COINS_KEY,
+            value: String(updates.freeVideoBonusCoins),
+          },
+        }),
+      );
+    }
+
+    if (operations.length === 0) {
+      return this.getPublicSettings();
+    }
+
+    try {
+      await this.prisma.$transaction(operations);
+      return this.getPublicSettings();
     } catch (error) {
       if (!isAppSettingsStorageUnavailable(error)) {
         throw error;
       }
 
       throw new AppSettingsStorageUnavailableError();
-    };
+    }
   }
 }

@@ -145,6 +145,10 @@ String communityLinkedMediaSourceLabel(CommunityLinkedMedia linkedMedia) {
     return 'App library';
   }
 
+  if (linkedMedia.sourceType.trim().toLowerCase() == 'request-upload') {
+    return 'Uploaded file';
+  }
+
   final externalUrl = linkedMedia.externalUrl?.trim();
   if (externalUrl != null && externalUrl.isNotEmpty) {
     final host = Uri.tryParse(externalUrl)?.host;

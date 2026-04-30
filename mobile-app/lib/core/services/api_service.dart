@@ -543,6 +543,7 @@ class ApiService {
         CommunityLinkedMedia? linkedMedia,
         String? searchKeyword,
         File? file,
+        File? thumbnailFile,
       }) async {
         final request = http.MultipartRequest(
           'POST',
@@ -572,6 +573,18 @@ class ApiService {
               'file',
               file.path,
               contentType: MediaType.parse(mimeType),
+            ),
+          );
+        }
+
+        if (thumbnailFile != null) {
+          final thumbnailMimeType =
+              lookupMimeType(thumbnailFile.path) ?? 'image/jpeg';
+          request.files.add(
+            await http.MultipartFile.fromPath(
+              'thumbnail',
+              thumbnailFile.path,
+              contentType: MediaType.parse(thumbnailMimeType),
             ),
           );
         }
@@ -959,14 +972,25 @@ class ApiService {
   }
 
   Future<Map<String, dynamic>> updateAdminAppSettings({
-    required bool contentProtectionEnabled,
+    bool? contentProtectionEnabled,
+    int? freeCommunityPostBonusCoins,
+    int? freeVideoBonusCoins,
   }) async {
+    final body = <String, dynamic>{};
+    if (contentProtectionEnabled != null) {
+      body['contentProtectionEnabled'] = contentProtectionEnabled;
+    }
+    if (freeCommunityPostBonusCoins != null) {
+      body['freeCommunityPostBonusCoins'] = freeCommunityPostBonusCoins;
+    }
+    if (freeVideoBonusCoins != null) {
+      body['freeVideoBonusCoins'] = freeVideoBonusCoins;
+    }
+
     final response = await http.patch(
       Uri.parse('$baseUrl/admin/app-settings'),
       headers: await _getHeaders(),
-      body: json.encode({
-        'contentProtectionEnabled': contentProtectionEnabled,
-      }),
+      body: json.encode(body),
     );
 
     return await _handleResponse(response);

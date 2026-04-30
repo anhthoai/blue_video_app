@@ -122,6 +122,7 @@ class CommunityHubService {
     CommunityLinkedMedia? linkedMedia,
     String? searchKeyword,
     File? file,
+    File? thumbnailFile,
   }) async {
     final response = await _apiService.submitCommunityRequest(
       requestId: requestId,
@@ -134,6 +135,7 @@ class CommunityHubService {
       linkedMedia: linkedMedia,
       searchKeyword: searchKeyword,
       file: file,
+      thumbnailFile: thumbnailFile,
     );
     return CommunityRequest.fromJson(_requireDataMap(response));
   }

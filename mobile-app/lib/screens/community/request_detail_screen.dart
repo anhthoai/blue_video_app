@@ -548,14 +548,24 @@ class _RequestDetailScreenState extends ConsumerState<RequestDetailScreen> {
     required bool isAuthor,
   }) {
     final showApprove = isAuthor && request.isOpen && !submission.isApproved;
+    final originalFileName = _submissionOriginalFileName(submission);
+    final sourceLabel = submission.linkedMedia != null
+        ? communityLinkedMediaSourceLabel(submission.linkedMedia!)
+        : null;
     final metadataChips = <String>[
-      if (submission.fileName != null && submission.fileName!.trim().isNotEmpty)
-        submission.fileName!.trim(),
+      if (submission.type == CommunityRequestSubmissionType.fileUpload)
+        'File upload',
+      if (originalFileName != null && originalFileName.isNotEmpty)
+        originalFileName,
       if (submission.searchKeyword != null &&
           submission.searchKeyword!.trim().isNotEmpty)
         'Search: ${submission.searchKeyword!.trim()}',
-      if (submission.linkedMedia != null)
-        communityLinkedMediaSourceLabel(submission.linkedMedia!),
+      if (sourceLabel != null &&
+          !(sourceLabel == 'Uploaded file' &&
+              originalFileName != null &&
+              originalFileName.isNotEmpty) &&
+          sourceLabel != originalFileName)
+        sourceLabel,
       if (_submissionPreviewType(submission) == _SubmissionPreviewType.external)
         'External link',
     ];
@@ -793,6 +803,7 @@ class _RequestDetailScreenState extends ConsumerState<RequestDetailScreen> {
     final mediaUrl = _submissionPrimaryUrl(submission);
     final previewImageUrl = _submissionPreviewImageUrl(submission);
     final linkedMedia = submission.linkedMedia;
+    final originalFileName = _submissionOriginalFileName(submission);
 
     switch (previewType) {
       case _SubmissionPreviewType.image:
@@ -884,19 +895,10 @@ class _RequestDetailScreenState extends ConsumerState<RequestDetailScreen> {
                       ),
                     ),
                   ),
-                  Center(
-                    child: Container(
-                      width: 72,
-                      height: 72,
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.16),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.play_arrow_rounded,
-                        color: Colors.white,
-                        size: 42,
-                      ),
+                  Positioned.fill(
+                    child: Align(
+                      alignment: Alignment.center,
+                      child: _buildSubmissionPlayButton(),
                     ),
                   ),
                   Positioned(
@@ -950,18 +952,11 @@ class _RequestDetailScreenState extends ConsumerState<RequestDetailScreen> {
             ),
             child: Stack(
               children: [
-                Center(
-                  child: Container(
-                    width: 72,
-                    height: 72,
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.14),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(
-                      Icons.play_arrow_rounded,
-                      color: Colors.white,
-                      size: 42,
+                Positioned.fill(
+                  child: Align(
+                    alignment: Alignment.center,
+                    child: _buildSubmissionPlayButton(
+                      backgroundAlpha: 0.18,
                     ),
                   ),
                 ),
@@ -1031,9 +1026,7 @@ class _RequestDetailScreenState extends ConsumerState<RequestDetailScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        submission.fileName?.trim().isNotEmpty == true
-                            ? submission.fileName!.trim()
-                            : linkedMedia?.displayTitle ?? submission.title,
+                        _submissionDisplayTitle(submission),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
@@ -1043,9 +1036,10 @@ class _RequestDetailScreenState extends ConsumerState<RequestDetailScreen> {
                       ),
                       const SizedBox(height: 6),
                       Text(
-                        linkedMedia != null
-                            ? communityLinkedMediaSourceLabel(linkedMedia)
-                            : 'Open file',
+                        originalFileName ??
+                            (linkedMedia != null
+                                ? communityLinkedMediaSourceLabel(linkedMedia)
+                                : 'Open file'),
                         style: const TextStyle(color: Color(0xFF64748B)),
                       ),
                     ],
@@ -1240,6 +1234,69 @@ class _RequestDetailScreenState extends ConsumerState<RequestDetailScreen> {
     }
 
     return _SubmissionPreviewType.none;
+  }
+
+  Widget _buildSubmissionPlayButton({double backgroundAlpha = 0.16}) {
+    return Container(
+      width: 72,
+      height: 72,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: backgroundAlpha),
+        shape: BoxShape.circle,
+      ),
+      child: const Icon(
+        Icons.play_arrow_rounded,
+        color: Colors.white,
+        size: 42,
+      ),
+    );
+  }
+
+  String? _submissionOriginalFileName(CommunityRequestSubmission submission) {
+    final originalFileName = submission.linkedMedia?.subtitle?.trim();
+    if (originalFileName != null && originalFileName.isNotEmpty) {
+      return originalFileName;
+    }
+
+    final fileName = submission.fileName?.trim();
+    if (fileName != null && fileName.isNotEmpty && !_looksLikeGeneratedFileName(fileName)) {
+      return fileName;
+    }
+
+    return null;
+  }
+
+  bool _looksLikeGeneratedFileName(String fileName) {
+    final parsedPath = Uri.tryParse(fileName)?.path ?? fileName;
+    final baseName = parsedPath.split('/').last.split('\\').last;
+    final dotIndex = baseName.lastIndexOf('.');
+    final nameWithoutExtension =
+        dotIndex > 0 ? baseName.substring(0, dotIndex) : baseName;
+
+    return RegExp(
+      r'^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$',
+      caseSensitive: false,
+    ).hasMatch(nameWithoutExtension);
+  }
+
+  String _submissionDisplayTitle(CommunityRequestSubmission submission) {
+    final title = submission.title.trim();
+    if (title.isNotEmpty) {
+      return title;
+    }
+
+    final linkedMediaTitle = submission.linkedMedia?.displayTitle.trim();
+    if (linkedMediaTitle != null && linkedMediaTitle.isNotEmpty) {
+      return linkedMediaTitle;
+    }
+
+    final fileName = submission.fileName?.trim();
+    if (fileName != null && fileName.isNotEmpty) {
+      return fileName;
+    }
+
+    return 'Uploaded file';
   }
 
   String _submissionFileExtension(

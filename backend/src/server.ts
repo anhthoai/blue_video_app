@@ -1364,6 +1364,44 @@ function getRequiredRouteParam(req: any, res: any, paramName: string): string | 
   return null;
 }
 
+async function awardCoinBonus(
+  tx: Prisma.TransactionClient,
+  input: {
+    userId: string;
+    amount: number;
+    description: string;
+    relatedPostId?: string | null;
+    relatedUserId?: string | null;
+    metadata?: Prisma.JsonObject | null;
+  },
+) {
+  if (!Number.isFinite(input.amount) || input.amount <= 0) {
+    return;
+  }
+
+  await tx.user.update({
+    where: { id: input.userId },
+    data: {
+      coinBalance: {
+        increment: input.amount,
+      },
+    },
+  });
+
+  await tx.coinTransaction.create({
+    data: {
+      userId: input.userId,
+      relatedPostId: input.relatedPostId ?? null,
+      relatedUserId: input.relatedUserId ?? null,
+      type: 'EARNED',
+      amount: input.amount,
+      status: 'COMPLETED',
+      description: input.description,
+      ...(input.metadata != null ? { metadata: input.metadata } : {}),
+    },
+  });
+}
+
 async function serializeCommunityForumRecord(forum: any) {
   const forumCounts =
     forum['_count'] && typeof forum['_count'] === 'object'
@@ -1577,6 +1615,106 @@ async function serializeCommunityRequestSubmission(
     isFollowingContributor: followedContributorIds.has(submission.contributorId),
     createdAt: submission.createdAt.toISOString(),
   };
+}
+
+const requestSubmissionVideoExtensions = new Set([
+  'mp4',
+  'm4v',
+  'mov',
+  'webm',
+  'avi',
+  'mkv',
+]);
+
+const requestSubmissionImageExtensions = new Set([
+  'jpg',
+  'jpeg',
+  'png',
+  'webp',
+  'gif',
+  'bmp',
+]);
+
+function getRequestSubmissionFileExtension(fileName: string | null | undefined): string {
+  if (!fileName) {
+    return '';
+  }
+
+  const trimmedFileName = fileName.trim();
+  const dotIndex = trimmedFileName.lastIndexOf('.');
+  if (dotIndex === -1 || dotIndex === trimmedFileName.length - 1) {
+    return '';
+  }
+
+  return trimmedFileName.substring(dotIndex + 1).toLowerCase();
+}
+
+function isRequestSubmissionVideoUpload(
+  mimeType: string | null | undefined,
+  fileName: string | null | undefined,
+): boolean {
+  const normalizedMimeType = mimeType?.trim().toLowerCase() ?? '';
+  if (normalizedMimeType.startsWith('video/')) {
+    return true;
+  }
+
+  return requestSubmissionVideoExtensions.has(
+    getRequestSubmissionFileExtension(fileName),
+  );
+}
+
+function getRequestSubmissionPreviewKind(upload: {
+  mimeType: string;
+  fileName: string;
+}): 'image' | 'video' | 'file' {
+  const normalizedMimeType = upload.mimeType.trim().toLowerCase();
+  const extension = getRequestSubmissionFileExtension(upload.fileName);
+
+  if (
+    normalizedMimeType.startsWith('image/') ||
+    requestSubmissionImageExtensions.has(extension)
+  ) {
+    return 'image';
+  }
+
+  if (isRequestSubmissionVideoUpload(upload.mimeType, upload.fileName)) {
+    return 'video';
+  }
+
+  return 'file';
+}
+
+async function buildRequestSubmissionUploadLinkedMedia(
+  upload: {
+    fileDirectory: string;
+    fileName: string;
+    originalFileName: string;
+    storageId: number;
+    mimeType: string;
+    thumbnailFileName: string | null;
+  },
+  title: string,
+): Promise<Prisma.JsonObject | null> {
+  const previewKind = getRequestSubmissionPreviewKind(upload);
+
+  const thumbnailUrl = upload.thumbnailFileName
+    ? await buildFileUrl(
+        upload.fileDirectory,
+        upload.thumbnailFileName,
+        'community-requests',
+        upload.storageId,
+      )
+    : null;
+
+  return {
+    sourceType: 'request-upload',
+    previewKind,
+    title,
+    subtitle: upload.originalFileName,
+    mimeType: upload.mimeType,
+    extension: getRequestSubmissionFileExtension(upload.fileName) || null,
+    thumbnailUrl: previewKind === 'video' ? thumbnailUrl : null,
+  } as Prisma.JsonObject;
 }
 
 async function serializeCommunityRequest(request: any, followedContributorIds: Set<string>) {
@@ -2938,6 +3076,8 @@ app.post('/api/v1/videos/upload', authenticateToken, videoUpload.any(), async (r
     
     // Parse subtitle languages
     const subtitleLanguages = subtitles ? subtitles.split(',').map((lang: string) => lang.trim()) : [];
+    const parsedCost = cost ? parseInt(cost) : 0;
+    const normalizedStatus = (status as any) || 'PUBLIC';
 
     console.log('📹 Creating video record:', {
       userId,
@@ -2950,8 +3090,8 @@ app.post('/api/v1/videos/upload', authenticateToken, videoUpload.any(), async (r
       duration,
       fileSize: videoFile.size,
       tags: tagsArray,
-      cost,
-      status: status || 'PUBLIC',
+      cost: parsedCost,
+      status: normalizedStatus,
     });
 
     // Create video record
@@ -2970,8 +3110,8 @@ app.post('/api/v1/videos/upload', authenticateToken, videoUpload.any(), async (r
         duration: duration ? parseInt(duration) : null,
         fileSize: BigInt(videoFile.size),
         tags: tagsArray,
-        cost: cost ? parseInt(cost) : 0,
-        status: (status as any) || 'PUBLIC',
+        cost: parsedCost,
+        status: normalizedStatus,
         quality: [],
         subtitles: subtitleLanguages,
       },
@@ -2999,6 +3139,22 @@ app.post('/api/v1/videos/upload', authenticateToken, videoUpload.any(), async (r
       status: video.status,
       isPublic: video.isPublic,
     });
+
+    const appSettings = await appSettingsService.getPublicSettings();
+    const freeVideoBonusCoins = appSettings.freeVideoBonusCoins;
+    if (freeVideoBonusCoins > 0 && parsedCost === 0 && normalizedStatus === 'PUBLIC') {
+      await prisma.$transaction(async (tx) => {
+        await awardCoinBonus(tx, {
+          userId,
+          amount: freeVideoBonusCoins,
+          description: `Free video upload bonus: ${video.title}`,
+          metadata: {
+            bonusType: 'free-video-upload',
+            videoId: video.id,
+          },
+        });
+      });
+    }
 
     // Process video asynchronously (extract metadata and generate thumbnails)
     // Don't await - let it run in background and client can poll for status
@@ -6205,17 +6361,62 @@ app.get('/api/v1/admin/dashboard', authenticateToken, requireAdmin, async (_req,
 
 app.patch('/api/v1/admin/app-settings', authenticateToken, requireAdmin, async (req, res) => {
   try {
-    const { contentProtectionEnabled } = req.body ?? {};
+    const {
+      contentProtectionEnabled,
+      freeCommunityPostBonusCoins,
+      freeVideoBonusCoins,
+    } = req.body ?? {};
+    const settingsUpdate: {
+      contentProtectionEnabled?: boolean;
+      freeCommunityPostBonusCoins?: number;
+      freeVideoBonusCoins?: number;
+    } = {};
 
-    if (typeof contentProtectionEnabled !== 'boolean') {
+    if (contentProtectionEnabled !== undefined) {
+      if (typeof contentProtectionEnabled !== 'boolean') {
+        return res.status(400).json({
+          success: false,
+          message: 'contentProtectionEnabled must be a boolean',
+        });
+      }
+
+      settingsUpdate.contentProtectionEnabled = contentProtectionEnabled;
+    }
+
+    if (freeCommunityPostBonusCoins !== undefined) {
+      if (
+        !Number.isInteger(freeCommunityPostBonusCoins) ||
+        freeCommunityPostBonusCoins < 0
+      ) {
+        return res.status(400).json({
+          success: false,
+          message: 'freeCommunityPostBonusCoins must be a non-negative integer',
+        });
+      }
+
+      settingsUpdate.freeCommunityPostBonusCoins = freeCommunityPostBonusCoins;
+    }
+
+    if (freeVideoBonusCoins !== undefined) {
+      if (!Number.isInteger(freeVideoBonusCoins) || freeVideoBonusCoins < 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'freeVideoBonusCoins must be a non-negative integer',
+        });
+      }
+
+      settingsUpdate.freeVideoBonusCoins = freeVideoBonusCoins;
+    }
+
+    if (Object.keys(settingsUpdate).length === 0) {
       return res.status(400).json({
         success: false,
-        message: 'contentProtectionEnabled must be a boolean',
+        message: 'Provide at least one app setting to update',
       });
     }
 
-    const appSettings = await appSettingsService.updateContentProtectionEnabled(
-      contentProtectionEnabled,
+    const appSettings = await appSettingsService.updatePublicSettings(
+      settingsUpdate,
     );
 
     return res.json({
@@ -8406,10 +8607,11 @@ app.post(
             userId: currentUser.id,
             type: 'USED',
             amount: -coins,
-            status: 'COMPLETED',
-            description: `Created request bounty: ${title}`,
+            status: 'PENDING',
+            description: `Request bounty reserved: ${title}`,
             metadata: {
               requestId: request.id,
+              reservationType: 'request-author-bounty',
             },
           },
         });
@@ -8659,10 +8861,11 @@ app.post('/api/v1/community/requests/:requestId/support', authenticateToken, asy
           userId: currentUser.id,
           type: 'USED',
           amount: -coins,
-          status: 'COMPLETED',
-          description: `Supported request: ${request.title}`,
+          status: 'PENDING',
+          description: `Request support reserved: ${request.title}`,
           metadata: {
             requestId,
+            reservationType: 'request-support',
           },
         },
       });
@@ -8698,7 +8901,10 @@ app.post('/api/v1/community/requests/:requestId/support', authenticateToken, asy
 app.post(
   '/api/v1/community/requests/:requestId/submissions',
   authenticateToken,
-  requestSubmissionUpload.single('file'),
+  requestSubmissionUpload.fields([
+    { name: 'file', maxCount: 1 },
+    { name: 'thumbnail', maxCount: 1 },
+  ]),
   async (req, res) => {
     try {
       const currentUserId = getRequiredAuthenticatedUserId(req, res);
@@ -8727,6 +8933,12 @@ app.post(
         rawType == 'file'
           ? CommunityRequestSubmissionType.FILE_UPLOAD
           : CommunityRequestSubmissionType.LINKED_VIDEO;
+      const requestSubmissionFiles =
+        req.files && !Array.isArray(req.files)
+          ? (req.files as Record<string, Express.Multer.File[]>)
+          : {};
+      const uploadedSubmissionFile = requestSubmissionFiles['file']?.[0] ?? null;
+      const uploadedThumbnailFile = requestSubmissionFiles['thumbnail']?.[0] ?? null;
 
       if (!title || !description) {
         return res.status(400).json({
@@ -8737,7 +8949,7 @@ app.post(
 
       if (
         submissionType === CommunityRequestSubmissionType.FILE_UPLOAD &&
-        !req.file
+        !uploadedSubmissionFile
       ) {
         return res.status(400).json({
           success: false,
@@ -8781,8 +8993,14 @@ app.post(
       }
 
       const submissionId = require('crypto').randomUUID();
-      const uploadedFile = req.file
-        ? await uploadRequestSubmissionFile(req.file, requestId, submissionId, req)
+      const uploadedFile = uploadedSubmissionFile
+        ? await uploadRequestSubmissionFile(
+            uploadedSubmissionFile,
+            requestId,
+            submissionId,
+            uploadedThumbnailFile,
+            req,
+          )
         : null;
 
       const submissionCreateData: Prisma.CommunityRequestSubmissionUncheckedCreateInput = {
@@ -8800,7 +9018,19 @@ app.post(
         mimeType: uploadedFile?.mimeType || null,
       };
 
-      if (linkedMedia !== null) {
+      if (
+        submissionType === CommunityRequestSubmissionType.FILE_UPLOAD &&
+        uploadedFile
+      ) {
+        const uploadLinkedMedia = await buildRequestSubmissionUploadLinkedMedia(
+          uploadedFile,
+          title,
+        );
+
+        if (uploadLinkedMedia) {
+          submissionCreateData.linkedMediaMetadata = uploadLinkedMedia;
+        }
+      } else if (linkedMedia !== null) {
         submissionCreateData.linkedMediaMetadata = linkedMedia;
       }
 
@@ -8921,6 +9151,45 @@ app.post(
       const rewardAmount = request.baseCoins + request.bonusCoins;
 
       await prisma.$transaction(async (tx) => {
+        const requestSupports = await tx.communityRequestSupport.findMany({
+          where: { requestId },
+          select: {
+            userId: true,
+          },
+        });
+        const reservationUserIds = Array.from(
+          new Set([
+            request.authorId,
+            ...requestSupports.map((support) => support.userId),
+          ]),
+        );
+        const pendingReservationTransactions = reservationUserIds.length > 0
+          ? await tx.coinTransaction.findMany({
+              where: {
+                userId: { in: reservationUserIds },
+                type: 'USED',
+                status: 'PENDING',
+              },
+              select: {
+                id: true,
+                userId: true,
+                metadata: true,
+              },
+            })
+          : [];
+        const requestReservationTransactions = pendingReservationTransactions.filter(
+          (transaction) => {
+            const metadata =
+              transaction.metadata &&
+              typeof transaction.metadata === 'object' &&
+              !Array.isArray(transaction.metadata)
+                ? (transaction.metadata as Record<string, unknown>)
+                : null;
+
+            return metadata?.['requestId'] === requestId;
+          },
+        );
+
         await tx.communityRequestSubmission.updateMany({
           where: { requestId },
           data: { isApproved: false },
@@ -8939,29 +9208,60 @@ app.post(
           },
         });
 
-        await tx.user.update({
-          where: { id: submission.contributorId },
-          data: {
-            coinBalance: {
-              increment: rewardAmount,
-            },
-          },
-        });
+        for (const reservationTransaction of requestReservationTransactions) {
+          const existingMetadata =
+            reservationTransaction.metadata &&
+            typeof reservationTransaction.metadata === 'object' &&
+            !Array.isArray(reservationTransaction.metadata)
+              ? (reservationTransaction.metadata as Prisma.JsonObject)
+              : {};
 
-        await tx.coinTransaction.create({
-          data: {
-            userId: submission.contributorId,
-            relatedUserId: request.authorId,
-            type: 'EARNED',
-            amount: rewardAmount,
-            status: 'COMPLETED',
-            description: `Approved request reward: ${request.title}`,
-            metadata: {
-              requestId,
-              submissionId,
+          await tx.coinTransaction.update({
+            where: { id: reservationTransaction.id },
+            data: {
+              status: 'COMPLETED',
+              relatedUserId: submission.contributorId,
+              description:
+                reservationTransaction.userId === request.authorId
+                  ? `Approved request payout: ${request.title}`
+                  : `Approved request support payout: ${request.title}`,
+              metadata: {
+                ...existingMetadata,
+                requestId,
+                submissionId,
+                settlementState: 'approved',
+                settlementTargetUserId: submission.contributorId,
+                settledAt: new Date().toISOString(),
+              },
             },
-          },
-        });
+          });
+        }
+
+        if (rewardAmount > 0) {
+          await tx.user.update({
+            where: { id: submission.contributorId },
+            data: {
+              coinBalance: {
+                increment: rewardAmount,
+              },
+            },
+          });
+
+          await tx.coinTransaction.create({
+            data: {
+              userId: submission.contributorId,
+              relatedUserId: request.authorId,
+              type: 'EARNED',
+              amount: rewardAmount,
+              status: 'COMPLETED',
+              description: `Approved request reward: ${request.title}`,
+              metadata: {
+                requestId,
+                submissionId,
+              },
+            },
+          });
+        }
       });
 
       const updatedRequest = await prisma.communityRequest.findUnique({
@@ -9308,6 +9608,29 @@ app.post('/api/v1/community/posts', authenticateToken, communityPostUpload.array
           message: 'Failed to upload files',
         });
       }
+    }
+
+    const appSettings = await appSettingsService.getPublicSettings();
+    const freeCommunityPostBonusCoins = appSettings.freeCommunityPostBonusCoins;
+    const qualifiesForFreeCommunityPostBonus =
+      freeCommunityPostBonusCoins > 0 &&
+      cost === 0 &&
+      !requiresVip &&
+      (images.length > 0 || videos.length > 0);
+
+    if (qualifiesForFreeCommunityPostBonus) {
+      await prisma.$transaction(async (tx) => {
+        await awardCoinBonus(tx, {
+          userId: currentUser.id,
+          amount: freeCommunityPostBonusCoins,
+          description: 'Free community media post bonus',
+          relatedPostId: newPost.id,
+          metadata: {
+            bonusType: 'free-community-post',
+            postId: newPost.id,
+          },
+        });
+      });
     }
 
     // Fetch the final post with user info
