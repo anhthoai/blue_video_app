@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Blue Video | หน้าดาวน์โหลด</title>
+  <meta
+    name="description"
+    content="หน้าดาวน์โหลดอย่างเป็นทางการของ Blue Video พร้อมคำแนะนำติดตั้ง APK สำหรับ Android และ OTA สำหรับ iPhone"
+  >
+  <meta name="theme-color" content="#157df2">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&family=Space+Grotesk:wght@500;700&family=Sarabun:wght@400;700&display=swap"
+    rel="stylesheet"
+  >
+  <link rel="icon" type="image/png" href="../assets/logo-transparent.png">
+  <link rel="apple-touch-icon" href="../assets/logo-transparent.png">
+  <style>
+    :root {
+      --bg-top: #f6fbff; --bg-bottom: #fff7fb;
+      --surface: rgba(255, 255, 255, 0.8);
+      --surface-strong: rgba(255, 255, 255, 0.92);
+      --text: #08172d; --muted: #50627d;
+      --line: rgba(12, 44, 86, 0.1);
+      --cyan: #1bc5e8; --blue: #1a7ff6; --violet: #5d35ff; --pink: #ff50d7; --gold: #ffb508;
+      --shadow: 0 28px 80px rgba(19, 61, 121, 0.12);
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0; min-height: 100vh; color: var(--text);
+      font-family: "Sarabun", "Segoe UI", sans-serif;
+      background:
+        radial-gradient(circle at top left, rgba(27, 197, 232, 0.2), transparent 35%),
+        radial-gradient(circle at 85% 0%, rgba(255, 80, 215, 0.18), transparent 28%),
+        linear-gradient(180deg, var(--bg-top) 0%, #eef6ff 48%, var(--bg-bottom) 100%);
+    }
+    body::before, body::after { content: ""; position: fixed; inset: auto; pointer-events: none; z-index: 0; border-radius: 999px; filter: blur(10px); opacity: 0.5; }
+    body::before { width: 240px; height: 240px; right: 6%; bottom: 8%; background: rgba(27, 197, 232, 0.16); }
+    body::after  { width: 280px; height: 280px; left: 4%; top: 18%; background: rgba(255, 80, 215, 0.08); }
+    a { color: inherit; text-decoration: none; }
+    strong { color: var(--text); }
+    .page { position: relative; z-index: 1; width: min(1140px, calc(100% - 32px)); margin: 0 auto; padding: 28px 0 64px; }
+    .topbar { display: flex; align-items: center; justify-content: space-between; gap: 18px; margin-bottom: 28px; }
+    .topbar-actions { display: flex; align-items: center; justify-content: flex-end; gap: 12px; flex-wrap: wrap; }
+    .brand { display: flex; align-items: center; gap: 14px; min-width: 0; }
+    .brand img { width: 56px; height: 56px; flex: 0 0 auto; border-radius: 18px; box-shadow: 0 18px 40px rgba(24, 95, 214, 0.18); background: rgba(255,255,255,0.82); }
+    .brand-copy { min-width: 0; }
+    .brand-name  { display: block; font-size: 1.05rem; font-weight: 700; letter-spacing: 0.01em; }
+    .brand-subtitle { display: block; margin-top: 2px; color: var(--muted); font-size: 0.92rem; }
+    .pill { display: inline-flex; align-items: center; gap: 8px; padding: 11px 16px; border-radius: 999px; border: 1px solid var(--line); background: rgba(255,255,255,0.72); box-shadow: 0 14px 35px rgba(14,49,104,0.08); color: #23405f; font-size: 0.92rem; font-weight: 700; white-space: nowrap; }
+    .pill::before { content: ""; width: 9px; height: 9px; border-radius: 999px; background: linear-gradient(135deg, var(--cyan), var(--pink)); box-shadow: 0 0 0 5px rgba(27,197,232,0.12); }
+    .lang-nav { display: inline-flex; align-items: center; gap: 4px; padding: 6px; border-radius: 999px; border: 1px solid var(--line); background: rgba(255,255,255,0.72); box-shadow: 0 14px 35px rgba(14,49,104,0.08); flex-wrap: wrap; }
+    .lang-link { padding: 8px 10px; border-radius: 999px; color: var(--muted); font-size: 0.82rem; font-weight: 800; line-height: 1; }
+    .lang-link.is-active { background: rgba(26,127,246,0.12); color: var(--text); }
+    .hero { display: grid; grid-template-columns: minmax(0, 1.08fr) minmax(320px, 0.92fr); gap: 28px; align-items: stretch; }
+    .panel { border: 1px solid var(--line); border-radius: 32px; background: var(--surface); backdrop-filter: blur(18px); box-shadow: var(--shadow); }
+    .copy-panel { padding: 38px; }
+    .eyebrow { display: inline-flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 999px; background: rgba(8,23,45,0.05); color: #17365f; font-size: 0.94rem; font-weight: 800; letter-spacing: 0.01em; }
+    .eyebrow::before { content: "ติดตั้ง"; padding: 4px 8px; border-radius: 999px; background: linear-gradient(135deg, rgba(27,197,232,0.18), rgba(93,53,255,0.18)); color: #0f56a9; font-size: 0.78rem; font-weight: 800; }
+    h1 { margin: 18px 0 18px; max-width: 18ch; font-size: clamp(2rem, 5.5vw, 3.6rem); line-height: 1.12; letter-spacing: -0.02em; }
+    .lead { max-width: 40rem; margin: 0; color: var(--muted); font-size: 1.08rem; line-height: 1.8; }
+    .actions { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 28px; }
+    .button { display: inline-flex; align-items: center; justify-content: center; min-width: 220px; padding: 16px 24px; border-radius: 18px; border: 1px solid transparent; font-size: 1rem; font-weight: 800; transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease; }
+    .button:hover { transform: translateY(-2px); }
+    .button-primary { background: linear-gradient(135deg, var(--blue), var(--violet)); color: #fff; box-shadow: 0 20px 48px rgba(26,127,246,0.34); }
+    .button-secondary { border-color: rgba(12,44,86,0.12); background: rgba(255,255,255,0.82); color: var(--text); box-shadow: 0 18px 40px rgba(14,49,104,0.08); }
+    .button-note { margin-top: 16px; color: var(--muted); font-size: 0.94rem; line-height: 1.6; }
+    .micro-links { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; margin-top: 14px; color: var(--muted); font-size: 0.93rem; line-height: 1.6; }
+    .text-link { color: #0f56a9; font-weight: 800; }
+    .callout { margin-top: 22px; padding: 18px 20px; border: 1px solid rgba(26,127,246,0.12); border-radius: 24px; background: linear-gradient(135deg, rgba(27,197,232,0.08), rgba(255,255,255,0.92)); color: #27476a; line-height: 1.8; }
+    .intro-block { margin-top: 20px; padding: 18px 20px; border-radius: 24px; border: 1px solid rgba(12,44,86,0.08); background: rgba(8,23,45,0.035); }
+    .intro-title { display: block; margin-bottom: 8px; color: var(--text); font-size: 1rem; font-weight: 800; }
+    .intro-text  { margin: 0; color: var(--muted); font-size: 0.98rem; line-height: 1.8; }
+    .highlights { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 24px; }
+    .highlight { padding: 16px; border-radius: 22px; background: rgba(8,23,45,0.035); border: 1px solid rgba(12,44,86,0.06); }
+    .highlight strong { display: block; margin-bottom: 6px; font-size: 0.95rem; }
+    .highlight span   { display: block; color: var(--muted); font-size: 0.93rem; line-height: 1.6; }
+    .visual-panel { position: relative; overflow: hidden; padding: 32px; background: linear-gradient(160deg, rgba(27,197,232,0.16), rgba(255,255,255,0.82) 34%, rgba(255,80,215,0.16) 100%); }
+    .visual-panel::before { content: ""; position: absolute; width: 240px; height: 240px; top: -56px; right: -36px; border-radius: 50%; background: radial-gradient(circle, rgba(255,181,8,0.34), rgba(255,181,8,0)); }
+    .visual-top { display: flex; justify-content: flex-start; margin-bottom: 10px; }
+    .logo-stage { position: relative; display: grid; place-items: center; min-height: 290px; margin-bottom: 24px; }
+    .logo-halo { position: absolute; width: min(310px, 78%); aspect-ratio: 1; border-radius: 50%; background: conic-gradient(from 160deg, rgba(27,197,232,0.22), rgba(26,127,246,0.22), rgba(255,80,215,0.22), rgba(255,181,8,0.16), rgba(27,197,232,0.22)); filter: blur(4px); }
+    .logo-stage img { position: relative; width: min(310px, 74%); max-width: 100%; filter: drop-shadow(0 24px 40px rgba(21,98,214,0.18)); }
+    .install-card { position: relative; z-index: 1; padding: 24px; border-radius: 26px; background: var(--surface-strong); border: 1px solid rgba(12,44,86,0.1); }
+    .install-card h2 { margin: 0 0 12px; font-size: 1.45rem; letter-spacing: -0.02em; }
+    .install-card p  { margin: 0 0 16px; color: var(--muted); line-height: 1.8; }
+    .install-card ol { margin: 0; padding-left: 1.2rem; display: grid; gap: 12px; color: var(--muted); line-height: 1.8; }
+    .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px; margin-top: 22px; }
+    .info-card { padding: 24px; border-radius: 26px; border: 1px solid var(--line); background: rgba(255,255,255,0.76); box-shadow: 0 18px 44px rgba(14,49,104,0.08); }
+    .info-card h3 { margin: 0 0 10px; font-size: 1.22rem; letter-spacing: -0.02em; }
+    .info-card p  { margin: 0; color: var(--muted); line-height: 1.75; }
+    .footer { margin-top: 24px; display: flex; justify-content: center; align-items: center; gap: 8px 18px; flex-wrap: wrap; color: var(--muted); font-size: 0.9rem; }
+    @media (max-width: 960px) { .hero { grid-template-columns: 1fr; } h1 { max-width: none; } .highlights { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+    @media (max-width: 640px) { .page { width: min(100% - 20px, 100%); padding: 18px 0 42px; } .topbar { flex-direction: column; align-items: flex-start; } .topbar-actions { justify-content: flex-start; } .copy-panel, .visual-panel, .info-card { padding: 22px; } .button { width: 100%; min-width: 0; } .highlights { grid-template-columns: 1fr; } .logo-stage { min-height: 220px; } }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header class="topbar">
+      <div class="brand">
+        <img src="../assets/logo-transparent.png" alt="Blue Video โลโก้">
+        <div class="brand-copy">
+          <span class="brand-name">Blue Video</span>
+          <span class="brand-subtitle">หน้าดาวน์โหลดอย่างเป็นทางการ</span>
+        </div>
+      </div>
+      <div class="topbar-actions">
+        <div class="pill">ติดตั้งได้เลย</div>
+        <nav class="lang-nav" aria-label="เลือกภาษา">
+          <a class="lang-link" href="../index.html">EN</a>
+          <a class="lang-link" href="../zh/index.html">中文</a>
+          <a class="lang-link" href="../ja/index.html">日本語</a>
+          <a class="lang-link is-active" href="./index.html">ไทย</a>
+          <a class="lang-link" href="../id/index.html">ID</a>
+          <a class="lang-link" href="../de/index.html">DE</a>
+          <a class="lang-link" href="../es/index.html">ES</a>
+          <a class="lang-link" href="../ko/index.html">한국어</a>
+          <a class="lang-link" href="../ru/index.html">RU</a>
+        </nav>
+      </div>
+    </header>
+
+    <section class="hero" aria-label="Blue Video หน้าหลัก">
+      <div class="panel copy-panel">
+        <div class="eyebrow">เผยแพร่อย่างเป็นทางการ</div>
+        <h1>โซเชียลวิดีโอสำหรับชุมชน LGBT</h1>
+        <p class="lead">
+          Blue Video คือแพลตฟอร์มโซเชียลวิดีโอที่มุ่งเน้นชุมชน LGBT เน้นการแชร์คอนเทนต์ การพบปะสังสรรค์ แชทส่วนตัว และการเติบโตของครีเอเตอร์
+        </p>
+
+        <div class="intro-block">
+          <span class="intro-title">เกี่ยวกับแอป</span>
+          <p class="intro-text">
+            ผู้ใช้สามารถดูและโพสต์วิดีโอ พบปะเพื่อนใหม่ แชทส่วนตัว และสร้างอิทธิพลผ่านเนื้อหาคุณภาพเพื่อเพิ่มโอกาสสร้างรายได้
+          </p>
+        </div>
+
+        <div class="actions">
+          <a
+            class="button button-primary"
+            href="https://cdn.onlybl.com/downloads/blue-video-latest.apk"
+            target="_blank" rel="noopener"
+          >
+            ดาวน์โหลด Android APK
+          </a>
+          <a
+            class="button button-secondary"
+            id="ios-install-link"
+            href="https://cdn.onlybl.com/downloads/blue-video-latest.ipa"
+            data-ios-install-url=""
+            data-manifest-path="../manifest.plist"
+            data-fallback-url="https://cdn.onlybl.com/downloads/blue-video-latest.ipa"
+          >
+            ติดตั้งบน iPhone
+          </a>
+        </div>
+
+        <p class="button-note" id="ios-install-status">
+          Android อาจขออนุญาตติดตั้งจากเบราว์เซอร์ ผู้ใช้ iPhone กรุณาเปิดหน้านี้ผ่าน Safari เท่านั้น
+        </p>
+
+        <div class="micro-links">
+          <a class="text-link" id="manifest-preview-link" href="../manifest.plist" target="_blank" rel="noopener">ดู manifest.plist</a>
+          <a class="text-link" href="./privacy-policy.html">นโยบายความเป็นส่วนตัว</a>
+          <a class="text-link" href="https://x.com/onlyblcom" target="_blank" rel="noopener">x.com/onlyblcom</a>
+          <span>ต้องการความช่วยเหลือ? ใช้ฝ่ายสนับสนุนในแอป</span>
+        </div>
+
+        <div class="callout">
+          <strong>คำแนะนำการติดตั้ง iPhone ครั้งแรก:</strong> เปิดหน้านี้ด้วย Safari แล้วแตะ <strong>ติดตั้งบน iPhone</strong> เมื่อ iOS แสดงหน้าต่างยืนยัน ให้ยืนยันการติดตั้ง หากไอคอนปรากฏแล้วยังแจ้ง "ไม่น่าเชื่อถือ" ให้ไปที่ <strong>การตั้งค่า &gt; ทั่วไป &gt; VPN และการจัดการอุปกรณ์</strong> เพื่อเชื่อถือ Blue Video
+        </div>
+
+        <div class="highlights">
+          <div class="highlight">
+            <strong>LGBT เป็นหลัก</strong>
+            <span>ออกแบบมาเพื่อชุมชน LGBT โดยเฉพาะ เหมาะสำหรับการแสดงออกและการเชื่อมต่อ</span>
+          </div>
+          <div class="highlight">
+            <strong>หาเพื่อนและแชท</strong>
+            <span>พบปะเพื่อนใหม่ เริ่มแชทส่วนตัว และสร้างความสัมพันธ์ที่แท้จริง</span>
+          </div>
+          <div class="highlight">
+            <strong>สร้างรายได้จากโพสต์</strong>
+            <span>ครีเอเตอร์สามารถเพิ่มอิทธิพลและสร้างรายได้จากคอนเทนต์ที่มีคุณภาพ</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel visual-panel">
+        <div class="visual-top">
+          <div class="pill">คู่มือการติดตั้งครั้งแรก</div>
+        </div>
+        <div class="logo-stage" aria-hidden="true">
+          <div class="logo-halo"></div>
+          <img src="../assets/logo-transparent.png" alt="">
+        </div>
+        <div class="install-card">
+          <h2>ขั้นตอนติดตั้ง iPhone</h2>
+          <p>อาจไม่ผ่าน App Store แต่ทำได้ง่ายในไม่กี่ขั้นตอน</p>
+          <ol>
+            <li>เปิดหน้านี้ใน Safari บน iPhone แล้วแตะ <strong>ติดตั้งบน iPhone</strong></li>
+            <li>เมื่อ iOS แสดงหน้าต่างยืนยัน ให้ยืนยันและรอจนไอคอนปรากฏ</li>
+            <li>หากยังแสดง "ไม่น่าเชื่อถือ" ให้ไปที่ <strong>การตั้งค่า &gt; ทั่วไป &gt; VPN และการจัดการอุปกรณ์</strong> แล้วเชื่อถือ Blue Video</li>
+            <li>กลับไปหน้าจอหลักและเปิด Blue Video</li>
+          </ol>
+        </div>
+      </div>
+    </section>
+
+    <section class="cards" aria-label="ฟีเจอร์ Blue Video">
+      <article class="info-card">
+        <h3>โซเชียลวิดีโอ</h3>
+        <p>Blue Video รวมการค้นหาคอนเทนต์ การโพสต์ และโซเชียลไว้ในแพลตฟอร์มเดียว ดูและโพสต์วิดีโอได้เลย</p>
+      </article>
+      <article class="info-card">
+        <h3>หาเพื่อนและแชทส่วนตัว</h3>
+        <p>ไม่ใช่แค่แอปดูวิดีโอ แต่ยังรองรับการหาเพื่อน แชท 1 ต่อ 1 และการมีปฏิสัมพันธ์ระยะยาว</p>
+      </article>
+      <article class="info-card">
+        <h3>รายได้ของครีเอเตอร์</h3>
+        <p>การเติบโตของโพสต์และครีเอเตอร์คือหัวใจหลัก คอนเทนต์ที่ดีช่วยสร้างผู้ติดตามและโอกาสสร้างรายได้</p>
+      </article>
+      <article class="info-card">
+        <h3>ติดตั้งโดยตรง</h3>
+        <p>Android ติดตั้งได้โดยตรงผ่าน APK ส่วน iPhone ให้เปิดหน้านี้ใน Safari แล้วทำตามขั้นตอนด้านบน</p>
+      </article>
+    </section>
+
+    <div class="footer">
+      <span>Blue Video หน้าดาวน์โหลดอย่างเป็นทางการ</span>
+      <a class="text-link" href="./privacy-policy.html">นโยบายความเป็นส่วนตัว</a>
+      <a class="text-link" href="https://x.com/onlyblcom" target="_blank" rel="noopener">X ซัพพอร์ต</a>
+      <a class="text-link" href="../index.html">English</a>
+    </div>
+  </main>
+  <script>
+    (function () {
+      var iosLink = document.getElementById("ios-install-link");
+      var manifestLink = document.getElementById("manifest-preview-link");
+      var status = document.getElementById("ios-install-status");
+      if (!iosLink) return;
+      var manifestPath = iosLink.getAttribute("data-manifest-path");
+      var fallbackUrl  = iosLink.getAttribute("data-fallback-url");
+      var iosInstallUrl = iosLink.getAttribute("data-ios-install-url");
+      var manifestUrl  = manifestPath ? new URL(manifestPath, window.location.href).href : "";
+      var isHttps = window.location.protocol === "https:";
+      if (manifestLink && manifestUrl) manifestLink.href = manifestUrl;
+      if (iosInstallUrl && iosInstallUrl.trim().length > 0) {
+        iosLink.href = iosInstallUrl;
+      } else if (isHttps && manifestUrl) {
+        iosLink.href = "itms-services://?action=download-manifest&url=" + encodeURIComponent(manifestUrl);
+      } else if (fallbackUrl) {
+        iosLink.href = fallbackUrl;
+      }
+      if (status && !isHttps) {
+        status.textContent = "Android อาจขออนุญาตติดตั้งจากเบราว์เซอร์ ผู้ใช้ iPhone กรุณาเปิดหน้านี้ผ่าน Safari การติดตั้ง manifest ต้องใช้ HTTPS เท่านั้น การดูตัวอย่างในเครื่องจะใช้ IPA โดยตรง";
+      }
+    })();
+  </script>
+</body>
+</html>
