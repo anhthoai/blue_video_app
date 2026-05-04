@@ -3,6 +3,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import '../../models/community_post.dart';
 import 'nsfw_blur_wrapper.dart';
 import 'coin_vip_indicator.dart';
+import 'translated_post_text.dart';
 
 class VideoCardWidget extends StatelessWidget {
   final CommunityPost post;
@@ -42,8 +43,8 @@ class VideoCardWidget extends StatelessWidget {
 
                   // Post content
                   if (post.content.isNotEmpty) ...[
-                    Text(
-                      post.content,
+                    TranslatedPostText(
+                      originalText: post.content,
                       style: const TextStyle(
                         fontSize: 14,
                         height: 1.4,

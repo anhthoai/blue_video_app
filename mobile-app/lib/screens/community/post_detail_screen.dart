@@ -12,6 +12,7 @@ import '../../widgets/community/nsfw_blur_wrapper.dart';
 import '../../widgets/dialogs/coin_payment_dialog.dart';
 import '../../widgets/community/coin_vip_indicator.dart';
 import '../../widgets/community/post_content_widget.dart';
+import '../../widgets/community/translated_post_text.dart';
 import '../../core/providers/unlocked_posts_provider.dart';
 import '_fullscreen_media_gallery.dart';
 
@@ -489,8 +490,8 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
         children: [
           // Post text content
           if (_post!.content.isNotEmpty) ...[
-            Text(
-              _post!.content,
+            TranslatedPostText(
+              originalText: _post!.content,
               style: const TextStyle(
                 fontSize: 16,
                 height: 1.5,

@@ -7,6 +7,7 @@ import '../../core/services/community_service.dart';
 import '../../models/community_post.dart';
 import '../social/comments_section.dart';
 import 'post_content_widget.dart';
+import 'translated_post_text.dart';
 import '../../l10n/app_localizations.dart';
 
 class CommunityPostWidget extends ConsumerStatefulWidget {
@@ -504,8 +505,8 @@ class _CommunityPostWidgetState extends ConsumerState<CommunityPostWidget> {
           ),
           const SizedBox(height: 8),
         ],
-        Text(
-          widget.post.content,
+        TranslatedPostText(
+          originalText: widget.post.content,
           style: const TextStyle(fontSize: 14),
           maxLines: _isExpanded ? null : 3,
           overflow: _isExpanded ? null : TextOverflow.ellipsis,
