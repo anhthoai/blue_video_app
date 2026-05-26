@@ -1108,8 +1108,9 @@ model LibraryContent {
   downloads    Int      @default(0)
   
   // Status
-  isAvailable  Boolean  @default(true) @map("is_available")
-  
+  isAvailable    Boolean  @default(true) @map("is_available")
+  syncGeneration String?  @map("sync_generation") @db.VarChar(100)
+
   // Metadata
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
@@ -1124,5 +1125,27 @@ model LibraryContent {
   @@index([section])
   @@index([parentId])
   @@index([ulozSlug])
+  @@index([syncGeneration])
   @@map("library_content")
+}
+
+model LibrarySyncState {
+  id             String    @id                   // format: "{storageId}:{section}"
+  storageId      Int       @map("storage_id")
+  section        String    @db.VarChar(100)
+  folderSlug     String    @map("folder_slug") @db.VarChar(500)
+  status         String    @default("idle") @db.VarChar(20) // idle | scanning | error
+  syncGeneration String?   @map("sync_generation") @db.VarChar(100)
+  lastSyncAt     DateTime? @map("last_sync_at")
+  startedAt      DateTime? @map("started_at")
+  finishedAt     DateTime? @map("finished_at")
+  lastTickAt     DateTime? @map("last_tick_at")
+  errorMessage   String?   @map("error_message") @db.Text
+  totalIndexed   Int       @default(0) @map("total_indexed")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  @@index([section])
+  @@index([status])
+  @@map("library_sync_states")
 }

@@ -6,7 +6,8 @@ import http from 'http';
 import https from 'https';
 import prisma from '../lib/prisma';
 import { StorageService } from '../config/storage';
-import { getUlozService, getUlozStorageConfig, resolveUlozStorageId } from '../services/ulozRegistry';
+import { getUlozService, getUlozStorageConfig, resolveUlozStorageId, listUlozStorageConfigs } from '../services/ulozRegistry';
+import { librarySyncService } from '../services/librarySyncService';
 
 const MAX_PAGE_SIZE = 200;
 const MAX_VIDEO_FEED_PAGE_SIZE = 120;
@@ -523,24 +524,29 @@ async function serializeLibraryItem(
 
 export async function listLibrarySections(_req: Request, res: Response) {
   try {
-    const grouped = await prisma.libraryContent.groupBy({
-      by: ['section'],
-      where: {
-        section: {
-          not: null,
+    const [grouped, syncStates] = await Promise.all([
+      prisma.libraryContent.groupBy({
+        by: ['section'],
+        where: {
+          section: { not: null },
         },
-      },
-      _count: {
-        section: true,
-      },
-    });
+        _count: { section: true },
+      }),
+      librarySyncService.getAllSyncStates().catch(() => []),
+    ]);
+
+    const syncMap = new Map(syncStates.map((s) => [s.section, s]));
 
     const sectionSummaries = grouped
       .map((group) => {
         const section = (group.section || '').toString().toLowerCase();
+        const sync = syncMap.get(section) ?? null;
         return {
           section,
           totalItems: group._count.section,
+          syncStatus: sync?.status ?? 'idle',
+          lastSyncAt: sync?.lastSyncAt ?? null,
+          isSyncing: sync?.status === 'scanning',
         };
       })
       .sort((a, b) => a.section.localeCompare(b.section));
@@ -709,6 +715,23 @@ export async function listLibraryItems(req: Request, res: Response) {
     const breadcrumbs = parentItem
       ? await buildBreadcrumbs(parentItem)
       : [];
+
+    // Stale-while-revalidate: if section data is older than 30 minutes, kick off
+    // a background sync so next request will get fresher data.
+    // We look up storage configs for this section and trigger only the first match
+    // (multi-storage setups typically have sections on distinct storages).
+    const configs = listUlozStorageConfigs();
+    for (const cfg of configs) {
+      if (cfg.libraryFolders[section]) {
+        librarySyncService
+          .isSectionStale(cfg.id, section)
+          .then((stale) => {
+            if (stale) librarySyncService.triggerBackgroundSync(cfg.id, section);
+          })
+          .catch(() => {});
+        break;
+      }
+    }
 
     res.json({
       success: true,

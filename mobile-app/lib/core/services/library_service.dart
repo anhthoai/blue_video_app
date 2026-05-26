@@ -140,6 +140,17 @@ class LibraryService {
     return [];
   }
 
+  /// Triggers a background sync for [section] (or all sections if null).
+  /// Clears cached sections so the next [fetchSections] call reflects any
+  /// updated `syncStatus` / `lastSyncAt` values from the server.
+  Future<void> triggerSync({String? section}) async {
+    await _apiService.triggerLibrarySync(section: section);
+    _sectionsCache = null;
+    if (section != null) {
+      _itemsCache.removeWhere((req, _) => req.normalizedSection == section.toLowerCase());
+    }
+  }
+
   Future<List<LibraryItemModel>> fetchItems(LibraryItemsRequest request) async {
     final cached = _itemsCache[request];
     if (cached != null && cached.isValid) {

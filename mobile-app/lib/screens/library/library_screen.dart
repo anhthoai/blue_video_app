@@ -37,6 +37,8 @@ class LibraryScreen extends ConsumerWidget {
 
     return sectionsAsync.when(
       data: (sections) {
+        final hasSyncing = sections.any((s) => s.isSyncing);
+
         final tabs = <Tab>[
           Tab(text: l10n.database),
           ...sections.map((section) => Tab(text: section.displayLabel)),
@@ -62,6 +64,26 @@ class LibraryScreen extends ConsumerWidget {
                   tooltip: l10n.search,
                   icon: const Icon(Icons.search, color: Colors.white),
                   onPressed: () => context.push('/main/search?tab=Library'),
+                ),
+                // Manual full-sync button
+                IconButton(
+                  tooltip: 'Sync library',
+                  icon: hasSyncing
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                          ),
+                        )
+                      : const Icon(Icons.sync, color: Colors.white),
+                  onPressed: hasSyncing
+                      ? null
+                      : () async {
+                          await LibraryService().triggerSync();
+                          ref.invalidate(librarySectionsProvider);
+                        },
                 ),
                 TextButton.icon(
                   onPressed: () => context.push('/main/library/add'),
@@ -149,9 +171,61 @@ class LibrarySectionTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return LibraryItemsView(
-      section: section.section,
-      folderTitle: section.displayName,
+    return Column(
+      children: [
+        // Sync status banner
+        if (section.isSyncing || section.lastSyncAt != null)
+          _SyncStatusBanner(section: section),
+        Expanded(
+          child: LibraryItemsView(
+            section: section.section,
+            folderTitle: section.displayName,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _SyncStatusBanner extends StatelessWidget {
+  const _SyncStatusBanner({required this.section});
+  final LibrarySectionModel section;
+
+  @override
+  Widget build(BuildContext context) {
+    final label = section.isSyncing
+        ? 'Syncing…'
+        : 'Synced ${section.lastSyncRelative ?? ''}';
+
+    return Container(
+      width: double.infinity,
+      color: section.isSyncing
+          ? Colors.blue.withOpacity(0.12)
+          : Colors.transparent,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (section.isSyncing)
+            const SizedBox(
+              width: 10,
+              height: 10,
+              child: CircularProgressIndicator(strokeWidth: 1.5),
+            )
+          else
+            Icon(Icons.check_circle_outline, size: 12, color: Colors.grey[500]),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 11,
+              color: section.isSyncing
+                  ? Theme.of(context).colorScheme.primary
+                  : Colors.grey[500],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
