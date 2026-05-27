@@ -33,7 +33,6 @@ import {
   AppSettingsStorageUnavailableError,
 } from './services/appSettingsService';
 import { cleanupVideoStorageAssets } from './services/videoStorageCleanupService';
-import { librarySyncService } from './services/librarySyncService';
 
 // Initialize Prisma Client
 const prisma = new PrismaClient();
@@ -13443,24 +13442,6 @@ const startServer = async () => {
       console.log(`\n🔌 WebSocket ready for real-time features`);
       console.log(`📖 Visit /api-docs for complete API documentation`);
 
-      // -----------------------------------------------------------------------
-      // Library auto-sync scheduler
-      // Start an initial sync pass 10 s after boot (staggered), then repeat
-      // every 30 minutes so the library stays fresh without manual imports.
-      // -----------------------------------------------------------------------
-      const LIBRARY_SYNC_INTERVAL_MS = 30 * 60 * 1000; // 30 min
-      setTimeout(() => {
-        console.log('📂 [LibrarySync] Running initial library sync pass...');
-        librarySyncService.triggerAllSections().catch((err) =>
-          console.error('[LibrarySync] Initial sync error:', err),
-        );
-      }, 10_000);
-      setInterval(() => {
-        console.log('📂 [LibrarySync] Running scheduled library sync pass...');
-        librarySyncService.triggerAllSections().catch((err) =>
-          console.error('[LibrarySync] Scheduled sync error:', err),
-        );
-      }, LIBRARY_SYNC_INTERVAL_MS);
     };
 
     const handleListenError = (err: any) => {

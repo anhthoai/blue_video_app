@@ -110,7 +110,8 @@ class LibraryService {
   // This mirrors the short-lived caching added to MovieService for stream URLs.
   static const Duration _cacheTtl = Duration(minutes: 2);
   static _CachedValue<List<LibrarySectionModel>>? _sectionsCache;
-  static final Map<LibraryItemsRequest, _CachedValue<List<LibraryItemModel>>>
+  static final Map<LibraryItemsRequest,
+      _CachedValue<({List<LibraryItemModel> items, bool syncInProgress})>>
       _itemsCache = {};
     static final Map<LibraryVideoFeedRequest, _CachedValue<List<LibraryItemModel>>>
       _videoFeedCache = {};
@@ -140,18 +141,9 @@ class LibraryService {
     return [];
   }
 
-  /// Triggers a background sync for [section] (or all sections if null).
-  /// Clears cached sections so the next [fetchSections] call reflects any
-  /// updated `syncStatus` / `lastSyncAt` values from the server.
-  Future<void> triggerSync({String? section}) async {
-    await _apiService.triggerLibrarySync(section: section);
-    _sectionsCache = null;
-    if (section != null) {
-      _itemsCache.removeWhere((req, _) => req.normalizedSection == section.toLowerCase());
-    }
-  }
-
-  Future<List<LibraryItemModel>> fetchItems(LibraryItemsRequest request) async {
+  Future<({List<LibraryItemModel> items, bool syncInProgress})> fetchItems(
+    LibraryItemsRequest request,
+  ) async {
     final cached = _itemsCache[request];
     if (cached != null && cached.isValid) {
       return cached.value;
@@ -167,21 +159,26 @@ class LibraryService {
       includeStreams: request.includeStreams,
     );
     final data = response['data'] as Map<String, dynamic>? ?? {};
-    final items = data['items'];
-    if (items is List) {
-      final result = items
+    final syncInProgress = (data['syncInProgress'] as bool?) ?? false;
+    final itemsList = data['items'];
+    List<LibraryItemModel> items = [];
+    if (itemsList is List) {
+      items = itemsList
           .map((item) =>
               LibraryItemModel.fromJson((item as Map).cast<String, dynamic>()))
           .toList();
+    }
 
+    final result = (items: items, syncInProgress: syncInProgress);
+    // Only cache when the sync is finished — while background sync is running
+    // the item list is incomplete, so bypass the cache to pick up new items.
+    if (!syncInProgress) {
       _itemsCache[request] = _CachedValue(
         result,
         DateTime.now().add(_cacheTtl),
       );
-
-      return result;
     }
-    return [];
+    return result;
   }
 
   Future<List<LibraryItemModel>> fetchAllSectionItems(
@@ -199,7 +196,7 @@ class LibraryService {
       var page = 1;
 
       while (true) {
-        final items = await fetchItems(
+        final result = await fetchItems(
           LibraryItemsRequest(
             section: section,
             parentId: parentId,
@@ -208,6 +205,7 @@ class LibraryService {
             limit: limit,
           ),
         );
+        final items = result.items;
 
         if (items.isEmpty) {
           break;

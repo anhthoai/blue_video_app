@@ -88,6 +88,11 @@ function readEnvUlozConfig(id: number, env: NodeJS.ProcessEnv): UlozStorageConfi
 function discoverUlozStorageIds(env: NodeJS.ProcessEnv): number[] {
   const ids = new Set<number>();
 
+  // Storage 1 always exists — it uses the bare ULOZ_* prefix (no number suffix).
+  // We must add it unconditionally; the `ids.size === 0` guard is wrong when
+  // ULOZ_2_* keys exist because that leaves storage 1 undiscovered.
+  ids.add(1);
+
   const explicit = env['ULOZ_STORAGE_IDS'];
   if (explicit) {
     for (const part of explicit.split(',')) {
@@ -102,10 +107,6 @@ function discoverUlozStorageIds(env: NodeJS.ProcessEnv): number[] {
       const id = parseIntSafe(match[1]);
       if (id) ids.add(id);
     }
-  }
-
-  if (ids.size === 0) {
-    ids.add(1);
   }
 
   return Array.from(ids).sort((a, b) => a - b);

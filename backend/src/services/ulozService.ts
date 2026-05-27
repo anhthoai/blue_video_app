@@ -32,6 +32,8 @@ interface UlozFolderFile {
   extension?: string;
   contentType?: string;
   childCount?: number;
+  /** Static JPEG/webp thumbnail from preview_info.small_image (when API provides it). */
+  previewSmallImage?: string;
 }
 
 interface UlozStreamLinks {
@@ -128,85 +130,163 @@ export class UlozService {
     return this.rootFolderSlug;
   }
 
+  private extractFilesPage(data: any): any[] {
+    if (!data) return [];
+    if (Array.isArray(data)) return data;
+    if (Array.isArray(data?.items)) return data.items;
+    if (Array.isArray(data?.files)) return data.files;
+    if (Array.isArray(data?.data)) return data.data;
+    return [];
+  }
+
+  private extractFoldersPage(data: any): any[] {
+    if (!data) return [];
+    if (Array.isArray(data?.subfolders)) return data.subfolders;
+    if (Array.isArray(data)) return data;
+    if (Array.isArray(data?.items)) return data.items;
+    if (Array.isArray(data?.folders)) return data.folders;
+    if (Array.isArray(data?.data)) return data.data;
+    return [];
+  }
+
   private async fetchFolderFiles(userLogin: string, folderSlug: string): Promise<any[]> {
     const endpoint = `/v8/user/${userLogin}/folder/${folderSlug}/file-list`;
-    console.log(`   > Fetching files via ${endpoint}`);
+    // Use a conservative page size that is well below any known API cap.
+    // Using 200 would cause early exit when the API caps at e.g. 50 or 100,
+    // because `items.length < 200` fires immediately and only the first
+    // "partial" page is stored.
+    const perPage = 100;
+    const all: any[] = [];
+    let page = 1;
 
-    const response = await this.client.get(endpoint, {
-      params: {
-        per_page: 200,
-      },
-    });
+    while (true) {
+      console.log(`   > Fetching files via ${endpoint} (page ${page})`);
+      const response = await this.client.get(endpoint, {
+        params: { per_page: perPage, page },
+      });
+      const data = response?.data;
+      const items = this.extractFilesPage(data);
 
-    if (!response?.data) {
-      return [];
+      // Empty page → definitely past the last item
+      if (items.length === 0) break;
+
+      all.push(...items);
+
+      // If the API declares a total use it as an authoritative stop
+      const declared = typeof data?.total === 'number' ? data.total : null;
+      if (declared !== null && all.length >= declared) break;
+
+      // Do NOT rely on `items.length < perPage` as a stop signal: the API
+      // may cap page size at a value lower than our requested perPage, which
+      // would make every page look "partial" and exit after just one page.
+      // Instead, keep fetching until we get an empty page (checked above).
+
+      page++;
+      // Safety: stop at 5 000 pages (500 000 items @ 100/page)
+      if (page > 5000) {
+        console.warn(`[UlozService] fetchFolderFiles: safety limit reached for ${endpoint}`);
+        break;
+      }
     }
 
-    if (Array.isArray(response.data)) {
-      return response.data;
-    }
-    if (Array.isArray(response.data?.subfolders)) {
-      return response.data.subfolders;
-    }
-    if (Array.isArray(response.data?.items)) {
-      return response.data.items;
-    }
-    if (Array.isArray(response.data?.files)) {
-      return response.data.files;
-    }
-    if (response.data?.data && Array.isArray(response.data.data)) {
-      return response.data.data;
-    }
-
-    return [];
+    return all;
   }
 
   private async fetchFolderFolders(userLogin: string, folderSlug: string): Promise<any[]> {
     const endpoint = `/v9/user/${userLogin}/folder/${folderSlug}/folder-list`;
-    console.log(`   > Fetching subfolders via ${endpoint}`);
+    const perPage = 100;
+    const all: any[] = [];
+    let page = 1;
 
-    const response = await this.client.get(endpoint, {
-      params: {
-        per_page: 200,
-      },
-    });
-
-    if (!response?.data) {
-      return [];
-    }
-
-    console.log(
-      `     ↳ folder-list keys: ${Object.keys(response.data || {}).join(', ')}`
-    );
-
-    if (response.data?.subfolders && !Array.isArray(response.data.subfolders)) {
-      console.log(
-        `     ↳ subfolders type: ${typeof response.data.subfolders}, entries: ${Object.keys(response.data.subfolders || {}).length}`
-      );
-    } else if (Array.isArray(response.data?.subfolders)) {
-      console.log(`     ↳ subfolders array length: ${response.data.subfolders.length}`);
-      if (response.data.subfolders.length > 0) {
-        console.log(
-          `       Example subfolder: ${JSON.stringify(response.data.subfolders[0], null, 2)}`
-        );
+    while (true) {
+      console.log(`   > Fetching subfolders via ${endpoint} (page ${page})`);
+      const response = await this.client.get(endpoint, {
+        params: { per_page: perPage, page },
+      });
+      const data = response?.data;
+      const items = this.extractFoldersPage(data);
+      if (page === 1 && items.length > 0) {
+        console.log(`     ↳ subfolders page 1: ${items.length} item(s)`);
       }
-      return response.data.subfolders;
+
+      if (items.length === 0) break;
+
+      all.push(...items);
+
+      const declared = typeof data?.total === 'number' ? data.total : null;
+      if (declared !== null && all.length >= declared) break;
+
+      // Same as fetchFolderFiles: do NOT break on partial page — keep fetching
+      // until we receive an empty page.
+
+      page++;
+      if (page > 5000) {
+        console.warn(`[UlozService] fetchFolderFolders: safety limit reached for ${endpoint}`);
+        break;
+      }
     }
 
-    if (Array.isArray(response.data)) {
-      return response.data;
-    }
-    if (Array.isArray(response.data?.items)) {
-      return response.data.items;
-    }
-    if (Array.isArray(response.data?.folders)) {
-      return response.data.folders;
-    }
-    if (response.data?.data && Array.isArray(response.data.data)) {
-      return response.data.data;
-    }
+    return all;
+  }
 
-    return [];
+  // ---------------------------------------------------------------------------
+  // Raw → UlozFolderFile mapping helpers (shared by getFolderContents and
+  // getFolderContentsPage)
+  // ---------------------------------------------------------------------------
+
+  private mapRawFile(file: any): UlozFolderFile | null {
+    if (!file) return null;
+    const slug = file.slug || file.id || file.file_slug;
+    if (!slug) return null;
+    const rawName = file.name || file.filename || file.file_name || file.title || slug;
+    const normalizedName = rawName?.trim() || slug;
+    const extension = this.extractExtension(normalizedName);
+    const entry: UlozFolderFile = {
+      slug,
+      name: normalizedName,
+      size: Number(file.size || file.filesize || 0),
+      type: (file.type || file.kind || file.contentType || file.content_type || '').toString().toLowerCase() || 'file',
+      url: file.url || file.file_url || `https://uloz.to/file/${slug}`,
+      description: file.description,
+      isFolder: false,
+      extension: extension || '',
+      contentType: (file.content_type || file.mime_type || file.contentType || '').toString().toLowerCase() || undefined,
+      childCount: 0,
+    };
+    if (!extension) delete entry.extension;
+    // Extract static image thumbnail from preview_info if the API provides it
+    // in the file-list response. This gives proper JPEG thumbnails for all
+    // formats including webm (unlike __ulozthumb__ which returns raw content
+    // for some codecs).  The URL may carry a time-limited signature; it gets
+    // refreshed every time the background SWR sync runs.
+    const smallImage =
+      file.preview_info?.small_image ||
+      file.preview?.small_image ||
+      file.thumbnail_info?.[0]?.url ||
+      null;
+    if (smallImage) entry.previewSmallImage = String(smallImage);
+    return entry;
+  }
+
+  private mapRawFolder(folder: any): UlozFolderFile | null {
+    if (!folder) return null;
+    const slug = folder.slug || folder.id || folder.folder_slug;
+    if (!slug) return null;
+    const rawName = folder.name || folder.title || slug;
+    const entry: UlozFolderFile = {
+      slug,
+      name: rawName?.trim() || slug,
+      size: Number(folder.size || folder.total_size || 0),
+      type: 'folder',
+      url: `https://uloz.to/folder/${slug}`,
+      description: folder.description,
+      isFolder: true,
+      extension: '',
+      contentType: (folder.content_type || folder.contentType || '').toString().toLowerCase() || undefined,
+      childCount: folder.children_count || folder.folder_count || folder.subfolders_count || 0,
+    };
+    delete entry.extension;
+    return entry;
   }
 
   /**
@@ -341,111 +421,104 @@ export class UlozService {
   }
 
   /**
-   * Get folder contents
+   * Get ALL folder contents in one call (backwards-compat, used by episode
+   * import and stream helpers). For browse-triggered library sync prefer
+   * `getFolderContentsPage` which processes files page-by-page.
    */
   async getFolderContents(folderUrl: string): Promise<UlozFolderFile[]> {
     try {
       await this.ensureLoggedIn();
-      
+
       const { userLogin, folderSlug } = this.extractFolderInfo(folderUrl);
-      
+
       console.log(`📁 Getting folder contents for: ${folderSlug} (user: ${userLogin})`);
 
-      const [files, folders] = await Promise.all([
+      const [rawFiles, rawFolders] = await Promise.all([
         this.fetchFolderFiles(userLogin, folderSlug),
-        this.fetchFolderFolders(userLogin, folderSlug).catch(error => {
-          if (error?.response?.status === 404) {
-            return [];
-          }
+        this.fetchFolderFolders(userLogin, folderSlug).catch((error) => {
+          if (error?.response?.status === 404) return [];
           throw error;
         }),
       ]);
 
-      console.log(
-        `   > files count: ${files.length}, folders count: ${Array.isArray(folders) ? folders.length : 'n/a'}`
-      );
+      console.log(`   > files count: ${rawFiles.length}, folders count: ${rawFolders.length}`);
 
-      const entries: UlozFolderFile[] = [];
-
-      for (const file of files) {
-        if (!file) continue;
-
-        const slug = file.slug || file.id || file.file_slug;
-        const rawName = file.name || file.filename || file.file_name || file.title || slug;
-        const normalizedName = rawName?.trim() || slug;
-        const size = Number(file.size || file.filesize || 0);
-        const rawType = (file.type || file.kind || file.contentType || file.content_type || '').toString().toLowerCase();
-        const extension = this.extractExtension(normalizedName);
-        const url = file.url || file.file_url || `https://uloz.to/file/${slug}`;
-
-        const entry: UlozFolderFile = {
-          slug,
-          name: normalizedName,
-          size,
-          type: rawType || 'file',
-          url,
-          description: file.description,
-          isFolder: false,
-          extension: extension || '',
-          contentType: (file.content_type || file.mime_type || file.contentType || '').toString().toLowerCase() || undefined,
-          childCount: 0,
-        };
-
-        if (!extension) {
-          delete entry.extension;
-        }
-
-        entries.push(entry);
-        console.log(`       ↳ added file entry ${slug}`);
-      }
-
-      for (const folder of folders) {
-        if (!folder) continue;
-
-        const slug = folder.slug || folder.id || folder.folder_slug;
-        if (!slug) continue;
-
-        const rawName = folder.name || folder.title || slug;
-        const normalizedName = rawName?.trim() || slug;
-
-        const entry: UlozFolderFile = {
-          slug,
-          name: normalizedName,
-          size: Number(folder.size || folder.total_size || 0),
-          type: 'folder',
-          url: `https://uloz.to/folder/${slug}`,
-          description: folder.description,
-          isFolder: true,
-          extension: '',
-          contentType: (folder.content_type || folder.contentType || '').toString().toLowerCase() || undefined,
-          childCount: folder.children_count || folder.folder_count || folder.subfolders_count || 0,
-        };
-
-        delete entry.extension;
-
-        entries.push(entry);
-        console.log(`       ↳ added folder entry ${slug}`);
-      }
+      const entries: UlozFolderFile[] = [
+        ...rawFiles.map((f) => this.mapRawFile(f)).filter(Boolean) as UlozFolderFile[],
+        ...rawFolders.map((f) => this.mapRawFolder(f)).filter(Boolean) as UlozFolderFile[],
+      ];
 
       console.log(`   ✅ Aggregated ${entries.length} item(s) from API`);
-
       return entries;
     } catch (error: any) {
       const status = error?.response?.status;
       const code = error?.response?.data?.error ?? error?.response?.data?.code;
       const messagePayload = error?.response?.data || error.message;
-
       console.error('❌ Error getting folder contents:', messagePayload);
-
       const wrappedError: any = new Error(`Failed to get folder contents: ${messagePayload}`);
-      if (status) {
-        wrappedError.status = status;
-      }
-      if (code !== undefined) {
-        wrappedError.code = code;
-      }
+      if (status) wrappedError.status = status;
+      if (code !== undefined) wrappedError.code = code;
       throw wrappedError;
     }
+  }
+
+  /**
+   * Fetch one "page" for browse-triggered sync:
+   *   filePage = 1  →  all subfolders + first `perPage` files
+   *   filePage > 1  →  only files at that page (subfolders already committed)
+   *
+   * Returns `{ entries, hasMore }` where `hasMore` means there is at least
+   * one more page of files to fetch.
+   */
+  async getFolderContentsPage(
+    folderUrl: string,
+    filePage: number,
+    perPage: number = 100,
+  ): Promise<{ entries: UlozFolderFile[]; hasMore: boolean }> {
+    await this.ensureLoggedIn();
+    const { userLogin, folderSlug } = this.extractFolderInfo(folderUrl);
+    const entries: UlozFolderFile[] = [];
+
+    // On the very first page also sync all subfolders (they're usually few)
+    if (filePage === 1) {
+      const rawFolders = await this.fetchFolderFolders(userLogin, folderSlug).catch(
+        (err) => (err?.response?.status === 404 ? [] : Promise.reject(err)),
+      );
+      for (const f of rawFolders) {
+        const entry = this.mapRawFolder(f);
+        if (entry) entries.push(entry);
+      }
+    }
+
+    // Fetch one page of files
+    const fileEndpoint = `/v8/user/${userLogin}/folder/${folderSlug}/file-list`;
+    let hasMore = false;
+    try {
+      console.log(`   > getFolderContentsPage: ${fileEndpoint} filePage=${filePage}`);
+      const response = await this.client.get(fileEndpoint, {
+        params: { per_page: perPage, page: filePage },
+      });
+      const data = response?.data;
+      const rawFiles = this.extractFilesPage(data);
+
+      for (const f of rawFiles) {
+        const entry = this.mapRawFile(f);
+        if (entry) entries.push(entry);
+      }
+
+      // Determine if there are more file pages.
+      // Use only "did we get any files" as the signal — comparing against
+      // perPage would break when the API caps pages at < perPage.
+      const declared = typeof data?.total === 'number' ? data.total : null;
+      hasMore =
+        rawFiles.length > 0 &&
+        (declared === null || filePage * perPage < declared);
+    } catch (err: any) {
+      if (err?.response?.status !== 404) throw err;
+      // 404 = no files in this folder; hasMore stays false
+    }
+
+    return { entries, hasMore };
   }
 
   /**

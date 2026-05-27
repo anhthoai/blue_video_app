@@ -114,7 +114,7 @@ class _SearchTabContentState extends ConsumerState<SearchTabContent> {
             includeStreams: false,
           );
           final items = await _libraryService.fetchItems(request);
-          allResults.addAll(items);
+          allResults.addAll(items.items);
         } catch (e) {
           // Continue searching other sections if one fails
           debugPrint('Error searching section ${section.section}: $e');

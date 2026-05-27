@@ -484,7 +484,7 @@ class _RequestLinkedMediaPickerSheetState
                 limit: 40,
                 includeStreams: false,
               ),
-            );
+            ).then((r) => r.items);
           } catch (_) {
             return const <LibraryItemModel>[];
           }

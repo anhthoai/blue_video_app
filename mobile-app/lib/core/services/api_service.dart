@@ -2717,22 +2717,6 @@ class ApiService {
     return await _handleResponse(response);
   }
 
-  Future<Map<String, dynamic>> getLibrarySyncStatus() async {
-    final response = await http.get(
-      Uri.parse('$baseUrl/library/sync/status'),
-      headers: await _getHeaders(),
-    );
-    return await _handleResponse(response);
-  }
-
-  Future<Map<String, dynamic>> triggerLibrarySync({String? section}) async {
-    final uri = section != null && section.isNotEmpty
-        ? Uri.parse('$baseUrl/library/sync/${Uri.encodeComponent(section)}')
-        : Uri.parse('$baseUrl/library/sync');
-    final response = await http.post(uri, headers: await _getHeaders());
-    return await _handleResponse(response);
-  }
-
   Future<Map<String, dynamic>> getLibraryItems(
     String section, {
     int page = 1,

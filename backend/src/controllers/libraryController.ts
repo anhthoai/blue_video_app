@@ -7,7 +7,7 @@ import https from 'https';
 import prisma from '../lib/prisma';
 import { StorageService } from '../config/storage';
 import { getUlozService, getUlozStorageConfig, resolveUlozStorageId, listUlozStorageConfigs } from '../services/ulozRegistry';
-import { librarySyncService } from '../services/librarySyncService';
+import { librarySyncService, sectionToDisplayName } from '../services/librarySyncService';
 
 const MAX_PAGE_SIZE = 200;
 const MAX_VIDEO_FEED_PAGE_SIZE = 120;
@@ -524,37 +524,45 @@ async function serializeLibraryItem(
 
 export async function listLibrarySections(_req: Request, res: Response) {
   try {
+    // Collect all sections declared in env config (even if not yet synced to DB)
+    const configuredSections = new Set<string>();
+    for (const cfg of listUlozStorageConfigs()) {
+      for (const section of Object.keys(cfg.libraryFolders)) {
+        configuredSections.add(section.toLowerCase());
+      }
+    }
+
     const [grouped, syncStates] = await Promise.all([
       prisma.libraryContent.groupBy({
         by: ['section'],
-        where: {
-          section: { not: null },
-        },
+        where: { section: { not: null }, isAvailable: true },
         _count: { section: true },
       }),
       librarySyncService.getAllSyncStates().catch(() => []),
     ]);
 
     const syncMap = new Map(syncStates.map((s) => [s.section, s]));
+    const dbCountMap = new Map(
+      grouped.map((g) => [(g.section || '').toString().toLowerCase(), g._count.section]),
+    );
 
-    const sectionSummaries = grouped
-      .map((group) => {
-        const section = (group.section || '').toString().toLowerCase();
+    // Union of DB sections + configured env sections
+    const allSections = new Set([...dbCountMap.keys(), ...configuredSections]);
+
+    const sectionSummaries = Array.from(allSections)
+      .map((section) => {
         const sync = syncMap.get(section) ?? null;
         return {
           section,
-          totalItems: group._count.section,
-          syncStatus: sync?.status ?? 'idle',
+          totalItems: dbCountMap.get(section) ?? 0,
+          syncStatus: sync?.status ?? 'never',
           lastSyncAt: sync?.lastSyncAt ?? null,
           isSyncing: sync?.status === 'scanning',
         };
       })
       .sort((a, b) => a.section.localeCompare(b.section));
 
-    res.json({
-      success: true,
-      data: sectionSummaries,
-    });
+    res.json({ success: true, data: sectionSummaries });
   } catch (error: any) {
     console.error('Error listing library sections:', error);
     res.status(500).json({
@@ -580,7 +588,7 @@ export async function listLibraryItems(req: Request, res: Response) {
     const pathParam = (req.query['path'] as string) || null;
 
     let parentId: string | null = null;
-    let parentItem: { id: string; title: string; parentId: string | null; filePath: string | null } | null = null;
+    let parentItem: { id: string; title: string; parentId: string | null; filePath: string | null; ulozSlug: string | null; ulozStorageId: number | null } | null = null;
 
     if (parentIdParam) {
       const parent = await prisma.libraryContent.findUnique({
@@ -591,6 +599,8 @@ export async function listLibraryItems(req: Request, res: Response) {
           parentId: true,
           filePath: true,
           section: true,
+          ulozSlug: true,
+          ulozStorageId: true,
         },
       });
 
@@ -615,6 +625,8 @@ export async function listLibraryItems(req: Request, res: Response) {
           title: true,
           parentId: true,
           filePath: true,
+          ulozSlug: true,
+          ulozStorageId: true,
         },
       });
 
@@ -630,24 +642,57 @@ export async function listLibraryItems(req: Request, res: Response) {
       parentItem = parent;
     }
 
-    if (!parentId) {
-      const rootFolder = await prisma.libraryContent.findFirst({
-        where: {
-          section,
-          parentId: null,
-          isFolder: true,
-        },
-        select: {
-          id: true,
-          title: true,
-          parentId: true,
-          filePath: true,
-        },
-      });
+    // Browse-triggered sync: fetch this folder level from uloz.to if needed.
+    // Blocks on first visit so the DB is populated before we query it.
+    // On subsequent stale visits, returns immediately and re-syncs in background.
+    {
+      const storageConfigs = listUlozStorageConfigs();
+      if (parentId === null) {
+        // Root level: sync ALL storage configs that have this section in parallel.
+        const syncPromises: Promise<void>[] = [];
+        for (const cfg of storageConfigs) {
+          if (cfg.libraryFolders[section]) {
+            const rootSlug = cfg.libraryFolders[section];
+            const pathSegs = [sectionToDisplayName(section)];
+            syncPromises.push(
+              librarySyncService.syncFolderLevelIfNeeded(
+                cfg.id, section, rootSlug, null, pathSegs,
+              ),
+            );
+          }
+        }
+        await Promise.all(syncPromises);
+      } else if (parentItem?.ulozSlug && typeof parentItem.ulozStorageId === 'number') {
+        // Subfolder: sync only the storage that owns this parent folder.
+        const cfg = storageConfigs.find((c) => c.id === parentItem!.ulozStorageId);
+        if (cfg) {
+          const pathSegs: string[] = parentItem.filePath
+            ? parentItem.filePath.split('/')
+            : [sectionToDisplayName(section)];
+          await librarySyncService.syncFolderLevelIfNeeded(
+            cfg.id, section, parentItem.ulozSlug, parentId, pathSegs,
+          );
+        }
+      }
+    }
 
-      if (rootFolder) {
-        parentId = rootFolder.id;
-        parentItem = rootFolder;
+    // Determine if a background sync is still running for this folder/section.
+    // Used by the client to show a loading indicator and poll for new items.
+    let syncInProgress = false;
+    {
+      const storageConfigs = listUlozStorageConfigs();
+      if (parentId === null) {
+        for (const cfg of storageConfigs) {
+          const rootSlug = cfg.libraryFolders[section];
+          if (rootSlug && librarySyncService.isSyncActive(cfg.id, rootSlug)) {
+            syncInProgress = true;
+            break;
+          }
+        }
+      } else if (parentItem?.ulozSlug && typeof parentItem.ulozStorageId === 'number') {
+        syncInProgress = librarySyncService.isSyncActive(
+          parentItem.ulozStorageId, parentItem.ulozSlug,
+        );
       }
     }
 
@@ -661,8 +706,39 @@ export async function listLibraryItems(req: Request, res: Response) {
       (req.query['includeStreams'] as string | undefined)?.toLowerCase() === 'true';
     const search = (req.query['search'] as string) || null;
 
+    // On-demand real-time file fetch: when the user scrolls to a page the
+    // background sync hasn't populated yet, fetch those uloz.to pages now so
+    // the DB query below returns real data rather than an empty result.
+    if (
+      !search?.trim() &&
+      parentId !== null &&
+      parentItem?.ulozSlug &&
+      typeof parentItem.ulozStorageId === 'number'
+    ) {
+      const folderCount = await prisma.libraryContent.count({
+        where: { parentId, section, isAvailable: true, isFolder: true },
+      });
+      if (skip >= folderCount) {
+        // User has scrolled past all folders into the file region.
+        const fileOffset = skip - folderCount;
+        const neededFileCount = fileOffset + limit;
+        const pathSegs: string[] = parentItem.filePath
+          ? parentItem.filePath.split('/')
+          : [sectionToDisplayName(section)];
+        await librarySyncService.onDemandEnsureFiles(
+          parentItem.ulozStorageId,
+          section,
+          parentItem.ulozSlug,
+          parentId,
+          pathSegs,
+          neededFileCount,
+        );
+      }
+    }
+
     const whereClause: Record<string, any> = {
       section,
+      isAvailable: true,
     };
 
     // If searching, don't filter by parentId (search across all items in section)
@@ -716,27 +792,11 @@ export async function listLibraryItems(req: Request, res: Response) {
       ? await buildBreadcrumbs(parentItem)
       : [];
 
-    // Stale-while-revalidate: if section data is older than 30 minutes, kick off
-    // a background sync so next request will get fresher data.
-    // We look up storage configs for this section and trigger only the first match
-    // (multi-storage setups typically have sections on distinct storages).
-    const configs = listUlozStorageConfigs();
-    for (const cfg of configs) {
-      if (cfg.libraryFolders[section]) {
-        librarySyncService
-          .isSectionStale(cfg.id, section)
-          .then((stale) => {
-            if (stale) librarySyncService.triggerBackgroundSync(cfg.id, section);
-          })
-          .catch(() => {});
-        break;
-      }
-    }
-
     res.json({
       success: true,
       data: {
         section,
+        syncInProgress,
         parent: parentItem
           ? {
             id: parentItem.id,

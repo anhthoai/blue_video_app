@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:dio/dio.dart';
@@ -24,7 +25,7 @@ final librarySectionsProvider =
 final libraryItemsProvider =
     FutureProvider.family<List<LibraryItemModel>, LibraryItemsRequest>(
         (ref, request) async {
-  return LibraryService().fetchItems(request);
+  return LibraryService().fetchItems(request).then((r) => r.items);
 });
 
 class LibraryScreen extends ConsumerWidget {
@@ -37,8 +38,6 @@ class LibraryScreen extends ConsumerWidget {
 
     return sectionsAsync.when(
       data: (sections) {
-        final hasSyncing = sections.any((s) => s.isSyncing);
-
         final tabs = <Tab>[
           Tab(text: l10n.database),
           ...sections.map((section) => Tab(text: section.displayLabel)),
@@ -64,26 +63,6 @@ class LibraryScreen extends ConsumerWidget {
                   tooltip: l10n.search,
                   icon: const Icon(Icons.search, color: Colors.white),
                   onPressed: () => context.push('/main/search?tab=Library'),
-                ),
-                // Manual full-sync button
-                IconButton(
-                  tooltip: 'Sync library',
-                  icon: hasSyncing
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                          ),
-                        )
-                      : const Icon(Icons.sync, color: Colors.white),
-                  onPressed: hasSyncing
-                      ? null
-                      : () async {
-                          await LibraryService().triggerSync();
-                          ref.invalidate(librarySectionsProvider);
-                        },
                 ),
                 TextButton.icon(
                   onPressed: () => context.push('/main/library/add'),
@@ -171,61 +150,9 @@ class LibrarySectionTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        // Sync status banner
-        if (section.isSyncing || section.lastSyncAt != null)
-          _SyncStatusBanner(section: section),
-        Expanded(
-          child: LibraryItemsView(
-            section: section.section,
-            folderTitle: section.displayName,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _SyncStatusBanner extends StatelessWidget {
-  const _SyncStatusBanner({required this.section});
-  final LibrarySectionModel section;
-
-  @override
-  Widget build(BuildContext context) {
-    final label = section.isSyncing
-        ? 'Syncing…'
-        : 'Synced ${section.lastSyncRelative ?? ''}';
-
-    return Container(
-      width: double.infinity,
-      color: section.isSyncing
-          ? Colors.blue.withOpacity(0.12)
-          : Colors.transparent,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (section.isSyncing)
-            const SizedBox(
-              width: 10,
-              height: 10,
-              child: CircularProgressIndicator(strokeWidth: 1.5),
-            )
-          else
-            Icon(Icons.check_circle_outline, size: 12, color: Colors.grey[500]),
-          const SizedBox(width: 6),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 11,
-              color: section.isSyncing
-                  ? Theme.of(context).colorScheme.primary
-                  : Colors.grey[500],
-            ),
-          ),
-        ],
-      ),
+    return LibraryItemsView(
+      section: section.section,
+      folderTitle: section.displayName,
     );
   }
 }
@@ -258,6 +185,8 @@ class _LibraryItemsViewState extends ConsumerState<LibraryItemsView>
   bool _isLoadingMore = false;
   bool _hasMore = true;
   bool _isInitialLoad = true;
+  bool _syncInProgress = false;
+  Timer? _syncRetryTimer;
   Object? _error;
 
   @override
@@ -269,6 +198,7 @@ class _LibraryItemsViewState extends ConsumerState<LibraryItemsView>
 
   @override
   void dispose() {
+    _syncRetryTimer?.cancel();
     _scrollController.dispose();
     super.dispose();
   }
@@ -287,12 +217,14 @@ class _LibraryItemsViewState extends ConsumerState<LibraryItemsView>
   Future<void> _loadItems() async {
     if (_isLoading) return;
 
+    _syncRetryTimer?.cancel();
     setState(() {
       _isLoading = true;
       _isInitialLoad = true;
       _currentPage = 1;
       _items = [];
       _hasMore = true;
+      _syncInProgress = false;
       _error = null;
     });
 
@@ -304,15 +236,24 @@ class _LibraryItemsViewState extends ConsumerState<LibraryItemsView>
         page: 1,
         limit: 40,
       );
-      final items = await LibraryService().fetchItems(request);
+      final result = await LibraryService().fetchItems(request);
 
       if (mounted) {
         setState(() {
-          _items = items;
-          _hasMore = items.length >= 40;
+          _items = result.items;
+          _syncInProgress = result.syncInProgress;
+          // More pages exist only if we received a full page.
+          // With on-demand fetch the controller already populates the DB
+          // before querying, so a partial page means genuinely no more data.
+          _hasMore = result.items.length >= 40;
           _isLoading = false;
           _isInitialLoad = false;
         });
+        // If the folder is still empty while a sync is running (very first
+        // visit before page-1 data is written), retry once after a delay.
+        if (result.items.isEmpty && result.syncInProgress) {
+          _scheduleSyncRetry();
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -340,13 +281,16 @@ class _LibraryItemsViewState extends ConsumerState<LibraryItemsView>
         page: _currentPage + 1,
         limit: 40,
       );
-      final items = await LibraryService().fetchItems(request);
+      final result = await LibraryService().fetchItems(request);
 
       if (mounted) {
         setState(() {
-          _currentPage++;
-          _items.addAll(items);
-          _hasMore = items.length >= 40;
+          if (result.items.isNotEmpty) {
+            _currentPage++;
+            _items.addAll(result.items);
+          }
+          _syncInProgress = result.syncInProgress;
+          _hasMore = result.items.length >= 40;
           _isLoadingMore = false;
         });
       }
@@ -357,6 +301,17 @@ class _LibraryItemsViewState extends ConsumerState<LibraryItemsView>
         });
       }
     }
+  }
+
+  /// Schedules a refresh to pick up items when a folder appears empty but
+  /// sync is still running (rare with on-demand fetch, kept as safety net).
+  void _scheduleSyncRetry() {
+    _syncRetryTimer?.cancel();
+    _syncRetryTimer = Timer(const Duration(seconds: 2), () {
+      if (mounted && _syncInProgress) {
+        _loadItems();
+      }
+    });
   }
 
   @override
@@ -374,7 +329,9 @@ class _LibraryItemsViewState extends ConsumerState<LibraryItemsView>
     return RefreshIndicator(
       onRefresh: _loadItems,
       child: _items.isEmpty
-          ? _buildEmptyState(context)
+          ? (_syncInProgress
+              ? const Center(child: CircularProgressIndicator())
+              : _buildEmptyState(context))
           : Stack(
               children: [
                 GridView.builder(
@@ -390,10 +347,26 @@ class _LibraryItemsViewState extends ConsumerState<LibraryItemsView>
                   itemCount: _items.length + (_isLoadingMore ? 1 : 0),
                   itemBuilder: (context, index) {
                     if (index >= _items.length) {
-                      return const Center(
+                      // Show sync-aware loading indicator at the bottom
+                      return Center(
                         child: Padding(
-                          padding: EdgeInsets.all(16.0),
-                          child: CircularProgressIndicator(),
+                          padding: const EdgeInsets.all(16.0),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const CircularProgressIndicator(),
+                              if (_syncInProgress && !_isLoadingMore) ...[
+                                const SizedBox(height: 8),
+                                Text(
+                                  'Syncing new content...',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.grey[500],
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
                         ),
                       );
                     }
@@ -1084,6 +1057,11 @@ class LibraryContentCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final imageUrl = item.imageUrl;
 
+    // The CDN __ulozthumb__/small/{slug} route always returns a static JPEG
+    // (preview_info.small_image), so it is safe for all file types including
+    // webm/ogv.  Use imageUrl directly.
+    final String? displayImageUrl = imageUrl;
+
     return Material(
       color: Theme.of(context).cardColor,
       borderRadius: BorderRadius.circular(12),
@@ -1097,9 +1075,9 @@ class LibraryContentCard extends StatelessWidget {
               child: Stack(
                 children: [
                   Positioned.fill(
-                    child: imageUrl != null
+                    child: displayImageUrl != null
                         ? Image.network(
-                            imageUrl,
+                            displayImageUrl,
                             fit: BoxFit.cover,
                             errorBuilder: (_, __, ___) => _buildPlaceholder(),
                           )
@@ -1213,7 +1191,7 @@ class LibraryContentCard extends StatelessWidget {
       color: Colors.grey[300],
       alignment: Alignment.center,
       child: Icon(
-        item.isFolder ? Icons.folder : Icons.insert_drive_file,
+        item.isFolder ? Icons.folder : _iconForContentType(item),
         size: 36,
         color: Colors.grey[600],
       ),

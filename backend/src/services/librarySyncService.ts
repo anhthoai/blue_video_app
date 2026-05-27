@@ -4,7 +4,6 @@ import prisma from '../lib/prisma';
 import {
   getUlozService,
   getUlozStorageConfig,
-  listUlozStorageConfigs,
 } from './ulozRegistry';
 
 // ---------------------------------------------------------------------------
@@ -66,7 +65,7 @@ function detectMimeType(ext: string): string | null {
 // Path helpers
 // ---------------------------------------------------------------------------
 
-function sectionToDisplayName(section: string): string {
+export function sectionToDisplayName(section: string): string {
   return section
     .split(/[-_]+/)
     .filter(Boolean)
@@ -87,12 +86,6 @@ function buildSlugPath(pathSegments: string[]): string {
 }
 
 // ---------------------------------------------------------------------------
-// Utility
-// ---------------------------------------------------------------------------
-
-const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
-
-// ---------------------------------------------------------------------------
 // Service
 // ---------------------------------------------------------------------------
 
@@ -110,39 +103,120 @@ export interface SyncStatusEntry {
 }
 
 export class LibrarySyncService {
-  /** Keys of section syncs currently running in-process. */
+  /** Keys of folder syncs currently running, keyed by `${storageId}:${folderSlug}`. */
   private readonly activeSyncs = new Set<string>();
 
   // -----------------------------------------------------------------------
-  // Public API
+  // Thumbnail CDN URL
   // -----------------------------------------------------------------------
 
   /**
-   * Returns true when the section has no sync record, or its last successful
-   * sync finished more than `maxAgeMs` milliseconds ago.
-   * Returns false when a sync is currently running (no point triggering another).
+   * Builds a thumbnail URL using the CDN proxy pattern from myindex:
+   *   {proxyCdnUrl}__ulozthumb__/small/{fileSlug}
+   * e.g. https://ulcdn.onlybl.com/0:/__ulozthumb__/small/6qbjqxwVTNHf
+   * The /small/ route always returns a static JPEG (works for all file types
+   * including webm). Returns null if no CDN URL is configured for the storage.
    */
-  async isSectionStale(
+  buildThumbnailUrl(storageId: number, fileSlug: string): string | null {
+    const cfg = getUlozStorageConfig(storageId);
+    if (!cfg.proxyCdnUrl) return null;
+    const base = cfg.proxyCdnUrl.endsWith('/')
+      ? cfg.proxyCdnUrl
+      : `${cfg.proxyCdnUrl}/`;
+    return `${base}__ulozthumb__/small/${fileSlug}`;
+  }
+
+  /**
+   * Returns true if a sync is currently running for `${storageId}:${folderSlug}`.
+   * Used by the library controller to include a `syncInProgress` flag in
+   * responses so Flutter can show a loading indicator and poll for new items.
+   */
+  isSyncActive(storageId: number, folderSlug: string): boolean {
+    return this.activeSyncs.has(`${storageId}:${folderSlug}`);
+  }
+
+  // -----------------------------------------------------------------------
+  // Browse-triggered sync (main public entry point)
+  // -----------------------------------------------------------------------
+
+  /**
+   * Called on every browse request for a folder. Behaviour:
+   *
+   *  - First visit (no sync record for this folderSlug): blocks until the
+   *    folder's immediate children are upserted to the DB.
+   *  - Stale (last sync > ttlMs ago): returns immediately (SWR), re-syncs in
+   *    the background so the next browse gets fresher data.
+   *  - Fresh (last sync < ttlMs ago): no-op.
+   *
+   * @param parentId  DB id of the folder whose children we are showing, or null
+   *                  when showing the section root level.
+   */
+  async syncFolderLevelIfNeeded(
     storageId: number,
     section: string,
-    maxAgeMs = 30 * 60 * 1000,
-  ): Promise<boolean> {
-    const key = `${storageId}:${section}`;
-    const state = await prisma.librarySyncState
+    folderSlug: string,
+    parentId: string | null,
+    pathSegments: string[],
+    ttlMs = 60 * 60 * 1000, // 1 hour default TTL
+  ): Promise<void> {
+    const key = `${storageId}:${folderSlug}`;
+    // Already syncing this exact folder — skip to avoid duplicate work
+    if (this.activeSyncs.has(key)) return;
+
+    const syncState = await prisma.librarySyncState
       .findUnique({ where: { id: key } })
       .catch(() => null);
-    if (!state) return true;
-    if (state.status === 'scanning') return false; // already running
-    if (!state.lastSyncAt) return true;
-    return Date.now() - state.lastSyncAt.getTime() > maxAgeMs;
+
+    const lastSyncAt = syncState?.lastSyncAt ?? null;
+    const isFresh =
+      lastSyncAt !== null && Date.now() - lastSyncAt.getTime() < ttlMs;
+
+    if (isFresh) return; // cached data is fresh enough
+
+    if (lastSyncAt === null) {
+      // First visit — block only until the FIRST PAGE is committed to DB.
+      // Large folders (10 000+ files) should not block the HTTP request for
+      // their entire sync duration; remaining pages continue in background.
+      await new Promise<void>((resolve, reject) => {
+        let firstPageSignaled = false;
+        this.syncFolderLevel(
+          storageId,
+          section,
+          folderSlug,
+          parentId,
+          pathSegments,
+          () => {
+            firstPageSignaled = true;
+            resolve();
+          },
+        ).catch((err) => {
+          if (!firstPageSignaled) {
+            reject(err); // error before any data was ready
+          } else {
+            console.error(
+              `[LibrarySync] Background pages error for "${folderSlug}":`,
+              err?.message ?? err,
+            );
+          }
+        });
+      });
+    } else {
+      // Stale-while-revalidate: serve cached data now, refresh in background
+      this.syncFolderLevel(storageId, section, folderSlug, parentId, pathSegments).catch(
+        (err) =>
+          console.error(
+            `[LibrarySync] Background re-sync error for folder "${folderSlug}":`,
+            err?.message ?? err,
+          ),
+      );
+    }
   }
 
-  /** True while the section is being crawled (in-process lock). */
-  isActivelySyncing(storageId: number, section: string): boolean {
-    return this.activeSyncs.has(`${storageId}:${section}`);
-  }
+  // -----------------------------------------------------------------------
+  // Status API (kept for the optional admin/debug endpoint)
+  // -----------------------------------------------------------------------
 
-  /** Returns the sync state for every configured section. */
+  /** Returns sync state for every folder slug that has been visited. */
   async getAllSyncStates(): Promise<SyncStatusEntry[]> {
     const rows = await prisma.librarySyncState
       .findMany({ orderBy: [{ storageId: 'asc' }, { section: 'asc' }] })
@@ -162,57 +236,50 @@ export class LibrarySyncService {
     }));
   }
 
-  /** Fire-and-forget wrapper — safe to call from request handlers. */
-  triggerBackgroundSync(storageId: number, section: string): void {
-    const key = `${storageId}:${section}`;
-    if (this.activeSyncs.has(key)) return;
-    this.syncSection(storageId, section).catch((err) =>
-      console.error(
-        `[LibrarySync] Unhandled error in background sync for "${section}" (storage ${storageId}):`,
-        err?.message ?? err,
-      ),
-    );
-  }
-
-  /** Stagger-trigger all configured sections across all uloz storages. */
-  async triggerAllSections(): Promise<void> {
-    const configs = listUlozStorageConfigs();
-    for (const cfg of configs) {
-      for (const section of Object.keys(cfg.libraryFolders)) {
-        this.triggerBackgroundSync(cfg.id, section);
-        await sleep(300); // stagger so we don't hammer uloz on startup
-      }
-    }
-  }
-
   // -----------------------------------------------------------------------
-  // Core sync logic
+  // Core single-level sync (private)
   // -----------------------------------------------------------------------
 
-  async syncSection(storageId: number, section: string): Promise<void> {
-    const key = `${storageId}:${section}`;
+  /**
+   * Fetches ONE level of a uloz.to folder page-by-page and upserts to DB.
+   * Never recurses — deeper levels are synced lazily when the user navigates.
+   *
+   * @param onFirstPageReady  Optional callback fired after the first page
+   *   (subfolders + first 100 files) has been committed to the DB.  Used by
+   *   `syncFolderLevelIfNeeded` to unblock the HTTP request early so the user
+   *   sees initial data immediately while remaining pages load in background.
+   */
+  private async syncFolderLevel(
+    storageId: number,
+    section: string,
+    folderSlug: string,
+    parentId: string | null,
+    pathSegments: string[],
+    onFirstPageReady?: () => void,
+  ): Promise<void> {
+    const key = `${storageId}:${folderSlug}`;
     if (this.activeSyncs.has(key)) {
-      console.log(
-        `[LibrarySync] "${section}" (storage ${storageId}) already syncing — skipped`,
-      );
+      onFirstPageReady?.(); // already running — unblock caller immediately
       return;
     }
-
-    const cfg = getUlozStorageConfig(storageId);
-    const folderSlug = cfg.libraryFolders[section];
-    if (!folderSlug) {
-      console.log(
-        `[LibrarySync] No folder slug for section "${section}" on storage ${storageId}`,
-      );
-      return;
-    }
-
-    const displayName = sectionToDisplayName(section);
     this.activeSyncs.add(key);
     const syncGeneration = crypto.randomUUID();
 
+    // Safety: always call onFirstPageReady exactly once so the Promise in
+    // syncFolderLevelIfNeeded never hangs.
+    let firstPageSignaled = false;
+    const signalFirstPage = () => {
+      if (!firstPageSignaled) {
+        firstPageSignaled = true;
+        onFirstPageReady?.();
+      }
+    };
+
+    console.log(
+      `[LibrarySync] ▶ section="${section}" slug="${folderSlug}" parentId=${parentId ?? 'root'}`,
+    );
+
     try {
-      // Persist "scanning" state
       await prisma.librarySyncState.upsert({
         where: { id: key },
         create: {
@@ -239,33 +306,87 @@ export class LibrarySyncService {
       });
 
       const uloz = getUlozService(storageId);
+      const folderUrl = `https://uloz.to/folder/${folderSlug}`;
+      const FILE_PER_PAGE = 100;
       let totalIndexed = 0;
+      let filePage = 1;
 
-      console.log(
-        `[LibrarySync] ▶ section="${section}" storage=${storageId} folder=${folderSlug}`,
-      );
+      // eslint-disable-next-line no-constant-condition
+      while (true) {
+        let page: { entries: any[]; hasMore: boolean };
+        try {
+          page = await uloz.getFolderContentsPage(folderUrl, filePage, FILE_PER_PAGE);
+        } catch (err: any) {
+          console.warn(
+            `[LibrarySync] Cannot fetch page ${filePage} of "${folderSlug}": ${err?.message}`,
+          );
+          signalFirstPage(); // unblock caller even when no data could be fetched
+          break;
+        }
 
-      await this.crawlFolder({
-        uloz,
-        storageId,
-        section,
-        folderSlug,
-        pathSegments: [displayName],
-        parentId: null,
-        parentFolderSlug: null,
-        syncGeneration,
-        syncStateId: key,
-        onIndexed: (n) => {
-          totalIndexed += n;
-        },
-      });
+        for (const entry of page.entries) {
+          if (!entry?.slug) continue;
 
-      // Prune stale entries (from previous sync generations)
+          const childPathSegments = [...pathSegments, entry.name];
+          const filePath = childPathSegments.join('/');
+          const slugPath = buildSlugPath(childPathSegments);
+
+          if (entry.isFolder) {
+            await this.upsertFolderItem({
+              ulozSlug: entry.slug,
+              name: entry.name,
+              section,
+              storageId,
+              filePath,
+              slugPath,
+              parentId,
+              parentFolderSlug: folderSlug,
+              syncGeneration,
+            });
+          } else {
+            const ext = (entry.extension ?? '')
+              .toString()
+              .toLowerCase()
+              .replace(/^\./, '');
+            await this.upsertFileItem({
+              ulozSlug: entry.slug,
+              name: entry.name,
+              section,
+              storageId,
+              filePath,
+              slugPath,
+              fileSize: entry.size ?? 0,
+              extension: ext,
+              contentType: entry.contentType ?? null,
+              parentId,
+              parentFolderSlug: folderSlug,
+              syncGeneration,
+              previewSmallImage: entry.previewSmallImage,
+            });
+          }
+          totalIndexed++;
+        }
+
+        // After the first page is committed, unblock the caller so the user
+        // sees initial data immediately while remaining pages load in background.
+        signalFirstPage();
+
+        if (!page.hasMore) break;
+
+        filePage++;
+        // Periodic progress update so the sync-state record stays fresh
+        await prisma.librarySyncState
+          .update({ where: { id: key }, data: { lastTickAt: new Date(), totalIndexed } })
+          .catch(() => { /* non-critical */ });
+      }
+
+      // Prune direct children that were removed from this folder since the last sync
       const pruned = await prisma.libraryContent.updateMany({
         where: {
           section,
           source: ContentSource.ULOZ,
           ulozStorageId: storageId,
+          parentId, // scope to direct children only
           OR: [
             { syncGeneration: null },
             { syncGeneration: { not: syncGeneration } },
@@ -276,7 +397,7 @@ export class LibrarySyncService {
 
       if (pruned.count > 0) {
         console.log(
-          `[LibrarySync] Pruned ${pruned.count} stale entries for section "${section}"`,
+          `[LibrarySync] Pruned ${pruned.count} removed items from folder "${folderSlug}"`,
         );
       }
 
@@ -284,19 +405,20 @@ export class LibrarySyncService {
         where: { id: key },
         data: {
           status: 'idle',
-          finishedAt: new Date(),
           lastSyncAt: new Date(),
+          finishedAt: new Date(),
           lastTickAt: new Date(),
           totalIndexed,
         },
       });
 
       console.log(
-        `[LibrarySync] ✅ section="${section}" storage=${storageId} indexed=${totalIndexed}`,
+        `[LibrarySync] ✅ section="${section}" slug="${folderSlug}" pages=${filePage} indexed=${totalIndexed}`,
       );
     } catch (error: any) {
+      signalFirstPage(); // ensure caller is always unblocked even on error
       console.error(
-        `[LibrarySync] ❌ section="${section}" storage=${storageId}:`,
+        `[LibrarySync] ❌ folder "${folderSlug}":`,
         error?.message ?? error,
       );
       await prisma.librarySyncState
@@ -318,119 +440,8 @@ export class LibrarySyncService {
   }
 
   // -----------------------------------------------------------------------
-  // Private crawl helpers
+  // Upsert helpers
   // -----------------------------------------------------------------------
-
-  private async crawlFolder(params: {
-    uloz: any;
-    storageId: number;
-    section: string;
-    folderSlug: string;
-    pathSegments: string[];
-    parentId: string | null;
-    parentFolderSlug: string | null;
-    syncGeneration: string;
-    syncStateId: string;
-    onIndexed: (n: number) => void;
-  }): Promise<void> {
-    const {
-      uloz,
-      storageId,
-      section,
-      folderSlug,
-      pathSegments,
-      parentId,
-      syncGeneration,
-      syncStateId,
-      onIndexed,
-    } = params;
-
-    // Heartbeat so external observers can detect a stalled sync
-    await prisma.librarySyncState
-      .update({ where: { id: syncStateId }, data: { lastTickAt: new Date() } })
-      .catch(() => {});
-
-    let entries: any[];
-    try {
-      entries = await uloz.getFolderContents(
-        `https://uloz.to/folder/${folderSlug}`,
-      );
-    } catch (err: any) {
-      console.warn(
-        `[LibrarySync] Cannot fetch folder ${folderSlug}: ${err?.message}`,
-      );
-      return;
-    }
-
-    if (!Array.isArray(entries) || entries.length === 0) return;
-
-    const subfolders: Array<{
-      entry: any;
-      childPathSegments: string[];
-      folderRecord: { id: string };
-    }> = [];
-
-    for (const entry of entries) {
-      if (!entry?.slug) continue;
-
-      const childPathSegments = [...pathSegments, entry.name];
-      const filePath = childPathSegments.join('/');
-      const slugPath = buildSlugPath(childPathSegments);
-
-      if (entry.isFolder) {
-        const folderRecord = await this.upsertFolderItem({
-          ulozSlug: entry.slug,
-          name: entry.name,
-          section,
-          storageId,
-          filePath,
-          slugPath,
-          parentId,
-          parentFolderSlug: folderSlug,
-          syncGeneration,
-        });
-        onIndexed(1);
-        subfolders.push({ entry, childPathSegments, folderRecord });
-      } else {
-        const ext = (entry.extension ?? '')
-          .toString()
-          .toLowerCase()
-          .replace(/^\./, '');
-        await this.upsertFileItem({
-          ulozSlug: entry.slug,
-          name: entry.name,
-          section,
-          storageId,
-          filePath,
-          slugPath,
-          fileSize: entry.size ?? 0,
-          extension: ext,
-          contentType: entry.contentType ?? null,
-          parentId,
-          parentFolderSlug: folderSlug,
-          syncGeneration,
-        });
-        onIndexed(1);
-      }
-    }
-
-    // Recurse into subfolders after processing all files at this level
-    for (const { entry, childPathSegments, folderRecord } of subfolders) {
-      await sleep(150); // be gentle with the uloz.to API
-      await this.crawlFolder({
-        uloz,
-        storageId,
-        section,
-        folderSlug: entry.slug,
-        pathSegments: childPathSegments,
-        parentId: folderRecord.id,
-        parentFolderSlug: entry.slug,
-        syncGeneration,
-        syncStateId,
-        onIndexed,
-      });
-    }
-  }
 
   private async upsertFolderItem(params: {
     ulozSlug: string;
@@ -504,6 +515,8 @@ export class LibrarySyncService {
     parentId: string | null;
     parentFolderSlug: string | null;
     syncGeneration: string;
+    /** Static thumbnail URL from preview_info.small_image (when API provides it). */
+    previewSmallImage?: string;
   }): Promise<void> {
     const {
       ulozSlug,
@@ -518,12 +531,22 @@ export class LibrarySyncService {
       parentId,
       parentFolderSlug,
       syncGeneration,
+      previewSmallImage,
     } = params;
 
     const slug = ulozSlug; // uloz.to file slugs are globally unique
     const detectedContentType = contentType || detectContentType(extension);
     const mimeType = detectMimeType(extension);
 
+    // The CDN __ulozthumb__/{slug} endpoint works for most file types; however
+    // for formats like webm it may return the raw file instead of a JPEG frame.
+    // If the file-list API included preview_info.small_image, prefer that URL
+    // (a proper JPEG/webp thumbnail) so all formats including webm display
+    // correctly.  The URL carries a time-limited signature but gets refreshed
+    // every SWR sync cycle.
+    const thumbnailUrl =
+      (previewSmallImage && previewSmallImage.trim()) ||
+      this.buildThumbnailUrl(storageId, ulozSlug);
     const commonData = {
       title: name,
       filePath,
@@ -542,7 +565,7 @@ export class LibrarySyncService {
       mimeType: mimeType ?? null,
       isAvailable: true,
       syncGeneration,
-      thumbnailUrl: null,
+      thumbnailUrl: thumbnailUrl ?? null,
       videoPreviewUrl: null,
     };
 
@@ -558,6 +581,67 @@ export class LibrarySyncService {
       await prisma.libraryContent
         .create({ data: { slug, ...commonData } })
         .catch(() => {});
+    }
+  }
+
+  // -----------------------------------------------------------------------
+  // On-demand real-time file fetch
+  // -----------------------------------------------------------------------
+
+  /**
+   * Ensures the DB contains at least `neededFileCount` file rows for the given
+   * parent folder. When the user scrolls to a page the background sync hasn't
+   * reached yet, this method fetches the missing uloz.to pages synchronously
+   * so the HTTP response contains real data instead of an empty array.
+   *
+   * Upserts are idempotent, so concurrent calls with the background sync are safe.
+   */
+  async onDemandEnsureFiles(
+    storageId: number,
+    section: string,
+    folderSlug: string,
+    parentId: string | null,
+    pathSegments: string[],
+    neededFileCount: number,
+  ): Promise<void> {
+    const dbFileCount = await prisma.libraryContent.count({
+      where: { parentId, section, isAvailable: true, isFolder: false },
+    });
+    if (dbFileCount >= neededFileCount) return;
+
+    const ULOZ_PAGE_SIZE = 100;
+    // Start from the first page that may be missing. Floor division ensures we
+    // re-fetch the last partial page (idempotent) to catch any stragglers.
+    const startPage = Math.max(1, Math.floor(dbFileCount / ULOZ_PAGE_SIZE) + 1);
+    const endPage = Math.ceil(neededFileCount / ULOZ_PAGE_SIZE);
+
+    const uloz = getUlozService(storageId);
+    const folderUrl = `https://uloz.to/folder/${folderSlug}`;
+    const syncGeneration = Date.now().toString();
+
+    for (let filePage = startPage; filePage <= endPage; filePage++) {
+      const page = await uloz.getFolderContentsPage(folderUrl, filePage, ULOZ_PAGE_SIZE);
+      for (const entry of page.entries) {
+        if (entry.isFolder) continue;
+        const ext = (entry.extension ?? '').toString().toLowerCase().replace(/^\./, '');
+        const childSegments = [...pathSegments, entry.name];
+        await this.upsertFileItem({
+          ulozSlug: entry.slug,
+          name: entry.name,
+          section,
+          storageId,
+          filePath: childSegments.join('/'),
+          slugPath: buildSlugPath(childSegments),
+          fileSize: entry.size ?? 0,
+          extension: ext,
+          contentType: entry.contentType ?? null,
+          parentId,
+          parentFolderSlug: folderSlug,
+          syncGeneration,
+          ...(entry.previewSmallImage !== undefined ? { previewSmallImage: entry.previewSmallImage } : {}),
+        });
+      }
+      if (!page.hasMore) break;
     }
   }
 }

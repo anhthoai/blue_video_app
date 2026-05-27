@@ -5,10 +5,8 @@ import * as librarySyncController from '../controllers/librarySyncController';
 
 const router = Router();
 
-// Sync management
+// Admin/debug: read-only sync state per visited folder
 router.get('/sync/status', librarySyncController.getSyncStatus);
-router.post('/sync', librarySyncController.triggerFullSync);
-router.post('/sync/:section', librarySyncController.triggerSectionSync);
 
 // Library browsing
 router.get('/sections', libraryController.listLibrarySections);

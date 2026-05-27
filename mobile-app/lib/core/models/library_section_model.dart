@@ -43,6 +43,7 @@ class LibrarySectionModel {
   }
 
   String get displayLabel {
+    if (isSyncing && totalItems <= 0) return '$displayName (syncing…)';
     if (totalItems <= 0) return displayName;
     return '$displayName ($totalItems)';
   }
