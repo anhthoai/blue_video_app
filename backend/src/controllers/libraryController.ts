@@ -725,14 +725,19 @@ export async function listLibraryItems(req: Request, res: Response) {
         const pathSegs: string[] = parentItem.filePath
           ? parentItem.filePath.split('/')
           : [sectionToDisplayName(section)];
-        await librarySyncService.onDemandEnsureFiles(
-          parentItem.ulozStorageId,
-          section,
-          parentItem.ulozSlug,
-          parentId,
-          pathSegs,
-          neededFileCount,
-        );
+        try {
+          await librarySyncService.onDemandEnsureFiles(
+            parentItem.ulozStorageId,
+            section,
+            parentItem.ulozSlug,
+            parentId,
+            pathSegs,
+            neededFileCount,
+          );
+        } catch (e) {
+          // Log but never fail the request — return whatever is in DB already.
+          console.error('[onDemandEnsureFiles] uloz.to fetch failed:', (e as Error)?.message ?? e);
+        }
       }
     }
 

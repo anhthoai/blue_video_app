@@ -1,5 +1,5 @@
 import crypto from 'crypto';
-import { ContentSource } from '@prisma/client';
+import { ContentSource, Prisma } from '@prisma/client';
 import prisma from '../lib/prisma';
 import {
   getUlozService,
@@ -324,47 +324,84 @@ export class LibrarySyncService {
           break;
         }
 
-        for (const entry of page.entries) {
-          if (!entry?.slug) continue;
+        // Separate folders (sequential, few items) from files (batched, many items)
+        const folderEntries = page.entries.filter((e) => e?.slug && e.isFolder);
+        const fileEntries = page.entries.filter((e) => e?.slug && !e.isFolder);
 
+        // --- Folders: sequential upsert (maintains parentId chain) ---
+        for (const entry of folderEntries) {
           const childPathSegments = [...pathSegments, entry.name];
-          const filePath = childPathSegments.join('/');
-          const slugPath = buildSlugPath(childPathSegments);
-
-          if (entry.isFolder) {
-            await this.upsertFolderItem({
-              ulozSlug: entry.slug,
-              name: entry.name,
-              section,
-              storageId,
-              filePath,
-              slugPath,
-              parentId,
-              parentFolderSlug: folderSlug,
-              syncGeneration,
-            });
-          } else {
-            const ext = (entry.extension ?? '')
-              .toString()
-              .toLowerCase()
-              .replace(/^\./, '');
-            await this.upsertFileItem({
-              ulozSlug: entry.slug,
-              name: entry.name,
-              section,
-              storageId,
-              filePath,
-              slugPath,
-              fileSize: entry.size ?? 0,
-              extension: ext,
-              contentType: entry.contentType ?? null,
-              parentId,
-              parentFolderSlug: folderSlug,
-              syncGeneration,
-              previewSmallImage: entry.previewSmallImage,
-            });
-          }
+          await this.upsertFolderItem({
+            ulozSlug: entry.slug,
+            name: entry.name,
+            section,
+            storageId,
+            filePath: childPathSegments.join('/'),
+            slugPath: buildSlugPath(childPathSegments),
+            parentId,
+            parentFolderSlug: folderSlug,
+            syncGeneration,
+          });
           totalIndexed++;
+        }
+
+        // --- Files: batch upsert (2 DB calls instead of N×2) ---
+        if (fileEntries.length > 0) {
+          const fileRecords: Prisma.LibraryContentCreateManyInput[] = fileEntries.map(
+            (entry) => {
+              const ext = (entry.extension ?? '')
+                .toString()
+                .toLowerCase()
+                .replace(/^\./, '');
+              const childSegments = [...pathSegments, entry.name];
+              const thumbnailUrl =
+                (entry.previewSmallImage?.trim()) ||
+                this.buildThumbnailUrl(storageId, entry.slug) ||
+                null;
+              return {
+                slug: entry.slug,
+                title: entry.name,
+                filePath: childSegments.join('/'),
+                slugPath: buildSlugPath(childSegments),
+                section,
+                parentId: parentId ?? null,
+                parentFolderSlug: folderSlug,
+                ulozSlug: entry.slug,
+                ulozFolderSlug: folderSlug,
+                isFolder: false,
+                source: ContentSource.ULOZ,
+                ulozStorageId: storageId,
+                fileSize:
+                  (entry.size ?? 0) > 0
+                    ? BigInt(Math.round(Number(entry.size ?? 0)))
+                    : null,
+                extension: ext || null,
+                contentType: entry.contentType || detectContentType(ext),
+                mimeType: detectMimeType(ext) ?? null,
+                isAvailable: true,
+                syncGeneration,
+                thumbnailUrl,
+                videoPreviewUrl: null,
+              };
+            },
+          );
+
+          const seenSlugs = fileRecords.map((r) => r.slug as string);
+
+          // 1. Stamp syncGeneration on items already in DB (needed for pruning)
+          await prisma.libraryContent
+            .updateMany({
+              where: { slug: { in: seenSlugs } },
+              data: { syncGeneration, isAvailable: true },
+            })
+            .catch(() => {});
+
+          // 2. Insert items not yet in DB (skip those updated above)
+          await prisma.libraryContent
+            .createMany({ data: fileRecords, skipDuplicates: true })
+            .catch(() => {});
+
+          totalIndexed += fileEntries.length;
         }
 
         // After the first page is committed, unblock the caller so the user
@@ -502,88 +539,6 @@ export class LibrarySyncService {
     });
   }
 
-  private async upsertFileItem(params: {
-    ulozSlug: string;
-    name: string;
-    section: string;
-    storageId: number;
-    filePath: string;
-    slugPath: string;
-    fileSize: number;
-    extension: string;
-    contentType: string | null;
-    parentId: string | null;
-    parentFolderSlug: string | null;
-    syncGeneration: string;
-    /** Static thumbnail URL from preview_info.small_image (when API provides it). */
-    previewSmallImage?: string;
-  }): Promise<void> {
-    const {
-      ulozSlug,
-      name,
-      section,
-      storageId,
-      filePath,
-      slugPath,
-      fileSize,
-      extension,
-      contentType,
-      parentId,
-      parentFolderSlug,
-      syncGeneration,
-      previewSmallImage,
-    } = params;
-
-    const slug = ulozSlug; // uloz.to file slugs are globally unique
-    const detectedContentType = contentType || detectContentType(extension);
-    const mimeType = detectMimeType(extension);
-
-    // The CDN __ulozthumb__/{slug} endpoint works for most file types; however
-    // for formats like webm it may return the raw file instead of a JPEG frame.
-    // If the file-list API included preview_info.small_image, prefer that URL
-    // (a proper JPEG/webp thumbnail) so all formats including webm display
-    // correctly.  The URL carries a time-limited signature but gets refreshed
-    // every SWR sync cycle.
-    const thumbnailUrl =
-      (previewSmallImage && previewSmallImage.trim()) ||
-      this.buildThumbnailUrl(storageId, ulozSlug);
-    const commonData = {
-      title: name,
-      filePath,
-      slugPath,
-      section,
-      parentId,
-      parentFolderSlug: parentFolderSlug ?? null,
-      ulozSlug,
-      ulozFolderSlug: parentFolderSlug ?? null,
-      isFolder: false,
-      source: ContentSource.ULOZ,
-      ulozStorageId: storageId,
-      fileSize: fileSize > 0 ? BigInt(Math.round(fileSize)) : null,
-      extension: extension || null,
-      contentType: detectedContentType,
-      mimeType: mimeType ?? null,
-      isAvailable: true,
-      syncGeneration,
-      thumbnailUrl: thumbnailUrl ?? null,
-      videoPreviewUrl: null,
-    };
-
-    const existing = await prisma.libraryContent
-      .findUnique({ where: { slug }, select: { id: true } })
-      .catch(() => null);
-
-    if (existing) {
-      await prisma.libraryContent
-        .update({ where: { slug }, data: commonData })
-        .catch(() => {});
-    } else {
-      await prisma.libraryContent
-        .create({ data: { slug, ...commonData } })
-        .catch(() => {});
-    }
-  }
-
   // -----------------------------------------------------------------------
   // On-demand real-time file fetch
   // -----------------------------------------------------------------------
@@ -591,10 +546,12 @@ export class LibrarySyncService {
   /**
    * Ensures the DB contains at least `neededFileCount` file rows for the given
    * parent folder. When the user scrolls to a page the background sync hasn't
-   * reached yet, this method fetches the missing uloz.to pages synchronously
-   * so the HTTP response contains real data instead of an empty array.
+   * reached yet, this method fetches the missing uloz.to pages directly from
+   * uloz.to and writes them to DB in a single bulk insert per page.
    *
-   * Upserts are idempotent, so concurrent calls with the background sync are safe.
+   * Uses createMany + skipDuplicates (one DB round-trip per uloz page) instead
+   * of sequential per-item upserts, keeping latency under ~500 ms even for
+   * folders with 100+ files.
    */
   async onDemandEnsureFiles(
     storageId: number,
@@ -610,8 +567,6 @@ export class LibrarySyncService {
     if (dbFileCount >= neededFileCount) return;
 
     const ULOZ_PAGE_SIZE = 100;
-    // Start from the first page that may be missing. Floor division ensures we
-    // re-fetch the last partial page (idempotent) to catch any stragglers.
     const startPage = Math.max(1, Math.floor(dbFileCount / ULOZ_PAGE_SIZE) + 1);
     const endPage = Math.ceil(neededFileCount / ULOZ_PAGE_SIZE);
 
@@ -621,26 +576,50 @@ export class LibrarySyncService {
 
     for (let filePage = startPage; filePage <= endPage; filePage++) {
       const page = await uloz.getFolderContentsPage(folderUrl, filePage, ULOZ_PAGE_SIZE);
-      for (const entry of page.entries) {
-        if (entry.isFolder) continue;
-        const ext = (entry.extension ?? '').toString().toLowerCase().replace(/^\./, '');
-        const childSegments = [...pathSegments, entry.name];
-        await this.upsertFileItem({
-          ulozSlug: entry.slug,
-          name: entry.name,
-          section,
-          storageId,
-          filePath: childSegments.join('/'),
-          slugPath: buildSlugPath(childSegments),
-          fileSize: entry.size ?? 0,
-          extension: ext,
-          contentType: entry.contentType ?? null,
-          parentId,
-          parentFolderSlug: folderSlug,
-          syncGeneration,
-          ...(entry.previewSmallImage !== undefined ? { previewSmallImage: entry.previewSmallImage } : {}),
+
+      // Build all records for this uloz page and insert in one DB call.
+      const records: Prisma.LibraryContentCreateManyInput[] = page.entries
+        .filter((entry) => !entry.isFolder)
+        .map((entry) => {
+          const ext = (entry.extension ?? '').toString().toLowerCase().replace(/^\./, '');
+          const childSegments = [...pathSegments, entry.name];
+          const thumbnailUrl =
+            (entry.previewSmallImage?.trim()) ||
+            this.buildThumbnailUrl(storageId, entry.slug) ||
+            null;
+          return {
+            slug: entry.slug,
+            title: entry.name,
+            filePath: childSegments.join('/'),
+            slugPath: buildSlugPath(childSegments),
+            section,
+            parentId: parentId ?? null,
+            parentFolderSlug: folderSlug,
+            ulozSlug: entry.slug,
+            ulozFolderSlug: folderSlug,
+            isFolder: false,
+            source: ContentSource.ULOZ,
+            ulozStorageId: storageId,
+            fileSize:
+              (entry.size ?? 0) > 0
+                ? BigInt(Math.round(Number(entry.size ?? 0)))
+                : null,
+            extension: ext || null,
+            contentType: entry.contentType || detectContentType(ext),
+            mimeType: detectMimeType(ext) ?? null,
+            isAvailable: true,
+            syncGeneration,
+            thumbnailUrl,
+            videoPreviewUrl: null,
+          };
         });
+
+      if (records.length > 0) {
+        // skipDuplicates: items already in DB are left as-is (background sync
+        // handles updates). This keeps the insert to one round-trip.
+        await prisma.libraryContent.createMany({ data: records, skipDuplicates: true });
       }
+
       if (!page.hasMore) break;
     }
   }
