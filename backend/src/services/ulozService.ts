@@ -216,9 +216,6 @@ export class UlozService {
       const declared = typeof data?.total === 'number' ? data.total : null;
       if (declared !== null && all.length >= declared) break;
 
-      // Same as fetchFolderFiles: do NOT break on partial page — keep fetching
-      // until we receive an empty page.
-
       page++;
       if (page > 5000) {
         console.warn(`[UlozService] fetchFolderFolders: safety limit reached for ${endpoint}`);
@@ -227,6 +224,29 @@ export class UlozService {
     }
 
     return all;
+  }
+
+  /** Fetch a single page of subfolders. Used by getFolderContentsPage to avoid
+   *  pre-loading all subfolder pages before the first HTTP response is sent. */
+  private async fetchFolderFoldersPage(
+    userLogin: string,
+    folderSlug: string,
+    page: number,
+    perPage: number,
+  ): Promise<{ items: any[]; hasMore: boolean }> {
+    const endpoint = `/v9/user/${userLogin}/folder/${folderSlug}/folder-list`;
+    console.log(`   > Fetching subfolders via ${endpoint} (page ${page})`);
+    const response = await this.client.get(endpoint, {
+      params: { per_page: perPage, page },
+    });
+    const data = response?.data;
+    const items = this.extractFoldersPage(data);
+    if (page === 1 && items.length > 0) {
+      console.log(`     ↳ subfolders page 1: ${items.length} item(s)`);
+    }
+    const declared = typeof data?.total === 'number' ? data.total : null;
+    const hasMore = items.length > 0 && (declared === null || page * perPage < declared);
+    return { items, hasMore };
   }
 
   // ---------------------------------------------------------------------------
@@ -479,15 +499,22 @@ export class UlozService {
     const { userLogin, folderSlug } = this.extractFolderInfo(folderUrl);
     const entries: UlozFolderFile[] = [];
 
-    // On the very first page also sync all subfolders (they're usually few)
-    if (filePage === 1) {
-      const rawFolders = await this.fetchFolderFolders(userLogin, folderSlug).catch(
-        (err) => (err?.response?.status === 404 ? [] : Promise.reject(err)),
+    // Fetch one page of subfolders using the same page counter as files.
+    // This avoids pre-loading ALL subfolder pages on the first request — the
+    // sync loop advances folderPage naturally in step with filePage.
+    let folderHasMore = false;
+    try {
+      const { items: rawFolders, hasMore: fHasMore } = await this.fetchFolderFoldersPage(
+        userLogin, folderSlug, filePage, perPage,
       );
       for (const f of rawFolders) {
         const entry = this.mapRawFolder(f);
         if (entry) entries.push(entry);
       }
+      folderHasMore = fHasMore;
+    } catch (err: any) {
+      if (err?.response?.status !== 404) throw err;
+      // 404 = no subfolders; folderHasMore stays false
     }
 
     // Fetch one page of files
@@ -506,16 +533,16 @@ export class UlozService {
         if (entry) entries.push(entry);
       }
 
-      // Determine if there are more file pages.
-      // Use only "did we get any files" as the signal — comparing against
-      // perPage would break when the API caps pages at < perPage.
       const declared = typeof data?.total === 'number' ? data.total : null;
-      hasMore =
+      const fileHasMore =
         rawFiles.length > 0 &&
         (declared === null || filePage * perPage < declared);
+      // Continue if either files or folders have more pages
+      hasMore = fileHasMore || folderHasMore;
     } catch (err: any) {
       if (err?.response?.status !== 404) throw err;
-      // 404 = no files in this folder; hasMore stays false
+      // 404 = no files in this folder
+      hasMore = folderHasMore; // might still have more folder pages
     }
 
     return { entries, hasMore };

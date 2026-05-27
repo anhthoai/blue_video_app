@@ -7,7 +7,7 @@ import https from 'https';
 import prisma from '../lib/prisma';
 import { StorageService } from '../config/storage';
 import { getUlozService, getUlozStorageConfig, resolveUlozStorageId, listUlozStorageConfigs } from '../services/ulozRegistry';
-import { librarySyncService, sectionToDisplayName } from '../services/librarySyncService';
+import { librarySyncService, sectionToDisplayName, SyncStatusEntry } from '../services/librarySyncService';
 
 const MAX_PAGE_SIZE = 200;
 const MAX_VIDEO_FEED_PAGE_SIZE = 120;
@@ -541,7 +541,7 @@ export async function listLibrarySections(_req: Request, res: Response) {
       librarySyncService.getAllSyncStates().catch(() => []),
     ]);
 
-    const syncMap = new Map(syncStates.map((s) => [s.section, s]));
+    const syncMap = new Map<string, SyncStatusEntry>(syncStates.map((s) => [s.section, s]));
     const dbCountMap = new Map(
       grouped.map((g) => [(g.section || '').toString().toLowerCase(), g._count.section]),
     );
