@@ -779,15 +779,20 @@ class _LibraryItemsViewState extends ConsumerState<LibraryItemsView>
 
     try {
       final service = LibraryService();
-      final List<LibraryItemModel> detailedItems = [];
-
-      for (final item in items) {
-        final detailed =
-            await service.fetchItemById(item.id, includeStreams: true);
-        detailedItems.add(detailed ?? item);
-      }
-
-      return detailedItems;
+      // Fetch all items in parallel so the spinner time scales with the slowest
+      // single request rather than sum(all requests). This is critical when the
+      // backend must call the uloz direct-link API for each file (~300 ms/call):
+      // 40 sequential calls = 12 s vs 40 parallel calls = ~500 ms.
+      final results = await Future.wait(
+        items.map((item) async {
+          try {
+            return await service.fetchItemById(item.id, includeStreams: true) ?? item;
+          } catch (_) {
+            return item;
+          }
+        }),
+      );
+      return results;
     } finally {
       if (navigator.mounted && navigator.canPop()) {
         navigator.pop();

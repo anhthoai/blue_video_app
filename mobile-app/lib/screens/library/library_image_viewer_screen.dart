@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/models/library_navigation.dart';
@@ -60,6 +61,10 @@ class _LibraryImageViewerScreenState extends State<LibraryImageViewerScreen> {
                 final image = images[index];
                 final url =
                     image.streamUrl ?? image.imageUrl ?? image.fileUrl;
+                // Thumbnail from /__ulozthumb__/ is tiny (~30 KB) and served
+                // from CDN edge — loads in ~0.3 s. Show it immediately while
+                // the full-resolution image (streamUrl) fetches in background.
+                final thumbUrl = image.thumbnailUrl ?? image.coverUrl;
 
                 if (url == null || url.isEmpty) {
                   return const Center(
@@ -72,21 +77,33 @@ class _LibraryImageViewerScreenState extends State<LibraryImageViewerScreen> {
 
                 return InteractiveViewer(
                   child: Center(
-                    child: Image.network(
-                      url,
+                    child: CachedNetworkImage(
+                      imageUrl: url,
                       fit: BoxFit.contain,
-                      errorBuilder: (_, __, ___) => const Center(
+                      // Show thumbnail as placeholder while full image loads.
+                      placeholder: (context, _) {
+                        if (thumbUrl != null && thumbUrl.isNotEmpty) {
+                          return CachedNetworkImage(
+                            imageUrl: thumbUrl,
+                            fit: BoxFit.contain,
+                            placeholder: (_, __) => const Center(
+                              child: CircularProgressIndicator(),
+                            ),
+                            errorWidget: (_, __, ___) => const Center(
+                              child: CircularProgressIndicator(),
+                            ),
+                          );
+                        }
+                        return const Center(
+                          child: CircularProgressIndicator(),
+                        );
+                      },
+                      errorWidget: (_, __, ___) => const Center(
                         child: Text(
                           'Failed to load image',
                           style: TextStyle(color: Colors.white70),
                         ),
                       ),
-                      loadingBuilder: (context, child, loadingProgress) {
-                        if (loadingProgress == null) return child;
-                        return const Center(
-                          child: CircularProgressIndicator(),
-                        );
-                      },
                     ),
                   ),
                 );

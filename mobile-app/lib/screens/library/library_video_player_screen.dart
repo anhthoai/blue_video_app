@@ -187,6 +187,24 @@ class _LibraryVideoPlayerScreenState extends State<LibraryVideoPlayerScreen>
       );
       await (platform as dynamic).setProperty('cache-on-disk', 'no');
 
+      // VOD/CDN sources (HTTP/HTTPS): restore settings that the low-latency profile
+      // incorrectly sets for live streams:
+      //   - cache-pause / cache-pause-initial: start playing the moment first data
+      //     arrives instead of waiting for the buffer to pre-fill.
+      //   - video-sync=audio: proper A/V sync for pre-recorded content
+      //     (low-latency sets 'desync' which is only correct for live streams).
+      //   - untimed=no: honour presentation timestamps so frames are shown at the
+      //     correct wall-clock time (low-latency sets 'yes' which races frames).
+      //   - vd-lavc-threads=0: use all CPU cores for decoding
+      //     (low-latency sets 1 to reduce pipeline delay on live streams).
+      if (!preferLowLatency) {
+        await (platform as dynamic).setProperty('cache-pause', 'no');
+        await (platform as dynamic).setProperty('cache-pause-initial', 'no');
+        await (platform as dynamic).setProperty('video-sync', 'audio');
+        await (platform as dynamic).setProperty('untimed', 'no');
+        await (platform as dynamic).setProperty('vd-lavc-threads', '0');
+      }
+
       // Increase timeouts & enable reconnect for intermittent networks.
       await (platform as dynamic).setProperty('network-timeout', '30');
 
