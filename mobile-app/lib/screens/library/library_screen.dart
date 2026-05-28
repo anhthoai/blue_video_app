@@ -242,9 +242,6 @@ class _LibraryItemsViewState extends ConsumerState<LibraryItemsView>
         setState(() {
           _items = result.items;
           _syncInProgress = result.syncInProgress;
-          // More pages exist only if we received a full page.
-          // With on-demand fetch the controller already populates the DB
-          // before querying, so a partial page means genuinely no more data.
           _hasMore = result.items.length >= 40;
           _isLoading = false;
           _isInitialLoad = false;

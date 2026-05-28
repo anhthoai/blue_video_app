@@ -541,7 +541,7 @@ export async function listLibrarySections(_req: Request, res: Response) {
       librarySyncService.getAllSyncStates().catch(() => []),
     ]);
 
-    const syncMap = new Map<string, SyncStatusEntry>(syncStates.map((s) => [s.section, s]));
+    const syncMap = new Map<string, SyncStatusEntry>(syncStates.map((s): [string, SyncStatusEntry] => [s.section, s]));
     const dbCountMap = new Map(
       grouped.map((g) => [(g.section || '').toString().toLowerCase(), g._count.section]),
     );
@@ -709,34 +709,116 @@ export async function listLibraryItems(req: Request, res: Response) {
     // On-demand real-time file fetch: when the user scrolls to a page the
     // background sync hasn't populated yet, fetch those uloz.to pages now so
     // the DB query below returns real data rather than an empty result.
-    if (
-      !search?.trim() &&
-      parentId !== null &&
-      parentItem?.ulozSlug &&
-      typeof parentItem.ulozStorageId === 'number'
-    ) {
-      const folderCount = await prisma.libraryContent.count({
+    // On-demand real-time fetch: when the user scrolls to a page the background
+    // sync hasn't populated yet, fetch those uloz.to pages now so the DB query
+    // below returns real data. Handles both the FOLDER region (user is paging
+    // through subfolders) and the FILE region (user is past all folders).
+    if (!search?.trim()) {
+      let folderCount = await prisma.libraryContent.count({
         where: { parentId, section, isAvailable: true, isFolder: true },
       });
+
+      // --- On-demand FOLDER fetch ---
+      // Triggered when the current page needs more folders than the DB has.
+      if (folderCount < skip + limit) {
+        const neededFolderCount = skip + limit;
+
+        if (
+          parentId !== null &&
+          parentItem?.ulozSlug &&
+          typeof parentItem.ulozStorageId === 'number'
+        ) {
+          const pathSegs: string[] = parentItem.filePath
+            ? parentItem.filePath.split('/')
+            : [sectionToDisplayName(section)];
+          try {
+            await librarySyncService.onDemandEnsureFolders(
+              parentItem.ulozStorageId,
+              section,
+              parentItem.ulozSlug,
+              parentId,
+              pathSegs,
+              neededFolderCount,
+            );
+          } catch (e) {
+            console.error('[onDemandEnsureFolders] uloz.to fetch failed:', (e as Error)?.message ?? e);
+          }
+        } else if (parentId === null) {
+          const rootStorageConfigs = listUlozStorageConfigs();
+          const pathSegs = [sectionToDisplayName(section)];
+          for (const cfg of rootStorageConfigs) {
+            const rootSlug = cfg.libraryFolders[section];
+            if (rootSlug) {
+              try {
+                await librarySyncService.onDemandEnsureFolders(
+                  cfg.id,
+                  section,
+                  rootSlug,
+                  null,
+                  pathSegs,
+                  neededFolderCount,
+                );
+              } catch (e) {
+                console.error('[onDemandEnsureFolders] root-level uloz.to fetch failed:', (e as Error)?.message ?? e);
+              }
+            }
+          }
+        }
+
+        // Re-count after on-demand folder fetch
+        folderCount = await prisma.libraryContent.count({
+          where: { parentId, section, isAvailable: true, isFolder: true },
+        });
+      }
+
+      // --- On-demand FILE fetch ---
+      // Triggered when the current page is past all folders (into the file region).
       if (skip >= folderCount) {
-        // User has scrolled past all folders into the file region.
         const fileOffset = skip - folderCount;
         const neededFileCount = fileOffset + limit;
-        const pathSegs: string[] = parentItem.filePath
-          ? parentItem.filePath.split('/')
-          : [sectionToDisplayName(section)];
-        try {
-          await librarySyncService.onDemandEnsureFiles(
-            parentItem.ulozStorageId,
-            section,
-            parentItem.ulozSlug,
-            parentId,
-            pathSegs,
-            neededFileCount,
-          );
-        } catch (e) {
-          // Log but never fail the request — return whatever is in DB already.
-          console.error('[onDemandEnsureFiles] uloz.to fetch failed:', (e as Error)?.message ?? e);
+
+        if (
+          parentId !== null &&
+          parentItem?.ulozSlug &&
+          typeof parentItem.ulozStorageId === 'number'
+        ) {
+          // Sub-folder: fetch from the parent item's own uloz folder.
+          const pathSegs: string[] = parentItem.filePath
+            ? parentItem.filePath.split('/')
+            : [sectionToDisplayName(section)];
+          try {
+            await librarySyncService.onDemandEnsureFiles(
+              parentItem.ulozStorageId,
+              section,
+              parentItem.ulozSlug,
+              parentId,
+              pathSegs,
+              neededFileCount,
+            );
+          } catch (e) {
+            console.error('[onDemandEnsureFiles] uloz.to fetch failed:', (e as Error)?.message ?? e);
+          }
+        } else if (parentId === null) {
+          // Root level: fetch from every storage config that covers this section.
+          const rootStorageConfigs = listUlozStorageConfigs();
+          const pathSegs = [sectionToDisplayName(section)];
+          for (const cfg of rootStorageConfigs) {
+            const rootSlug = cfg.libraryFolders[section];
+            if (rootSlug) {
+              try {
+                await librarySyncService.onDemandEnsureFiles(
+                  cfg.id,
+                  section,
+                  rootSlug,
+                  null,
+                  pathSegs,
+                  neededFileCount,
+                );
+              } catch (e) {
+                console.error('[onDemandEnsureFiles] root-level uloz.to fetch failed:', (e as Error)?.message ?? e);
+              }
+            }
+          }
         }
       }
     }

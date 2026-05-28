@@ -337,7 +337,7 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
             )
           else
             SizedBox(
-              height: 130,
+              height: 140,
               child: ListView.separated(
                 scrollDirection: Axis.horizontal,
                 itemCount: hubState.forums.length,

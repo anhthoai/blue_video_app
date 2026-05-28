@@ -151,18 +151,17 @@ export class UlozService {
 
   private async fetchFolderFiles(userLogin: string, folderSlug: string): Promise<any[]> {
     const endpoint = `/v8/user/${userLogin}/folder/${folderSlug}/file-list`;
-    // Use a conservative page size that is well below any known API cap.
-    // Using 200 would cause early exit when the API caps at e.g. 50 or 100,
-    // because `items.length < 200` fires immediately and only the first
-    // "partial" page is stored.
-    const perPage = 100;
+    // The uloz.to v8 file-list API uses offset/limit pagination (NOT page/per_page).
+    // The API also caps limit at 50 regardless of what is requested.
+    // Passing page/per_page causes the API to always return offset=0 (first 50 items).
+    const LIMIT = 50;
     const all: any[] = [];
-    let page = 1;
+    let offset = 0;
 
     while (true) {
-      console.log(`   > Fetching files via ${endpoint} (page ${page})`);
+      console.log(`   > Fetching files via ${endpoint} (offset ${offset})`);
       const response = await this.client.get(endpoint, {
-        params: { per_page: perPage, page },
+        params: { limit: LIMIT, offset },
       });
       const data = response?.data;
       const items = this.extractFilesPage(data);
@@ -172,18 +171,19 @@ export class UlozService {
 
       all.push(...items);
 
-      // If the API declares a total use it as an authoritative stop
-      const declared = typeof data?.total === 'number' ? data.total : null;
+      // If the API declares a total use it as an authoritative stop.
+      // The total is in metadata.items_count (not data.total).
+      const declared =
+        typeof data?.metadata?.items_count === 'number'
+          ? data.metadata.items_count
+          : typeof data?.total === 'number'
+          ? data.total
+          : null;
       if (declared !== null && all.length >= declared) break;
 
-      // Do NOT rely on `items.length < perPage` as a stop signal: the API
-      // may cap page size at a value lower than our requested perPage, which
-      // would make every page look "partial" and exit after just one page.
-      // Instead, keep fetching until we get an empty page (checked above).
-
-      page++;
-      // Safety: stop at 5 000 pages (500 000 items @ 100/page)
-      if (page > 5000) {
+      offset += items.length;
+      // Safety: stop at 250 000 items
+      if (offset > 250000) {
         console.warn(`[UlozService] fetchFolderFiles: safety limit reached for ${endpoint}`);
         break;
       }
@@ -245,6 +245,10 @@ export class UlozService {
       console.log(`     ↳ subfolders page 1: ${items.length} item(s)`);
     }
     const declared = typeof data?.total === 'number' ? data.total : null;
+    // Use items.length > 0 (same rationale as file pagination): uloz caps pages
+    // at ~50 items regardless of per_page, so items.length >= perPage would be
+    // false even when more pages exist. Fall back to declared total as an upper
+    // bound when available.
     const hasMore = items.length > 0 && (declared === null || page * perPage < declared);
     return { items, hasMore };
   }
@@ -517,13 +521,17 @@ export class UlozService {
       // 404 = no subfolders; folderHasMore stays false
     }
 
-    // Fetch one page of files
+    // Fetch one page of files.
+    // The uloz.to v8 file-list API uses offset/limit pagination (NOT per_page/page).
+    // The API caps at 50 items per request regardless of the limit value.
+    const ULOZ_FILE_LIMIT = 50;
+    const fileOffset = (filePage - 1) * ULOZ_FILE_LIMIT;
     const fileEndpoint = `/v8/user/${userLogin}/folder/${folderSlug}/file-list`;
     let hasMore = false;
     try {
-      console.log(`   > getFolderContentsPage: ${fileEndpoint} filePage=${filePage}`);
+      console.log(`   > getFolderContentsPage: ${fileEndpoint} filePage=${filePage} offset=${fileOffset}`);
       const response = await this.client.get(fileEndpoint, {
-        params: { per_page: perPage, page: filePage },
+        params: { limit: ULOZ_FILE_LIMIT, offset: fileOffset },
       });
       const data = response?.data;
       const rawFiles = this.extractFilesPage(data);
@@ -533,10 +541,11 @@ export class UlozService {
         if (entry) entries.push(entry);
       }
 
-      const declared = typeof data?.total === 'number' ? data.total : null;
-      const fileHasMore =
-        rawFiles.length > 0 &&
-        (declared === null || filePage * perPage < declared);
+      // Stop only when the page is genuinely empty. `declared` (API's reported
+      // total) is unreliable — it can be too low (stops sync early) or too high
+      // (causes infinite loops). Slug-loop detection in syncFolderLevel handles
+      // the case where the API repeats items across pages.
+      const fileHasMore = rawFiles.length > 0;
       // Continue if either files or folders have more pages
       hasMore = fileHasMore || folderHasMore;
     } catch (err: any) {
@@ -545,6 +554,67 @@ export class UlozService {
       hasMore = folderHasMore; // might still have more folder pages
     }
 
+    return { entries, hasMore };
+  }
+
+  /**
+   * Fetch a single page of subfolders only (no file fetch).
+   * Used by on-demand folder loading when the user scrolls into a page of
+   * subfolders that the background sync hasn't committed yet.
+   */
+  async getFolderFoldersPage(
+    folderUrl: string,
+    page: number,
+    perPage: number = 100,
+  ): Promise<{ items: UlozFolderFile[]; hasMore: boolean }> {
+    await this.ensureLoggedIn();
+    const { userLogin, folderSlug } = this.extractFolderInfo(folderUrl);
+    const { items: rawFolders, hasMore } = await this.fetchFolderFoldersPage(
+      userLogin,
+      folderSlug,
+      page,
+      perPage,
+    );
+    const items = rawFolders
+      .map((f) => this.mapRawFolder(f))
+      .filter((f): f is UlozFolderFile => f !== null);
+    return { items, hasMore };
+  }
+
+  /**
+   * Fetch a single page of files only (no subfolder fetch).
+   * Used by on-demand loading so we don't waste API calls fetching subfolders
+   * on every scroll page.
+   */
+  async getFilesPage(
+    folderUrl: string,
+    filePage: number,
+  ): Promise<{ entries: UlozFolderFile[]; hasMore: boolean }> {
+    await this.ensureLoggedIn();
+    const { userLogin, folderSlug } = this.extractFolderInfo(folderUrl);
+    const fileEndpoint = `/v8/user/${userLogin}/folder/${folderSlug}/file-list`;
+    const entries: UlozFolderFile[] = [];
+    let hasMore = false;
+    try {
+      // The uloz.to v8 file-list API uses offset/limit pagination (NOT page/per_page).
+      // Passing page= is ignored; offset= must be used instead.
+      const ULOZ_LIMIT = 50; // API caps at 50 regardless of requested limit
+      const offset = (filePage - 1) * ULOZ_LIMIT;
+      const response = await this.client.get(fileEndpoint, {
+        params: { limit: ULOZ_LIMIT, offset },
+      });
+      const data = response?.data;
+      const rawFiles = this.extractFilesPage(data);
+      console.log(`[getFilesPage] slug=${folderSlug} filePage=${filePage} offset=${offset} rawFiles=${rawFiles.length} items_count=${data?.metadata?.items_count ?? 'N/A'} firstSlug=${rawFiles[0]?.slug ?? rawFiles[0]?.id}`);
+      for (const f of rawFiles) {
+        const entry = this.mapRawFile(f);
+        if (entry) entries.push(entry);
+      }
+      // Stop only on genuinely empty page (same rationale as getFolderContentsPage).
+      hasMore = rawFiles.length > 0;
+    } catch (err: any) {
+      if (err?.response?.status !== 404) throw err;
+    }
     return { entries, hasMore };
   }
 

@@ -310,6 +310,9 @@ export class LibrarySyncService {
       const FILE_PER_PAGE = 100;
       let totalIndexed = 0;
       let filePage = 1;
+      // Track all file slugs seen across pages to detect when the API starts
+      // repeating items (malformed declared total + capped page size causes loops).
+      const allSeenFileSlugs = new Set<string>();
 
       // eslint-disable-next-line no-constant-condition
       while (true) {
@@ -387,6 +390,19 @@ export class LibrarySyncService {
           );
 
           const seenSlugs = fileRecords.map((r) => r.slug as string);
+
+          // Detect API loop: if every slug on this page was already seen on a
+          // previous page, the API is repeating items. Stop to prevent infinite
+          // fetching (happens with wrong `declared` + per-page API caps).
+          const newSlugCount = seenSlugs.filter((s) => !allSeenFileSlugs.has(s)).length;
+          if (newSlugCount === 0) {
+            console.log(
+              `[LibrarySync] Page ${filePage}: all ${seenSlugs.length} file slugs already seen on previous pages — stopping loop`,
+            );
+            signalFirstPage();
+            break;
+          }
+          seenSlugs.forEach((s) => allSeenFileSlugs.add(s));
 
           // 1. Stamp syncGeneration on items already in DB (needed for pruning)
           await prisma.libraryContent
@@ -540,6 +556,91 @@ export class LibrarySyncService {
   }
 
   // -----------------------------------------------------------------------
+  // On-demand real-time folder fetch
+  // -----------------------------------------------------------------------
+
+  /**
+   * Ensures the DB contains at least `neededFolderCount` subfolder rows for
+   * the given parent folder. When the user scrolls to a page of subfolders
+   * that the background sync hasn't committed yet, this fetches the missing
+   * uloz.to folder pages so the DB query returns real data.
+   */
+  async onDemandEnsureFolders(
+    storageId: number,
+    section: string,
+    folderSlug: string,
+    parentId: string | null,
+    pathSegments: string[],
+    neededFolderCount: number,
+  ): Promise<void> {
+    let currentCount = await prisma.libraryContent.count({
+      where: { parentId, section, isAvailable: true, isFolder: true },
+    });
+    if (currentCount >= neededFolderCount) return;
+
+    const ULOZ_PAGE_SIZE = 100;
+    let folderPage = Math.max(1, Math.floor(currentCount / ULOZ_PAGE_SIZE) + 1);
+
+    const uloz = getUlozService(storageId);
+    const folderUrl = `https://uloz.to/folder/${folderSlug}`;
+    const syncGeneration = Date.now().toString();
+
+    const MAX_PAGES = 20;
+    let pagesScanned = 0;
+    const seenSlugsThisSession = new Set<string>();
+
+    while (currentCount < neededFolderCount && pagesScanned < MAX_PAGES) {
+      const { items: rawFolders, hasMore } = await uloz.getFolderFoldersPage(
+        folderUrl,
+        folderPage,
+        ULOZ_PAGE_SIZE,
+      );
+      pagesScanned++;
+
+      if (rawFolders.length === 0) break;
+
+      const pageSlugs = rawFolders.map((f) => f.slug);
+      const genuinelyNew = pageSlugs.filter((s) => !seenSlugsThisSession.has(s));
+      if (genuinelyNew.length === 0) break;
+      pageSlugs.forEach((s) => seenSlugsThisSession.add(s));
+
+      // Batch insert — createMany with skipDuplicates is one DB round-trip and
+      // only increments currentCount for records that were actually inserted.
+      const records: Prisma.LibraryContentCreateManyInput[] = rawFolders.map((folder) => {
+        const childSegs = [...pathSegments, folder.name];
+        return {
+          slug: folder.slug,
+          title: folder.name,
+          filePath: childSegs.join('/'),
+          slugPath: buildSlugPath(childSegs),
+          section,
+          parentId: parentId ?? null,
+          parentFolderSlug: folderSlug,
+          ulozSlug: folder.slug,
+          ulozFolderSlug: folder.slug,
+          isFolder: true,
+          source: ContentSource.ULOZ,
+          ulozStorageId: storageId,
+          isAvailable: true,
+          syncGeneration,
+          thumbnailUrl: null,
+        };
+      });
+
+      if (records.length > 0) {
+        const result = await prisma.libraryContent.createMany({
+          data: records,
+          skipDuplicates: true,
+        });
+        currentCount += result.count; // Only newly inserted records
+      }
+
+      if (!hasMore) break;
+      folderPage++;
+    }
+  }
+
+  // -----------------------------------------------------------------------
   // On-demand real-time file fetch
   // -----------------------------------------------------------------------
 
@@ -561,26 +662,43 @@ export class LibrarySyncService {
     pathSegments: string[],
     neededFileCount: number,
   ): Promise<void> {
-    const dbFileCount = await prisma.libraryContent.count({
+    let currentCount = await prisma.libraryContent.count({
       where: { parentId, section, isAvailable: true, isFolder: false },
     });
-    if (dbFileCount >= neededFileCount) return;
+    if (currentCount >= neededFileCount) return;
 
-    const ULOZ_PAGE_SIZE = 100;
-    const startPage = Math.max(1, Math.floor(dbFileCount / ULOZ_PAGE_SIZE) + 1);
-    const endPage = Math.ceil(neededFileCount / ULOZ_PAGE_SIZE);
+    // uloz file-list API caps at 50 items per request; use offset-based pagination.
+    const ULOZ_PAGE_SIZE = 50;
+    let filePage = Math.max(1, Math.floor(currentCount / ULOZ_PAGE_SIZE) + 1);
 
     const uloz = getUlozService(storageId);
     const folderUrl = `https://uloz.to/folder/${folderSlug}`;
     const syncGeneration = Date.now().toString();
 
-    for (let filePage = startPage; filePage <= endPage; filePage++) {
-      const page = await uloz.getFolderContentsPage(folderUrl, filePage, ULOZ_PAGE_SIZE);
+    const MAX_PAGES = 30;
+    let pagesScanned = 0;
+    // Detect when the API repeats the same items across pages.
+    const seenSlugsThisSession = new Set<string>();
 
-      // Build all records for this uloz page and insert in one DB call.
-      const records: Prisma.LibraryContentCreateManyInput[] = page.entries
-        .filter((entry) => !entry.isFolder)
-        .map((entry) => {
+    console.log(`[onDemandEnsureFiles] folderSlug=${folderSlug} currentCount=${currentCount} neededFileCount=${neededFileCount} startFilePage=${filePage}`);
+
+    while (currentCount < neededFileCount && pagesScanned < MAX_PAGES) {
+      const page = await uloz.getFilesPage(folderUrl, filePage);
+      pagesScanned++;
+
+      console.log(`[onDemandEnsureFiles] page ${filePage}: entries=${page.entries.length} hasMore=${page.hasMore} currentCount=${currentCount}`);
+
+      // Empty page = no more items on uloz.to, stop.
+      if (page.entries.length === 0) { console.log(`[onDemandEnsureFiles] STOP: empty page`); break; }
+
+      // Detect API loop: if ALL slugs on this page were already fetched in this
+      // on-demand session, the API is repeating items — no new data possible.
+      const pageSlugs = page.entries.map((e) => e.slug as string);
+      const genuinelyNew = pageSlugs.filter((s) => !seenSlugsThisSession.has(s));
+      if (genuinelyNew.length === 0) { console.log(`[onDemandEnsureFiles] STOP: all slugs repeated`); break; }
+      pageSlugs.forEach((s) => seenSlugsThisSession.add(s));
+
+      const records: Prisma.LibraryContentCreateManyInput[] = page.entries.map((entry) => {
           const ext = (entry.extension ?? '').toString().toLowerCase().replace(/^\./, '');
           const childSegments = [...pathSegments, entry.name];
           const thumbnailUrl =
@@ -615,12 +733,17 @@ export class LibrarySyncService {
         });
 
       if (records.length > 0) {
-        // skipDuplicates: items already in DB are left as-is (background sync
-        // handles updates). This keeps the insert to one round-trip.
-        await prisma.libraryContent.createMany({ data: records, skipDuplicates: true });
+        const result = await prisma.libraryContent.createMany({
+          data: records,
+          skipDuplicates: true,
+        });
+        currentCount += result.count;
       }
 
+      // No more pages from uloz.to API (empty-page check above handles the
+      // real stop; this is a secondary guard for edge cases).
       if (!page.hasMore) break;
+      filePage++;
     }
   }
 }

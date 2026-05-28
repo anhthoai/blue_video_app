@@ -312,16 +312,20 @@ class _CommunityPostWidgetState extends ConsumerState<CommunityPostWidget> {
             children: [
               Row(
                 children: [
-                  Text(
-                    '${widget.post.firstName ?? ''} ${widget.post.lastName ?? ''}'
-                            .trim()
-                            .isNotEmpty
-                        ? '${widget.post.firstName ?? ''} ${widget.post.lastName ?? ''}'
-                            .trim()
-                        : widget.post.username,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w600,
-                      fontSize: 16,
+                  Flexible(
+                    child: Text(
+                      '${widget.post.firstName ?? ''} ${widget.post.lastName ?? ''}'
+                              .trim()
+                              .isNotEmpty
+                          ? '${widget.post.firstName ?? ''} ${widget.post.lastName ?? ''}'
+                              .trim()
+                          : widget.post.username,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 16,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
                     ),
                   ),
                   if (widget.post.isVerified) ...[
@@ -358,21 +362,27 @@ class _CommunityPostWidgetState extends ConsumerState<CommunityPostWidget> {
                       color: Colors.grey[600],
                       fontSize: 12,
                     ),
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 1,
                   ),
                   if (widget.post.category != null) ...[
                     const SizedBox(width: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: Colors.grey[200],
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        widget.post.category!,
-                        style: const TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w500,
+                    Flexible(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: Colors.grey[200],
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          widget.post.category!,
+                          style: const TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w500,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 1,
                         ),
                       ),
                     ),

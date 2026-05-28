@@ -111,7 +111,7 @@ class LibraryService {
   static const Duration _cacheTtl = Duration(minutes: 2);
   static _CachedValue<List<LibrarySectionModel>>? _sectionsCache;
   static final Map<LibraryItemsRequest,
-      _CachedValue<({List<LibraryItemModel> items, bool syncInProgress})>>
+      _CachedValue<({List<LibraryItemModel> items, bool syncInProgress, int totalPages})>>
       _itemsCache = {};
     static final Map<LibraryVideoFeedRequest, _CachedValue<List<LibraryItemModel>>>
       _videoFeedCache = {};
@@ -141,7 +141,7 @@ class LibraryService {
     return [];
   }
 
-  Future<({List<LibraryItemModel> items, bool syncInProgress})> fetchItems(
+  Future<({List<LibraryItemModel> items, bool syncInProgress, int totalPages})> fetchItems(
     LibraryItemsRequest request,
   ) async {
     final cached = _itemsCache[request];
@@ -160,6 +160,8 @@ class LibraryService {
     );
     final data = response['data'] as Map<String, dynamic>? ?? {};
     final syncInProgress = (data['syncInProgress'] as bool?) ?? false;
+    final pagination = data['pagination'] as Map<String, dynamic>? ?? {};
+    final totalPages = (pagination['totalPages'] as num?)?.toInt() ?? 1;
     final itemsList = data['items'];
     List<LibraryItemModel> items = [];
     if (itemsList is List) {
@@ -169,7 +171,7 @@ class LibraryService {
           .toList();
     }
 
-    final result = (items: items, syncInProgress: syncInProgress);
+    final result = (items: items, syncInProgress: syncInProgress, totalPages: totalPages);
     // Only cache when the sync is finished — while background sync is running
     // the item list is incomplete, so bypass the cache to pick up new items.
     if (!syncInProgress) {
