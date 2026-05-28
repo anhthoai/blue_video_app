@@ -441,6 +441,7 @@ abstract class AppLocalizations {
   String get updateDownloading;
   String get updateInstallPrompt;
   String get updateDownloadFailed;
+  String get updateRetry;
   String get updateInstallerFailed;
   String get updateAndroidInstallerOnly;
 

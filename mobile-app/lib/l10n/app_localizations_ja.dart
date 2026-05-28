@@ -1143,6 +1143,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get updateDownloadFailed => 'アップデートのダウンロードに失敗しました';
 
   @override
+  String get updateRetry => 'ダウンロードを再試行';
+
+  @override
   String get updateInstallerFailed => 'インストーラーを開けませんでした';
 
   @override

@@ -29,6 +29,12 @@ class _AppUpdateDialogState extends State<AppUpdateDialog> {
   double? _downloadProgress;
   String? _downloadedFilePath;
   String? _statusMessage;
+  String? _downloadError;
+  int _retryAttempt = 0;
+
+  static const int _maxRetries = 3;
+  // Time between retries: 3 s, 6 s, 12 s
+  static const List<int> _retryDelaySeconds = [3, 6, 12];
 
   @override
   void dispose() {
@@ -111,90 +117,169 @@ class _AppUpdateDialogState extends State<AppUpdateDialog> {
     return false;
   }
 
-  Future<void> _downloadAndInstallAndroidUpdate() async {
-    final dio = Dio();
+  Future<void> _downloadAndInstallAndroidUpdate({bool isRetry = false}) async {
+    if (!mounted) return;
+
     final l10n = AppLocalizations.of(context);
-    final cancelToken = CancelToken();
-    _downloadCancelToken = cancelToken;
+
+    if (!isRetry) {
+      _retryAttempt = 0;
+    }
 
     setState(() {
       _isDownloading = true;
       _downloadProgress = 0;
       _statusMessage = null;
+      _downloadError = null;
     });
 
-    try {
-      final tempDir = await getTemporaryDirectory();
-      final updatesDir = Directory(p.join(tempDir.path, 'app-updates'));
-      if (!await updatesDir.exists()) {
-        await updatesDir.create(recursive: true);
-      }
-
-      final fileName = _buildUpdateFileName();
-      final targetPath = p.join(updatesDir.path, fileName);
-      final targetFile = File(targetPath);
-      if (await targetFile.exists()) {
-        await targetFile.delete();
-      }
-
-      await dio.download(
-        widget.versionInfo.downloadUrl,
-        targetPath,
-        cancelToken: cancelToken,
-        deleteOnError: true,
-        onReceiveProgress: (received, total) {
-          if (!mounted) {
-            return;
-          }
-
-          setState(() {
-            _downloadProgress = total > 0 ? received / total : null;
-          });
-        },
-      );
-
-      if (!mounted) {
-        return;
-      }
-
-      _downloadedFilePath = targetPath;
-      setState(() {
-        _isDownloading = false;
-        _downloadProgress = 1;
-        _statusMessage = l10n.updateInstallPrompt;
-      });
-
-      await _openInstaller(targetPath);
-    } on DioException catch (error) {
-      if (!mounted || CancelToken.isCancel(error)) {
-        return;
-      }
-
-      final messenger = ScaffoldMessenger.maybeOf(context);
-      setState(() {
-        _isDownloading = false;
-        _downloadProgress = null;
-      });
-      messenger?.showSnackBar(
-        SnackBar(
-          content: Text('${l10n.updateDownloadFailed}: ${error.message ?? error.error ?? ''}'),
+    while (true) {
+      // Fresh Dio instance per attempt with proper timeouts.
+      // connectTimeout: time to establish TCP connection.
+      // receiveTimeout: max time allowed with *no new bytes* received (stall guard).
+      //   Set to 5 minutes so large APKs on slow connections still succeed.
+      final dio = Dio(
+        BaseOptions(
+          connectTimeout: const Duration(seconds: 30),
+          receiveTimeout: const Duration(minutes: 5),
+          followRedirects: true,
+          maxRedirects: 5,
         ),
       );
-    } catch (error) {
-      if (!mounted) {
+      final cancelToken = CancelToken();
+      _downloadCancelToken = cancelToken;
+
+      try {
+        final tempDir = await getTemporaryDirectory();
+        final updatesDir = Directory(p.join(tempDir.path, 'app-updates'));
+        if (!await updatesDir.exists()) {
+          await updatesDir.create(recursive: true);
+        }
+
+        final fileName = _buildUpdateFileName();
+        final targetPath = p.join(updatesDir.path, fileName);
+        final targetFile = File(targetPath);
+
+        // Resume partial download if the file already exists from a previous attempt.
+        int startByte = 0;
+        if (await targetFile.exists()) {
+          startByte = await targetFile.length();
+          // Discard tiny fragments that are not worth resuming.
+          if (startByte < 1024 * 16) {
+            await targetFile.delete();
+            startByte = 0;
+          }
+        }
+
+        await dio.download(
+          widget.versionInfo.downloadUrl,
+          targetPath,
+          cancelToken: cancelToken,
+          deleteOnError: false, // keep partial file for resume
+          options: startByte > 0
+              ? Options(headers: {'Range': 'bytes=$startByte-'})
+              : null,
+          onReceiveProgress: (received, total) {
+            if (!mounted) return;
+            setState(() {
+              if (total > 0) {
+                _downloadProgress = (startByte + received) / (startByte + total);
+              } else if (total == -1 && received > 0) {
+                // Server did not send Content-Length – show indeterminate.
+                _downloadProgress = null;
+              }
+            });
+          },
+        );
+
+        if (!mounted) return;
+
+        _downloadedFilePath = targetPath;
+        _downloadCancelToken = null;
+        setState(() {
+          _isDownloading = false;
+          _downloadProgress = 1;
+          _downloadError = null;
+          _statusMessage = l10n.updateInstallPrompt;
+        });
+
+        await _openInstaller(targetPath);
+        return; // success — exit loop
+
+      } on DioException catch (error) {
+        _downloadCancelToken = null;
+        if (!mounted || CancelToken.isCancel(error)) return;
+
+        _retryAttempt++;
+        if (_retryAttempt <= _maxRetries) {
+          final delaySec = _retryDelaySeconds[_retryAttempt - 1];
+          if (!mounted) return;
+          setState(() {
+            _downloadError = null;
+            _statusMessage = '${l10n.updateDownloadFailed}: ${_describeDioError(error)}  '
+                '— retrying in ${delaySec}s ($_retryAttempt/$_maxRetries)…';
+          });
+          await Future.delayed(Duration(seconds: delaySec));
+          if (!mounted) return;
+          setState(() {
+            _statusMessage = null;
+            _downloadProgress = 0;
+          });
+          continue; // retry
+        }
+
+        // All retries exhausted.
+        setState(() {
+          _isDownloading = false;
+          _downloadProgress = null;
+          _downloadError = '${l10n.updateDownloadFailed}: ${_describeDioError(error)}';
+          _statusMessage = null;
+        });
+        return;
+
+      } catch (error) {
+        _downloadCancelToken = null;
+        if (!mounted) return;
+
+        _retryAttempt++;
+        if (_retryAttempt <= _maxRetries) {
+          final delaySec = _retryDelaySeconds[_retryAttempt - 1];
+          setState(() {
+            _statusMessage = '${l10n.updateDownloadFailed}: $error  '
+                '— retrying in ${delaySec}s ($_retryAttempt/$_maxRetries)…';
+          });
+          await Future.delayed(Duration(seconds: delaySec));
+          if (!mounted) return;
+          setState(() {
+            _statusMessage = null;
+            _downloadProgress = 0;
+          });
+          continue; // retry
+        }
+
+        setState(() {
+          _isDownloading = false;
+          _downloadProgress = null;
+          _downloadError = '${l10n.updateDownloadFailed}: $error';
+          _statusMessage = null;
+        });
         return;
       }
+    }
+  }
 
-      final messenger = ScaffoldMessenger.maybeOf(context);
-      setState(() {
-        _isDownloading = false;
-        _downloadProgress = null;
-      });
-      messenger?.showSnackBar(
-        SnackBar(content: Text('${l10n.updateDownloadFailed}: $error')),
-      );
-    } finally {
-      _downloadCancelToken = null;
+  String _describeDioError(DioException error) {
+    switch (error.type) {
+      case DioExceptionType.connectionTimeout:
+        return 'Connection timed out';
+      case DioExceptionType.receiveTimeout:
+        return 'Download stalled (no data received)';
+      case DioExceptionType.sendTimeout:
+        return 'Request timed out';
+      case DioExceptionType.connectionError:
+        return 'Network error — check your connection';
+      default:
+        return error.message ?? error.error?.toString() ?? 'Unknown error';
     }
   }
 
@@ -255,12 +340,13 @@ class _AppUpdateDialogState extends State<AppUpdateDialog> {
 
   String _buildDownloadProgressText(AppLocalizations l10n) {
     final progress = _downloadProgress;
+    final retryNote = _retryAttempt > 0 ? ' (attempt ${_retryAttempt + 1})' : '';
     if (progress == null) {
-      return '${l10n.updateDownloading}...';
+      return '${l10n.updateDownloading}$retryNote…';
     }
 
     final percent = (progress * 100).clamp(0, 100).round();
-    return '${l10n.updateDownloading} ($percent%)...';
+    return '${l10n.updateDownloading} ($percent%)$retryNote…';
   }
 
   @override
@@ -433,6 +519,45 @@ class _AppUpdateDialogState extends State<AppUpdateDialog> {
                       ? _buildDownloadProgressText(l10n)
                       : (_statusMessage ?? l10n.updateInstallPrompt),
                   style: const TextStyle(fontSize: 13),
+                ),
+              ],
+
+              if (_downloadError != null) ...[
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: Colors.red[50],
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.red[200]!),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Icon(Icons.error_outline, color: Colors.red, size: 18),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          _downloadError!,
+                          style: TextStyle(fontSize: 12, color: Colors.red[900]),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 8),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: () => _downloadAndInstallAndroidUpdate(isRetry: true),
+                    icon: const Icon(Icons.refresh, size: 16),
+                    label: Text(l10n.updateRetry),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.blue,
+                      side: const BorderSide(color: Colors.blue),
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                    ),
+                  ),
                 ),
               ],
             ],
