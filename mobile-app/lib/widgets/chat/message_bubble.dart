@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:audioplayers/audioplayers.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'package:open_file/open_file.dart';
 import 'dart:io';
 import 'package:flutter/services.dart';
@@ -14,10 +12,13 @@ import 'package:media_kit_video/media_kit_video.dart';
 import '../../models/chat_message.dart';
 import '../../core/services/file_url_service.dart';
 import '../common/presigned_image.dart';
+import '../../core/services/dating_service.dart';
+import '../../screens/dating/private_album_screen.dart';
 
 class MessageBubble extends StatefulWidget {
   final ChatMessage message;
   final bool isMe;
+  final String? senderAvatarUrl;
   final VoidCallback? onReply;
   final VoidCallback? onLongPress;
 
@@ -25,6 +26,7 @@ class MessageBubble extends StatefulWidget {
     super.key,
     required this.message,
     required this.isMe,
+    this.senderAvatarUrl,
     this.onReply,
     this.onLongPress,
   });
@@ -40,12 +42,56 @@ class _MessageBubbleState extends State<MessageBubble> {
   Duration _position = Duration.zero;
   bool _isDownloading = false;
   double _downloadProgress = 0.0;
+  bool _isAgreeingPrivateAlbum = false;
+  String? _agreedRequestId;
 
   @override
   void initState() {
     super.initState();
     if (widget.message.messageType == MessageType.audio) {
       _initAudioPlayer();
+    }
+  }
+
+  Future<void> _openPrivateAlbumWithAccessCheck(
+    BuildContext context,
+    String ownerId,
+  ) async {
+    try {
+      final profile = await DatingService().getDatingProfile(ownerId);
+      if (!mounted) return;
+
+      if (profile.privateAlbumAccessStatus != 'ACCEPTED') {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Access invalid')),
+        );
+        return;
+      }
+
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => PrivateAlbumScreen(
+            targetUserId: ownerId,
+            readOnly: true,
+          ),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      final message = '$e'.toLowerCase();
+      if (message.contains('access') ||
+          message.contains('permission') ||
+          message.contains('forbidden') ||
+          message.contains('invalid')) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Access invalid')),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
+      }
     }
   }
 
@@ -78,6 +124,7 @@ class _MessageBubbleState extends State<MessageBubble> {
   Widget build(BuildContext context) {
     final message = widget.message;
     final isMe = widget.isMe;
+    final avatarUrl = widget.senderAvatarUrl ?? message.userAvatar;
 
     return GestureDetector(
       onLongPress: () => widget.onLongPress?.call(),
@@ -92,11 +139,10 @@ class _MessageBubbleState extends State<MessageBubble> {
               SizedBox(
                 width: 32,
                 height: 32,
-                child: message.userAvatar != null &&
-                        message.userAvatar!.isNotEmpty
+                child: avatarUrl != null && avatarUrl.isNotEmpty
                     ? ClipOval(
                         child: PresignedImage(
-                          imageUrl: message.userAvatar,
+                          imageUrl: avatarUrl,
                           width: 32,
                           height: 32,
                           fit: BoxFit.cover,
@@ -173,11 +219,10 @@ class _MessageBubbleState extends State<MessageBubble> {
               SizedBox(
                 width: 32,
                 height: 32,
-                child: message.userAvatar != null &&
-                        message.userAvatar!.isNotEmpty
+                child: avatarUrl != null && avatarUrl.isNotEmpty
                     ? ClipOval(
                         child: PresignedImage(
-                          imageUrl: message.userAvatar,
+                          imageUrl: avatarUrl,
                           width: 32,
                           height: 32,
                           fit: BoxFit.cover,
@@ -794,10 +839,6 @@ class _MessageBubbleState extends State<MessageBubble> {
         directory = await getApplicationDocumentsDirectory();
       }
 
-      if (directory == null) {
-        throw Exception('Could not access Downloads folder');
-      }
-
       final filePath = '${directory.path}/$fileName';
       final file = File(filePath);
 
@@ -895,6 +936,36 @@ class _MessageBubbleState extends State<MessageBubble> {
 
   Widget _buildSystemMessage(BuildContext context) {
     final message = widget.message;
+    final isMe = widget.isMe;
+    final metadata = message.metadata;
+    final metaType = metadata?['type'] as String?;
+
+    if (metaType == 'private_album_request') {
+      final requestId = metadata?['requestId'] as String?;
+      final status = metadata?['status'] as String? ?? 'PENDING';
+      return _buildPrivateAlbumRequestBubble(
+        context,
+        requestId: requestId,
+        status: status,
+        isMe: isMe,
+        content: message.content,
+      );
+    }
+
+    if (metaType == 'private_album_response') {
+      final requestId = metadata?['requestId'] as String?;
+      final ownerId = metadata?['ownerId'] as String?;
+      final requesterId = metadata?['requesterId'] as String?;
+      return _buildPrivateAlbumResponseBubble(
+        context,
+        requestId: requestId,
+        ownerId: ownerId,
+        requesterId: requesterId,
+        isMe: isMe,
+        content: message.content,
+      );
+    }
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
@@ -908,6 +979,173 @@ class _MessageBubbleState extends State<MessageBubble> {
           fontStyle: FontStyle.italic,
         ),
         textAlign: TextAlign.center,
+      ),
+    );
+  }
+
+  Widget _buildPrivateAlbumRequestBubble(
+    BuildContext context, {
+    required String? requestId,
+    required String status,
+    required bool isMe,
+    required String content,
+  }) {
+    final hasAgreed = status == 'ACCEPTED' ||
+        (requestId != null && requestId == _agreedRequestId);
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.purple[50],
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.purple[200]!),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.lock, size: 16, color: Colors.purple[700]),
+              const SizedBox(width: 6),
+              Flexible(
+                child: Text(
+                  content,
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: Colors.purple[900],
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          if (!isMe && status == 'PENDING' && requestId != null && !hasAgreed)
+            ElevatedButton.icon(
+              onPressed: _isAgreeingPrivateAlbum
+                  ? null
+                  : () async {
+                      setState(() {
+                        _isAgreeingPrivateAlbum = true;
+                      });
+                      try {
+                        await DatingService().agreePrivateAlbumRequest(requestId);
+                        if (!mounted) return;
+                        setState(() {
+                          _agreedRequestId = requestId;
+                        });
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Album access granted!')),
+                        );
+                      } catch (e) {
+                        if (!mounted) return;
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('Error: $e')),
+                        );
+                      } finally {
+                        if (mounted) {
+                          setState(() {
+                            _isAgreeingPrivateAlbum = false;
+                          });
+                        }
+                      }
+                    },
+              icon: const Icon(Icons.check, size: 16),
+              label: const Text('Agree'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.purple[700],
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                textStyle: const TextStyle(fontSize: 13),
+              ),
+            )
+          else if (hasAgreed)
+            ElevatedButton.icon(
+              onPressed: null,
+              icon: const Icon(Icons.check_circle, size: 16),
+              label: const Text('Agreed'),
+              style: ElevatedButton.styleFrom(
+                disabledBackgroundColor: Colors.green[100],
+                disabledForegroundColor: Colors.green[700],
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                textStyle: const TextStyle(fontSize: 13),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPrivateAlbumResponseBubble(
+    BuildContext context, {
+    required String? requestId,
+    required String? ownerId,
+    required String? requesterId,
+    required bool isMe,
+    required String content,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.green[50],
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.green[200]!),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.lock_open, size: 16, color: Colors.green[700]),
+              const SizedBox(width: 6),
+              Flexible(
+                child: Text(
+                  content,
+                  style: TextStyle(fontSize: 13, color: Colors.green[900]),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          if (!isMe && ownerId != null)
+            ElevatedButton.icon(
+              onPressed: () => _openPrivateAlbumWithAccessCheck(context, ownerId),
+              icon: const Icon(Icons.photo_library, size: 16),
+              label: const Text('View Private Album'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.green[700],
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                textStyle: const TextStyle(fontSize: 13),
+              ),
+            )
+          else if (isMe && requesterId != null)
+            OutlinedButton.icon(
+              onPressed: () async {
+                try {
+                  await DatingService().revokePrivateAlbumAccess(requesterId);
+                  if (!context.mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Access revoked.')),
+                  );
+                } catch (e) {
+                  if (!context.mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Error: $e')),
+                  );
+                }
+              },
+              icon: const Icon(Icons.lock, size: 16),
+              label: const Text('Revoke Access'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Colors.red[700],
+                side: BorderSide(color: Colors.red[300]!),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                textStyle: const TextStyle(fontSize: 13),
+              ),
+            ),
+        ],
       ),
     );
   }

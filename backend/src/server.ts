@@ -10040,6 +10040,7 @@ function serializeChatMessage(message: any) {
     userAvatar: message.user ? (buildAvatarUrl(message.user) || message.user.avatarUrl) : null,
     isEdited: message.updatedAt > message.createdAt,
     isDeleted: false,
+      metadata: message.metadata ?? null,
   };
 }
 
@@ -10715,6 +10716,7 @@ app.post('/api/v1/chat/rooms/:roomId/messages', async (req, res) => {
 
     const { roomId } = req.params;
     const { content, type = 'TEXT', fileName, fileDirectory, fileSize, mimeType, s3StorageId, storageId } = req.body;
+  const { metadata } = req.body;
 
     if (!content && !fileName) {
       res.status(400).json({
@@ -10756,6 +10758,7 @@ app.post('/api/v1/chat/rooms/:roomId/messages', async (req, res) => {
         mimeType: mimeType || null,
         userId: currentUserId,
         roomId: roomId,
+          ...(metadata !== undefined ? { metadata } : {}),
       },
       include: {
         user: {
@@ -10819,6 +10822,260 @@ app.post('/api/v1/chat/rooms/:roomId/messages', async (req, res) => {
       success: false,
       message: 'Failed to send message',
     });
+  }
+});
+
+// ── Private Album Chat Endpoints ─────────────────────────────────────────────
+
+// POST /api/v1/dating/private-album/request-chat/:userId
+// Requester sends a private album access request via chat
+app.post('/api/v1/dating/private-album/request-chat/:userId', async (req, res) => {
+  try {
+    const currentUserId = await getCurrentUserId(req);
+    if (!currentUserId) {
+      res.status(401).json({ success: false, message: 'Authentication required' });
+      return;
+    }
+    const { userId: ownerId } = req.params as { userId: string };
+    if (currentUserId === ownerId) {
+      res.status(400).json({ success: false, message: 'Cannot request own album' });
+      return;
+    }
+
+    const album = await prisma.privateAlbum.findFirst({ where: { userId: ownerId } });
+    if (!album) {
+      res.status(404).json({ success: false, message: 'This user has no private album' });
+      return;
+    }
+
+    const existing = await prisma.privateAlbumAccessRequest.findUnique({
+      where: { albumId_requesterId: { albumId: album.id, requesterId: currentUserId } },
+    });
+
+    let accessRequest;
+    if (!existing) {
+      accessRequest = await prisma.privateAlbumAccessRequest.create({
+        data: { albumId: album.id, requesterId: currentUserId, ownerId },
+      });
+    } else if (existing.status === 'DENIED') {
+      // Re-request after revoke/deny: reopen the same request and emit a fresh chat message.
+      accessRequest = await prisma.privateAlbumAccessRequest.update({
+        where: { id: existing.id },
+        data: {
+          status: 'PENDING',
+          respondedAt: null,
+        },
+      });
+    } else if (existing.status === 'ACCEPTED') {
+      res.status(409).json({ success: false, message: 'Access already granted', data: existing });
+      return;
+    } else {
+      res.status(409).json({ success: false, message: 'Request already exists', data: existing });
+      return;
+    }
+
+    // Find or create a private chat room between the two users
+    let chatRoom = await prisma.chatRoom.findFirst({
+      where: {
+        type: 'PRIVATE',
+        AND: [
+          { participants: { some: { userId: currentUserId } } },
+          { participants: { some: { userId: ownerId } } },
+        ],
+      },
+    });
+    if (!chatRoom) {
+      chatRoom = await prisma.chatRoom.create({
+        data: {
+          type: 'PRIVATE',
+          createdBy: currentUserId,
+          participants: { create: [{ userId: currentUserId }, { userId: ownerId }] },
+        },
+      });
+    }
+
+    const message = await prisma.chatMessage.create({
+      data: {
+        content: 'May I check out your private album?',
+        messageType: 'SYSTEM' as any,
+        userId: currentUserId,
+        roomId: chatRoom.id,
+        metadata: {
+          type: 'private_album_request',
+          requestId: accessRequest.id,
+          requesterId: currentUserId,
+          ownerId,
+          status: 'PENDING',
+        },
+      },
+      include: {
+        user: {
+          select: {
+            id: true, username: true, firstName: true, lastName: true,
+            avatarUrl: true, avatar: true, fileDirectory: true, s3StorageId: true, isVerified: true,
+          },
+        },
+      },
+    });
+
+    await prisma.chatRoom.update({ where: { id: chatRoom.id }, data: { updatedAt: new Date() } });
+    const serializedMessage = serializeChatMessage(message);
+    const participantIds = await getChatRoomParticipantIds(chatRoom.id);
+
+    io.to(`chat-${chatRoom.id}`).emit('new-message', serializedMessage);
+    participantIds
+      .filter(participantId => participantId !== currentUserId)
+      .forEach(participantId => {
+        io.to(`user-${participantId}`).emit('new-message', serializedMessage);
+      });
+    await emitChatRoomUpdate(chatRoom.id, participantIds);
+    await sendPushToUsers(
+      [ownerId],
+      {
+        title: buildDisplayName(message.user),
+        body: 'Requested access to your private album',
+        data: {
+          kind: 'chat_message',
+          roomId: chatRoom.id,
+          messageId: message.id,
+          route: `/main/chat/${chatRoom.id}`,
+        },
+        sound: 'default',
+      }
+    );
+
+    res.json({ success: true, data: { chatRoomId: chatRoom.id, messageId: message.id, requestId: accessRequest.id } });
+  } catch (error) {
+    console.error('Request private album via chat error:', error);
+    res.status(500).json({ success: false, message: 'Failed to send private album request' });
+  }
+});
+
+// POST /api/v1/dating/private-album/agree-chat/:requestId
+// Owner agrees to the private album request — creates response chat message
+app.post('/api/v1/dating/private-album/agree-chat/:requestId', async (req, res) => {
+  try {
+    const currentUserId = await getCurrentUserId(req);
+    if (!currentUserId) {
+      res.status(401).json({ success: false, message: 'Authentication required' });
+      return;
+    }
+    const { requestId } = req.params as { requestId: string };
+
+    const accessRequest = await prisma.privateAlbumAccessRequest.findFirst({
+      where: { id: requestId },
+    });
+    if (!accessRequest || accessRequest.ownerId !== currentUserId) {
+      res.status(404).json({ success: false, message: 'Request not found' });
+      return;
+    }
+    if (accessRequest.status === 'ACCEPTED') {
+      res.status(409).json({ success: false, message: 'Already accepted' });
+      return;
+    }
+
+    await prisma.privateAlbumAccessRequest.update({
+      where: { id: requestId },
+      data: { status: 'ACCEPTED', respondedAt: new Date() },
+    });
+
+    // Find the private chat room between owner and requester
+    const chatRoom = await prisma.chatRoom.findFirst({
+      where: {
+        type: 'PRIVATE',
+        AND: [
+          { participants: { some: { userId: currentUserId } } },
+          { participants: { some: { userId: accessRequest.requesterId } } },
+        ],
+      },
+    });
+    if (!chatRoom) {
+      res.json({ success: true, data: { requestId } });
+      return;
+    }
+
+    const message = await prisma.chatMessage.create({
+      data: {
+        content: 'I have unlocked my privacy album to you',
+        messageType: 'SYSTEM' as any,
+        userId: currentUserId,
+        roomId: chatRoom.id,
+        metadata: {
+          type: 'private_album_response',
+          requestId,
+          status: 'ACCEPTED',
+          ownerId: currentUserId,
+          requesterId: accessRequest.requesterId,
+        },
+      },
+      include: {
+        user: {
+          select: {
+            id: true, username: true, firstName: true, lastName: true,
+            avatarUrl: true, avatar: true, fileDirectory: true, s3StorageId: true, isVerified: true,
+          },
+        },
+      },
+    });
+
+    await prisma.chatRoom.update({ where: { id: chatRoom.id }, data: { updatedAt: new Date() } });
+    const serializedMessage = serializeChatMessage(message);
+    const participantIds = await getChatRoomParticipantIds(chatRoom.id);
+
+    io.to(`chat-${chatRoom.id}`).emit('new-message', serializedMessage);
+    participantIds
+      .filter(participantId => participantId !== currentUserId)
+      .forEach(participantId => {
+        io.to(`user-${participantId}`).emit('new-message', serializedMessage);
+      });
+    await emitChatRoomUpdate(chatRoom.id, participantIds);
+    await sendPushToUsers(
+      [accessRequest.requesterId],
+      {
+        title: buildDisplayName(message.user),
+        body: 'Unlocked a private album for you',
+        data: {
+          kind: 'chat_message',
+          roomId: chatRoom.id,
+          messageId: message.id,
+          route: `/main/chat/${chatRoom.id}`,
+        },
+        sound: 'default',
+      }
+    );
+
+    res.json({ success: true, data: { requestId, messageId: message.id, chatRoomId: chatRoom.id } });
+  } catch (error) {
+    console.error('Agree private album via chat error:', error);
+    res.status(500).json({ success: false, message: 'Failed to agree to private album request' });
+  }
+});
+
+// DELETE /api/v1/dating/private-album/revoke/:requesterId
+// Owner revokes a previously granted private album access
+app.delete('/api/v1/dating/private-album/revoke/:requesterId', async (req, res) => {
+  try {
+    const currentUserId = await getCurrentUserId(req);
+    if (!currentUserId) {
+      res.status(401).json({ success: false, message: 'Authentication required' });
+      return;
+    }
+    const { requesterId } = req.params as { requesterId: string };
+
+    const updated = await prisma.privateAlbumAccessRequest.updateMany({
+      where: { requesterId, ownerId: currentUserId, status: 'ACCEPTED' },
+      data: { status: 'DENIED' },
+    });
+
+    if (updated.count === 0) {
+      res.status(404).json({ success: false, message: 'No accepted request found to revoke' });
+      return;
+    }
+
+    res.json({ success: true, data: { revoked: updated.count } });
+  } catch (error) {
+    console.error('Revoke private album access error:', error);
+    res.status(500).json({ success: false, message: 'Failed to revoke private album access' });
   }
 });
 

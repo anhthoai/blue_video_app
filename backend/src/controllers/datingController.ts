@@ -1,5 +1,5 @@
 import { Response } from 'express';
-import { CoinTransactionType, DatingTier, PrismaClient } from '@prisma/client';
+import { CoinTransactionType, DatingMatchAction, DatingTier, PrismaClient } from '@prisma/client';
 import { AuthRequest } from '../middleware/auth';
 import { buildAvatarUrl } from '../utils/fileUrl';
 import { StorageService } from '../config/storage';
@@ -81,6 +81,124 @@ function isStorageObjectKey(value: string | null | undefined): value is string {
   const raw = value.trim();
   if (raw.length === 0) return false;
   return !raw.startsWith('http://') && !raw.startsWith('https://');
+}
+
+function startOfTodayUtc(): Date {
+  const now = new Date();
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+}
+
+type SuggestionCandidate = {
+  userId: string;
+  username: string | null;
+  firstName: string | null;
+  lastName: string | null;
+  avatarUrl: string | null;
+  updatedAt: string;
+  age: number | null;
+  distanceKm: number | null;
+  isOnline: boolean | null;
+  role: string | null;
+  bodyType: string | null;
+  score: number;
+  reasons: string[];
+};
+
+function overlapScore(a: string[] | null | undefined, b: string[] | null | undefined): number {
+  if (!a || !b || a.length === 0 || b.length === 0) return 0;
+  const setA = new Set(a);
+  let hits = 0;
+  for (const item of b) {
+    if (setA.has(item)) hits += 1;
+  }
+  return Math.min(1, hits / Math.max(1, Math.min(a.length, b.length)));
+}
+
+function calcSuggestionScore(input: {
+  requester: {
+    role: string | null;
+    bodyType: string | null;
+    lookingFor: string[];
+    preferredTribes: string[];
+    latitude: number | null;
+    longitude: number | null;
+  };
+  candidate: {
+    role: string | null;
+    bodyType: string | null;
+    lookingFor: string[];
+    preferredTribes: string[];
+    latitude: number | null;
+    longitude: number | null;
+  };
+}): { score: number; reasons: string[]; distanceKm: number | null } {
+  const reasons: string[] = [];
+  let score = 0;
+
+  const requesterRole = input.requester.role;
+  const candidateRole = input.candidate.role;
+  if (requesterRole && candidateRole && requesterRole === candidateRole) {
+    score += 22;
+    reasons.push('Similar role preference');
+  }
+
+  const interestOverlap = overlapScore(input.requester.lookingFor, input.candidate.lookingFor);
+  if (interestOverlap > 0) {
+    score += Math.round(interestOverlap * 28);
+    reasons.push('Shared dating goals');
+  }
+
+  const tribeOverlap = overlapScore(input.requester.preferredTribes, input.candidate.preferredTribes);
+  if (tribeOverlap > 0) {
+    score += Math.round(tribeOverlap * 24);
+    reasons.push('Similar tribe interests');
+  }
+
+  if (
+    input.requester.bodyType &&
+    input.candidate.bodyType &&
+    input.requester.bodyType === input.candidate.bodyType
+  ) {
+    score += 12;
+    reasons.push('Compatible body type preference');
+  }
+
+  let distanceKm: number | null = null;
+  if (
+    input.requester.latitude != null &&
+    input.requester.longitude != null &&
+    input.candidate.latitude != null &&
+    input.candidate.longitude != null
+  ) {
+    distanceKm = Math.round(
+      haversineKm(
+        input.requester.latitude,
+        input.requester.longitude,
+        input.candidate.latitude,
+        input.candidate.longitude,
+      ),
+    );
+    if (distanceKm <= 5) {
+      score += 22;
+      reasons.push('Very close distance');
+    } else if (distanceKm <= 15) {
+      score += 15;
+      reasons.push('Nearby location');
+    } else if (distanceKm <= 30) {
+      score += 8;
+      reasons.push('Reasonable distance');
+    }
+  }
+
+  if (reasons.length === 0) {
+    reasons.push('Trending in your area');
+  }
+
+  return {
+    score: Math.max(1, Math.min(99, score)),
+    reasons: reasons.slice(0, 3),
+    distanceKm,
+  };
 }
 
 // ─── Controller ──────────────────────────────────────────────────────────────
@@ -209,6 +327,7 @@ export class DatingController {
               avatar: true,
               fileDirectory: true,
               s3StorageId: true,
+              updatedAt: true,
             },
           },
         },
@@ -257,6 +376,7 @@ export class DatingController {
             firstName: p.user.firstName,
             lastName: p.user.lastName,
             avatarUrl: buildAvatarUrl(p.user),
+            updatedAt: p.user.updatedAt.toISOString(),
             age: ageFromDob(p.dateOfBirth),
             distanceKm: distKm,
             isOnline: p.showOnline ? p.isOnline : null,
@@ -288,6 +408,7 @@ export class DatingController {
           firstName: true,
           lastName: true,
           avatarUrl: true,
+          updatedAt: true,
         },
       });
 
@@ -300,6 +421,7 @@ export class DatingController {
         firstName: selfUser?.firstName ?? null,
         lastName: selfUser?.lastName ?? null,
         avatarUrl: selfUser ? buildAvatarUrl(selfUser) : null,
+        updatedAt: selfUser?.updatedAt?.toISOString() ?? null,
         age: null,
         distanceKm: selfDistanceKm,
         isOnline: true,
@@ -333,6 +455,14 @@ export class DatingController {
       const { userId } = req.params as { userId: string };
       const targetId: string = userId === 'me' ? requesterId : userId;
 
+      const requesterProfile = await prisma.datingProfile.findUnique({
+        where: { userId: requesterId },
+        select: {
+          latitude: true,
+          longitude: true,
+        },
+      });
+
       const profile = await prisma.datingProfile.findUnique({
         where: { userId: targetId },
         include: {
@@ -342,6 +472,7 @@ export class DatingController {
               username: true,
               firstName: true,
               lastName: true,
+              bio: true,
               avatarUrl: true,
               avatar: true,
               fileDirectory: true,
@@ -380,6 +511,26 @@ export class DatingController {
         privateAlbumPhotoCount = privateAlbumPhotos.length;
       }
 
+      const distanceKm =
+        requesterProfile?.latitude != null &&
+        requesterProfile.longitude != null &&
+        profile.latitude != null &&
+        profile.longitude != null &&
+        profile.showDistance
+          ? Math.round(
+              haversineKm(
+                requesterProfile.latitude,
+                requesterProfile.longitude,
+                profile.latitude,
+                profile.longitude,
+              ),
+            )
+          : requesterId === targetId &&
+                  requesterProfile?.latitude != null &&
+                  requesterProfile.longitude != null
+              ? 0
+              : null;
+
       res.json({
         success: true,
         data: {
@@ -389,6 +540,7 @@ export class DatingController {
             avatarUrl: buildAvatarUrl(profile.user),
           },
           age: ageFromDob(profile.dateOfBirth),
+          distanceKm,
           publicPhotos: profile.publicPhotos,
           datingTier: resolveActiveDatingTier(profile),
           datingTierExpiresAt: profile.datingTierExpiresAt,
@@ -568,6 +720,7 @@ export class DatingController {
               avatar: true,
               fileDirectory: true,
               s3StorageId: true,
+              updatedAt: true,
             },
           },
         },
@@ -591,6 +744,8 @@ export class DatingController {
           matchedAt: m.createdAt,
           user: {
             ...m.toUser,
+            avatarUrl: buildAvatarUrl(m.toUser),
+            updatedAt: m.toUser.updatedAt.toISOString(),
             age: ageFromDob(dp?.dateOfBirth ?? null),
             isOnline: dp?.showOnline ? dp.isOnline : null,
             role: dp?.role ?? null,
@@ -602,6 +757,147 @@ export class DatingController {
     } catch (error) {
       console.error('Get mutual matches error:', error);
       res.status(500).json({ success: false, message: 'Failed to get matches' });
+    }
+  };
+
+  getSuggestedMatches = async (req: AuthRequest, res: Response): Promise<void> => {
+    try {
+      const userId = req.user!.id;
+      const maxPerDay = 3;
+
+      const requester = await prisma.user.findUnique({
+        where: { id: userId },
+        select: {
+          role: true,
+          isVip: true,
+          datingProfile: {
+            select: {
+              datingTier: true,
+              datingTierExpiresAt: true,
+              role: true,
+              bodyType: true,
+              lookingFor: true,
+              preferredTribes: true,
+              latitude: true,
+              longitude: true,
+            },
+          },
+        },
+      });
+
+      const tier = resolveActiveDatingTier(requester?.datingProfile ?? null);
+      const isVip = requester?.role === 'ADMIN' || tier === 'VIP' || tier === 'UNLIMITED' || requester?.isVip === true;
+      const aiEnabled = isVip;
+
+      const startToday = startOfTodayUtc();
+      const actedToday = await prisma.datingMatch.count({
+        where: {
+          fromUserId: userId,
+          createdAt: { gte: startToday },
+          action: { in: [DatingMatchAction.LIKE, DatingMatchAction.DISLIKE, DatingMatchAction.SUPERLIKE] },
+        },
+      });
+
+      const remainingToday = Math.max(0, maxPerDay - actedToday);
+      if (remainingToday <= 0) {
+        res.json({
+          success: true,
+          data: [],
+          meta: {
+            maxPerDay,
+            remainingToday,
+            aiEnabled,
+            tier,
+          },
+        });
+        return;
+      }
+
+      const previousActions = await prisma.datingMatch.findMany({
+        where: { fromUserId: userId },
+        select: { toUserId: true },
+      });
+      const excludedIds = new Set(previousActions.map((item) => item.toUserId));
+
+      const requesterProfile = requester?.datingProfile;
+      const candidates = await prisma.datingProfile.findMany({
+        where: {
+          userId: {
+            notIn: [userId, ...excludedIds],
+          },
+          user: { isActive: true },
+        },
+        include: {
+          user: {
+            select: {
+              id: true,
+              username: true,
+              firstName: true,
+              lastName: true,
+              avatarUrl: true,
+              avatar: true,
+              fileDirectory: true,
+              s3StorageId: true,
+              updatedAt: true,
+            },
+          },
+        },
+        take: 120,
+      });
+
+      const scored: SuggestionCandidate[] = candidates.map((candidate) => {
+        const scoring = calcSuggestionScore({
+          requester: {
+            role: requesterProfile?.role ?? null,
+            bodyType: requesterProfile?.bodyType ?? null,
+            lookingFor: requesterProfile?.lookingFor ?? [],
+            preferredTribes: requesterProfile?.preferredTribes ?? [],
+            latitude: requesterProfile?.latitude ?? null,
+            longitude: requesterProfile?.longitude ?? null,
+          },
+          candidate: {
+            role: candidate.role ?? null,
+            bodyType: candidate.bodyType ?? null,
+            lookingFor: candidate.lookingFor,
+            preferredTribes: candidate.preferredTribes,
+            latitude: candidate.latitude,
+            longitude: candidate.longitude,
+          },
+        });
+
+        return {
+          userId: candidate.userId,
+          username: candidate.user.username,
+          firstName: candidate.user.firstName,
+          lastName: candidate.user.lastName,
+          avatarUrl: buildAvatarUrl(candidate.user),
+          updatedAt: candidate.user.updatedAt.toISOString(),
+          age: ageFromDob(candidate.dateOfBirth),
+          distanceKm: scoring.distanceKm,
+          isOnline: candidate.showOnline ? candidate.isOnline : null,
+          role: candidate.role ?? null,
+          bodyType: candidate.bodyType ?? null,
+          score: scoring.score,
+          reasons: scoring.reasons,
+        };
+      });
+
+      scored.sort((a, b) => b.score - a.score);
+      const data = scored.slice(0, remainingToday);
+
+      res.json({
+        success: true,
+        data,
+        meta: {
+          maxPerDay,
+          remainingToday,
+          aiEnabled,
+          tier,
+        },
+      });
+    } catch (error) {
+      console.error('Get suggested matches error:', error);
+      res.status(500).json({ success: false, message: 'Failed to get suggested matches' });
     }
   };
 

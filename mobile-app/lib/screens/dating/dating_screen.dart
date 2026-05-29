@@ -4,8 +4,10 @@ import 'package:geolocator/geolocator.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/services/dating_service.dart';
+import '../../core/services/file_url_service.dart';
 import '../../models/dating_model.dart';
 import '../../core/theme/app_theme.dart';
+import '../../widgets/common/presigned_image.dart';
 import 'dating_profile_screen.dart';
 import 'dating_filter_sheet.dart';
 import 'dating_meet_screen.dart';
@@ -468,7 +470,11 @@ class _ExploreTabState extends ConsumerState<_ExploreTab> {
                 mainAxisSpacing: 8,
               ),
               delegate: SliverChildBuilderDelegate(
-                (context, index) => _UserCard(user: visibleUsers[index]),
+                (context, index) => _UserCard(
+                  user: visibleUsers[index],
+                  swipeProfileIds: visibleUsers.map((user) => user.userId).toList(),
+                  swipeProfileIndex: index,
+                ),
                 childCount: visibleUsers.length,
               ),
             ),
@@ -554,14 +560,19 @@ class _ExploreTabState extends ConsumerState<_ExploreTab> {
 class _UserCard extends StatelessWidget {
   final DatingExploreUser user;
   final bool locked;
+  final List<String>? swipeProfileIds;
+  final int swipeProfileIndex;
 
   const _UserCard({
     required this.user,
     this.locked = false,
+    this.swipeProfileIds,
+    this.swipeProfileIndex = 0,
   });
 
   @override
   Widget build(BuildContext context) {
+    final avatarUrl = appendCacheBuster(user.avatarUrl, user.updatedAt);
     return GestureDetector(
       onTap: locked
           ? () async {
@@ -575,7 +586,11 @@ class _UserCard extends StatelessWidget {
           : () => Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (_) => DatingProfileScreen(userId: user.userId),
+                  builder: (_) => DatingProfileScreen(
+                    userId: user.userId,
+                    swipeProfileIds: swipeProfileIds,
+                    swipeProfileIndex: swipeProfileIndex,
+                  ),
                 ),
               ),
       child: ClipRRect(
@@ -584,11 +599,11 @@ class _UserCard extends StatelessWidget {
           fit: StackFit.expand,
           children: [
             // Avatar
-            user.avatarUrl != null
-                ? Image.network(
-                    user.avatarUrl!,
+            avatarUrl != null
+                ? PresignedImage(
+                    imageUrl: avatarUrl,
                     fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => _placeholder(),
+                    errorWidget: _placeholder(),
                   )
                 : _placeholder(),
 
@@ -619,16 +634,16 @@ class _UserCard extends StatelessWidget {
               ),
 
             // Online indicator
-            if (user.isOnline == true)
+            if (user.isOnline == true || user.isOnline == false)
               Positioned(
                 top: 6,
                 right: 6,
                 child: Container(
                   width: 10,
                   height: 10,
-                  decoration: const BoxDecoration(
+                  decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: Color(0xFF4CAF50),
+                    color: user.isOnline == true ? const Color(0xFF4CAF50) : Colors.grey,
                   ),
                 ),
               ),

@@ -193,6 +193,19 @@ class DatingService {
     throw Exception(json['message'] ?? 'Failed to get matches');
   }
 
+  Future<DatingSuggestionResult> getSuggestedMatches() async {
+    final headers = await _api.getHeaders();
+    final response = await http.get(
+      Uri.parse('${ApiService.baseUrl}/dating/matches/suggestions'),
+      headers: headers,
+    );
+    final json = jsonDecode(response.body) as Map<String, dynamic>;
+    if (response.statusCode == 200 && json['success'] == true) {
+      return DatingSuggestionResult.fromJson(json);
+    }
+    throw Exception(json['message'] ?? 'Failed to get suggested matches');
+  }
+
   // ── Private Album ─────────────────────────────────────────────────────────
 
   Future<Map<String, dynamic>> uploadPrivatePhoto(File photo) async {
@@ -320,5 +333,36 @@ class DatingService {
           .toList();
     }
     throw Exception(json['message'] ?? 'Failed to get access requests');
+  }
+
+  Future<Map<String, dynamic>> requestPrivateAlbumViaChat(String userId) async {
+    final headers = await _api.getHeaders();
+    final response = await http.post(
+      Uri.parse('${ApiService.baseUrl}/dating/private-album/request-chat/$userId'),
+      headers: headers,
+    );
+    final json = jsonDecode(response.body) as Map<String, dynamic>;
+    if (json['success'] != true) throw Exception(json['message'] ?? 'Failed to send request');
+    return json['data'] as Map<String, dynamic>;
+  }
+
+  Future<void> agreePrivateAlbumRequest(String requestId) async {
+    final headers = await _api.getHeaders();
+    final response = await http.post(
+      Uri.parse('${ApiService.baseUrl}/dating/private-album/agree-chat/$requestId'),
+      headers: headers,
+    );
+    final json = jsonDecode(response.body) as Map<String, dynamic>;
+    if (json['success'] != true) throw Exception(json['message'] ?? 'Failed to agree to request');
+  }
+
+  Future<void> revokePrivateAlbumAccess(String requesterId) async {
+    final headers = await _api.getHeaders();
+    final response = await http.delete(
+      Uri.parse('${ApiService.baseUrl}/dating/private-album/revoke/$requesterId'),
+      headers: headers,
+    );
+    final json = jsonDecode(response.body) as Map<String, dynamic>;
+    if (json['success'] != true) throw Exception(json['message'] ?? 'Failed to revoke access');
   }
 }

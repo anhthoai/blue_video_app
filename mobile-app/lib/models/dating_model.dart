@@ -5,7 +5,9 @@ class DatingProfile {
   final String? username;
   final String? firstName;
   final String? lastName;
+  final String? bio;
   final String? avatarUrl;
+  final DateTime? updatedAt;
   final int? age;
 
   // Personal info
@@ -55,7 +57,9 @@ class DatingProfile {
     this.username,
     this.firstName,
     this.lastName,
+    this.bio,
     this.avatarUrl,
+    this.updatedAt,
     this.age,
     this.dateOfBirth,
     this.role,
@@ -99,7 +103,13 @@ class DatingProfile {
       username: (user?['username'] ?? json['username']) as String?,
       firstName: (user?['firstName'] ?? json['firstName']) as String?,
       lastName: (user?['lastName'] ?? json['lastName']) as String?,
+      bio: (user?['bio'] ?? json['bio']) as String?,
       avatarUrl: (user?['avatarUrl'] ?? json['avatarUrl']) as String?,
+        updatedAt: json['updatedAt'] != null
+          ? DateTime.tryParse(json['updatedAt'].toString())
+          : (user != null && user['updatedAt'] != null
+            ? DateTime.tryParse(user['updatedAt'].toString())
+            : null),
       age: json['age'] as int?,
       dateOfBirth: json['dateOfBirth'] != null
           ? DateTime.tryParse(json['dateOfBirth'] as String)
@@ -192,7 +202,9 @@ class DatingProfile {
       username: username,
       firstName: firstName,
       lastName: lastName,
+      bio: bio,
       avatarUrl: avatarUrl,
+      updatedAt: updatedAt,
       age: age,
       dateOfBirth: dateOfBirth ?? this.dateOfBirth,
       role: role ?? this.role,
@@ -238,6 +250,7 @@ class DatingExploreUser {
   final String? firstName;
   final String? lastName;
   final String? avatarUrl;
+  final DateTime? updatedAt;
   final int? age;
   final int? distanceKm;
   final bool? isOnline;
@@ -253,6 +266,7 @@ class DatingExploreUser {
     this.firstName,
     this.lastName,
     this.avatarUrl,
+    this.updatedAt,
     this.age,
     this.distanceKm,
     this.isOnline,
@@ -270,11 +284,14 @@ class DatingExploreUser {
 
   factory DatingExploreUser.fromJson(Map<String, dynamic> json) {
     return DatingExploreUser(
-      userId: json['userId'] as String,
+      userId: (json['userId'] ?? json['id'] ?? '') as String,
       username: json['username'] as String?,
       firstName: json['firstName'] as String?,
       lastName: json['lastName'] as String?,
       avatarUrl: json['avatarUrl'] as String?,
+      updatedAt: json['updatedAt'] != null
+          ? DateTime.tryParse(json['updatedAt'].toString())
+          : null,
       age: json['age'] as int?,
       distanceKm: json['distanceKm'] as int?,
       isOnline: json['isOnline'] as bool?,
@@ -301,8 +318,73 @@ class DatingMatchUser {
   factory DatingMatchUser.fromJson(Map<String, dynamic> json) {
     return DatingMatchUser(
       matchId: json['matchId'] as String,
-      matchedAt: DateTime.parse(json['matchedAt'] as String),
+      matchedAt: DateTime.tryParse(json['matchedAt']?.toString() ?? '') ?? DateTime.now(),
       user: DatingExploreUser.fromJson(json['user'] as Map<String, dynamic>),
+    );
+  }
+}
+
+class DatingSuggestedMatch {
+  final DatingExploreUser user;
+  final int score;
+  final List<String> reasons;
+
+  const DatingSuggestedMatch({
+    required this.user,
+    required this.score,
+    this.reasons = const [],
+  });
+
+  factory DatingSuggestedMatch.fromJson(Map<String, dynamic> json) {
+    return DatingSuggestedMatch(
+      user: DatingExploreUser.fromJson(json),
+      score: json['score'] as int? ?? 0,
+      reasons: DatingProfile._toStringList(json['reasons']),
+    );
+  }
+}
+
+class DatingSuggestionMeta {
+  final int maxPerDay;
+  final int remainingToday;
+  final bool aiEnabled;
+  final String tier;
+
+  const DatingSuggestionMeta({
+    required this.maxPerDay,
+    required this.remainingToday,
+    required this.aiEnabled,
+    required this.tier,
+  });
+
+  factory DatingSuggestionMeta.fromJson(Map<String, dynamic> json) {
+    return DatingSuggestionMeta(
+      maxPerDay: json['maxPerDay'] as int? ?? 3,
+      remainingToday: json['remainingToday'] as int? ?? 0,
+      aiEnabled: json['aiEnabled'] == true,
+      tier: json['tier'] as String? ?? 'FREE',
+    );
+  }
+}
+
+class DatingSuggestionResult {
+  final List<DatingSuggestedMatch> suggestions;
+  final DatingSuggestionMeta meta;
+
+  const DatingSuggestionResult({
+    required this.suggestions,
+    required this.meta,
+  });
+
+  factory DatingSuggestionResult.fromJson(Map<String, dynamic> json) {
+    final rawList = (json['data'] as List<dynamic>? ?? const []);
+    final rawMeta = json['meta'] as Map<String, dynamic>? ?? const {};
+
+    return DatingSuggestionResult(
+      suggestions: rawList
+          .map((item) => DatingSuggestedMatch.fromJson(item as Map<String, dynamic>))
+          .toList(),
+      meta: DatingSuggestionMeta.fromJson(rawMeta),
     );
   }
 }

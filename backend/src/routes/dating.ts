@@ -34,6 +34,9 @@ router.post('/match/:userId', dating.matchAction);
 /** GET /api/v1/dating/matches – Mutual matches (Meet tab) */
 router.get('/matches', dating.getMutualMatches);
 
+/** GET /api/v1/dating/matches/suggestions – Daily smart suggestions for Meet tab */
+router.get('/matches/suggestions', dating.getSuggestedMatches);
+
 /** POST /api/v1/dating/public-photos/upload – Upload additional public dating avatar */
 router.post('/public-photos/upload', uploadMiddleware.single('photo'), dating.uploadPublicPhoto);
 

@@ -17,7 +17,15 @@ final _profileProvider =
 
 class DatingProfileScreen extends ConsumerStatefulWidget {
   final String userId;
-  const DatingProfileScreen({super.key, required this.userId});
+  final List<String>? swipeProfileIds;
+  final int swipeProfileIndex;
+
+  const DatingProfileScreen({
+    super.key,
+    required this.userId,
+    this.swipeProfileIds,
+    this.swipeProfileIndex = 0,
+  });
 
   @override
   ConsumerState<DatingProfileScreen> createState() => _DatingProfileScreenState();
@@ -27,6 +35,7 @@ class _DatingProfileScreenState extends ConsumerState<DatingProfileScreen> {
   bool _actionSent = false;
   String? _lastAction;
   bool _processingBottomAction = false;
+  double? _swipeStartDy;
 
   late final PageController _mediaPageController;
   int _mediaIndex = 0;
@@ -85,24 +94,30 @@ class _DatingProfileScreenState extends ConsumerState<DatingProfileScreen> {
     if (status == 'PENDING') {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Waiting for album owner approval.')),
+        const SnackBar(content: Text('Request sent. Check your chat for updates.')),
       );
       return;
     }
 
+    // Send request via chat
     try {
-      await DatingService().requestPrivateAlbumAccess(widget.userId);
+      final result = await DatingService().requestPrivateAlbumViaChat(widget.userId);
       if (!mounted) return;
+      final chatRoomId = result['chatRoomId'] as String?;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Access request sent.')),
+        const SnackBar(content: Text('Request sent via chat.')),
       );
       ref.invalidate(_profileProvider(widget.userId));
+      if (chatRoomId != null) {
+        context.push('/main/chat/$chatRoomId');
+      }
     } catch (e) {
       if (!mounted) return;
       final message = '$e';
-      if (message.toLowerCase().contains('already exists')) {
+      if (message.toLowerCase().contains('already') ||
+          message.toLowerCase().contains('pending')) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Waiting for permission.')),
+          const SnackBar(content: Text('Request already sent. Check your chat.')),
         );
         ref.invalidate(_profileProvider(widget.userId));
         return;
@@ -170,17 +185,71 @@ class _DatingProfileScreenState extends ConsumerState<DatingProfileScreen> {
     }
   }
 
+  bool get _canSwipeProfiles {
+    final profileIds = widget.swipeProfileIds;
+    return profileIds != null && profileIds.length > 1;
+  }
+
+  void _handleProfileSwipeStart(DragStartDetails details) {
+    _swipeStartDy = details.globalPosition.dy;
+  }
+
+  void _handleProfileSwipeEnd(DragEndDetails details) {
+    final profileIds = widget.swipeProfileIds;
+    if (!_canSwipeProfiles || profileIds == null) {
+      _swipeStartDy = null;
+      return;
+    }
+
+    final startDy = _swipeStartDy;
+    _swipeStartDy = null;
+    if (startDy == null) {
+      return;
+    }
+
+    // Keep horizontal swipes off the top media/header card.
+    if (startDy < 430) {
+      return;
+    }
+
+    final velocity = details.primaryVelocity ?? 0;
+    if (velocity.abs() < 250) {
+      return;
+    }
+
+    final currentIndex = widget.swipeProfileIndex.clamp(0, profileIds.length - 1);
+    final nextIndex = velocity < 0 ? currentIndex + 1 : currentIndex - 1;
+    if (nextIndex < 0 || nextIndex >= profileIds.length) {
+      return;
+    }
+
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(
+        builder: (_) => DatingProfileScreen(
+          userId: profileIds[nextIndex],
+          swipeProfileIds: profileIds,
+          swipeProfileIndex: nextIndex,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final profileAsync = ref.watch(_profileProvider(widget.userId));
 
     return Scaffold(
-      body: profileAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('Error: $e')),
-        data: (profile) => profile == null
-            ? const Center(child: Text('Profile not found'))
-            : _buildProfile(context, profile),
+      body: GestureDetector(
+        behavior: HitTestBehavior.translucent,
+        onHorizontalDragStart: _handleProfileSwipeStart,
+        onHorizontalDragEnd: _handleProfileSwipeEnd,
+        child: profileAsync.when(
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (e, _) => Center(child: Text('Error: $e')),
+          data: (profile) => profile == null
+              ? const Center(child: Text('Profile not found'))
+              : _buildProfile(context, profile),
+        ),
       ),
       bottomNavigationBar: SafeArea(
         top: false,
@@ -202,21 +271,58 @@ class _DatingProfileScreenState extends ConsumerState<DatingProfileScreen> {
                 ),
               ),
               const SizedBox(width: 8),
-              Expanded(
-                child: ElevatedButton.icon(
+              SizedBox(
+                width: 60,
+                height: 48,
+                child: ElevatedButton(
                   onPressed: _processingBottomAction ? null : () => _sendAction('LIKE'),
-                  icon: const Icon(Icons.favorite),
-                  label: const Text('Like'),
+                  style: ElevatedButton.styleFrom(
+                    padding: EdgeInsets.zero,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  ),
+                  child: const Icon(Icons.favorite_border),
                 ),
               ),
               const SizedBox(width: 8),
-              Expanded(
-                child: OutlinedButton.icon(
+              SizedBox(
+                width: 60,
+                height: 48,
+                child: OutlinedButton(
                   onPressed: _processingBottomAction ? null : _addFriend,
-                  icon: const Icon(Icons.person_add_alt_1),
-                  label: const Text('Add Friend'),
+                  style: OutlinedButton.styleFrom(
+                    padding: EdgeInsets.zero,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  ),
+                  child: const Icon(Icons.person_add_alt_1),
                 ),
               ),
+              if (profileAsync.asData?.value?.privateAlbumAccessStatus == 'ACCEPTED') ...[
+                const SizedBox(width: 8),
+                SizedBox(
+                  width: 60,
+                  height: 48,
+                  child: OutlinedButton(
+                    onPressed: _processingBottomAction
+                        ? null
+                        : () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => PrivateAlbumScreen(
+                                  targetUserId: widget.userId,
+                                  readOnly: true,
+                                ),
+                              ),
+                            );
+                          },
+                    style: OutlinedButton.styleFrom(
+                      padding: EdgeInsets.zero,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    ),
+                    child: const Icon(Icons.lock_open_outlined),
+                  ),
+                ),
+              ],
             ],
           ),
         ),
@@ -263,7 +369,10 @@ class _DatingProfileScreenState extends ConsumerState<DatingProfileScreen> {
               profile.displayName,
               if (profile.age != null) '${profile.age}',
             ].join(', '),
-            distanceText: profile.distanceKm != null ? '${profile.distanceKm} km away' : null,
+            distanceText: profile.distanceKm != null
+              ? (profile.distanceKm == 0 ? '0m away' : '${profile.distanceKm} km away')
+              : null,
+            onTapPhoto: (index) => _openPhotoGallery(photos, index),
           ),
         ),
         SliverToBoxAdapter(
@@ -276,6 +385,9 @@ class _DatingProfileScreenState extends ConsumerState<DatingProfileScreen> {
                 const SizedBox(height: 20),
                 if (_actionSent) _buildActionResult(),
                 const SizedBox(height: 24),
+                _buildBio(profile),
+                if ((profile.bio ?? '').trim().isNotEmpty)
+                  const SizedBox(height: 24),
                 _buildPersonalInfo(profile),
                 const SizedBox(height: 24),
                 _buildExpectations(profile),
@@ -285,6 +397,25 @@ class _DatingProfileScreenState extends ConsumerState<DatingProfileScreen> {
           ),
         ),
       ],
+    );
+  }
+
+  void _openPhotoGallery(List<String> photos, int initialIndex) {
+    if (photos.isEmpty) {
+      return;
+    }
+
+    final safeIndex = initialIndex < 0
+        ? 0
+        : (initialIndex >= photos.length ? photos.length - 1 : initialIndex);
+
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => _DatingImageGalleryViewer(
+          images: photos,
+          initialIndex: safeIndex,
+        ),
+      ),
     );
   }
 
@@ -432,6 +563,16 @@ class _DatingProfileScreenState extends ConsumerState<DatingProfileScreen> {
     );
   }
 
+  Widget _buildBio(DatingProfile profile) {
+    final bio = (profile.bio ?? '').trim();
+    if (bio.isEmpty) return const SizedBox.shrink();
+
+    return Text(
+      bio,
+      style: const TextStyle(fontSize: 14, height: 1.4),
+    );
+  }
+
   Widget _buildExpectations(DatingProfile profile) {
     final hasData = profile.lookingFor.isNotEmpty ||
         profile.whereToMeet.isNotEmpty ||
@@ -495,6 +636,7 @@ class _SwipeMediaArea extends StatelessWidget {
   final bool isOnline;
   final String displayName;
   final String? distanceText;
+  final void Function(int index)? onTapPhoto;
 
   const _SwipeMediaArea({
     required this.height,
@@ -512,6 +654,7 @@ class _SwipeMediaArea extends StatelessWidget {
     required this.isOnline,
     required this.displayName,
     this.distanceText,
+    this.onTapPhoto,
   });
 
   @override
@@ -555,20 +698,38 @@ class _SwipeMediaArea extends StatelessWidget {
                   if (hasPrivateCard && index == privateCardIndex) {
                     return buildPrivateCard();
                   }
-                  return PresignedImage(
-                    imageUrl: photos[index],
-                    fit: BoxFit.cover,
-                    errorWidget: buildPlaceholder(),
+                  return Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      PresignedImage(
+                        imageUrl: photos[index],
+                        fit: BoxFit.cover,
+                        errorWidget: buildPlaceholder(),
+                      ),
+                      if (onTapPhoto != null)
+                        Positioned.fill(
+                          child: Material(
+                            color: Colors.transparent,
+                            child: InkWell(
+                              onTap: () => onTapPhoto!(index),
+                              splashColor: Colors.transparent,
+                              highlightColor: Colors.transparent,
+                            ),
+                          ),
+                        ),
+                    ],
                   );
                 },
               ),
-            const DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  stops: [0.52, 1.0],
-                  colors: [Colors.transparent, Colors.black87],
+            const IgnorePointer(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    stops: [0.52, 1.0],
+                    colors: [Colors.transparent, Colors.black87],
+                  ),
                 ),
               ),
             ),
@@ -611,9 +772,23 @@ class _SwipeMediaArea extends StatelessWidget {
                       ],
                     ),
                     if (distanceText != null)
-                      Text(
-                        distanceText!,
-                        style: const TextStyle(color: Colors.white70, fontSize: 14),
+                      Row(
+                        children: [
+                          const Icon(
+                            Icons.location_on_outlined,
+                            size: 14,
+                            color: Color(0xFFFFF59D),
+                          ),
+                          const SizedBox(width: 2),
+                          Text(
+                            distanceText!,
+                            style: const TextStyle(
+                              color: Color(0xFFFFF59D),
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
                       ),
                   ],
                   if (totalPages > 1)
@@ -638,6 +813,71 @@ class _SwipeMediaArea extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _DatingImageGalleryViewer extends StatefulWidget {
+  final List<String> images;
+  final int initialIndex;
+
+  const _DatingImageGalleryViewer({
+    required this.images,
+    required this.initialIndex,
+  });
+
+  @override
+  State<_DatingImageGalleryViewer> createState() => _DatingImageGalleryViewerState();
+}
+
+class _DatingImageGalleryViewerState extends State<_DatingImageGalleryViewer> {
+  late final PageController _controller;
+  late int _index;
+
+  @override
+  void initState() {
+    super.initState();
+    _index = widget.initialIndex;
+    _controller = PageController(initialPage: widget.initialIndex);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        foregroundColor: Colors.white,
+        title: Text('${_index + 1}/${widget.images.length}'),
+      ),
+      body: PageView.builder(
+        controller: _controller,
+        itemCount: widget.images.length,
+        onPageChanged: (value) {
+          setState(() {
+            _index = value;
+          });
+        },
+        itemBuilder: (context, index) {
+          return InteractiveViewer(
+            minScale: 1,
+            maxScale: 4,
+            child: Center(
+              child: PresignedImage(
+                imageUrl: widget.images[index],
+                fit: BoxFit.contain,
+                errorWidget: const Icon(Icons.broken_image, color: Colors.white54, size: 40),
+              ),
+            ),
+          );
+        },
       ),
     );
   }
@@ -794,7 +1034,7 @@ class _ChipGroup extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           Wrap(
-            spacing: 6,
+            spacing: 8,
             runSpacing: 6,
             children: values.map((v) => _InfoChip(label: labelMap[v] ?? v)).toList(),
           ),

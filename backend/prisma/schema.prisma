@@ -557,6 +557,7 @@ model ChatMessage {
   mimeType      String?     @map("mime_type")
   isEdited      Boolean     @default(false) @map("is_edited")
   createdAt     DateTime    @default(now()) @map("created_at")
+    metadata      Json?       @db.JsonB @map("metadata")
   updatedAt     DateTime    @updatedAt @map("updated_at")
 
   // Relations

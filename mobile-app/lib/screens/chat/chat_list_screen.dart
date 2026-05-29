@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -8,15 +7,42 @@ import '../../core/services/api_service.dart';
 import '../../core/services/chat_call_service.dart';
 import '../../core/services/chat_service.dart';
 import '../../core/services/auth_service.dart';
+import '../../core/services/dating_service.dart';
 import '../../models/chat_call.dart';
 import '../../models/chat_participant.dart';
 import '../../models/chat_room.dart';
 import '../../models/user_search_result.dart';
+import '../../widgets/common/presigned_image.dart';
 import '../../widgets/chat/chat_room_tile.dart';
 import '../../widgets/chat/user_selection_dialog.dart';
 import '../../l10n/app_localizations.dart';
 import 'chat_call_screen.dart';
 import 'chat_screen.dart';
+
+enum _ChatListFilter {
+  all,
+  unread,
+  online,
+  yourTurn,
+  distance,
+  withPrivateAlbum,
+  role,
+  group,
+}
+
+class _RoomDatingMeta {
+  final int? distanceKm;
+  final String? role;
+  final int privateAlbumPhotoCount;
+  final bool? isOnline;
+
+  const _RoomDatingMeta({
+    this.distanceKm,
+    this.role,
+    this.privateAlbumPhotoCount = 0,
+    this.isOnline,
+  });
+}
 
 class ChatListScreen extends ConsumerStatefulWidget {
   const ChatListScreen({super.key});
@@ -33,6 +59,8 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
   BuildContext? _activeIncomingDialogContext;
   bool _hasPrimedMessageNotifications = false;
   String? _lastIncomingNotificationMessageId;
+  final Set<_ChatListFilter> _activeFilters = {_ChatListFilter.all};
+  final Map<String, _RoomDatingMeta> _roomMetaById = {};
 
   @override
   void initState() {
@@ -109,6 +137,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
       if (token != null) {
         chatService.initialize(currentUser.id, token);
         await chatService.loadChatRooms();
+        await _primeRoomDatingMetadata(ref.read(chatServiceStateProvider).rooms);
       }
     }
   }
@@ -116,6 +145,122 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
   Future<void> _loadChatRooms() async {
     final chatService = ref.read(chatServiceStateProvider.notifier);
     await chatService.loadChatRooms();
+    if (!mounted) return;
+    await _primeRoomDatingMetadata(ref.read(chatServiceStateProvider).rooms);
+  }
+
+  Future<void> _primeRoomDatingMetadata(List<ChatRoom> rooms) async {
+    final service = DatingService();
+    final currentUserId = ref.read(currentUserProvider)?.id;
+    if (currentUserId == null) return;
+
+    for (final room in rooms) {
+      if (room.isGroup) continue;
+      if (_roomMetaById.containsKey(room.id)) continue;
+      final other = room.getOtherParticipants(currentUserId).firstOrNull;
+      if (other == null || other.id.isEmpty) continue;
+
+      try {
+        final profile = await service.getDatingProfile(other.id);
+        if (!mounted) return;
+        setState(() {
+          _roomMetaById[room.id] = _RoomDatingMeta(
+            distanceKm: profile.distanceKm,
+            role: profile.role,
+            privateAlbumPhotoCount: profile.privateAlbumPhotoCount,
+            isOnline: profile.isOnline,
+          );
+        });
+      } catch (_) {
+        // Ignore profile metadata failures to keep chat list responsive.
+      }
+    }
+  }
+
+  String _filterLabel(_ChatListFilter filter) {
+    switch (filter) {
+      case _ChatListFilter.all:
+        return 'All';
+      case _ChatListFilter.unread:
+        return 'Unread';
+      case _ChatListFilter.online:
+        return 'Online';
+      case _ChatListFilter.yourTurn:
+        return 'YourTurn';
+      case _ChatListFilter.distance:
+        return 'Distance';
+      case _ChatListFilter.withPrivateAlbum:
+        return 'With Private Album';
+      case _ChatListFilter.role:
+        return 'Role';
+      case _ChatListFilter.group:
+        return 'Group';
+    }
+  }
+
+  void _toggleFilter(_ChatListFilter filter) {
+    setState(() {
+      if (filter == _ChatListFilter.all) {
+        _activeFilters
+          ..clear()
+          ..add(_ChatListFilter.all);
+        return;
+      }
+
+      _activeFilters.remove(_ChatListFilter.all);
+      if (_activeFilters.contains(filter)) {
+        _activeFilters.remove(filter);
+      } else {
+        _activeFilters.add(filter);
+      }
+
+      if (_activeFilters.isEmpty) {
+        _activeFilters.add(_ChatListFilter.all);
+      }
+    });
+  }
+
+  List<ChatRoom> _applyFilters(List<ChatRoom> rooms, String? currentUserId) {
+    if (_activeFilters.contains(_ChatListFilter.all)) {
+      return rooms;
+    }
+
+    return rooms.where((room) {
+      final meta = _roomMetaById[room.id];
+      final lastMessage = room.lastMessage;
+
+      for (final filter in _activeFilters) {
+        switch (filter) {
+          case _ChatListFilter.all:
+            break;
+          case _ChatListFilter.unread:
+            if (room.unreadCount <= 0) return false;
+            break;
+          case _ChatListFilter.online:
+            if (room.isGroup || (meta?.isOnline ?? room.isOnline) != true) return false;
+            break;
+          case _ChatListFilter.yourTurn:
+            if (lastMessage == null || lastMessage.userId == currentUserId || lastMessage.isSystem) {
+              return false;
+            }
+            break;
+          case _ChatListFilter.distance:
+            if (meta?.distanceKm == null) return false;
+            break;
+          case _ChatListFilter.withPrivateAlbum:
+            if ((meta?.privateAlbumPhotoCount ?? 0) <= 0) return false;
+            break;
+          case _ChatListFilter.role:
+            if (meta?.role == null || meta!.role!.isEmpty) return false;
+            break;
+          case _ChatListFilter.group:
+            if (!room.isGroup) return false;
+            break;
+        }
+      }
+
+      return true;
+    }).toList();
   }
 
   Future<void> _openChatRoom(ChatRoom room) async {
@@ -262,17 +407,21 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
               CircleAvatar(
                 radius: 30,
                 backgroundColor: Colors.grey[300],
-                backgroundImage: avatar != null && avatar.isNotEmpty
-                    ? CachedNetworkImageProvider(avatar)
-                    : null,
-                child: avatar == null || avatar.isEmpty
-                    ? Text(
+                child: avatar != null && avatar.isNotEmpty
+                    ? ClipOval(
+                        child: PresignedImage(
+                          imageUrl: avatar,
+                          width: 60,
+                          height: 60,
+                          fit: BoxFit.cover,
+                        ),
+                      )
+                    : Text(
                         invite.callerName.isNotEmpty
                             ? invite.callerName[0].toUpperCase()
                             : 'C',
                         style: const TextStyle(fontWeight: FontWeight.w700),
-                      )
-                    : null,
+                      ),
               ),
               const SizedBox(height: 16),
               Text(
@@ -367,22 +516,55 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
           ),
         ],
       ),
-      body: chatState.rooms.isEmpty
-          ? _buildEmptyState()
-          : RefreshIndicator(
-              onRefresh: _loadChatRooms,
-              child: ListView.builder(
-                itemCount: chatState.rooms.length,
-                itemBuilder: (context, index) {
-                  final room = chatState.rooms[index];
-                  return ChatRoomTile(
-                    room: room,
-                    currentUserId: currentUser?.id,
-                    onTap: () => _openChatRoom(room),
-                  );
-                },
+      body: Builder(
+        builder: (context) {
+          final filteredRooms = _applyFilters(chatState.rooms, currentUser?.id);
+          return Column(
+            children: [
+              SizedBox(
+                height: 44,
+                child: ListView(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  scrollDirection: Axis.horizontal,
+                  children: _ChatListFilter.values
+                      .map(
+                        (filter) => Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: FilterChip(
+                            selected: _activeFilters.contains(filter),
+                            onSelected: (_) => _toggleFilter(filter),
+                            label: Text(_filterLabel(filter)),
+                          ),
+                        ),
+                      )
+                      .toList(),
+                ),
               ),
-            ),
+              Expanded(
+                child: filteredRooms.isEmpty
+                    ? _buildEmptyState()
+                    : RefreshIndicator(
+                        onRefresh: _loadChatRooms,
+                        child: ListView.builder(
+                          itemCount: filteredRooms.length,
+                          itemBuilder: (context, index) {
+                            final room = filteredRooms[index];
+                            final meta = _roomMetaById[room.id];
+                            return ChatRoomTile(
+                              room: room.copyWith(
+                                isOnline: meta?.isOnline ?? room.isOnline,
+                              ),
+                              currentUserId: currentUser?.id,
+                              onTap: () => _openChatRoom(room),
+                            );
+                          },
+                        ),
+                      ),
+              ),
+            ],
+          );
+        },
+      ),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
           _showNewChatOptions();

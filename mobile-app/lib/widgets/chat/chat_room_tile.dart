@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 
 import '../../models/chat_room.dart';
 import '../common/presigned_image.dart';
@@ -208,7 +207,7 @@ class ChatRoomTile extends StatelessWidget {
                   ),
                 ),
         ),
-        if (isOnline && !room.isGroup)
+        if (!room.isGroup)
           Positioned(
             bottom: 0,
             right: 0,
@@ -216,7 +215,7 @@ class ChatRoomTile extends StatelessWidget {
               width: 16,
               height: 16,
               decoration: BoxDecoration(
-                color: Colors.green,
+                color: isOnline ? Colors.green : Colors.grey,
                 shape: BoxShape.circle,
                 border: Border.all(
                   color: Theme.of(context).colorScheme.surface,

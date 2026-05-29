@@ -1,8 +1,8 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:go_router/go_router.dart';
@@ -10,10 +10,16 @@ import 'package:go_router/go_router.dart';
 import '../../core/services/chat_call_service.dart';
 import '../../core/services/chat_service.dart';
 import '../../core/services/auth_service.dart';
+import '../../core/services/dating_service.dart';
+import '../../core/services/file_url_service.dart';
 import '../../models/chat_message.dart';
 import '../../models/chat_participant.dart';
 import '../../models/chat_room.dart';
+import '../../models/dating_model.dart';
 import 'chat_call_screen.dart';
+import '../dating/dating_profile_screen.dart';
+import '../dating/private_album_screen.dart';
+import '../../widgets/common/presigned_image.dart';
 import '../../widgets/chat/message_bubble.dart';
 import '../../widgets/chat/typing_indicator.dart';
 
@@ -34,6 +40,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   bool _isSendingTyping = false;
   bool? _isChatMutedOverride;
   Timer? _typingTimer;
+  DatingProfile? _otherDatingProfile;
+  DatingProfile? _myDatingProfile;
+  String? _loadedProfileUserId;
+  bool _isLoadingProfileCard = false;
+  bool _isSendingAlbumRequest = false;
+  static const double _profileImageSize = 72;
 
   @override
   void initState() {
@@ -84,6 +96,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     _chatNotifier.initialize(currentUser.id, token);
     _chatNotifier.joinChatRoom(widget.chatId);
     await _chatNotifier.loadMessages(widget.chatId);
+    await _chatNotifier.loadChatRooms();
+    await _loadDatingProfilesForCard();
     if (!mounted) {
       return;
     }
@@ -192,14 +206,388 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     return _isChatMutedOverride ?? room?.isMuted ?? false;
   }
 
+  String? _getSenderAvatar(ChatMessage message, ChatRoom? room, String? currentUserId) {
+    if (message.senderId == currentUserId) {
+      return ref.read(currentUserProvider)?.avatarUrl;
+    }
+
+    if (room == null) {
+      return message.userAvatar;
+    }
+
+    final sender = room.participants.where((participant) => participant.id == message.senderId).toList();
+    if (sender.isNotEmpty) {
+      return sender.first.avatarUrl;
+    }
+
+    return message.userAvatar;
+  }
+
+  Future<void> _loadDatingProfilesForCard() async {
+    final room = _getCurrentRoom();
+    if (room == null || room.isGroup) return;
+
+    final participant = _getProfileParticipant(room);
+    if (participant == null || participant.id.isEmpty) return;
+    if (_loadedProfileUserId == participant.id && _otherDatingProfile != null) return;
+
+    setState(() {
+      _isLoadingProfileCard = true;
+      _loadedProfileUserId = participant.id;
+    });
+
+    try {
+      final service = DatingService();
+      final results = await Future.wait([
+        service.getDatingProfile(participant.id),
+        service.getMyDatingProfile(),
+      ]);
+      if (!mounted) return;
+
+      setState(() {
+        _otherDatingProfile = results[0];
+        _myDatingProfile = results[1];
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _otherDatingProfile = null;
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoadingProfileCard = false;
+        });
+      }
+    }
+  }
+
+  List<String> _allProfilePhotos(DatingProfile profile) {
+    final photos = <String>[];
+    if (profile.avatarUrl != null && profile.avatarUrl!.isNotEmpty) {
+      photos.add(profile.avatarUrl!);
+    }
+    photos.addAll(profile.publicPhotos);
+    return photos;
+  }
+
+  List<String> _matchedExpectations(DatingProfile? me, DatingProfile? other) {
+    if (me == null || other == null) return const [];
+    final meSet = me.lookingFor.toSet();
+    return other.lookingFor.where((item) => meSet.contains(item)).toList();
+  }
+
+  Future<void> _handlePrivateAlbumRequest() async {
+    final room = _getCurrentRoom();
+    if (room == null || room.isGroup) return;
+    final participant = _getProfileParticipant(room);
+    if (participant == null || participant.id.isEmpty) return;
+
+    final profile = _otherDatingProfile;
+    if (profile?.privateAlbumAccessStatus == 'ACCEPTED') {
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => PrivateAlbumScreen(
+            targetUserId: participant.id,
+            readOnly: true,
+          ),
+        ),
+      );
+      return;
+    }
+
+    if (_isSendingAlbumRequest) return;
+    setState(() => _isSendingAlbumRequest = true);
+    try {
+      await DatingService().requestPrivateAlbumViaChat(participant.id);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Private album request sent.')),
+      );
+      await _loadDatingProfilesForCard();
+    } catch (e) {
+      if (!mounted) return;
+      final text = '$e'.toLowerCase();
+      if (text.contains('already') || text.contains('pending')) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Request already sent.')),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isSendingAlbumRequest = false);
+      }
+    }
+  }
+
+  void _openImageGallery(List<String> images, int initialIndex, DateTime? version) {
+    if (images.isEmpty) return;
+    final prepared = images
+        .where((item) => item.isNotEmpty)
+        .map((item) => appendCacheBuster(item, version) ?? item)
+        .toList();
+    if (prepared.isEmpty) return;
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => _ChatImageGalleryViewer(
+          images: prepared,
+          initialIndex: initialIndex.clamp(0, prepared.length - 1),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildImageRow({
+    required List<String> images,
+    required DateTime? version,
+  }) {
+    return SizedBox(
+      height: _profileImageSize,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        physics: const BouncingScrollPhysics(),
+        itemCount: images.length.clamp(0, 8),
+        separatorBuilder: (_, __) => const SizedBox(width: 8),
+        itemBuilder: (context, index) {
+          return GestureDetector(
+            onTap: () => _openImageGallery(images, index, version),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(10),
+              child: SizedBox(
+                width: _profileImageSize,
+                height: _profileImageSize,
+                child: PresignedImage(
+                  imageUrl: appendCacheBuster(images[index], version),
+                  fit: BoxFit.cover,
+                  errorWidget: Container(color: Colors.grey.shade300),
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildPrivateAlbumSection(DatingProfile? profile, List<String> fallbackPhotos) {
+    final status = profile?.privateAlbumAccessStatus;
+    final privateImages = profile?.privateAlbumPhotos ?? const <String>[];
+    final cover = privateImages.isNotEmpty
+        ? privateImages.first
+        : (fallbackPhotos.isNotEmpty ? fallbackPhotos.first : null);
+
+    if (status == 'ACCEPTED') {
+      if (privateImages.isEmpty) {
+        return Container(
+          height: 92,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: Colors.grey.shade200,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: const Text('Private album has no photos yet.'),
+        );
+      }
+
+      return SizedBox(
+        height: _profileImageSize,
+        child: ListView.separated(
+          scrollDirection: Axis.horizontal,
+          physics: const BouncingScrollPhysics(),
+          itemCount: privateImages.length.clamp(0, 8),
+          separatorBuilder: (_, __) => const SizedBox(width: 8),
+          itemBuilder: (context, index) {
+            return GestureDetector(
+              onTap: () => _openImageGallery(privateImages, index, profile?.updatedAt),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: SizedBox(
+                  width: _profileImageSize,
+                  height: _profileImageSize,
+                  child: PresignedImage(
+                    imageUrl: appendCacheBuster(privateImages[index], profile?.updatedAt),
+                    fit: BoxFit.cover,
+                    errorWidget: Container(color: Colors.grey.shade300),
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
+      );
+    }
+
+    return SizedBox(
+      height: _profileImageSize,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            cover != null
+                ? PresignedImage(
+                    imageUrl: appendCacheBuster(cover, profile?.updatedAt),
+                    fit: BoxFit.cover,
+                    errorWidget: Container(color: Colors.grey.shade300),
+                  )
+                : Container(color: Colors.grey.shade300),
+            BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 6, sigmaY: 6),
+              child: Container(color: Colors.black.withValues(alpha: 0.15)),
+            ),
+            if (status == 'PENDING')
+              Center(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.45),
+                    borderRadius: BorderRadius.circular(18),
+                  ),
+                  child: const Text(
+                    'Request Sent',
+                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+                  ),
+                ),
+              )
+            else
+              Center(
+                child: ElevatedButton(
+                  onPressed: _isLoadingProfileCard || _isSendingAlbumRequest
+                      ? null
+                      : _handlePrivateAlbumRequest,
+                  child: const Text('Send Request'),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDirectChatProfileCard(ChatRoom room) {
+    final participant = _getProfileParticipant(room);
+    if (participant == null) return const SizedBox.shrink();
+
+    final profile = _otherDatingProfile;
+    final photos = profile != null ? _allProfilePhotos(profile) : const <String>[];
+    final matches = _matchedExpectations(_myDatingProfile, profile);
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(12, 10, 12, 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.grey.shade300),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Profile Snapshot',
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 10),
+          _buildPrivateAlbumSection(profile, photos),
+          const SizedBox(height: 10),
+          _buildImageRow(images: photos, version: profile?.updatedAt),
+          const SizedBox(height: 10),
+          InkWell(
+            borderRadius: BorderRadius.circular(10),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => DatingProfileScreen(userId: participant.id),
+                ),
+              );
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade100,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      [
+                        if (profile?.age != null) '${profile!.age} yrs',
+                        if (profile?.heightCm != null) '${profile!.heightCm} cm',
+                        if (profile?.weightKg != null) '${profile!.weightKg} kg',
+                      ].join('  •  ').isEmpty
+                          ? 'Personal Profile'
+                          : [
+                              if (profile?.age != null) '${profile!.age} yrs',
+                              if (profile?.heightCm != null) '${profile!.heightCm} cm',
+                              if (profile?.weightKg != null) '${profile!.weightKg} kg',
+                            ].join('  •  '),
+                      style: const TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                  const Icon(Icons.chevron_right),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Matched Expectations',
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 6),
+          if (matches.isEmpty)
+            Text(
+              'No matched expectations yet.',
+              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+            )
+          else
+            Wrap(
+              spacing: 8,
+              runSpacing: 6,
+              children: matches
+                  .map((item) => Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.blue.shade50,
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: Text(
+                          DatingConstants.lookingForLabels[item] ?? item,
+                          style: TextStyle(fontSize: 12, color: Colors.blue.shade900),
+                        ),
+                      ))
+                  .toList(),
+            ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final chatState = ref.watch(chatServiceStateProvider);
     final messages = [
       ...(chatState.messages[widget.chatId] ?? const <ChatMessage>[])
     ]..sort((left, right) => left.createdAt.compareTo(right.createdAt));
+    final currentUser = ref.watch(currentUserProvider);
     final isRemoteTyping = chatState.typingUsers[widget.chatId] ?? false;
     final currentRoom = _findCurrentRoom(chatState.rooms);
+    final profileParticipant =
+        currentRoom != null && !currentRoom.isGroup ? _getProfileParticipant(currentRoom) : null;
+    if (profileParticipant != null && _loadedProfileUserId != profileParticipant.id && !_isLoadingProfileCard) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _loadDatingProfilesForCard();
+      });
+    }
     final canViewProfile = currentRoom != null &&
         !currentRoom.isGroup &&
         _getProfileParticipant(currentRoom) != null;
@@ -276,21 +664,31 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       body: Column(
         children: [
           Expanded(
-            child: messages.isEmpty
+            child: (messages.isEmpty && (currentRoom == null || currentRoom.isGroup))
                 ? _buildEmptyState()
                 : ListView.builder(
                     controller: _scrollController,
-                    itemCount: messages.length + (isRemoteTyping ? 1 : 0),
+                    itemCount: messages.length +
+                        (isRemoteTyping ? 1 : 0) +
+                        ((currentRoom != null && !currentRoom.isGroup) ? 1 : 0),
                     itemBuilder: (context, index) {
-                      if (isRemoteTyping && index == messages.length) {
+                      final hasProfileCard = currentRoom != null && !currentRoom.isGroup;
+                      if (hasProfileCard && index == 0) {
+                        return _buildDirectChatProfileCard(currentRoom);
+                      }
+
+                      final messageIndex = index - (hasProfileCard ? 1 : 0);
+
+                      if (isRemoteTyping && messageIndex == messages.length) {
                         return const TypingIndicator();
                       }
 
-                      final message = messages[index];
-                      final currentUser = ref.read(currentUserProvider);
+                      final message = messages[messageIndex];
                       return MessageBubble(
                         message: message,
                         isMe: message.senderId == currentUser?.id,
+                        senderAvatarUrl:
+                            _getSenderAvatar(message, currentRoom, currentUser?.id),
                         onReply: () {
                           // Handle reply
                         },
@@ -336,24 +734,33 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     final displayName = currentRoom.getDisplayName(currentUser?.id);
     final displayAvatar = currentRoom.getDisplayAvatar(currentUser?.id);
     final otherParticipants = currentRoom.getOtherParticipants(currentUser?.id);
+  final hasDistance = _otherDatingProfile?.distanceKm != null;
+  final subtitleText = currentRoom.isOnline
+    ? 'Online'
+    : '${currentRoom.participants.length} members';
+  const distanceColor = Color(0xFFFFF59D);
 
     return Row(
       children: [
         CircleAvatar(
           radius: 16,
           backgroundColor: Colors.grey[300],
-          backgroundImage: displayAvatar.isNotEmpty
-              ? CachedNetworkImageProvider(displayAvatar)
-              : null,
-          child: displayAvatar.isEmpty
-              ? Text(
+          child: displayAvatar.isNotEmpty
+              ? ClipOval(
+                  child: PresignedImage(
+                    imageUrl: displayAvatar,
+                    width: 32,
+                    height: 32,
+                    fit: BoxFit.cover,
+                  ),
+                )
+              : Text(
                   otherParticipants.isNotEmpty &&
                           otherParticipants.first.username.isNotEmpty
                       ? otherParticipants.first.username[0].toUpperCase()
                       : 'U',
                   style: const TextStyle(fontSize: 14),
-                )
-              : null,
+                ),
         ),
         const SizedBox(width: 12),
         Expanded(
@@ -367,14 +774,40 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                     const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                 overflow: TextOverflow.ellipsis,
               ),
-              Text(
-                currentRoom.isOnline
-                    ? 'Online'
-                    : '${currentRoom.participants.length} members',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: currentRoom.isOnline ? Colors.green : Colors.grey,
-                ),
+              Row(
+                children: [
+                  if (hasDistance) ...[
+                    const Icon(
+                      Icons.location_on_outlined,
+                      size: 13,
+                      color: distanceColor,
+                    ),
+                    const SizedBox(width: 2),
+                    Text(
+                      _otherDatingProfile!.distanceKm == 0
+                          ? '0m'
+                          : '${_otherDatingProfile!.distanceKm}km',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: distanceColor,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                  ],
+                  Expanded(
+                    child: Text(
+                      subtitleText,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: currentRoom.isOnline ? Colors.greenAccent.shade100 : Colors.white70,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -768,11 +1201,16 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                   CircleAvatar(
                     radius: 26,
                     backgroundColor: Colors.grey[300],
-                    backgroundImage: roomAvatar.isNotEmpty
-                        ? CachedNetworkImageProvider(roomAvatar)
-                        : null,
-                    child: roomAvatar.isEmpty
-                        ? Text(
+                    child: roomAvatar.isNotEmpty
+                        ? ClipOval(
+                            child: PresignedImage(
+                              imageUrl: roomAvatar,
+                              width: 52,
+                              height: 52,
+                              fit: BoxFit.cover,
+                            ),
+                          )
+                        : Text(
                             currentRoom
                                     .getDisplayName(currentUser?.id)
                                     .isNotEmpty
@@ -781,8 +1219,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                                     .toUpperCase()
                                 : 'C',
                             style: const TextStyle(fontWeight: FontWeight.w700),
-                          )
-                        : null,
+                          ),
                   ),
                   const SizedBox(width: 14),
                   Expanded(
@@ -851,18 +1288,20 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                     contentPadding: EdgeInsets.zero,
                     leading: CircleAvatar(
                       backgroundColor: Colors.grey[300],
-                      backgroundImage: participant.avatarUrl != null &&
-                              participant.avatarUrl!.isNotEmpty
-                          ? CachedNetworkImageProvider(participant.avatarUrl!)
-                          : null,
-                      child: participant.avatarUrl == null ||
-                              participant.avatarUrl!.isEmpty
-                          ? Text(
+                      child: participant.avatarUrl != null && participant.avatarUrl!.isNotEmpty
+                          ? ClipOval(
+                              child: PresignedImage(
+                                imageUrl: participant.avatarUrl,
+                                width: 40,
+                                height: 40,
+                                fit: BoxFit.cover,
+                              ),
+                            )
+                          : Text(
                               participant.displayName.isNotEmpty
                                   ? participant.displayName[0].toUpperCase()
                                   : 'U',
-                            )
-                          : null,
+                            ),
                     ),
                     title: Text(participant.displayName),
                     subtitle: Text('@${participant.username}'),
@@ -980,5 +1419,70 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     }
 
     context.push('/main/profile/${participant.id}');
+  }
+}
+
+class _ChatImageGalleryViewer extends StatefulWidget {
+  final List<String> images;
+  final int initialIndex;
+
+  const _ChatImageGalleryViewer({
+    required this.images,
+    required this.initialIndex,
+  });
+
+  @override
+  State<_ChatImageGalleryViewer> createState() => _ChatImageGalleryViewerState();
+}
+
+class _ChatImageGalleryViewerState extends State<_ChatImageGalleryViewer> {
+  late final PageController _controller;
+  late int _index;
+
+  @override
+  void initState() {
+    super.initState();
+    _index = widget.initialIndex;
+    _controller = PageController(initialPage: widget.initialIndex);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        foregroundColor: Colors.white,
+        title: Text('${_index + 1}/${widget.images.length}'),
+      ),
+      body: PageView.builder(
+        controller: _controller,
+        itemCount: widget.images.length,
+        onPageChanged: (value) {
+          setState(() {
+            _index = value;
+          });
+        },
+        itemBuilder: (context, index) {
+          return InteractiveViewer(
+            minScale: 1,
+            maxScale: 4,
+            child: Center(
+              child: PresignedImage(
+                imageUrl: widget.images[index],
+                fit: BoxFit.contain,
+                errorWidget: const Icon(Icons.broken_image, color: Colors.white54, size: 40),
+              ),
+            ),
+          );
+        },
+      ),
+    );
   }
 }
