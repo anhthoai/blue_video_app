@@ -3,12 +3,16 @@ import { Prisma, PrismaClient } from '@prisma/client';
 const CONTENT_PROTECTION_KEY = 'contentProtectionEnabled';
 const FREE_COMMUNITY_POST_BONUS_COINS_KEY = 'freeCommunityPostBonusCoins';
 const FREE_VIDEO_BONUS_COINS_KEY = 'freeVideoBonusCoins';
+const DATING_ENABLED_KEY = 'datingEnabled';
+const DATING_SEARCH_RADIUS_KM_KEY = 'datingSearchRadiusKm';
 const TRUE_VALUES = new Set(['1', 'true', 'yes', 'on']);
 
 export type PublicAppSettings = {
   contentProtectionEnabled: boolean;
   freeCommunityPostBonusCoins: number;
   freeVideoBonusCoins: number;
+  datingEnabled: boolean;
+  datingSearchRadiusKm: number;
   updatedAt: string | null;
 };
 
@@ -16,6 +20,8 @@ export type PublicAppSettingsUpdate = {
   contentProtectionEnabled?: boolean;
   freeCommunityPostBonusCoins?: number;
   freeVideoBonusCoins?: number;
+  datingEnabled?: boolean;
+  datingSearchRadiusKm?: number;
 };
 
 export class AppSettingsStorageUnavailableError extends Error {
@@ -85,11 +91,21 @@ export class AppSettingsService {
     return parseIntegerSetting(process.env['FREE_VIDEO_BONUS_COINS'], 0);
   }
 
+  private get defaultDatingEnabled(): boolean {
+    return parseBooleanSetting(process.env['DATING_ENABLED'], false);
+  }
+
+  private get defaultDatingSearchRadiusKm(): number {
+    return parseIntegerSetting(process.env['DATING_SEARCH_RADIUS_KM'], 3);
+  }
+
   private get defaultPublicSettings(): PublicAppSettings {
     return {
       contentProtectionEnabled: this.defaultContentProtectionEnabled,
       freeCommunityPostBonusCoins: this.defaultFreeCommunityPostBonusCoins,
       freeVideoBonusCoins: this.defaultFreeVideoBonusCoins,
+      datingEnabled: this.defaultDatingEnabled,
+      datingSearchRadiusKm: this.defaultDatingSearchRadiusKm,
       updatedAt: null,
     };
   }
@@ -103,6 +119,8 @@ export class AppSettingsService {
               CONTENT_PROTECTION_KEY,
               FREE_COMMUNITY_POST_BONUS_COINS_KEY,
               FREE_VIDEO_BONUS_COINS_KEY,
+              DATING_ENABLED_KEY,
+              DATING_SEARCH_RADIUS_KM_KEY,
             ],
           },
         },
@@ -128,6 +146,14 @@ export class AppSettingsService {
         freeVideoBonusCoins: parseIntegerSetting(
           settingsByKey.get(FREE_VIDEO_BONUS_COINS_KEY)?.value,
           this.defaultFreeVideoBonusCoins,
+        ),
+        datingEnabled: parseBooleanSetting(
+          settingsByKey.get(DATING_ENABLED_KEY)?.value,
+          this.defaultDatingEnabled,
+        ),
+        datingSearchRadiusKm: parseIntegerSetting(
+          settingsByKey.get(DATING_SEARCH_RADIUS_KM_KEY)?.value,
+          this.defaultDatingSearchRadiusKm,
         ),
         updatedAt: updatedAt?.toISOString() ?? null,
       };
@@ -198,6 +224,26 @@ export class AppSettingsService {
             key: FREE_VIDEO_BONUS_COINS_KEY,
             value: String(updates.freeVideoBonusCoins),
           },
+        }),
+      );
+    }
+
+    if (updates.datingEnabled !== undefined) {
+      operations.push(
+        this.prisma.appSetting.upsert({
+          where: { key: DATING_ENABLED_KEY },
+          update: { value: String(updates.datingEnabled) },
+          create: { key: DATING_ENABLED_KEY, value: String(updates.datingEnabled) },
+        }),
+      );
+    }
+
+    if (updates.datingSearchRadiusKm !== undefined) {
+      operations.push(
+        this.prisma.appSetting.upsert({
+          where: { key: DATING_SEARCH_RADIUS_KM_KEY },
+          update: { value: String(updates.datingSearchRadiusKm) },
+          create: { key: DATING_SEARCH_RADIUS_KM_KEY, value: String(updates.datingSearchRadiusKm) },
         }),
       );
     }

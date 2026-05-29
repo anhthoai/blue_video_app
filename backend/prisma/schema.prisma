@@ -89,6 +89,14 @@ model User {
   vipSubscriptions  VipSubscription[]  @relation("UserVipSubscriptions")
   authorSubscriptions VipSubscription[] @relation("AuthorVipSubscriptions")
 
+  // Dating
+  datingProfile         DatingProfile?
+  datingMatchesSent     DatingMatch[]  @relation("DatingMatchFrom")
+  datingMatchesReceived DatingMatch[]  @relation("DatingMatchTo")
+  privateAlbum          PrivateAlbum?
+  privateAlbumAccessRequests       PrivateAlbumAccessRequest[] @relation("AlbumRequester")
+  privateAlbumAccessRequestsOwned  PrivateAlbumAccessRequest[] @relation("AlbumOwner")
+
   @@map("users")
 }
 
@@ -1148,4 +1156,200 @@ model LibrarySyncState {
   @@index([section])
   @@index([status])
   @@map("library_sync_states")
+}
+
+// ============================================================
+// DATING FEATURE
+// ============================================================
+
+enum DatingRole {
+  TOP
+  BOTTOM
+  VERSATILE
+  VERSATILE_TOP
+  VERSATILE_BOTTOM
+  SIDE
+  UNDISCLOSED
+
+  @@map("dating_role")
+}
+
+enum DatingBodyType {
+  SLIM
+  AVERAGE
+  FIT
+  TONED
+  MUSCULAR
+  STOCKY
+  LARGE
+  CHUBBY
+  UNDISCLOSED
+  OTHER
+
+  @@map("dating_body_type")
+}
+
+enum DatingBodyHair {
+  SMOOTH
+  SHAVED
+  SOME_HAIR
+  HAIRY
+  OTHER
+
+  @@map("dating_body_hair")
+}
+
+enum DatingEthnicity {
+  ASIAN
+  BLACK
+  LATINO
+  MIDDLE_EASTERN
+  WHITE
+  SOUTH_ASIAN
+  MIXED
+  UNDISCLOSED
+  OTHER
+
+  @@map("dating_ethnicity")
+}
+
+enum DatingRelationshipStatus {
+  EXCLUSIVE
+  DATING
+  SINGLE
+  MARRIED
+  OPEN_RELATIONSHIP
+  PARTNERED
+  UNDISCLOSED
+
+  @@map("dating_relationship_status")
+}
+
+enum DatingMatchAction {
+  LIKE
+  DISLIKE
+  SUPERLIKE
+
+  @@map("dating_match_action")
+}
+
+enum DatingTier {
+  FREE
+  VIP
+  UNLIMITED
+
+  @@map("dating_tier")
+}
+
+enum PrivateAlbumAccessStatus {
+  PENDING
+  ACCEPTED
+  DENIED
+
+  @@map("private_album_access_status")
+}
+
+model DatingProfile {
+  id                  String    @id @default(uuid())
+  userId              String    @unique @map("user_id")
+
+  // Personal Info
+  dateOfBirth         DateTime? @map("date_of_birth")
+  role                DatingRole? 
+  heightCm            Int?      @map("height_cm")
+  weightKg            Int?      @map("weight_kg")
+  bodyType            DatingBodyType?   @map("body_type")
+  bodyHair            DatingBodyHair?   @map("body_hair")
+  languages           String[]  @default([]) // ISO language codes
+  whereILive          String?   @map("where_i_live")
+  nationality         String?
+  ethnicity           DatingEthnicity?
+  relationshipStatus  DatingRelationshipStatus? @map("relationship_status")
+
+  // Location (for distance calculation)
+  latitude            Float?
+  longitude           Float?
+  lastSeenAt          DateTime? @map("last_seen_at")
+  isOnline            Boolean   @default(false) @map("is_online")
+  showDistance        Boolean   @default(true) @map("show_distance")
+  showOnline          Boolean   @default(true) @map("show_online")
+  maxDistanceKm       Int       @default(3) @map("max_distance_km")
+
+  // Expectations
+  lookingFor          String[]  @default([]) // chat, date, friends, romantic, relationship, right_now
+  whereToMeet         String[]  @default([]) // my_location, his_location, bar, coffee_shop, restaurant, self_drive, private_cinema
+  preferredTribes     String[]  @default([]) // daddy, discreet, twink, bear, cub, jock, trans, bisexual, clean_cut, leather, rugger, drag_queens, queer, wolf, other (max 3)
+
+  // Public avatars (main avatar is user.avatarUrl, plus up to 5 extra)
+  publicPhotos        String[]  @default([]) @map("public_photos")
+
+  // Dating subscription tier
+  datingTier          DatingTier @default(FREE) @map("dating_tier")
+  datingTierExpiresAt DateTime? @map("dating_tier_expires_at")
+
+  // AI Matching (VIP)
+  aiMatchingEnabled   Boolean   @default(false) @map("ai_matching_enabled")
+  aiMatchScore        Float?    @map("ai_match_score") // Populated by AI service
+
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([latitude, longitude])
+  @@index([isOnline])
+  @@index([userId])
+  @@index([datingTier, datingTierExpiresAt])
+  @@map("dating_profiles")
+}
+
+model DatingMatch {
+  id         String            @id @default(uuid())
+  fromUserId String            @map("from_user_id")
+  toUserId   String            @map("to_user_id")
+  action     DatingMatchAction
+  isMutual   Boolean           @default(false) @map("is_mutual")
+  createdAt  DateTime          @default(now()) @map("created_at")
+
+  fromUser User @relation("DatingMatchFrom", fields: [fromUserId], references: [id], onDelete: Cascade)
+  toUser   User @relation("DatingMatchTo", fields: [toUserId], references: [id], onDelete: Cascade)
+
+  @@unique([fromUserId, toUserId])
+  @@index([toUserId])
+  @@index([isMutual])
+  @@map("dating_matches")
+}
+
+model PrivateAlbum {
+  id        String   @id @default(uuid())
+  userId    String   @unique @map("user_id")
+  photos    String[] @default([]) // Array of file paths (max 9)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user            User                        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessRequests  PrivateAlbumAccessRequest[]
+
+  @@map("private_albums")
+}
+
+model PrivateAlbumAccessRequest {
+  id          String                   @id @default(uuid())
+  albumId     String                   @map("album_id")
+  requesterId String                   @map("requester_id")
+  ownerId     String                   @map("owner_id")
+  status      PrivateAlbumAccessStatus @default(PENDING)
+  message     String?
+  respondedAt DateTime?                @map("responded_at")
+  createdAt   DateTime                 @default(now()) @map("created_at")
+  updatedAt   DateTime                 @updatedAt @map("updated_at")
+
+  album     PrivateAlbum @relation(fields: [albumId], references: [id], onDelete: Cascade)
+  requester User         @relation("AlbumRequester", fields: [requesterId], references: [id], onDelete: Cascade)
+  owner     User         @relation("AlbumOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+
+  @@unique([albumId, requesterId])
+  @@index([ownerId, status])
+  @@index([requesterId])
+  @@map("private_album_access_requests")
 }

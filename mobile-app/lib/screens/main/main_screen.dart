@@ -10,6 +10,8 @@ import '../library/library_screen.dart';
 import '../community/community_screen.dart';
 import '../chat/chat_list_screen.dart';
 import '../profile/current_user_profile_screen.dart';
+import '../dating/dating_screen.dart';
+import '../../core/services/version_service.dart';
 
 class MainScreen extends ConsumerStatefulWidget {
   const MainScreen({super.key});
@@ -21,11 +23,11 @@ class MainScreen extends ConsumerStatefulWidget {
 class _MainScreenState extends ConsumerState<MainScreen> {
   int _currentIndex = 0;
   AppLifecycleObserver? _lifecycleObserver;
+  bool _prevDatingEnabled = false;
 
-  final List<Widget> _screens = [
+  final List<Widget> _baseScreens = [
     const HomeScreen(),
-    const LibraryScreen(), // New Library screen
-    // const DiscoverScreen(), // Hidden for now
+    const LibraryScreen(),
     const CommunityScreen(),
     const ChatListScreen(),
     const CurrentUserProfileScreen(),
@@ -44,8 +46,17 @@ class _MainScreenState extends ConsumerState<MainScreen> {
           updateCoordinator: updateCoordinator,
         );
         WidgetsBinding.instance.addObserver(_lifecycleObserver!);
+        _refreshDatingFeatureFlag();
       }
     });
+  }
+
+  Future<void> _refreshDatingFeatureFlag() async {
+    final info = await ref.read(versionServiceProvider).checkForUpdates();
+    if (!mounted || info == null) {
+      return;
+    }
+    ref.read(datingEnabledProvider.notifier).state = info.datingEnabled;
   }
 
   @override
@@ -61,6 +72,23 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     final l10n = AppLocalizations.of(context);
     final homeFeedTabIndex = ref.watch(homeFeedTabIndexProvider);
     final isShortFeedTab = _currentIndex == 0 && homeFeedTabIndex > 0;
+    final datingEnabled = ref.watch(datingEnabledProvider);
+
+    // Reset index when dating tab disappears
+    if (_prevDatingEnabled && !datingEnabled && _currentIndex >= _baseScreens.length) {
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => setState(() => _currentIndex = 0),
+      );
+    }
+    _prevDatingEnabled = datingEnabled;
+
+    final screens = [
+      ..._baseScreens,
+      if (datingEnabled) const DatingScreen(),
+    ];
+
+    // Clamp index
+    final safeIndex = _currentIndex.clamp(0, screens.length - 1);
 
     final List<BottomNavigationBarItem> navItems = [
       BottomNavigationBarItem(
@@ -73,11 +101,6 @@ class _MainScreenState extends ConsumerState<MainScreen> {
         activeIcon: const Icon(Icons.video_library),
         label: l10n.library,
       ),
-      // BottomNavigationBarItem(
-      //   icon: const Icon(Icons.explore_outlined),
-      //   activeIcon: const Icon(Icons.explore),
-      //   label: l10n.discover,
-      // ),
       BottomNavigationBarItem(
         icon: const Icon(Icons.people_outlined),
         activeIcon: const Icon(Icons.people),
@@ -93,17 +116,19 @@ class _MainScreenState extends ConsumerState<MainScreen> {
         activeIcon: const Icon(Icons.person),
         label: l10n.profile,
       ),
+      if (datingEnabled)
+        const BottomNavigationBarItem(
+          icon: Icon(Icons.favorite_outline),
+          activeIcon: Icon(Icons.favorite),
+          label: 'Dating',
+        ),
     ];
 
     return Scaffold(
-      body: IndexedStack(index: _currentIndex, children: _screens),
+      body: IndexedStack(index: safeIndex, children: screens),
       bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _currentIndex,
-        onTap: (index) {
-          setState(() {
-            _currentIndex = index;
-          });
-        },
+        currentIndex: safeIndex,
+        onTap: (index) => setState(() => _currentIndex = index),
         type: BottomNavigationBarType.fixed,
         backgroundColor:
             isShortFeedTab ? Colors.black : Theme.of(context).colorScheme.surface,

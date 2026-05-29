@@ -80,6 +80,7 @@ dependencies:
   url_launcher: ^6.2.2
   open_file: ^3.3.2
   permission_handler: ^11.2.0
+  geolocator: ^13.0.2
   device_info_plus: ^9.1.1
   package_info_plus: ^9.0.0
   connectivity_plus: ^5.0.2

@@ -973,12 +973,32 @@ class ApiService {
 
   Future<Map<String, dynamic>> updateAdminAppSettings({
     bool? contentProtectionEnabled,
+    bool? datingEnabled,
+    int? datingSearchRadiusKm,
+    String? datingAiProvider,
+    String? datingAiModel,
+    String? datingAiApiKey,
     int? freeCommunityPostBonusCoins,
     int? freeVideoBonusCoins,
   }) async {
     final body = <String, dynamic>{};
     if (contentProtectionEnabled != null) {
       body['contentProtectionEnabled'] = contentProtectionEnabled;
+    }
+    if (datingEnabled != null) {
+      body['datingEnabled'] = datingEnabled;
+    }
+    if (datingSearchRadiusKm != null) {
+      body['datingSearchRadiusKm'] = datingSearchRadiusKm;
+    }
+    if (datingAiProvider != null) {
+      body['datingAiProvider'] = datingAiProvider;
+    }
+    if (datingAiModel != null) {
+      body['datingAiModel'] = datingAiModel;
+    }
+    if (datingAiApiKey != null) {
+      body['datingAiApiKey'] = datingAiApiKey;
     }
     if (freeCommunityPostBonusCoins != null) {
       body['freeCommunityPostBonusCoins'] = freeCommunityPostBonusCoins;

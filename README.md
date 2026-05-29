@@ -15,6 +15,10 @@ A comprehensive video streaming and social media platform with Flutter mobile ap
 - 🔍 **Search** - Find videos, users, and posts
 - 💬 **Real-time Chat** - WebSocket-based messaging
 - 📊 **Analytics** - User and content statistics
+- ❤️ **Dating Explore** - Nearest-first discovery with free preview + VIP/Unlimited unlock
+- 🖼️ **Private Album** - Dating private photos (up to 9 images) with request-based access
+- 🧾 **Dating Upgrades** - Coin-based VIP/Unlimited purchase with 1 week, 1 month, 3 months, 12 months durations
+- 🧑‍🤝‍🧑 **Dating Avatars** - Up to 6 public dating avatars (main + 5 extra), with swipe-up gallery on profile
 - 🔐 **Secure** - JWT authentication, rate limiting, encryption
 
 ## 📁 Project Structure
@@ -83,6 +87,10 @@ The main Flutter mobile application for iOS and Android.
 - **Payment Gateway**: USDT (TRC20) and Credit Card payments
 - **Coin System**: Recharge, earn, and spend coins
 - **Transaction History**: Complete coin transaction tracking
+- **Dating Discovery**: Square-card explore feed, location-based nearest sorting, and upgrade gating
+- **Dating Controls in Edit Profile**: Quick access to dating profile editing and private album management
+- **Dating Subscription Enforcement**: Server-side free/VIP/unlimited profile view limits to prevent bypass
+- **Dating Avatar Flow**: Main avatar plus extra gallery images managed from Edit Profile
 
 **Tech Stack:**
 - Flutter 3.10+

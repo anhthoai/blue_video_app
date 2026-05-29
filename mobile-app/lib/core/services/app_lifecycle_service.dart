@@ -10,9 +10,13 @@ const String _appUpdateLastCheckAtKey = 'app_update_last_check_at';
 const String _appUpdateOptionalPromptAtKey = 'app_update_optional_prompt_at';
 
 class AppUpdateCoordinator {
-  AppUpdateCoordinator({required this.versionService});
+  AppUpdateCoordinator({
+    required this.versionService,
+    this.onVersionInfoFetched,
+  });
 
   final VersionService versionService;
+  final void Function(VersionInfo info)? onVersionInfoFetched;
   bool _isChecking = false;
   bool _isDialogVisible = false;
 
@@ -64,6 +68,9 @@ class AppUpdateCoordinator {
       await prefs.setString(_appUpdateLastCheckAtKey, now.toIso8601String());
 
       final versionInfo = await versionService.checkForUpdates();
+      if (versionInfo != null) {
+        onVersionInfoFetched?.call(versionInfo);
+      }
       if (!context.mounted ||
           versionInfo == null ||
           !versionInfo.updateRequired) {
@@ -117,7 +124,12 @@ class AppUpdateCoordinator {
 
 final appUpdateCoordinatorProvider = Provider<AppUpdateCoordinator>((ref) {
   final versionService = ref.watch(versionServiceProvider);
-  return AppUpdateCoordinator(versionService: versionService);
+  return AppUpdateCoordinator(
+    versionService: versionService,
+    onVersionInfoFetched: (info) {
+      ref.read(datingEnabledProvider.notifier).state = info.datingEnabled;
+    },
+  );
 });
 
 class AppLifecycleObserver extends WidgetsBindingObserver {

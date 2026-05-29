@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/services/api_service.dart';
 import '../../core/services/auth_service.dart';
 import '../../core/services/content_protection_service.dart';
+import '../../core/services/version_service.dart';
 
 class AdminDashboardScreen extends ConsumerStatefulWidget {
   final int initialTab;
@@ -413,6 +414,11 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
 
   Future<void> _updateAppSettings({
     bool? contentProtectionEnabled,
+    bool? datingEnabled,
+    int? datingSearchRadiusKm,
+    String? datingAiProvider,
+    String? datingAiModel,
+    String? datingAiApiKey,
     int? freeCommunityPostBonusCoins,
     int? freeVideoBonusCoins,
   }) async {
@@ -422,6 +428,11 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
       try {
         final response = await _apiService.updateAdminAppSettings(
           contentProtectionEnabled: contentProtectionEnabled,
+          datingEnabled: datingEnabled,
+          datingSearchRadiusKm: datingSearchRadiusKm,
+          datingAiProvider: datingAiProvider,
+          datingAiModel: datingAiModel,
+          datingAiApiKey: datingAiApiKey,
           freeCommunityPostBonusCoins: freeCommunityPostBonusCoins,
           freeVideoBonusCoins: freeVideoBonusCoins,
         );
@@ -440,6 +451,14 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
                   ...existingSettings,
                   if (contentProtectionEnabled != null)
                     'contentProtectionEnabled': contentProtectionEnabled,
+                  if (datingEnabled != null) 'datingEnabled': datingEnabled,
+                  if (datingSearchRadiusKm != null)
+                    'datingSearchRadiusKm': datingSearchRadiusKm,
+                  if (datingAiProvider != null)
+                    'datingAiProvider': datingAiProvider,
+                  if (datingAiModel != null) 'datingAiModel': datingAiModel,
+                  if (datingAiApiKey != null)
+                    'datingAiApiKeyConfigured': datingAiApiKey.trim().isNotEmpty,
                   if (freeCommunityPostBonusCoins != null)
                     'freeCommunityPostBonusCoins': freeCommunityPostBonusCoins,
                   if (freeVideoBonusCoins != null)
@@ -457,6 +476,8 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
           await ContentProtectionService.instance.setEnabled(
             updatedSettings['contentProtectionEnabled'] == true,
           );
+          ref.read(datingEnabledProvider.notifier).state =
+              updatedSettings['datingEnabled'] == true;
           _showMessage(response['message'] ?? 'App settings updated');
         } else {
           _showMessage(response['message'] ?? 'Failed to update app settings');
@@ -472,6 +493,133 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
 
   Future<void> _updateContentProtectionSetting(bool enabled) async {
     await _updateAppSettings(contentProtectionEnabled: enabled);
+  }
+
+  Future<void> _updateDatingSetting(bool enabled) async {
+    await _updateAppSettings(datingEnabled: enabled);
+  }
+
+  Future<void> _editDatingRadiusSettings(Map<String, dynamic> appSettings) async {
+    final radiusCtrl = TextEditingController(
+      text: '${appSettings['datingSearchRadiusKm'] ?? 3}',
+    );
+    final result = await showDialog<int>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Dating Search Radius'),
+        content: TextField(
+          controller: radiusCtrl,
+          keyboardType: TextInputType.number,
+          decoration: const InputDecoration(
+            labelText: 'Max distance (km)',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () {
+              final v = int.tryParse(radiusCtrl.text.trim());
+              Navigator.pop(ctx, v);
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+    if (result != null && result > 0) {
+      await _updateAppSettings(datingSearchRadiusKm: result);
+    }
+  }
+
+  Future<void> _editAiMatchingSettings(Map<String, dynamic> appSettings) async {
+    final providerCtrl = TextEditingController(
+      text: '${appSettings['datingAiProvider'] ?? 'openai'}',
+    );
+    final modelCtrl = TextEditingController(
+      text: '${appSettings['datingAiModel'] ?? 'gpt-4o-mini'}',
+    );
+    final apiKeyCtrl = TextEditingController();
+
+    final values = await showDialog<Map<String, String>>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('AI Matching Provider'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: providerCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Provider',
+                  helperText: 'Example: openai, gemini, anthropic',
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: modelCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Model',
+                  helperText: 'Example: gpt-4o-mini',
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: apiKeyCtrl,
+                obscureText: true,
+                decoration: InputDecoration(
+                  labelText: 'API Key (leave blank to keep current)',
+                  helperText: appSettings['datingAiApiKeyMasked'] != null
+                      ? 'Current key: ${appSettings['datingAiApiKeyMasked']}'
+                      : 'No API key configured yet',
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () {
+                Navigator.of(context).pop(<String, String>{
+                  'datingAiProvider': providerCtrl.text.trim(),
+                  'datingAiModel': modelCtrl.text.trim(),
+                  'datingAiApiKey': apiKeyCtrl.text.trim(),
+                });
+              },
+              child: const Text('Save'),
+            ),
+          ],
+        );
+      },
+    );
+
+    providerCtrl.dispose();
+    modelCtrl.dispose();
+    apiKeyCtrl.dispose();
+
+    if (values == null) {
+      return;
+    }
+
+    if ((values['datingAiProvider'] ?? '').isEmpty ||
+        (values['datingAiModel'] ?? '').isEmpty) {
+      _showMessage('Provider and model are required');
+      return;
+    }
+
+    await _updateAppSettings(
+      datingAiProvider: values['datingAiProvider'],
+      datingAiModel: values['datingAiModel'],
+      datingAiApiKey:
+          (values['datingAiApiKey'] ?? '').isNotEmpty ? values['datingAiApiKey'] : null,
+    );
   }
 
   Future<void> _editBonusCoinSettings(Map<String, dynamic> appSettings) async {
@@ -2003,6 +2151,63 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
               onChanged: _isBusy('app-settings')
                   ? null
                   : _updateContentProtectionSetting,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Card(
+            child: Column(
+              children: [
+                SwitchListTile.adaptive(
+                  secondary: _isBusy('app-settings')
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.favorite_outline),
+                  title: const Text('Dating Feature'),
+                  subtitle: const Text(
+                    'Enable or disable the Dating tab for all users in the app.',
+                  ),
+                  value: appSettings['datingEnabled'] == true,
+                  onChanged: _isBusy('app-settings') ? null : _updateDatingSetting,
+                ),
+                if (appSettings['datingEnabled'] == true) ...
+                  [
+                    const Divider(height: 1),
+                    ListTile(
+                      leading: const Icon(Icons.my_location_outlined),
+                      title: const Text('Search radius'),
+                      subtitle: Text(
+                        '${appSettings['datingSearchRadiusKm'] ?? 50} km',
+                      ),
+                      trailing: FilledButton.tonal(
+                        onPressed: _isBusy('app-settings')
+                            ? null
+                            : () => _editDatingRadiusSettings(appSettings),
+                        child: const Text('Edit'),
+                      ),
+                    ),
+                  ],
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          Card(
+            child: ListTile(
+              leading: const Icon(Icons.auto_awesome_outlined),
+              title: const Text('AI Matching Provider'),
+              subtitle: Text(
+                'Provider: ${appSettings['datingAiProvider'] ?? 'openai'}\n'
+                'Model: ${appSettings['datingAiModel'] ?? 'gpt-4o-mini'}\n'
+                'API Key: ${appSettings['datingAiApiKeyConfigured'] == true ? 'Configured' : 'Not configured'}',
+              ),
+              trailing: FilledButton.tonal(
+                onPressed: _isBusy('app-settings')
+                    ? null
+                    : () => _editAiMatchingSettings(appSettings),
+                child: const Text('Edit'),
+              ),
             ),
           ),
           const SizedBox(height: 12),

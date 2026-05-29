@@ -1,5 +1,29 @@
 # Fixes Applied - Library Feature ✅
 
+## Latest Fix: Dating Private Album Uploads
+
+### 4. ✅ Multer File Size Parsing and Upload Error Responses
+**Problem**: Private album uploads failed with `MulterError: File too large` and returned generic 500 errors.
+
+**Root Cause**:
+- `MAX_FILE_SIZE=5000MB` in env was parsed with `parseInt`, resulting in `5000` bytes instead of 5000 MB.
+- Global error handler did not map Multer upload failures to specific HTTP responses.
+
+**Solution**:
+- Added unit-aware size parsing for upload limits (supports `B`, `KB`, `MB`, `GB`).
+- Improved global upload error mapping:
+	- `LIMIT_FILE_SIZE` -> `413 Payload Too Large`
+	- `LIMIT_UNEXPECTED_FILE` -> `400 Bad Request`
+	- Invalid file type -> `415 Unsupported Media Type`
+- Added client-side image downscaling in private album picker to reduce upload payload size.
+
+**Files Changed**:
+- `backend/src/config/storage.ts` - Added `parseSizeToBytes(...)` and unit-aware `maxFileSize`
+- `backend/src/server.ts` - Added explicit Multer/file-type error handling
+- `mobile-app/lib/screens/dating/private_album_screen.dart` - Added `maxWidth`, `maxHeight`, `imageQuality` on image pick
+
+---
+
 ## Issues Fixed
 
 ### 1. ✅ Drama Genre Filter Not Working

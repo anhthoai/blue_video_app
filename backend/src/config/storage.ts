@@ -10,6 +10,33 @@ import { getS3Client, getS3PublicBaseUrl, getS3StorageConfig, makeS3Ref, parseS3
 
 dotenv.config();
 
+function parseSizeToBytes(value: string | undefined, fallbackBytes: number): number {
+  if (!value || value.trim().length === 0) {
+    return fallbackBytes;
+  }
+
+  const raw = value.trim().toUpperCase();
+  const match = raw.match(/^(\d+(?:\.\d+)?)(B|KB|MB|GB)?$/);
+  if (!match) {
+    const asInt = parseInt(raw, 10);
+    return Number.isFinite(asInt) && asInt > 0 ? asInt : fallbackBytes;
+  }
+
+  const amount = Number(match[1]);
+  const unit = match[2] ?? 'B';
+  const factor =
+    unit === 'GB'
+      ? 1024 * 1024 * 1024
+      : unit === 'MB'
+          ? 1024 * 1024
+          : unit === 'KB'
+              ? 1024
+              : 1;
+
+  const bytes = Math.floor(amount * factor);
+  return bytes > 0 ? bytes : fallbackBytes;
+}
+
 // S3 Configuration for S3-compatible storage
 export const s3Config = {
   endpoint: process.env['S3_ENDPOINT'] || 'https://s3.amazonaws.com',
@@ -25,7 +52,8 @@ export const s3Client = getS3Client(1);
 
 // File upload configuration
 export const uploadConfig = {
-  maxFileSize: parseInt(process.env['MAX_FILE_SIZE'] || '104857600'), // 100MB
+  // Supports raw bytes (e.g. 104857600) and human-readable values (e.g. 100MB, 2GB).
+  maxFileSize: parseSizeToBytes(process.env['MAX_FILE_SIZE'], 100 * 1024 * 1024),
   allowedImageTypes: (process.env['ALLOWED_IMAGE_TYPES'] || 'image/jpeg,image/png,image/webp,image/gif').split(','),
   allowedVideoTypes: (process.env['ALLOWED_VIDEO_TYPES'] || 'video/mp4,video/webm,video/quicktime').split(','),
   maxVideoDuration: parseInt(process.env['MAX_VIDEO_DURATION'] || '300'), // 5 minutes

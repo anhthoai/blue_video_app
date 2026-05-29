@@ -27,6 +27,7 @@ import swaggerUi from 'swagger-ui-express';
 import { swaggerSpec } from './config/swagger';
 import movieRoutes from './routes/movies';
 import libraryRoutes from './routes/library';
+import datingRoutes from './routes/dating';
 import { buildPasswordResetUrl, buildVerificationUrl } from './utils/publicUrl';
 import {
   AppSettingsService,
@@ -585,6 +586,8 @@ app.use('/api/v1/movies', movieRoutes);
 console.log('📚 Movie/Library routes registered at /api/v1/movies');
 app.use('/api/v1/library', libraryRoutes);
 console.log('📚 Library content routes registered at /api/v1/library');
+app.use('/api/v1/dating', datingRoutes);
+console.log('💑 Dating routes registered at /api/v1/dating');
 
 /**
  * @swagger
@@ -780,6 +783,8 @@ app.get('/app-version', async (req, res) => {
     releaseDate: platformConfig.releaseDate,
     contentProtectionEnabled: appSettings.contentProtectionEnabled,
     contentProtectionUpdatedAt: appSettings.updatedAt,
+    datingEnabled: appSettings.datingEnabled,
+    datingSearchRadiusKm: appSettings.datingSearchRadiusKm,
     platform: platform || 'android',
   });
 });
@@ -6296,6 +6301,7 @@ app.get('/api/v1/admin/dashboard', authenticateToken, requireAdmin, async (_req,
       pendingFeedback,
       recentFeedback,
       appSettings,
+      aiSettingsRows,
     ] = await Promise.all([
       prisma.user.count(),
       prisma.video.count(),
@@ -6320,7 +6326,27 @@ app.get('/api/v1/admin/dashboard', authenticateToken, requireAdmin, async (_req,
         },
       }),
       appSettingsService.getPublicSettings(),
+      prisma.appSetting.findMany({
+        where: {
+          key: {
+            in: ['datingAiProvider', 'datingAiModel', 'datingAiApiKey'],
+          },
+        },
+      }),
     ]);
+
+    const aiSettingsByKey = new Map(aiSettingsRows.map((row) => [row.key, row.value]));
+    const aiApiKey = aiSettingsByKey.get('datingAiApiKey') ?? '';
+    const aiApiKeyMasked = aiApiKey.length > 6
+      ? `${aiApiKey.slice(0, 3)}${'*'.repeat(Math.max(0, aiApiKey.length - 6))}${aiApiKey.slice(-3)}`
+      : aiApiKey;
+    const adminAppSettings = {
+      ...appSettings,
+      datingAiProvider: aiSettingsByKey.get('datingAiProvider') ?? 'openai',
+      datingAiModel: aiSettingsByKey.get('datingAiModel') ?? 'gpt-4o-mini',
+      datingAiApiKeyConfigured: aiApiKey.trim().length > 0,
+      datingAiApiKeyMasked: aiApiKey.trim().length > 0 ? aiApiKeyMasked : null,
+    };
 
     return res.json({
       success: true,
@@ -6347,7 +6373,7 @@ app.get('/api/v1/admin/dashboard', authenticateToken, requireAdmin, async (_req,
           createdAt: item.createdAt.toISOString(),
           user: item.user,
         })),
-        appSettings,
+        appSettings: adminAppSettings,
       },
     });
   } catch (error) {
@@ -6365,12 +6391,20 @@ app.patch('/api/v1/admin/app-settings', authenticateToken, requireAdmin, async (
       contentProtectionEnabled,
       freeCommunityPostBonusCoins,
       freeVideoBonusCoins,
+      datingEnabled,
+      datingSearchRadiusKm,
+      datingAiProvider,
+      datingAiModel,
+      datingAiApiKey,
     } = req.body ?? {};
     const settingsUpdate: {
       contentProtectionEnabled?: boolean;
       freeCommunityPostBonusCoins?: number;
       freeVideoBonusCoins?: number;
+      datingEnabled?: boolean;
+      datingSearchRadiusKm?: number;
     } = {};
+    const aiSettingUpdates: Array<{ key: string; value: string }> = [];
 
     if (contentProtectionEnabled !== undefined) {
       if (typeof contentProtectionEnabled !== 'boolean') {
@@ -6408,21 +6442,103 @@ app.patch('/api/v1/admin/app-settings', authenticateToken, requireAdmin, async (
       settingsUpdate.freeVideoBonusCoins = freeVideoBonusCoins;
     }
 
-    if (Object.keys(settingsUpdate).length === 0) {
+    if (datingEnabled !== undefined) {
+      if (typeof datingEnabled !== 'boolean') {
+        return res.status(400).json({
+          success: false,
+          message: 'datingEnabled must be a boolean',
+        });
+      }
+      settingsUpdate.datingEnabled = datingEnabled;
+    }
+
+    if (datingSearchRadiusKm !== undefined) {
+      if (!Number.isInteger(datingSearchRadiusKm) || datingSearchRadiusKm < 1) {
+        return res.status(400).json({
+          success: false,
+          message: 'datingSearchRadiusKm must be a positive integer',
+        });
+      }
+      settingsUpdate.datingSearchRadiusKm = datingSearchRadiusKm;
+    }
+
+    if (datingAiProvider !== undefined) {
+      if (typeof datingAiProvider !== 'string' || datingAiProvider.trim().length === 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'datingAiProvider must be a non-empty string',
+        });
+      }
+      aiSettingUpdates.push({ key: 'datingAiProvider', value: datingAiProvider.trim() });
+    }
+
+    if (datingAiModel !== undefined) {
+      if (typeof datingAiModel !== 'string' || datingAiModel.trim().length === 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'datingAiModel must be a non-empty string',
+        });
+      }
+      aiSettingUpdates.push({ key: 'datingAiModel', value: datingAiModel.trim() });
+    }
+
+    if (datingAiApiKey !== undefined) {
+      if (typeof datingAiApiKey !== 'string') {
+        return res.status(400).json({
+          success: false,
+          message: 'datingAiApiKey must be a string',
+        });
+      }
+      aiSettingUpdates.push({ key: 'datingAiApiKey', value: datingAiApiKey.trim() });
+    }
+
+    if (Object.keys(settingsUpdate).length === 0 && aiSettingUpdates.length === 0) {
       return res.status(400).json({
         success: false,
         message: 'Provide at least one app setting to update',
       });
     }
 
-    const appSettings = await appSettingsService.updatePublicSettings(
-      settingsUpdate,
-    );
+    if (aiSettingUpdates.length > 0) {
+      await prisma.$transaction(
+        aiSettingUpdates.map((item) =>
+          prisma.appSetting.upsert({
+            where: { key: item.key },
+            update: { value: item.value },
+            create: { key: item.key, value: item.value },
+          }),
+        ),
+      );
+    }
+
+    const appSettings = Object.keys(settingsUpdate).length > 0
+      ? await appSettingsService.updatePublicSettings(settingsUpdate)
+      : await appSettingsService.getPublicSettings();
+
+    const aiSettingsRows = await prisma.appSetting.findMany({
+      where: {
+        key: {
+          in: ['datingAiProvider', 'datingAiModel', 'datingAiApiKey'],
+        },
+      },
+    });
+    const aiSettingsByKey = new Map(aiSettingsRows.map((row) => [row.key, row.value]));
+    const aiApiKey = aiSettingsByKey.get('datingAiApiKey') ?? '';
+    const aiApiKeyMasked = aiApiKey.length > 6
+      ? `${aiApiKey.slice(0, 3)}${'*'.repeat(Math.max(0, aiApiKey.length - 6))}${aiApiKey.slice(-3)}`
+      : aiApiKey;
+    const adminAppSettings = {
+      ...appSettings,
+      datingAiProvider: aiSettingsByKey.get('datingAiProvider') ?? 'openai',
+      datingAiModel: aiSettingsByKey.get('datingAiModel') ?? 'gpt-4o-mini',
+      datingAiApiKeyConfigured: aiApiKey.trim().length > 0,
+      datingAiApiKeyMasked: aiApiKey.trim().length > 0 ? aiApiKeyMasked : null,
+    };
 
     return res.json({
       success: true,
       message: 'App settings updated successfully',
-      data: appSettings,
+      data: adminAppSettings,
     });
   } catch (error) {
     console.error('Error updating admin app settings:', error);
@@ -13400,6 +13516,35 @@ app.use('*', (_req, res) => {
 // Global error handler
 app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
   console.error('Global error handler:', err);
+
+  if (err?.code === 'LIMIT_FILE_SIZE') {
+    res.status(413).json({
+      success: false,
+      message: 'Uploaded file is too large. Please choose a smaller image or video.',
+      code: 'LIMIT_FILE_SIZE',
+      field: err.field,
+    });
+    return;
+  }
+
+  if (err?.code === 'LIMIT_UNEXPECTED_FILE') {
+    res.status(400).json({
+      success: false,
+      message: 'Unexpected file field in upload request.',
+      code: 'LIMIT_UNEXPECTED_FILE',
+      field: err.field,
+    });
+    return;
+  }
+
+  if (typeof err?.message === 'string' && err.message.toLowerCase().includes('file type')) {
+    res.status(415).json({
+      success: false,
+      message: err.message,
+      code: 'UNSUPPORTED_MEDIA_TYPE',
+    });
+    return;
+  }
 
   res.status(err.status || 500).json({
     success: false,

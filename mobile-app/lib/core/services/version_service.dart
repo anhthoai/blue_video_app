@@ -15,6 +15,8 @@ class VersionInfo {
   final String releaseDate;
   final bool contentProtectionEnabled;
   final String? contentProtectionUpdatedAt;
+  final bool datingEnabled;
+  final int datingSearchRadiusKm;
 
   VersionInfo({
     required this.latestVersion,
@@ -27,6 +29,8 @@ class VersionInfo {
     required this.releaseDate,
     required this.contentProtectionEnabled,
     required this.contentProtectionUpdatedAt,
+    this.datingEnabled = false,
+    this.datingSearchRadiusKm = 3,
   });
 
   factory VersionInfo.fromJson(Map<String, dynamic> json) {
@@ -41,6 +45,8 @@ class VersionInfo {
       releaseDate: json['releaseDate'] ?? '',
       contentProtectionEnabled: json['contentProtectionEnabled'] == true,
       contentProtectionUpdatedAt: json['contentProtectionUpdatedAt'] as String?,
+      datingEnabled: json['datingEnabled'] == true,
+      datingSearchRadiusKm: json['datingSearchRadiusKm'] as int? ?? 3,
     );
   }
 }
@@ -92,3 +98,6 @@ class VersionService {
 final versionServiceProvider = Provider<VersionService>((ref) {
   return VersionService();
 });
+
+/// Holds the latest datingEnabled flag. Updated when version check succeeds.
+final datingEnabledProvider = StateProvider<bool>((ref) => false);

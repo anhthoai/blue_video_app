@@ -1,9 +1,15 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../core/services/auth_service.dart';
+import '../../core/services/dating_service.dart';
+import '../../models/dating_model.dart';
+import '../dating/dating_profile_edit_screen.dart';
+import '../dating/private_album_screen.dart';
 import '../../widgets/common/presigned_image.dart';
 
 class EditProfileScreen extends ConsumerStatefulWidget {
@@ -22,11 +28,15 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
   bool _isLoading = false;
   bool _isUploadingAvatar = false;
   bool _isUploadingBanner = false;
+  bool _isLoadingDatingProfile = false;
+  bool _isUploadingDatingPhoto = false;
+  DatingProfile? _datingProfile;
 
   @override
   void initState() {
     super.initState();
     _loadUserData();
+    _loadDatingProfile();
   }
 
   void _loadUserData() {
@@ -213,6 +223,70 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
           });
         }
       }
+    }
+  }
+
+  Future<void> _loadDatingProfile() async {
+    if (_isLoadingDatingProfile) return;
+    setState(() => _isLoadingDatingProfile = true);
+    try {
+      final profile = await DatingService().getMyDatingProfile();
+      if (!mounted) return;
+      setState(() => _datingProfile = profile);
+    } catch (_) {
+      // Ignore - user may not have created dating profile yet.
+    } finally {
+      if (mounted) setState(() => _isLoadingDatingProfile = false);
+    }
+  }
+
+  Future<void> _pickDatingAvatarPhoto() async {
+    if (_isUploadingDatingPhoto) return;
+
+    final currentCount = _datingProfile?.publicPhotos.length ?? 0;
+    if (currentCount >= 5) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Maximum reached: 1 main avatar + 5 extra photos')),
+      );
+      return;
+    }
+
+    final picker = ImagePicker();
+    final image = await picker.pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 1200,
+      maxHeight: 1200,
+      imageQuality: 90,
+    );
+    if (image == null) return;
+
+    setState(() => _isUploadingDatingPhoto = true);
+    try {
+      await DatingService().uploadPublicPhoto(File(image.path));
+      await _loadDatingProfile();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Dating avatar added')), 
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error uploading dating avatar: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _isUploadingDatingPhoto = false);
+    }
+  }
+
+  Future<void> _deleteDatingAvatarPhoto(int index) async {
+    try {
+      await DatingService().deletePublicPhoto(index);
+      await _loadDatingProfile();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error deleting dating avatar: $e')),
+      );
     }
   }
 
@@ -452,6 +526,93 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
 
                     const SizedBox(height: 24),
 
+                    Card(
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Dating Avatars (max 6)',
+                              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                            ),
+                            const SizedBox(height: 8),
+                            const Text(
+                              'First photo is your main avatar. Swipe up in Dating Profile to see the rest.',
+                              style: TextStyle(fontSize: 12, color: Colors.grey),
+                            ),
+                            const SizedBox(height: 12),
+                            Wrap(
+                              spacing: 10,
+                              runSpacing: 10,
+                              children: [
+                                _buildMainAvatarCell(user.avatarUrl),
+                                ...(_datingProfile?.publicPhotos ?? [])
+                                    .asMap()
+                                    .entries
+                                    .map((entry) => _buildDatingExtraCell(entry.key, entry.value)),
+                                if ((_datingProfile?.publicPhotos.length ?? 0) < 5)
+                                  _buildAddDatingPhotoCell(),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(height: 24),
+
+                    Card(
+                      child: Padding(
+                        padding: const EdgeInsets.all(8),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            ListTile(
+                              leading: const CircleAvatar(
+                                child: Icon(Icons.favorite_outline),
+                              ),
+                              title: const Text('Edit Dating Profile'),
+                              subtitle: const Text(
+                                'Manage dating bio, expectations and privacy',
+                              ),
+                              trailing: const Icon(Icons.chevron_right),
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) =>
+                                        const DatingProfileEditScreen(),
+                                  ),
+                                );
+                              },
+                            ),
+                            const Divider(height: 1),
+                            ListTile(
+                              leading: const CircleAvatar(
+                                child: Icon(Icons.lock_outline),
+                              ),
+                              title: const Text('Private Album (max 9 images)'),
+                              subtitle: const Text(
+                                'Upload and manage private dating photos',
+                              ),
+                              trailing: const Icon(Icons.chevron_right),
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => const PrivateAlbumScreen(),
+                                  ),
+                                );
+                              },
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(height: 24),
+
                     // Account Info
                     Card(
                       child: Padding(
@@ -606,6 +767,115 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildMainAvatarCell(String? avatarUrl) {
+    return Container(
+      width: 92,
+      height: 92,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Theme.of(context).colorScheme.primary, width: 2),
+      ),
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: avatarUrl != null && avatarUrl.isNotEmpty
+                ? PresignedImage(
+                    imageUrl: avatarUrl,
+                    fit: BoxFit.cover,
+                    errorWidget: Container(
+                      color: Colors.grey.shade300,
+                      child: const Icon(Icons.person),
+                    ),
+                  )
+                : Container(
+                    color: Colors.grey.shade300,
+                    child: const Icon(Icons.person),
+                  ),
+          ),
+          Positioned(
+            left: 4,
+            top: 4,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: Colors.black54,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Text(
+                'Main',
+                style: TextStyle(color: Colors.white, fontSize: 10),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDatingExtraCell(int index, String imageUrl) {
+    return SizedBox(
+      width: 92,
+      height: 92,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(10),
+            child: PresignedImage(
+              imageUrl: imageUrl,
+              fit: BoxFit.cover,
+              errorWidget: Container(
+                color: Colors.grey.shade300,
+                child: const Icon(Icons.image_not_supported_outlined),
+              ),
+            ),
+          ),
+          Positioned(
+            right: 4,
+            top: 4,
+            child: InkWell(
+              onTap: () => _deleteDatingAvatarPhoto(index),
+              child: Container(
+                width: 22,
+                height: 22,
+                decoration: const BoxDecoration(
+                  color: Colors.black54,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.close, size: 14, color: Colors.white),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAddDatingPhotoCell() {
+    return InkWell(
+      onTap: _isUploadingDatingPhoto ? null : _pickDatingAvatarPhoto,
+      child: Container(
+        width: 92,
+        height: 92,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: Colors.grey.shade400),
+        ),
+        child: _isUploadingDatingPhoto
+            ? const Center(
+                child: SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+              )
+            : const Icon(Icons.add_photo_alternate_outlined),
+      ),
     );
   }
 
