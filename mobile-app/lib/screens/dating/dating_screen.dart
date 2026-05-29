@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/services/dating_service.dart';
 import '../../core/services/file_url_service.dart';
+import '../../l10n/app_localizations.dart';
 import '../../models/dating_model.dart';
 import '../../core/theme/app_theme.dart';
 import '../../widgets/common/presigned_image.dart';
@@ -129,6 +130,7 @@ class _DatingScreenState extends ConsumerState<DatingScreen>
   }
 
   Widget _buildHeader(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final searchText = ref.watch(_exploreSearchProvider);
     return SafeArea(
       bottom: false,
@@ -149,8 +151,8 @@ class _DatingScreenState extends ConsumerState<DatingScreen>
                     dividerColor: Colors.transparent,
                     labelPadding: const EdgeInsets.only(right: 16),
                     tabs: [
-                      _headerTab('Explore', 0),
-                      _headerTab('Meet', 1),
+                      _headerTab(l10n.datingExplore, 0),
+                      _headerTab(l10n.datingMeet, 1),
                     ],
                   ),
                 ),
@@ -174,7 +176,7 @@ class _DatingScreenState extends ConsumerState<DatingScreen>
                 child: Align(
                   alignment: Alignment.centerLeft,
                   child: ActionChip(
-                    label: Text('Search: "${searchText.trim()}"'),
+                    label: Text('${l10n.search}: "${searchText.trim()}"'),
                     onPressed: () => ref.read(_exploreSearchProvider.notifier).state = '',
                   ),
                 ),
@@ -186,18 +188,19 @@ class _DatingScreenState extends ConsumerState<DatingScreen>
   }
 
   Future<void> _openSearchDialog() async {
+    final l10n = AppLocalizations.of(context);
     final current = ref.read(_exploreSearchProvider);
     final controller = TextEditingController(text: current);
     final result = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Search Dating Profiles'),
+        title: Text(l10n.datingSearchProfiles),
         content: TextField(
           controller: controller,
           autofocus: true,
           textInputAction: TextInputAction.search,
-          decoration: const InputDecoration(
-            hintText: 'Name, username, city, nationality...',
+          decoration: InputDecoration(
+            hintText: l10n.datingSearchHint,
             border: OutlineInputBorder(),
           ),
           onSubmitted: (value) => Navigator.pop(ctx, value.trim()),
@@ -205,11 +208,11 @@ class _DatingScreenState extends ConsumerState<DatingScreen>
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, ''),
-            child: const Text('Clear'),
+            child: Text(l10n.datingClear),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, controller.text.trim()),
-            child: const Text('Search'),
+            child: Text(l10n.search),
           ),
         ],
       ),
@@ -228,7 +231,7 @@ class _DatingScreenState extends ConsumerState<DatingScreen>
           fontSize: isSelected ? 26 : 18,
           fontWeight: FontWeight.bold,
           color: isSelected
-              ? (label == 'Meet'
+              ? (index == 1
                   ? const Color(0xFF8E44FF)
                   : Theme.of(context).textTheme.titleLarge?.color)
               : Colors.grey,
@@ -280,8 +283,9 @@ class _ExploreTabState extends ConsumerState<_ExploreTab> {
       bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
       if (!serviceEnabled) {
         if (mounted) {
+          final l10n = AppLocalizations.of(context);
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Enable location service to see nearby profiles')),
+            SnackBar(content: Text(l10n.datingEnableLocation)),
           );
         }
         return;
@@ -295,8 +299,9 @@ class _ExploreTabState extends ConsumerState<_ExploreTab> {
       if (permission == LocationPermission.denied ||
           permission == LocationPermission.deniedForever) {
         if (mounted) {
+          final l10n = AppLocalizations.of(context);
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Location permission denied. Showing limited profiles.')),
+            SnackBar(content: Text(l10n.datingLocationPermissionDenied)),
           );
         }
         return;
@@ -313,8 +318,9 @@ class _ExploreTabState extends ConsumerState<_ExploreTab> {
       });
     } catch (error) {
       if (mounted) {
+        final l10n = AppLocalizations.of(context);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Location error: $error')),
+          SnackBar(content: Text('${l10n.datingLocationError}: $error')),
         );
       }
     } finally {
@@ -324,6 +330,7 @@ class _ExploreTabState extends ConsumerState<_ExploreTab> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final upgradeStatus = ref.watch(_upgradeStatusProvider).valueOrNull;
     final tier = upgradeStatus?.tier ?? 'FREE';
     final isVip = tier == 'VIP';
@@ -353,10 +360,10 @@ class _ExploreTabState extends ConsumerState<_ExploreTab> {
               Flexible(
                 child: Text(
                   isUnlimited
-                      ? 'Plan: UNLIMITED • All profiles unlocked'
+                      ? '${l10n.datingPlanUnlimitedUnlocked} • ${l10n.datingUnlimitedProfileViews}'
                       : isVip
-                          ? 'Plan: VIP • $visibleLimit profiles unlocked'
-                          : 'Plan: FREE • First $visibleLimit nearest profiles',
+                          ? '${l10n.datingPlanVipUnlocked} • $visibleLimit'
+                          : '${l10n.datingPlanFreeUnlocked} • $visibleLimit',
                   style: const TextStyle(fontSize: 12, color: Colors.grey),
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -372,7 +379,7 @@ class _ExploreTabState extends ConsumerState<_ExploreTab> {
                 TextButton.icon(
                   onPressed: _loadCurrentLocation,
                   icon: const Icon(Icons.my_location, size: 14),
-                  label: const Text('Update location'),
+                  label: Text(l10n.datingUpdateLocation),
                 ),
             ],
           ),
@@ -391,6 +398,7 @@ class _ExploreTabState extends ConsumerState<_ExploreTab> {
   }
 
   Widget _buildSubtabs() {
+    final l10n = AppLocalizations.of(context);
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Row(
@@ -400,11 +408,11 @@ class _ExploreTabState extends ConsumerState<_ExploreTab> {
               scrollDirection: Axis.horizontal,
               child: Row(
                 children: [
-                  _subtab('Smart', 0),
+                  _subtab(l10n.datingSmart, 0),
                   const SizedBox(width: 8),
-                  _subtab('Online', 1),
+                  _subtab(l10n.online, 1),
                   const SizedBox(width: 8),
-                  _subtab('New Face', 2),
+                  _subtab(l10n.datingNewFace, 2),
                 ],
               ),
             ),
@@ -521,6 +529,7 @@ class _ExploreTabState extends ConsumerState<_ExploreTab> {
   }
 
   Widget _buildEmpty() {
+    final l10n = AppLocalizations.of(context);
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -528,12 +537,12 @@ class _ExploreTabState extends ConsumerState<_ExploreTab> {
           Icon(Icons.people_outline, size: 64, color: Colors.grey.shade400),
           const SizedBox(height: 16),
           Text(
-            'No users found nearby',
+            l10n.datingNoUsersNearby,
             style: TextStyle(color: Colors.grey.shade500, fontSize: 16),
           ),
           const SizedBox(height: 8),
           Text(
-            'Allow location and try again',
+            l10n.datingAllowLocationAndTryAgain,
             style: TextStyle(color: Colors.grey.shade400, fontSize: 14),
           ),
         ],
@@ -572,6 +581,7 @@ class _UserCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final avatarUrl = appendCacheBuster(user.avatarUrl, user.updatedAt);
     return GestureDetector(
       onTap: locked
@@ -658,9 +668,9 @@ class _UserCard extends StatelessWidget {
                     color: Colors.black.withValues(alpha: 0.5),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: const Text(
-                    'You',
-                    style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w700),
+                  child: Text(
+                    l10n.datingYou,
+                    style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w700),
                   ),
                 ),
               ),
@@ -719,6 +729,7 @@ class _UpgradeBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       child: GestureDetector(
@@ -732,20 +743,20 @@ class _UpgradeBanner extends StatelessWidget {
               colors: [Color(0xFF2563EB), Color(0xFF0891B2)],
             ),
           ),
-          child: const Row(
+          child: Row(
             children: [
-              Icon(Icons.workspace_premium, color: Colors.white),
-              SizedBox(width: 10),
+              const Icon(Icons.workspace_premium, color: Colors.white),
+              const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  'Unlock more profiles with VIP or UNLIMITED',
-                  style: TextStyle(
+                  l10n.datingUnlockMoreProfilesBanner,
+                  style: const TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
               ),
-              Icon(Icons.arrow_forward_ios, color: Colors.white, size: 16),
+              const Icon(Icons.arrow_forward_ios, color: Colors.white, size: 16),
             ],
           ),
         ),

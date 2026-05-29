@@ -10,6 +10,77 @@ If you are looking for older progress notes, see:
 
 Successfully implemented comprehensive multi-language support for the Blue Video app with **English**, **Chinese (Simplified)**, and **Japanese** translations across all major screens!
 
+## 🆕 Latest Update
+
+✅ **Dating feature localization expanded** (EN/ZH/JA):
+- Explore tab UI and search flow
+- Meet tab empty state, AI suggestion labels, and action buttons
+- Dating profile screen (private album messages, sections, action results)
+- Dating filter sheet labels and actions
+- Private album and access-request flow
+- Dating upgrade screen texts and CTA labels
+- Dating profile edit form section titles and core labels
+
+✅ **Chat + profile translation pass updated** (EN/ZH/JA):
+- Edit Profile dating avatar/private album helper sections
+- Chat list filter chips and three-dots menu labels
+- Chat search labels and empty-state results
+- Private album system message texts/actions in chat detail:
+   request text, agree/agreed, revoke access, and unlock message preview
+
+✅ **Backend push body localization (private album flow)**:
+- Request notification body localized for EN/ZH/JA recipients
+- Unlock notification body localized for EN/ZH/JA recipients
+
+✅ **New app locales enabled**:
+- Vietnamese (vi)
+- Korean (ko)
+- Thai (th)
+- Portuguese (pt)
+- Spanish (es)
+- Indonesian (id)
+- Turkish (tr)
+- Arabic (ar)
+
+Notes:
+- Added locale classes and app wiring (delegate + supported locales + language selector)
+- Core UI and key Dating/Chat strings are translated in these locales
+- Any not-yet-overridden keys safely fall back to English
+
+✅ **Manual per-language expansion in progress (no auto-translation tooling)**:
+- Vietnamese (vi): expanded and cleaned with broad core key coverage + Dating/Chat keys
+- Korean (ko): expanded with broad core key coverage + Dating/Chat keys
+- Thai (th): expanded with broad core key coverage + Dating/Chat keys
+- Portuguese (pt): expanded with broad core key coverage + Dating/Chat keys
+- Spanish (es): expanded with broad core key coverage + Dating/Chat keys
+- Indonesian (id): expanded with broad core key coverage + Dating/Chat keys
+- Turkish (tr): expanded with broad core key coverage + Dating/Chat keys
+- Arabic (ar): expanded with broad core key coverage + Dating/Chat keys
+
+✅ **Edit Profile localization pass completed**:
+- Replaced hardcoded Edit Profile UI strings with localization keys (title, form labels/hints, account info card, danger zone, delete dialog, main avatar badge)
+- Added new Edit Profile-specific keys in base + English source and translated in zh/ja/vi/ko/th/pt/es/id/tr/ar
+- Updated member-since date rendering to locale-aware format via intl
+
+✅ **Chat Detail localization pass completed**:
+- Replaced hardcoded strings in chat detail screen: profile snapshot card, matched expectations text, popup/chat info labels, empty state, input hint, attachment picker sheet, mute/call/profile snackbars, private album request states
+- Added new chat detail localization keys in base + English source and translated in zh/ja/vi/ko/th/pt/es/id/tr/ar
+
+✅ **Home + Community label localization pass completed**:
+- Home tabs now localized: Explore, Following, For You
+- Community labels localized: Following, Original, Request, Hot Forums, More, Content Creators, Recommended, Newest, Highlights, Videos
+- Hot Forums screen localized with localized title, hero copy, loading/empty messages, and follow labels
+- Content Creators screen localized with localized title, metric tabs, window tabs, follow labels, and empty-state copy
+- Added new community/home localization keys in base + English source and translated in zh/ja/vi/ko/th/pt/es/id/tr/ar
+
+✅ **Community Vietnamese polish + overflow fix**:
+- Fixed top Community tab row overflow on narrow screens by using equal-width responsive tab buttons with ellipsis
+- Updated Vietnamese community/home labels with proper diacritics (e.g., Đang theo dõi, Nguyên bản, Yêu cầu, Diễn đàn hot, Đề xuất, Mới nhất)
+
+✅ **Full Vietnamese diacritics sweep completed**:
+- Updated the entire `app_localizations_vi.dart` key set from ASCII transliterations to proper Vietnamese diacritics (UI, Dating, Chat, Profile, and Community keys)
+- Kept intentional non-diacritic/technical tokens as-is where appropriate (e.g., `OK`, `Email`, `Video`, units)
+
 ## 📊 What Was Completed
 
 ### Translation Infrastructure (100%)

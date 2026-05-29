@@ -10266,6 +10266,89 @@ async function sendPushToUsers(
   }
 }
 
+type SupportedPushLocale = 'en' | 'zh' | 'ja';
+
+function inferPushLocaleFromDatingLanguages(languages: string[] | null | undefined): SupportedPushLocale {
+  if (!Array.isArray(languages) || languages.length === 0) {
+    return 'en';
+  }
+
+  for (const rawLanguage of languages) {
+    const value = (rawLanguage || '').trim().toLowerCase();
+    if (!value) continue;
+
+    if (
+      value === 'zh' ||
+      value.startsWith('zh-') ||
+      value === 'zho' ||
+      value === 'chi' ||
+      value.includes('chinese') ||
+      value.includes('mandarin') ||
+      value.includes('中文')
+    ) {
+      return 'zh';
+    }
+
+    if (
+      value === 'ja' ||
+      value.startsWith('ja-') ||
+      value === 'jpn' ||
+      value.includes('japanese') ||
+      value.includes('日本語')
+    ) {
+      return 'ja';
+    }
+  }
+
+  return 'en';
+}
+
+async function sendLocalizedPushBodyToUsers(
+  userIds: string[],
+  payload: {
+    title: string;
+    bodyByLocale: Record<SupportedPushLocale, string>;
+    data?: Record<string, string>;
+    sound?: string;
+  }
+) {
+  const uniqueUserIds = [...new Set(userIds.filter(userId => userId.trim().length > 0))];
+  if (uniqueUserIds.length === 0) {
+    return;
+  }
+
+  const users = await prisma.user.findMany({
+    where: {
+      id: {
+        in: uniqueUserIds,
+      },
+    },
+    select: {
+      id: true,
+      datingProfile: {
+        select: {
+          languages: true,
+        },
+      },
+    },
+  });
+
+  const languagesByUserId = new Map<string, string[]>();
+  for (const user of users) {
+    languagesByUserId.set(user.id, user.datingProfile?.languages ?? []);
+  }
+
+  for (const userId of uniqueUserIds) {
+    const locale = inferPushLocaleFromDatingLanguages(languagesByUserId.get(userId));
+    await sendPushToUsers([userId], {
+      title: payload.title,
+      body: payload.bodyByLocale[locale],
+      ...(payload.data ? { data: payload.data } : {}),
+      ...(payload.sound ? { sound: payload.sound } : {}),
+    });
+  }
+}
+
 function getCallLabel(isVideoCall: boolean) {
   return isVideoCall ? 'video call' : 'voice call';
 }
@@ -10929,11 +11012,15 @@ app.post('/api/v1/dating/private-album/request-chat/:userId', async (req, res) =
         io.to(`user-${participantId}`).emit('new-message', serializedMessage);
       });
     await emitChatRoomUpdate(chatRoom.id, participantIds);
-    await sendPushToUsers(
+    await sendLocalizedPushBodyToUsers(
       [ownerId],
       {
         title: buildDisplayName(message.user),
-        body: 'Requested access to your private album',
+        bodyByLocale: {
+          en: 'Requested access to your private album',
+          zh: '请求访问你的私密相册',
+          ja: 'あなたのプライベートアルバムへのアクセスを申請しました',
+        },
         data: {
           kind: 'chat_message',
           roomId: chatRoom.id,
@@ -11029,11 +11116,15 @@ app.post('/api/v1/dating/private-album/agree-chat/:requestId', async (req, res) 
         io.to(`user-${participantId}`).emit('new-message', serializedMessage);
       });
     await emitChatRoomUpdate(chatRoom.id, participantIds);
-    await sendPushToUsers(
+    await sendLocalizedPushBodyToUsers(
       [accessRequest.requesterId],
       {
         title: buildDisplayName(message.user),
-        body: 'Unlocked a private album for you',
+        bodyByLocale: {
+          en: 'Unlocked a private album for you',
+          zh: '已向你开放私密相册',
+          ja: 'あなた向けにプライベートアルバムを解放しました',
+        },
         data: {
           kind: 'chat_message',
           roomId: chatRoom.id,

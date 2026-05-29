@@ -2,6 +2,14 @@ import 'package:flutter/material.dart';
 import 'app_localizations_en.dart';
 import 'app_localizations_zh.dart';
 import 'app_localizations_ja.dart';
+import 'app_localizations_vi.dart';
+import 'app_localizations_ko.dart';
+import 'app_localizations_th.dart';
+import 'app_localizations_pt.dart';
+import 'app_localizations_es.dart';
+import 'app_localizations_id.dart';
+import 'app_localizations_tr.dart';
+import 'app_localizations_ar.dart';
 
 /// Base class for app localizations
 abstract class AppLocalizations {
@@ -460,6 +468,234 @@ abstract class AppLocalizations {
   String get and;
   String get privacyPolicy;
   String get iAgreeToThe;
+
+  // Dating feature
+  String get datingExplore;
+  String get datingMeet;
+  String get datingSearchProfiles;
+  String get datingSearchHint;
+  String get datingClear;
+  String get datingEnableLocation;
+  String get datingLocationPermissionDenied;
+  String get datingLocationError;
+  String get datingPlanUnlimitedUnlocked;
+  String get datingPlanVipUnlocked;
+  String get datingPlanFreeUnlocked;
+  String get datingUpdateLocation;
+  String get datingSmart;
+  String get datingNewFace;
+  String get datingNoUsersNearby;
+  String get datingAllowLocationAndTryAgain;
+  String get datingYou;
+  String get datingUnlockMoreProfilesBanner;
+  String get datingRequestSentCheckChat;
+  String get datingRequestSentViaChat;
+  String get datingRequestAlreadySentCheckChat;
+  String get datingFriendRequestSent;
+  String get datingProfileNotFound;
+  String get datingOpenPrivateAlbum;
+  String get datingWaitingPermission;
+  String get datingRequestUnlock;
+  String get datingPrivatePhotos;
+  String get datingPrivateAlbumPermissionGranted;
+  String get datingPrivateAlbumPending;
+  String get datingPrivateAlbumRequestPermission;
+  String get datingSuperLiked;
+  String get datingLikedWaitingMatch;
+  String get datingPassed;
+  String get datingHeight;
+  String get datingWeight;
+  String get datingBodyType;
+  String get datingBodyHair;
+  String get datingLanguages;
+  String get datingLivesIn;
+  String get datingNationality;
+  String get datingEthnicity;
+  String get datingRelationship;
+  String get datingAboutMe;
+  String get datingLookingFor;
+  String get datingInterestedIn;
+  String get datingWhereToMeet;
+  String get datingTribes;
+  String get datingSwipeHint;
+  String get datingFilters;
+  String get datingReset;
+  String get datingRole;
+  String get datingApplyFilters;
+  String get datingAge;
+  String get datingNoMatchesYet;
+  String get datingLikeSomeoneBack;
+  String get datingAiSuggestionsActive;
+  String get datingAutoSuggestionsPerDay;
+  String get datingUpgradeVipForAiMatch;
+  String get datingAiSuggestions;
+  String get datingDailySuggestions;
+  String get datingMutualMatches;
+  String get datingAiMatchModeActive;
+  String get datingAutoMatchMode;
+  String get datingVipAiScoring;
+  String get datingUpgradeVipAiAccuracy;
+  String get datingReject;
+  String get datingAiScore;
+  String get datingMutualMatch;
+  String get datingPhotoUploaded;
+  String get datingDeletePhoto;
+  String get datingRemovePhotoConfirm;
+  String get datingMyPrivateAlbum;
+  String get datingPrivateAlbum;
+  String get datingRequests;
+  String get datingAccessRequests;
+  String get datingNoPendingRequests;
+  String get datingAccepted;
+  String get datingDenied;
+  String get datingWantsToSeePrivateAlbum;
+  String get datingNotEnoughCoins;
+  String get datingActivatedSuccessfully;
+  String get datingPurchaseFailed;
+  String get datingUpgradeTitle;
+  String get datingYourFreePreviewReached;
+  String get datingFreeUsersViewFirst;
+  String get datingCurrentPlanCoins;
+  String get datingViewUpToProfiles;
+  String get datingUnlimitedProfileViews;
+  String get datingSeeNearbyProfiles;
+  String get datingAiMatchingSuggestions;
+  String get datingPriorityDiscovery;
+  String get datingUnlimitedNearbyBrowsing;
+  String get datingBestAiQuality;
+  String get datingHighestPriorityVisibility;
+  String get datingAvailableDurations;
+  String get datingPurchaseCoins;
+  String get datingRechargeCoins;
+  String get datingEditProfile;
+  String get datingPersonalInformation;
+  String get datingExpectations;
+  String get datingPrivacySettings;
+  String get datingShowDistance;
+  String get datingShowDistanceSubtitle;
+  String get datingShowOnlineStatus;
+  String get datingAiMatching;
+  String get datingAiMatchingSubtitle;
+  String get datingSelectDateOfBirth;
+  String get datingDateOfBirth;
+  String get datingTapToSelect;
+  String get datingSelectPrefix;
+
+  // Profile and chat extras
+  String get profileDatingAvatarsMax6;
+  String get profileDatingAvatarsHelp;
+  String get profileEditDatingProfileSubtitle;
+  String get profilePrivateAlbumMax9Images;
+  String get profilePrivateAlbumSubtitle;
+  String get profilePleaseLogIn;
+  String get profileUsernameRequired;
+  String get profileUsernameMinLength;
+  String get profileBioMaxLength;
+  String get profileAccountInformation;
+  String get profileAccountId;
+  String get profileVerified;
+  String get profileMemberSince;
+  String get profileDangerZone;
+  String get profileDeleteAccount;
+  String get profileDeleteAccountConfirmMessage;
+  String get profileDeleteAccountComingSoon;
+  String get profileMainAvatar;
+  String get profileYes;
+  String get profileNo;
+  String get profileDatingMaxPhotosReached;
+  String get profileDatingAvatarAdded;
+  String get profileDatingAvatarDeleteError;
+  String get profileProfileUpdateFailed;
+  String get profileFirstName;
+  String get profileLastName;
+  String get profileEnterFirstName;
+  String get profileEnterLastName;
+  String get profileEnterUsername;
+  String get profileBioHint;
+  String get chatFilterYourTurn;
+  String get chatFilterUnread;
+  String get chatFilterDistance;
+  String get chatFilterWithPrivateAlbum;
+  String get chatFilterRole;
+  String get chatFilterGroup;
+  String get chatRefreshChats;
+  String get chatSearchChats;
+  String get chatNoChatsFound;
+  String get chatPrivateAlbumRequestText;
+  String get chatPrivateAlbumUnlockedText;
+  String get chatAlbumAccessGranted;
+  String get chatAgree;
+  String get chatAgreed;
+  String get chatViewPrivateAlbum;
+  String get chatRevokeAccess;
+  String get chatAccessRevoked;
+  String get chatAccessInvalid;
+  String get chatPrivateAlbumRequestSent;
+  String get chatPrivateAlbumRequestAlreadySent;
+  String get chatPrivateAlbumNoPhotos;
+  String get chatRequestSent;
+  String get chatSendRequest;
+  String get chatProfileSnapshot;
+  String get chatPersonalProfile;
+  String get chatMatchedExpectations;
+  String get chatNoMatchedExpectations;
+  String get chatYearsShort;
+  String get chatCentimetersShort;
+  String get chatKilogramsShort;
+  String get chatInfo;
+  String get chatMuteNotifications;
+  String get chatUnmuteNotifications;
+  String get chatRoom;
+  String get chatMembers;
+  String get chatOnlineNow;
+  String get chatDirectMessage;
+  String get chatParticipant;
+  String get chatNoMessagesYet;
+  String get chatStartConversation;
+  String get chatAttachmentPhoto;
+  String get chatAttachmentPhotoSubtitle;
+  String get chatAttachmentCamera;
+  String get chatAttachmentCameraSubtitle;
+  String get chatAttachmentVideo;
+  String get chatAttachmentVideoSubtitle;
+  String get chatAttachmentDocument;
+  String get chatAttachmentDocumentSubtitle;
+  String get chatAttachmentAudio;
+  String get chatAttachmentAudioSubtitle;
+  String get chatUploadingFile;
+  String get chatFileSentSuccessfully;
+  String get chatFailedToUploadFile;
+  String get chatUnableToLoadDetails;
+  String get chatNotificationsMuted;
+  String get chatNotificationsUnmuted;
+  String get chatUnableToStartCall;
+  String get chatGroupCallNotSupported;
+  String get chatSignInToCall;
+  String get chatUnableToStartCallGeneric;
+  String get chatProfileUnavailable;
+  String get chatSingleProfileUnavailable;
+
+  // Community and home extras
+  String get communityOriginal;
+  String get communityRequest;
+  String get communityHotForums;
+  String get communityMore;
+  String get communityContentCreators;
+  String get communityRecommended;
+  String get communityHighlights;
+  String get hotForumsMomentumTitle;
+  String get hotForumsMomentumSubtitle;
+  String get hotForumsLoadErrorTitle;
+  String get hotForumsEmptyTitle;
+  String get hotForumsEmptySubtitle;
+  String get contentCreatorMoreAppears;
+  String get contentCreatorMetricLikes;
+  String get contentCreatorMetricUploads;
+  String get contentCreatorMetricEarnings;
+  String get contentCreatorMetricCoins;
+  String get contentCreatorWindowDay;
+  String get contentCreatorWindowWeek;
+  String get contentCreatorWindowMonth;
 }
 
 /// Factory class to get the correct localization instance
@@ -468,7 +704,8 @@ class AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {
 
   @override
   bool isSupported(Locale locale) {
-    return ['en', 'zh', 'ja'].contains(locale.languageCode);
+    return ['en', 'zh', 'ja', 'vi', 'ko', 'th', 'pt', 'es', 'id', 'tr', 'ar']
+        .contains(locale.languageCode);
   }
 
   @override
@@ -478,6 +715,22 @@ class AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {
         return AppLocalizationsZh();
       case 'ja':
         return AppLocalizationsJa();
+      case 'vi':
+        return AppLocalizationsVi();
+      case 'ko':
+        return AppLocalizationsKo();
+      case 'th':
+        return AppLocalizationsTh();
+      case 'pt':
+        return AppLocalizationsPt();
+      case 'es':
+        return AppLocalizationsEs();
+      case 'id':
+        return AppLocalizationsId();
+      case 'tr':
+        return AppLocalizationsTr();
+      case 'ar':
+        return AppLocalizationsAr();
       case 'en':
       default:
         return AppLocalizationsEn();

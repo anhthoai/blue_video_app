@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/providers/community_hub_provider.dart';
 import '../../core/theme/app_theme.dart';
+import '../../l10n/app_localizations.dart';
 import '../../models/community_hub_models.dart';
 import '../../widgets/community/community_hub_primitives.dart';
 
@@ -20,6 +21,7 @@ class _ContentCreatorScreenState extends ConsumerState<ContentCreatorScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final hubState = ref.watch(communityHubProvider);
 
     if (hubState.isLoading && hubState.creators.isEmpty) {
@@ -35,7 +37,7 @@ class _ContentCreatorScreenState extends ConsumerState<ContentCreatorScreen> {
       return Scaffold(
         backgroundColor: const Color(0xFF240761),
         appBar: AppBar(
-          title: const Text('Content Creator'),
+          title: Text(l10n.communityContentCreators),
           backgroundColor: Colors.transparent,
           foregroundColor: Colors.white,
         ),
@@ -61,7 +63,7 @@ class _ContentCreatorScreenState extends ConsumerState<ContentCreatorScreen> {
                   onPressed: () {
                     ref.read(communityHubProvider.notifier).refresh();
                   },
-                  child: const Text('Retry'),
+                  child: Text(l10n.retry),
                 ),
               ],
             ),
@@ -108,11 +110,11 @@ class _ContentCreatorScreenState extends ConsumerState<ContentCreatorScreen> {
                           icon: const Icon(Icons.arrow_back_ios_new_rounded),
                           color: Colors.white,
                         ),
-                        const Expanded(
+                        Expanded(
                           child: Text(
-                            'Content Creator',
+                            l10n.communityContentCreators,
                             textAlign: TextAlign.center,
-                            style: TextStyle(
+                            style: const TextStyle(
                               color: Colors.white,
                               fontSize: 22,
                               fontWeight: FontWeight.w700,
@@ -170,7 +172,7 @@ class _ContentCreatorScreenState extends ConsumerState<ContentCreatorScreen> {
                       child: Padding(
                         padding: const EdgeInsets.all(24),
                         child: Text(
-                          'More creators will appear here as activity grows.',
+                          l10n.contentCreatorMoreAppears,
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             color: Colors.white.withValues(alpha: 0.78),
@@ -231,7 +233,7 @@ class _ContentCreatorScreenState extends ConsumerState<ContentCreatorScreen> {
                                     ),
                                     const SizedBox(height: 4),
                                     Text(
-                                      '${formatCompactNumber(creator.followers)} followers',
+                                      '${formatCompactNumber(creator.followers)} ${l10n.followers}',
                                       style: TextStyle(
                                         color: Colors.white.withValues(alpha: 0.7),
                                         fontSize: 14,
@@ -270,7 +272,9 @@ class _ContentCreatorScreenState extends ConsumerState<ContentCreatorScreen> {
                                   ),
                                 ),
                                 child: Text(
-                                  creator.isFollowing ? 'Following' : '+ Follow',
+                                  creator.isFollowing
+                                      ? l10n.following
+                                      : '+ ${l10n.follow}',
                                 ),
                               ),
                             ],
@@ -286,10 +290,11 @@ class _ContentCreatorScreenState extends ConsumerState<ContentCreatorScreen> {
   }
 
   Widget _buildMetricTabs() {
+    final l10n = AppLocalizations.of(context);
     final items = <MapEntry<CreatorMetricTab, String>>[
-      const MapEntry<CreatorMetricTab, String>(CreatorMetricTab.likes, 'Likes'),
-      const MapEntry<CreatorMetricTab, String>(CreatorMetricTab.uploads, 'Uploads'),
-      const MapEntry<CreatorMetricTab, String>(CreatorMetricTab.earnings, 'Earnings'),
+      MapEntry<CreatorMetricTab, String>(CreatorMetricTab.likes, l10n.contentCreatorMetricLikes),
+      MapEntry<CreatorMetricTab, String>(CreatorMetricTab.uploads, l10n.contentCreatorMetricUploads),
+      MapEntry<CreatorMetricTab, String>(CreatorMetricTab.earnings, l10n.contentCreatorMetricEarnings),
     ];
 
     return Row(
@@ -332,10 +337,11 @@ class _ContentCreatorScreenState extends ConsumerState<ContentCreatorScreen> {
   }
 
   Widget _buildWindowTabs() {
+    final l10n = AppLocalizations.of(context);
     final items = <MapEntry<CreatorLeaderboardWindow, String>>[
-      const MapEntry<CreatorLeaderboardWindow, String>(CreatorLeaderboardWindow.daily, 'Day'),
-      const MapEntry<CreatorLeaderboardWindow, String>(CreatorLeaderboardWindow.weekly, 'Week'),
-      const MapEntry<CreatorLeaderboardWindow, String>(CreatorLeaderboardWindow.monthly, 'Month'),
+      MapEntry<CreatorLeaderboardWindow, String>(CreatorLeaderboardWindow.daily, l10n.contentCreatorWindowDay),
+      MapEntry<CreatorLeaderboardWindow, String>(CreatorLeaderboardWindow.weekly, l10n.contentCreatorWindowWeek),
+      MapEntry<CreatorLeaderboardWindow, String>(CreatorLeaderboardWindow.monthly, l10n.contentCreatorWindowMonth),
     ];
 
     return Container(
@@ -382,6 +388,7 @@ class _ContentCreatorScreenState extends ConsumerState<ContentCreatorScreen> {
   }
 
   Widget _buildPodium(List<CommunityCreator> topThree) {
+    final l10n = AppLocalizations.of(context);
     final podiumCreators = <CommunityCreator?>[
       topThree.length > 1 ? topThree[1] : null,
       topThree.isNotEmpty ? topThree[0] : null,
@@ -448,7 +455,9 @@ class _ContentCreatorScreenState extends ConsumerState<ContentCreatorScreen> {
                       vertical: 10,
                     ),
                   ),
-                  child: Text(creator.isFollowing ? 'Following' : '+ Follow'),
+                  child: Text(
+                    creator.isFollowing ? l10n.following : '+ ${l10n.follow}',
+                  ),
                 ),
                 const SizedBox(height: 16),
                 Container(
@@ -490,14 +499,15 @@ class _ContentCreatorScreenState extends ConsumerState<ContentCreatorScreen> {
   }
 
   String _metricLine(CommunityCreator creator) {
+    final l10n = AppLocalizations.of(context);
     final value = creator.metricValue(_window, _metricTab);
     switch (_metricTab) {
       case CreatorMetricTab.likes:
-        return 'Likes ${formatCompactNumber(value)}';
+        return '${l10n.contentCreatorMetricLikes} ${formatCompactNumber(value)}';
       case CreatorMetricTab.uploads:
-        return 'Uploads ${formatCompactNumber(value)}';
+        return '${l10n.contentCreatorMetricUploads} ${formatCompactNumber(value)}';
       case CreatorMetricTab.earnings:
-        return 'Coins ${formatCompactNumber(value)}';
+        return '${l10n.contentCreatorMetricCoins} ${formatCompactNumber(value)}';
     }
   }
 }

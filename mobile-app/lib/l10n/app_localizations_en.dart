@@ -1204,4 +1204,703 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get iAgreeToThe => 'I agree to the';
+
+  // Dating feature
+  @override
+  String get datingExplore => 'Explore';
+
+  @override
+  String get datingMeet => 'Meet';
+
+  @override
+  String get datingSearchProfiles => 'Search Profiles';
+
+  @override
+  String get datingSearchHint => 'Name, tribe, location...';
+
+  @override
+  String get datingClear => 'Clear';
+
+  @override
+  String get datingEnableLocation => 'Enable location services';
+
+  @override
+  String get datingLocationPermissionDenied =>
+      'Location permission denied. Please enable it in settings.';
+
+  @override
+  String get datingLocationError => 'Could not get location';
+
+  @override
+  String get datingPlanUnlimitedUnlocked => 'Unlimited unlocked';
+
+  @override
+  String get datingPlanVipUnlocked => 'VIP unlocked';
+
+  @override
+  String get datingPlanFreeUnlocked => 'Free plan';
+
+  @override
+  String get datingUpdateLocation => 'Update location';
+
+  @override
+  String get datingSmart => 'Smart';
+
+  @override
+  String get datingNewFace => 'New';
+
+  @override
+  String get datingNoUsersNearby => 'No users found nearby';
+
+  @override
+  String get datingAllowLocationAndTryAgain =>
+      'Please allow location and try again.';
+
+  @override
+  String get datingYou => 'You';
+
+  @override
+  String get datingUnlockMoreProfilesBanner =>
+      'Unlock more profiles with VIP or Unlimited';
+
+  @override
+  String get datingRequestSentCheckChat =>
+      'Request sent. Check your chat for updates.';
+
+  @override
+  String get datingRequestSentViaChat =>
+      'Request sent. They can accept it from chat.';
+
+  @override
+  String get datingRequestAlreadySentCheckChat =>
+      'Request already sent. Please check chat.';
+
+  @override
+  String get datingFriendRequestSent => 'Friend request sent';
+
+  @override
+  String get datingProfileNotFound => 'Profile not found';
+
+  @override
+  String get datingOpenPrivateAlbum => 'Open private album';
+
+  @override
+  String get datingWaitingPermission => 'Waiting for permission';
+
+  @override
+  String get datingRequestUnlock => 'Request to unlock';
+
+  @override
+  String get datingPrivatePhotos => 'Private photos';
+
+  @override
+  String get datingPrivateAlbumPermissionGranted =>
+      'Private album permission granted.';
+
+  @override
+  String get datingPrivateAlbumPending => 'Your request is pending approval.';
+
+  @override
+  String get datingPrivateAlbumRequestPermission =>
+      'Request permission to view private photos.';
+
+  @override
+  String get datingSuperLiked => 'Super liked!';
+
+  @override
+  String get datingLikedWaitingMatch => 'Liked. Waiting for a match!';
+
+  @override
+  String get datingPassed => 'Passed';
+
+  @override
+  String get datingHeight => 'Height';
+
+  @override
+  String get datingWeight => 'Weight';
+
+    @override
+    String get datingBodyType => 'Body type';
+
+  @override
+  String get datingBodyHair => 'Body hair';
+
+  @override
+  String get datingLanguages => 'Languages';
+
+  @override
+  String get datingLivesIn => 'Lives in';
+
+  @override
+  String get datingNationality => 'Nationality';
+
+    @override
+    String get datingEthnicity => 'Ethnicity';
+
+  @override
+  String get datingRelationship => 'Relationship';
+
+  @override
+  String get datingAboutMe => 'About Me';
+
+  @override
+  String get datingLookingFor => 'Looking For';
+
+  @override
+  String get datingInterestedIn => 'Interested In';
+
+  @override
+  String get datingWhereToMeet => 'Where to Meet';
+
+  @override
+  String get datingTribes => 'Tribes';
+
+  @override
+  String get datingSwipeHint => 'Swipe up/down to browse media';
+
+  @override
+  String get datingFilters => 'Filters';
+
+  @override
+  String get datingReset => 'Reset';
+
+  @override
+  String get datingRole => 'Role';
+
+  @override
+  String get datingApplyFilters => 'Apply Filters';
+
+  @override
+  String get datingAge => 'Age';
+
+  @override
+  String get datingNoMatchesYet => 'No matches yet';
+
+  @override
+  String get datingLikeSomeoneBack =>
+      'Like someone and get liked back to create a match!';
+
+  @override
+  String get datingAiSuggestionsActive => 'AI suggestions are active';
+
+  @override
+  String get datingAutoSuggestionsPerDay =>
+      'Auto match suggestions every day';
+
+  @override
+  String get datingUpgradeVipForAiMatch =>
+      'Upgrade to VIP to unlock AI matching';
+
+  @override
+  String get datingAiSuggestions => 'AI Suggestions';
+
+  @override
+  String get datingDailySuggestions => 'Daily Suggestions';
+
+  @override
+  String get datingMutualMatches => 'Mutual Matches';
+
+  @override
+  String get datingAiMatchModeActive => 'AI Match Mode Active';
+
+  @override
+  String get datingAutoMatchMode => 'Auto match mode';
+
+  @override
+  String get datingVipAiScoring => 'VIP AI scoring';
+
+  @override
+  String get datingUpgradeVipAiAccuracy =>
+      'Upgrade to VIP for improved AI match accuracy';
+
+  @override
+  String get datingReject => 'Reject';
+
+  @override
+  String get datingAiScore => 'AI score';
+
+  @override
+  String get datingMutualMatch => 'Mutual Match';
+
+  @override
+  String get datingPhotoUploaded => 'Photo uploaded';
+
+  @override
+  String get datingDeletePhoto => 'Delete photo?';
+
+  @override
+  String get datingRemovePhotoConfirm =>
+      'This will remove this photo from your private album.';
+
+  @override
+  String get datingMyPrivateAlbum => 'My Private Album';
+
+  @override
+  String get datingPrivateAlbum => 'Private Album';
+
+  @override
+  String get datingRequests => 'Requests';
+
+  @override
+  String get datingAccessRequests => 'Access requests';
+
+  @override
+  String get datingNoPendingRequests => 'No pending requests';
+
+  @override
+  String get datingAccepted => 'Accepted';
+
+  @override
+  String get datingDenied => 'Denied';
+
+  @override
+  String get datingWantsToSeePrivateAlbum => 'wants to see your private album';
+
+  @override
+  String get datingNotEnoughCoins =>
+      'Not enough coins. Please recharge first.';
+
+  @override
+  String get datingActivatedSuccessfully => 'Activated successfully!';
+
+  @override
+  String get datingPurchaseFailed => 'Purchase failed';
+
+  @override
+  String get datingUpgradeTitle => 'Upgrade Dating';
+
+  @override
+  String get datingYourFreePreviewReached => 'Your free preview is reached';
+
+  @override
+  String get datingFreeUsersViewFirst =>
+      'Free users can only view the first 20 nearby profiles.';
+
+  @override
+  String get datingCurrentPlanCoins => 'Current plan and coins';
+
+  @override
+  String get datingViewUpToProfiles => 'View up to 20 profiles/day';
+
+  @override
+  String get datingUnlimitedProfileViews => 'Unlimited profile views';
+
+  @override
+  String get datingSeeNearbyProfiles => 'See nearby profiles';
+
+  @override
+  String get datingAiMatchingSuggestions => 'AI matching suggestions';
+
+  @override
+  String get datingPriorityDiscovery => 'Priority discovery';
+
+  @override
+  String get datingUnlimitedNearbyBrowsing => 'Unlimited nearby browsing';
+
+  @override
+  String get datingBestAiQuality => 'Best AI matching quality';
+
+  @override
+  String get datingHighestPriorityVisibility => 'Highest priority visibility';
+
+  @override
+  String get datingAvailableDurations => 'Available durations';
+
+  @override
+  String get datingPurchaseCoins => 'Purchase';
+
+  @override
+  String get datingRechargeCoins => 'Recharge';
+
+  @override
+  String get datingEditProfile => 'Edit Dating Profile';
+
+  @override
+  String get datingPersonalInformation => 'Personal Information';
+
+  @override
+  String get datingExpectations => 'Expectations';
+
+  @override
+  String get datingPrivacySettings => 'Privacy & Settings';
+
+  @override
+  String get datingShowDistance => 'Show Distance';
+
+  @override
+  String get datingShowDistanceSubtitle => 'Let others see how far you are';
+
+  @override
+  String get datingShowOnlineStatus => 'Show Online Status';
+
+  @override
+  String get datingAiMatching => 'AI Matching';
+
+  @override
+  String get datingAiMatchingSubtitle =>
+      'Let AI find the best matches for you (VIP only)';
+
+  @override
+  String get datingSelectDateOfBirth => 'Select Date of Birth';
+
+  @override
+  String get datingDateOfBirth => 'Date of Birth *';
+
+  @override
+  String get datingTapToSelect => 'Tap to select';
+
+  @override
+  String get datingSelectPrefix => 'Select';
+
+  // Profile and chat extras
+  @override
+  String get profileDatingAvatarsMax6 => 'Dating Avatars (max 6)';
+
+  @override
+  String get profileDatingAvatarsHelp =>
+      'First photo is your main avatar. Swipe up in Dating Profile to see the rest.';
+
+  @override
+  String get profileEditDatingProfileSubtitle =>
+      'Manage dating bio, expectations and privacy';
+
+  @override
+  String get profilePrivateAlbumMax9Images => 'Private Album (max 9 images)';
+
+  @override
+  String get profilePrivateAlbumSubtitle =>
+      'Upload and manage private dating photos';
+
+  @override
+  String get profilePleaseLogIn => 'Please log in';
+
+  @override
+  String get profileUsernameRequired => 'Please enter a username';
+
+  @override
+  String get profileUsernameMinLength =>
+      'Username must be at least 3 characters';
+
+  @override
+  String get profileBioMaxLength => 'Bio must be less than 200 characters';
+
+  @override
+  String get profileAccountInformation => 'Account Information';
+
+  @override
+  String get profileAccountId => 'Account ID';
+
+  @override
+  String get profileVerified => 'Verified';
+
+  @override
+  String get profileMemberSince => 'Member Since';
+
+  @override
+  String get profileDangerZone => 'Danger Zone';
+
+  @override
+  String get profileDeleteAccount => 'Delete Account';
+
+  @override
+  String get profileDeleteAccountConfirmMessage =>
+      'Are you sure you want to delete your account? This action cannot be undone and all your data will be permanently deleted.';
+
+  @override
+  String get profileDeleteAccountComingSoon =>
+      'Account deletion coming soon';
+
+  @override
+  String get profileMainAvatar => 'Main';
+
+  @override
+  String get profileYes => 'Yes';
+
+  @override
+  String get profileNo => 'No';
+
+  @override
+  String get profileDatingMaxPhotosReached =>
+      'Maximum reached: 1 main avatar + 5 extra photos';
+
+  @override
+  String get profileDatingAvatarAdded => 'Dating avatar added';
+
+  @override
+  String get profileDatingAvatarDeleteError => 'Error deleting dating avatar';
+
+  @override
+  String get profileProfileUpdateFailed => 'Failed to update profile';
+
+  @override
+  String get profileFirstName => 'First Name';
+
+  @override
+  String get profileLastName => 'Last Name';
+
+  @override
+  String get profileEnterFirstName => 'Enter your first name';
+
+  @override
+  String get profileEnterLastName => 'Enter your last name';
+
+  @override
+  String get profileEnterUsername => 'Enter your username';
+
+  @override
+  String get profileBioHint => 'Tell us about yourself';
+
+  @override
+  String get chatFilterYourTurn => 'YourTurn';
+
+    @override
+    String get chatFilterUnread => 'Unread';
+
+  @override
+  String get chatFilterDistance => 'Distance';
+
+  @override
+  String get chatFilterWithPrivateAlbum => 'With Private Album';
+
+  @override
+  String get chatFilterRole => 'Role';
+
+  @override
+  String get chatFilterGroup => 'Group';
+
+  @override
+  String get chatRefreshChats => 'Refresh chats';
+
+  @override
+  String get chatSearchChats => 'Search chats';
+
+  @override
+  String get chatNoChatsFound => 'No chats found';
+
+  @override
+  String get chatPrivateAlbumRequestText => 'May I check out your private album?';
+
+  @override
+  String get chatPrivateAlbumUnlockedText => 'I have unlocked my privacy album to you';
+
+  @override
+  String get chatAlbumAccessGranted => 'Album access granted!';
+
+  @override
+  String get chatAgree => 'Agree';
+
+  @override
+  String get chatAgreed => 'Agreed';
+
+  @override
+  String get chatViewPrivateAlbum => 'View Private Album';
+
+  @override
+  String get chatRevokeAccess => 'Revoke Access';
+
+  @override
+  String get chatAccessRevoked => 'Access revoked.';
+
+  @override
+  String get chatAccessInvalid => 'Access invalid';
+
+  @override
+  String get chatPrivateAlbumRequestSent => 'Private album request sent.';
+
+  @override
+  String get chatPrivateAlbumRequestAlreadySent => 'Request already sent.';
+
+  @override
+  String get chatPrivateAlbumNoPhotos => 'Private album has no photos yet.';
+
+  @override
+  String get chatRequestSent => 'Request Sent';
+
+  @override
+  String get chatSendRequest => 'Send Request';
+
+  @override
+  String get chatProfileSnapshot => 'Profile Snapshot';
+
+  @override
+  String get chatPersonalProfile => 'Personal Profile';
+
+  @override
+  String get chatMatchedExpectations => 'Matched Expectations';
+
+  @override
+  String get chatNoMatchedExpectations => 'No matched expectations yet.';
+
+  @override
+  String get chatYearsShort => 'yrs';
+
+  @override
+  String get chatCentimetersShort => 'cm';
+
+  @override
+  String get chatKilogramsShort => 'kg';
+
+  @override
+  String get chatInfo => 'Chat Info';
+
+  @override
+  String get chatMuteNotifications => 'Mute Notifications';
+
+  @override
+  String get chatUnmuteNotifications => 'Unmute Notifications';
+
+  @override
+  String get chatRoom => 'Chat Room';
+
+  @override
+  String get chatMembers => 'members';
+
+  @override
+  String get chatOnlineNow => 'Online now';
+
+  @override
+  String get chatDirectMessage => 'Direct message';
+
+  @override
+  String get chatParticipant => 'Participant';
+
+  @override
+  String get chatNoMessagesYet => 'No messages yet';
+
+  @override
+  String get chatStartConversation => 'Start a conversation!';
+
+  @override
+  String get chatAttachmentPhoto => 'Photo';
+
+  @override
+  String get chatAttachmentPhotoSubtitle => 'Send photos from gallery';
+
+  @override
+  String get chatAttachmentCamera => 'Camera';
+
+  @override
+  String get chatAttachmentCameraSubtitle => 'Take a photo';
+
+  @override
+  String get chatAttachmentVideo => 'Video';
+
+  @override
+  String get chatAttachmentVideoSubtitle => 'Send a video';
+
+  @override
+  String get chatAttachmentDocument => 'Document';
+
+  @override
+  String get chatAttachmentDocumentSubtitle => 'Send PDF, DOC, etc.';
+
+  @override
+  String get chatAttachmentAudio => 'Audio';
+
+  @override
+  String get chatAttachmentAudioSubtitle => 'Send audio file';
+
+  @override
+  String get chatUploadingFile => 'Uploading file...';
+
+  @override
+  String get chatFileSentSuccessfully => 'File sent successfully!';
+
+  @override
+  String get chatFailedToUploadFile => 'Failed to upload file';
+
+  @override
+  String get chatUnableToLoadDetails =>
+      'Unable to load chat details right now.';
+
+  @override
+  String get chatNotificationsMuted => 'Notifications muted for this chat.';
+
+  @override
+  String get chatNotificationsUnmuted =>
+      'Notifications unmuted for this chat.';
+
+  @override
+  String get chatUnableToStartCall => 'Unable to start a call right now.';
+
+  @override
+  String get chatGroupCallNotSupported =>
+      'Group voice and video calls are not supported yet.';
+
+  @override
+  String get chatSignInToCall => 'Please sign in again to place a call.';
+
+  @override
+  String get chatUnableToStartCallGeneric => 'Unable to start the call.';
+
+  @override
+  String get chatProfileUnavailable => 'Profile is not available right now.';
+
+  @override
+  String get chatSingleProfileUnavailable =>
+      'This chat does not have a single profile to open.';
+
+  @override
+  String get communityOriginal => 'Original';
+
+  @override
+  String get communityRequest => 'Request';
+
+  @override
+  String get communityHotForums => 'Hot Forums';
+
+  @override
+  String get communityMore => 'More';
+
+  @override
+  String get communityContentCreators => 'Content Creators';
+
+  @override
+  String get communityRecommended => 'Recommended';
+
+  @override
+  String get communityHighlights => 'Highlights';
+
+  @override
+  String get hotForumsMomentumTitle =>
+      'Topics with the fastest community momentum';
+
+  @override
+  String get hotForumsMomentumSubtitle =>
+      'Open a forum to browse current posts, or follow it to keep the topic inside Following.';
+
+  @override
+  String get hotForumsLoadErrorTitle => 'Could not load forums';
+
+  @override
+  String get hotForumsEmptyTitle => 'No hot forums yet';
+
+  @override
+  String get hotForumsEmptySubtitle =>
+      'Once the backend has active topic traffic, it will show here.';
+
+  @override
+  String get contentCreatorMoreAppears =>
+      'More creators will appear here as activity grows.';
+
+  @override
+  String get contentCreatorMetricLikes => 'Likes';
+
+  @override
+  String get contentCreatorMetricUploads => 'Uploads';
+
+  @override
+  String get contentCreatorMetricEarnings => 'Earnings';
+
+  @override
+  String get contentCreatorMetricCoins => 'Coins';
+
+  @override
+  String get contentCreatorWindowDay => 'Day';
+
+  @override
+  String get contentCreatorWindowWeek => 'Week';
+
+  @override
+  String get contentCreatorWindowMonth => 'Month';
 }

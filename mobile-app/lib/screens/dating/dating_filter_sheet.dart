@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../l10n/app_localizations.dart';
 import '../../models/dating_model.dart';
 import '../../core/theme/app_theme.dart';
 import 'dating_screen.dart';
@@ -32,6 +33,7 @@ class _DatingFilterSheetState extends State<DatingFilterSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return DraggableScrollableSheet(
       initialChildSize: 0.85,
@@ -58,9 +60,9 @@ class _DatingFilterSheetState extends State<DatingFilterSheet> {
                 padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
                 child: Row(
                   children: [
-                    const Text(
-                      'Filters',
-                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                    Text(
+                      l10n.datingFilters,
+                      style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                     ),
                     const Spacer(),
                     TextButton(
@@ -70,7 +72,7 @@ class _DatingFilterSheetState extends State<DatingFilterSheet> {
                         _selectedTribes.clear();
                         _selectedLookingFor.clear();
                       }),
-                      child: const Text('Reset'),
+                      child: Text(l10n.datingReset),
                     ),
                   ],
                 ),
@@ -86,7 +88,7 @@ class _DatingFilterSheetState extends State<DatingFilterSheet> {
                       _buildAgeSection(),
                       const SizedBox(height: 24),
                       _buildChipSection(
-                        'Role',
+                        l10n.datingRole,
                         DatingConstants.roles,
                         DatingConstants.roleLabels,
                         _selectedRoles,
@@ -94,7 +96,7 @@ class _DatingFilterSheetState extends State<DatingFilterSheet> {
                       ),
                       const SizedBox(height: 24),
                       _buildChipSection(
-                        'Looking For',
+                        l10n.datingLookingFor,
                         DatingConstants.lookingForOptions,
                         DatingConstants.lookingForLabels,
                         _selectedLookingFor,
@@ -102,7 +104,7 @@ class _DatingFilterSheetState extends State<DatingFilterSheet> {
                       ),
                       const SizedBox(height: 24),
                       _buildChipSection(
-                        'Tribes (max 3)',
+                        '${l10n.datingTribes} (max 3)',
                         DatingConstants.tribes,
                         DatingConstants.tribeLabels,
                         _selectedTribes,
@@ -129,9 +131,9 @@ class _DatingFilterSheetState extends State<DatingFilterSheet> {
                           borderRadius: BorderRadius.circular(14),
                         ),
                       ),
-                      child: const Text(
-                        'Apply Filters',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                      child: Text(
+                        l10n.datingApplyFilters,
+                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
                       ),
                     ),
                   ),
@@ -145,11 +147,12 @@ class _DatingFilterSheetState extends State<DatingFilterSheet> {
   }
 
   Widget _buildAgeSection() {
+    final l10n = AppLocalizations.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Age: ${_ageRange.start.toInt()} – ${_ageRange.end.toInt()}',
+          '${l10n.datingAge}: ${_ageRange.start.toInt()} – ${_ageRange.end.toInt()}',
           style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
         ),
         RangeSlider(

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/services/dating_service.dart';
 import '../../core/services/file_url_service.dart';
+import '../../l10n/app_localizations.dart';
 import '../../models/dating_model.dart';
 import '../../core/theme/app_theme.dart';
 import '../../widgets/common/presigned_image.dart';
@@ -48,14 +49,14 @@ class _DatingMeetScreenState extends ConsumerState<DatingMeetScreen> {
         _hiddenSuggestionUserIds.add(userId);
       });
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Match rejected and hidden.')),
+        SnackBar(content: Text(AppLocalizations.of(context).datingPassed)),
       );
       ref.invalidate(_meetMatchesProvider);
       ref.invalidate(_meetSuggestionsProvider);
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e')),
+        SnackBar(content: Text('${AppLocalizations.of(context).error}: $e')),
       );
     } finally {
       if (mounted) {
@@ -66,13 +67,14 @@ class _DatingMeetScreenState extends ConsumerState<DatingMeetScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final matchesAsync = ref.watch(_meetMatchesProvider);
     final suggestionsAsync = ref.watch(_meetSuggestionsProvider);
     final upgradeAsync = ref.watch(_meetUpgradeStatusProvider);
 
     return matchesAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => Center(child: Text('Error: $e')),
+      error: (e, _) => Center(child: Text('${l10n.error}: $e')),
       data: (matches) {
         final visibleMatches = matches
             .where((item) => !_hiddenMatchUserIds.contains(item.user.userId))
@@ -133,6 +135,7 @@ class _DatingMeetScreenState extends ConsumerState<DatingMeetScreen> {
     DatingSuggestionMeta? meta,
     DatingUpgradeStatus? upgrade,
   ) {
+    final l10n = AppLocalizations.of(context);
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32),
@@ -158,8 +161,8 @@ class _DatingMeetScreenState extends ConsumerState<DatingMeetScreen> {
               ),
             ),
             const SizedBox(height: 24),
-            const Text(
-              'No Matches Yet',
+            Text(
+              l10n.datingNoMatchesYet,
               style: TextStyle(
                 fontSize: 22,
                 fontWeight: FontWeight.bold,
@@ -167,7 +170,7 @@ class _DatingMeetScreenState extends ConsumerState<DatingMeetScreen> {
             ),
             const SizedBox(height: 12),
             Text(
-              'Like someone and when they like you back,\nyou\'ll appear here.',
+              l10n.datingLikeSomeoneBack,
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 14,
@@ -178,8 +181,8 @@ class _DatingMeetScreenState extends ConsumerState<DatingMeetScreen> {
             const SizedBox(height: 24),
             Text(
               meta?.aiEnabled == true
-                  ? '✨ AI suggestions are active: ${meta?.remainingToday ?? 0}/${meta?.maxPerDay ?? 3} left today.'
-                  : '✨ You get 3 auto suggestions per day.\nUpgrade VIP for AI-accuracy matching.',
+                  ? '✨ ${l10n.datingAiSuggestionsActive}: ${meta?.remainingToday ?? 0}/${meta?.maxPerDay ?? 3}'
+                  : '✨ ${l10n.datingAutoSuggestionsPerDay}\n${l10n.datingUpgradeVipForAiMatch}',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 13,
@@ -198,7 +201,7 @@ class _DatingMeetScreenState extends ConsumerState<DatingMeetScreen> {
                     ),
                   );
                 },
-                child: const Text('Upgrade VIP for AI Match'),
+                child: Text(l10n.datingUpgradeVipForAiMatch),
               ),
             ],
           ],
@@ -217,6 +220,7 @@ class _DatingMeetScreenState extends ConsumerState<DatingMeetScreen> {
     DatingUpgradeStatus? upgradeStatus,
     bool suggestionsLoading = false,
   }) {
+    final l10n = AppLocalizations.of(context);
     final children = <Widget>[];
 
     children.add(
@@ -240,8 +244,8 @@ class _DatingMeetScreenState extends ConsumerState<DatingMeetScreen> {
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: Text(
             suggestionsMeta.aiEnabled
-                ? 'AI Suggestions (${suggestionsMeta.remainingToday}/${suggestionsMeta.maxPerDay} left today)'
-                : 'Daily Suggestions (${suggestionsMeta.remainingToday}/${suggestionsMeta.maxPerDay} left today)',
+                ? '${l10n.datingAiSuggestions} (${suggestionsMeta.remainingToday}/${suggestionsMeta.maxPerDay})'
+                : '${l10n.datingDailySuggestions} (${suggestionsMeta.remainingToday}/${suggestionsMeta.maxPerDay})',
             style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
           ),
         ),
@@ -266,11 +270,11 @@ class _DatingMeetScreenState extends ConsumerState<DatingMeetScreen> {
     if (matches.isNotEmpty) {
       children.add(const SizedBox(height: 12));
       children.add(
-        const Padding(
+        Padding(
           padding: EdgeInsets.symmetric(horizontal: 16),
           child: Text(
-            'Mutual Matches',
-            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+            l10n.datingMutualMatches,
+            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
           ),
         ),
       );
@@ -316,6 +320,7 @@ class _SuggestionHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final showUpgradeCta = meta.aiEnabled == false && (upgradeStatus?.tier ?? 'FREE') == 'FREE';
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -336,8 +341,8 @@ class _SuggestionHeader extends StatelessWidget {
           children: [
             Text(
               meta.aiEnabled
-                  ? 'AI Match Mode Active'
-                  : 'Auto Match Mode (3/day)',
+                  ? l10n.datingAiMatchModeActive
+                  : l10n.datingAutoMatchMode,
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w700,
@@ -347,8 +352,8 @@ class _SuggestionHeader extends StatelessWidget {
             const SizedBox(height: 4),
             Text(
               meta.aiEnabled
-                  ? 'Your VIP plan is using AI scoring for more accurate compatibility.'
-                  : 'Upgrade VIP to get AI-powered accuracy for your daily 3 suggestions.',
+                  ? l10n.datingVipAiScoring
+                  : l10n.datingUpgradeVipAiAccuracy,
               style: const TextStyle(fontSize: 12),
             ),
             if (showUpgradeCta) ...[
@@ -366,7 +371,7 @@ class _SuggestionHeader extends StatelessWidget {
                   minimumSize: const Size(0, 42),
                   padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
                 ),
-                child: const Text('Upgrade VIP'),
+                child: Text(l10n.datingUpgradeVipForAiMatch),
               ),
             ],
           ],
@@ -393,6 +398,7 @@ class _SuggestionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final user = suggestion.user;
     final avatarUrl = appendCacheBuster(user.avatarUrl, user.updatedAt);
 
@@ -423,10 +429,10 @@ class _SuggestionCard extends StatelessWidget {
             subtitle: Text(
               [
                 if (user.distanceKm != null)
-                  user.distanceKm == 0 ? '0m away' : '${user.distanceKm}km away',
+                  user.distanceKm == 0 ? '0m' : '${user.distanceKm}km',
                 if (user.age != null) '${user.age} y/o',
                 if (user.role != null) DatingConstants.roleLabels[user.role] ?? user.role!,
-                'AI score ${suggestion.score}%',
+                '${l10n.datingAiScore} ${suggestion.score}%',
               ].join(' · '),
             ),
             trailing: user.isOnline == true
@@ -473,7 +479,7 @@ class _SuggestionCard extends StatelessWidget {
                 OutlinedButton.icon(
                   onPressed: rejecting ? null : onReject,
                   icon: const Icon(Icons.person_off_outlined, size: 16),
-                  label: const Text('Reject'),
+                  label: Text(l10n.datingReject),
                 ),
               ],
             ),
@@ -508,6 +514,7 @@ class _MatchCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final user = match.user;
     final avatarUrl = appendCacheBuster(user.avatarUrl, user.updatedAt);
     return GestureDetector(
@@ -588,7 +595,7 @@ class _MatchCard extends StatelessWidget {
                         Padding(
                           padding: const EdgeInsets.only(top: 2),
                           child: Text(
-                            user.distanceKm == 0 ? '0m away' : '${user.distanceKm}km away',
+                            user.distanceKm == 0 ? '0m' : '${user.distanceKm}km',
                             style: TextStyle(
                               fontSize: 12,
                               color: Colors.grey.shade500,
@@ -617,9 +624,9 @@ class _MatchCard extends StatelessWidget {
                           colors: [Color(0xFF8E44FF), Color(0xFFE91E63)],
                         ),
                       ),
-                      child: const Text(
-                        '❤️ Mutual Match',
-                        style: TextStyle(
+                      child: Text(
+                        '❤️ ${l10n.datingMutualMatch}',
+                        style: const TextStyle(
                           color: Colors.white,
                           fontSize: 11,
                           fontWeight: FontWeight.w600,
@@ -632,7 +639,7 @@ class _MatchCard extends StatelessWidget {
                         OutlinedButton.icon(
                           onPressed: rejecting ? null : onReject,
                           icon: const Icon(Icons.person_off_outlined, size: 16),
-                          label: const Text('Reject'),
+                          label: Text(l10n.datingReject),
                           style: OutlinedButton.styleFrom(
                             foregroundColor: Colors.red[700],
                             side: BorderSide(color: Colors.red[300]!),

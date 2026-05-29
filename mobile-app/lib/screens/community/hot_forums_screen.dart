@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/providers/community_hub_provider.dart';
 import '../../core/theme/app_theme.dart';
+import '../../l10n/app_localizations.dart';
 import '../../models/community_hub_models.dart';
 import '../../widgets/community/community_hub_primitives.dart';
 
@@ -58,6 +59,7 @@ class _HotForumsScreenState extends ConsumerState<HotForumsScreen> {
   }
 
   Future<void> _toggleFollow(CommunityForum forum) async {
+    final l10n = AppLocalizations.of(context);
     try {
       final updatedForum =
           await ref.read(communityHubProvider.notifier).toggleForumFollow(
@@ -78,17 +80,18 @@ class _HotForumsScreenState extends ConsumerState<HotForumsScreen> {
       }
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to update forum follow state: $error')),
+        SnackBar(content: Text('${l10n.error}: $error')),
       );
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Scaffold(
       backgroundColor: const Color(0xFFF4F7FD),
       appBar: AppBar(
-        title: const Text('Hot Forums'),
+        title: Text(l10n.communityHotForums),
       ),
       body: RefreshIndicator(
         onRefresh: _loadForums,
@@ -110,22 +113,22 @@ class _HotForumsScreenState extends ConsumerState<HotForumsScreen> {
                   end: Alignment.bottomRight,
                 ),
               ),
-              child: const Column(
+              child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Topics with the fastest community momentum',
-                    style: TextStyle(
+                    l10n.hotForumsMomentumTitle,
+                    style: const TextStyle(
                       color: Colors.white,
                       fontSize: 26,
                       fontWeight: FontWeight.w800,
                       height: 1.15,
                     ),
                   ),
-                  SizedBox(height: 10),
+                  const SizedBox(height: 10),
                   Text(
-                    'Open a forum to browse current posts, or follow it to keep the topic inside Following.',
-                    style: TextStyle(
+                    l10n.hotForumsMomentumSubtitle,
+                    style: const TextStyle(
                       color: Colors.white70,
                       height: 1.45,
                     ),
@@ -142,16 +145,16 @@ class _HotForumsScreenState extends ConsumerState<HotForumsScreen> {
             else if (_errorMessage != null && _forums.isEmpty)
               _buildMessageCard(
                 icon: Icons.wifi_off_rounded,
-                title: 'Could not load forums',
+                title: l10n.hotForumsLoadErrorTitle,
                 subtitle: _errorMessage!,
-                actionLabel: 'Retry',
+                actionLabel: l10n.retry,
                 onAction: _loadForums,
               )
             else if (_forums.isEmpty)
               _buildMessageCard(
                 icon: Icons.forum_outlined,
-                title: 'No hot forums yet',
-                subtitle: 'Once the backend has active topic traffic, it will show here.',
+                title: l10n.hotForumsEmptyTitle,
+                subtitle: l10n.hotForumsEmptySubtitle,
               )
             else
               ..._forums.map((forum) {
@@ -167,6 +170,7 @@ class _HotForumsScreenState extends ConsumerState<HotForumsScreen> {
   }
 
   Widget _buildForumCard(CommunityForum forum) {
+    final l10n = AppLocalizations.of(context);
     final startColor = _parseHexColor(forum.accentStart, const Color(0xFF4F7DFF));
     final endColor = _parseHexColor(forum.accentEnd, const Color(0xFF5FD4FF));
 
@@ -264,7 +268,9 @@ class _HotForumsScreenState extends ConsumerState<HotForumsScreen> {
                         borderRadius: BorderRadius.circular(16),
                       ),
                     ),
-                    child: Text(forum.isFollowing ? 'Following' : '+ Follow'),
+                    child: Text(
+                      forum.isFollowing ? l10n.following : '+ ${l10n.follow}',
+                    ),
                   ),
                 ],
               ),
@@ -284,11 +290,11 @@ class _HotForumsScreenState extends ConsumerState<HotForumsScreen> {
                 children: [
                   _buildMetricPill(
                     icon: Icons.dynamic_feed_rounded,
-                    label: '${formatCompactNumber(forum.postCount)} posts',
+                    label: '${formatCompactNumber(forum.postCount)} ${l10n.posts}',
                   ),
                   _buildMetricPill(
                     icon: Icons.people_alt_rounded,
-                    label: '${formatCompactNumber(forum.followerCount)} followers',
+                    label: '${formatCompactNumber(forum.followerCount)} ${l10n.followers}',
                   ),
                   if (forum.keywords.isNotEmpty)
                     ...forum.keywords.take(3).map((keyword) {

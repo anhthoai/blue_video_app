@@ -12,6 +12,7 @@ import '../../core/services/chat_service.dart';
 import '../../core/services/auth_service.dart';
 import '../../core/services/dating_service.dart';
 import '../../core/services/file_url_service.dart';
+import '../../l10n/app_localizations.dart';
 import '../../models/chat_message.dart';
 import '../../models/chat_participant.dart';
 import '../../models/chat_room.dart';
@@ -278,6 +279,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   }
 
   Future<void> _handlePrivateAlbumRequest() async {
+    final l10n = AppLocalizations.of(context);
     final room = _getCurrentRoom();
     if (room == null || room.isGroup) return;
     final participant = _getProfileParticipant(room);
@@ -303,7 +305,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       await DatingService().requestPrivateAlbumViaChat(participant.id);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Private album request sent.')),
+        SnackBar(content: Text(l10n.chatPrivateAlbumRequestSent)),
       );
       await _loadDatingProfilesForCard();
     } catch (e) {
@@ -311,11 +313,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       final text = '$e'.toLowerCase();
       if (text.contains('already') || text.contains('pending')) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Request already sent.')),
+          SnackBar(content: Text(l10n.chatPrivateAlbumRequestAlreadySent)),
         );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
+          SnackBar(content: Text('${l10n.error}: $e')),
         );
       }
     } finally {
@@ -377,6 +379,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   }
 
   Widget _buildPrivateAlbumSection(DatingProfile? profile, List<String> fallbackPhotos) {
+    final l10n = AppLocalizations.of(context);
     final status = profile?.privateAlbumAccessStatus;
     final privateImages = profile?.privateAlbumPhotos ?? const <String>[];
     final cover = privateImages.isNotEmpty
@@ -392,7 +395,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             color: Colors.grey.shade200,
             borderRadius: BorderRadius.circular(12),
           ),
-          child: const Text('Private album has no photos yet.'),
+          child: Text(l10n.chatPrivateAlbumNoPhotos),
         );
       }
 
@@ -450,9 +453,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                     color: Colors.black.withValues(alpha: 0.45),
                     borderRadius: BorderRadius.circular(18),
                   ),
-                  child: const Text(
-                    'Request Sent',
-                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+                  child: Text(
+                    l10n.chatRequestSent,
+                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
                   ),
                 ),
               )
@@ -462,7 +465,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                   onPressed: _isLoadingProfileCard || _isSendingAlbumRequest
                       ? null
                       : _handlePrivateAlbumRequest,
-                  child: const Text('Send Request'),
+                  child: Text(l10n.chatSendRequest),
                 ),
               ),
           ],
@@ -472,6 +475,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   }
 
   Widget _buildDirectChatProfileCard(ChatRoom room) {
+    final l10n = AppLocalizations.of(context);
     final participant = _getProfileParticipant(room);
     if (participant == null) return const SizedBox.shrink();
 
@@ -491,7 +495,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Profile Snapshot',
+            l10n.chatProfileSnapshot,
             style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
           ),
           const SizedBox(height: 10),
@@ -520,15 +524,15 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                   Expanded(
                     child: Text(
                       [
-                        if (profile?.age != null) '${profile!.age} yrs',
-                        if (profile?.heightCm != null) '${profile!.heightCm} cm',
-                        if (profile?.weightKg != null) '${profile!.weightKg} kg',
+                        if (profile?.age != null) '${profile!.age} ${l10n.chatYearsShort}',
+                        if (profile?.heightCm != null) '${profile!.heightCm} ${l10n.chatCentimetersShort}',
+                        if (profile?.weightKg != null) '${profile!.weightKg} ${l10n.chatKilogramsShort}',
                       ].join('  •  ').isEmpty
-                          ? 'Personal Profile'
+                          ? l10n.chatPersonalProfile
                           : [
-                              if (profile?.age != null) '${profile!.age} yrs',
-                              if (profile?.heightCm != null) '${profile!.heightCm} cm',
-                              if (profile?.weightKg != null) '${profile!.weightKg} kg',
+                              if (profile?.age != null) '${profile!.age} ${l10n.chatYearsShort}',
+                              if (profile?.heightCm != null) '${profile!.heightCm} ${l10n.chatCentimetersShort}',
+                              if (profile?.weightKg != null) '${profile!.weightKg} ${l10n.chatKilogramsShort}',
                             ].join('  •  '),
                       style: const TextStyle(fontWeight: FontWeight.w600),
                     ),
@@ -540,13 +544,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           ),
           const SizedBox(height: 8),
           Text(
-            'Matched Expectations',
+            l10n.chatMatchedExpectations,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w700),
           ),
           const SizedBox(height: 6),
           if (matches.isEmpty)
             Text(
-              'No matched expectations yet.',
+              l10n.chatNoMatchedExpectations,
               style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
             )
           else
@@ -574,6 +578,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final chatState = ref.watch(chatServiceStateProvider);
     final messages = [
       ...(chatState.messages[widget.chatId] ?? const <ChatMessage>[])
@@ -621,23 +626,23 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             },
             itemBuilder: (context) => [
               if (canViewProfile)
-                const PopupMenuItem(
+                PopupMenuItem(
                   value: 'profile',
                   child: Row(
                     children: [
-                      Icon(Icons.person_outline),
-                      SizedBox(width: 8),
-                      Text('View Profile'),
+                      const Icon(Icons.person_outline),
+                      const SizedBox(width: 8),
+                      Text(l10n.viewProfile),
                     ],
                   ),
                 ),
-              const PopupMenuItem(
+              PopupMenuItem(
                 value: 'info',
                 child: Row(
                   children: [
-                    Icon(Icons.info_outline),
-                    SizedBox(width: 8),
-                    Text('Chat Info'),
+                    const Icon(Icons.info_outline),
+                    const SizedBox(width: 8),
+                    Text(l10n.chatInfo),
                   ],
                 ),
               ),
@@ -652,7 +657,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                     ),
                     const SizedBox(width: 8),
                     Text(
-                      isMuted ? 'Unmute Notifications' : 'Mute Notifications',
+                      isMuted
+                          ? l10n.chatUnmuteNotifications
+                          : l10n.chatMuteNotifications,
                     ),
                   ],
                 ),
@@ -706,6 +713,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   }
 
   Widget _buildAppBarTitle() {
+    final l10n = AppLocalizations.of(context);
     final chatState = ref.watch(chatServiceStateProvider);
     final currentUser = ref.watch(currentUserProvider);
 
@@ -713,18 +721,18 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     final currentRoom = _findCurrentRoom(chatState.rooms);
 
     if (currentRoom == null) {
-      return const Row(
+      return Row(
         children: [
-          CircleAvatar(
+          const CircleAvatar(
             radius: 16,
             backgroundColor: Colors.grey,
             child: Icon(Icons.person, size: 20),
           ),
-          SizedBox(width: 12),
+          const SizedBox(width: 12),
           Expanded(
             child: Text(
-              'Chat Room',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+              l10n.chatRoom,
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
             ),
           ),
         ],
@@ -736,8 +744,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     final otherParticipants = currentRoom.getOtherParticipants(currentUser?.id);
   final hasDistance = _otherDatingProfile?.distanceKm != null;
   final subtitleText = currentRoom.isOnline
-    ? 'Online'
-    : '${currentRoom.participants.length} members';
+    ? l10n.online
+    : '${currentRoom.participants.length} ${l10n.chatMembers}';
   const distanceColor = Color(0xFFFFF59D);
 
     return Row(
@@ -817,28 +825,29 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   }
 
   Widget _buildEmptyState() {
-    return const Center(
+    final l10n = AppLocalizations.of(context);
+    return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
+          const Icon(
             Icons.chat_bubble_outline,
             size: 64,
             color: Colors.grey,
           ),
-          SizedBox(height: 16),
+          const SizedBox(height: 16),
           Text(
-            'No messages yet',
-            style: TextStyle(
+            l10n.chatNoMessagesYet,
+            style: const TextStyle(
               fontSize: 18,
               color: Colors.grey,
               fontWeight: FontWeight.w500,
             ),
           ),
-          SizedBox(height: 8),
+          const SizedBox(height: 8),
           Text(
-            'Start a conversation!',
-            style: TextStyle(
+            l10n.chatStartConversation,
+            style: const TextStyle(
               fontSize: 14,
               color: Colors.grey,
             ),
@@ -849,6 +858,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   }
 
   Widget _buildMessageInput() {
+    final l10n = AppLocalizations.of(context);
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -873,7 +883,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               controller: _messageController,
               onChanged: _onTextChanged,
               decoration: InputDecoration(
-                hintText: 'Type a message...',
+                hintText: '${l10n.typeMessage}...',
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(24),
                   borderSide: BorderSide.none,
@@ -904,6 +914,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   }
 
   void _showAttachmentOptions() {
+    final l10n = AppLocalizations.of(context);
     showModalBottomSheet(
       context: context,
       builder: (context) => Container(
@@ -913,8 +924,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           children: [
             ListTile(
               leading: const Icon(Icons.photo, color: Colors.blue),
-              title: const Text('Photo'),
-              subtitle: const Text('Send photos from gallery'),
+              title: Text(l10n.chatAttachmentPhoto),
+              subtitle: Text(l10n.chatAttachmentPhotoSubtitle),
               onTap: () {
                 Navigator.pop(context);
                 _pickImage(ImageSource.gallery);
@@ -922,8 +933,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             ),
             ListTile(
               leading: const Icon(Icons.camera_alt, color: Colors.green),
-              title: const Text('Camera'),
-              subtitle: const Text('Take a photo'),
+              title: Text(l10n.chatAttachmentCamera),
+              subtitle: Text(l10n.chatAttachmentCameraSubtitle),
               onTap: () {
                 Navigator.pop(context);
                 _pickImage(ImageSource.camera);
@@ -931,8 +942,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             ),
             ListTile(
               leading: const Icon(Icons.videocam, color: Colors.red),
-              title: const Text('Video'),
-              subtitle: const Text('Send a video'),
+              title: Text(l10n.chatAttachmentVideo),
+              subtitle: Text(l10n.chatAttachmentVideoSubtitle),
               onTap: () {
                 Navigator.pop(context);
                 _pickVideo();
@@ -941,8 +952,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             ListTile(
               leading:
                   const Icon(Icons.insert_drive_file, color: Colors.orange),
-              title: const Text('Document'),
-              subtitle: const Text('Send PDF, DOC, etc.'),
+                title: Text(l10n.chatAttachmentDocument),
+                subtitle: Text(l10n.chatAttachmentDocumentSubtitle),
               onTap: () {
                 Navigator.pop(context);
                 _pickDocument();
@@ -950,8 +961,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             ),
             ListTile(
               leading: const Icon(Icons.audiotrack, color: Colors.purple),
-              title: const Text('Audio'),
-              subtitle: const Text('Send audio file'),
+              title: Text(l10n.chatAttachmentAudio),
+              subtitle: Text(l10n.chatAttachmentAudioSubtitle),
               onTap: () {
                 Navigator.pop(context);
                 _pickAudio();
@@ -964,6 +975,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   }
 
   Future<void> _pickImage(ImageSource source) async {
+    final l10n = AppLocalizations.of(context);
     try {
       final picker = ImagePicker();
       final XFile? image = await picker.pickImage(
@@ -979,13 +991,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error picking image: $e')),
+          SnackBar(content: Text('${l10n.error}: $e')),
         );
       }
     }
   }
 
   Future<void> _pickVideo() async {
+    final l10n = AppLocalizations.of(context);
     try {
       final picker = ImagePicker();
       final XFile? video = await picker.pickVideo(
@@ -999,13 +1012,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error picking video: $e')),
+          SnackBar(content: Text('${l10n.error}: $e')),
         );
       }
     }
   }
 
   Future<void> _pickDocument() async {
+    final l10n = AppLocalizations.of(context);
     try {
       FilePickerResult? result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
@@ -1027,13 +1041,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error picking document: $e')),
+          SnackBar(content: Text('${l10n.error}: $e')),
         );
       }
     }
   }
 
   Future<void> _pickAudio() async {
+    final l10n = AppLocalizations.of(context);
     try {
       FilePickerResult? result = await FilePicker.platform.pickFiles(
         type: FileType.audio,
@@ -1045,26 +1060,27 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error picking audio: $e')),
+          SnackBar(content: Text('${l10n.error}: $e')),
         );
       }
     }
   }
 
   Future<void> _uploadAndSendFile(File file, String messageType) async {
+    final l10n = AppLocalizations.of(context);
     try {
       // Show loading indicator
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
+          SnackBar(
             content: Row(
               children: [
-                CircularProgressIndicator(),
-                SizedBox(width: 16),
-                Text('Uploading file...'),
+                const CircularProgressIndicator(),
+                const SizedBox(width: 16),
+                Text(l10n.chatUploadingFile),
               ],
             ),
-            duration: Duration(minutes: 1),
+            duration: const Duration(minutes: 1),
           ),
         );
       }
@@ -1095,14 +1111,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         if (mounted) {
           ScaffoldMessenger.of(context).hideCurrentSnackBar();
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('File sent successfully!')),
+            SnackBar(content: Text(l10n.chatFileSentSuccessfully)),
           );
         }
       } else {
         if (mounted) {
           ScaffoldMessenger.of(context).hideCurrentSnackBar();
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Failed to upload file')),
+            SnackBar(content: Text(l10n.chatFailedToUploadFile)),
           );
         }
       }
@@ -1110,13 +1126,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).hideCurrentSnackBar();
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error uploading file: $e')),
+          SnackBar(content: Text('${l10n.errorUploadingFile}: $e')),
         );
       }
     }
   }
 
   void _showMessageOptions(ChatMessage message) {
+    final l10n = AppLocalizations.of(context);
     showModalBottomSheet(
       context: context,
       builder: (context) => Container(
@@ -1126,7 +1143,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           children: [
             ListTile(
               leading: const Icon(Icons.reply),
-              title: const Text('Reply'),
+              title: Text(l10n.reply),
               onTap: () {
                 Navigator.pop(context);
                 // Handle reply
@@ -1134,7 +1151,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             ),
             ListTile(
               leading: const Icon(Icons.copy),
-              title: const Text('Copy'),
+              title: Text(l10n.copy),
               onTap: () {
                 Navigator.pop(context);
                 // Handle copy
@@ -1142,7 +1159,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             ),
             ListTile(
               leading: const Icon(Icons.edit),
-              title: const Text('Edit'),
+              title: Text(l10n.edit),
               onTap: () {
                 Navigator.pop(context);
                 // Handle edit
@@ -1150,7 +1167,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             ),
             ListTile(
               leading: const Icon(Icons.delete),
-              title: const Text('Delete'),
+              title: Text(l10n.delete),
               onTap: () {
                 Navigator.pop(context);
                 // Handle delete
@@ -1171,12 +1188,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   }
 
   void _showChatInfo() {
+    final l10n = AppLocalizations.of(context);
     final currentRoom = _getCurrentRoom();
     final currentUser = ref.read(currentUserProvider);
 
     if (currentRoom == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Unable to load chat details right now.')),
+        SnackBar(content: Text(l10n.chatUnableToLoadDetails)),
       );
       return;
     }
@@ -1236,10 +1254,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                         const SizedBox(height: 4),
                         Text(
                           currentRoom.isGroup
-                              ? '${currentRoom.participantCount} members'
+                              ? '${currentRoom.participantCount} ${l10n.chatMembers}'
                               : currentRoom.isOnline
-                                  ? 'Online now'
-                                  : 'Direct message',
+                                ? l10n.chatOnlineNow
+                                : l10n.chatDirectMessage,
                           style: Theme.of(context).textTheme.bodySmall,
                         ),
                       ],
@@ -1252,7 +1270,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                 ListTile(
                   contentPadding: EdgeInsets.zero,
                   leading: const Icon(Icons.person_outline),
-                  title: const Text('View Profile'),
+                  title: Text(l10n.viewProfile),
                   onTap: () {
                     Navigator.pop(context);
                     _openParticipantProfile();
@@ -1266,7 +1284,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                       : Icons.notifications_off_outlined,
                 ),
                 title: Text(
-                  roomMuted ? 'Unmute notifications' : 'Mute notifications',
+                  roomMuted
+                      ? l10n.chatUnmuteNotifications
+                      : l10n.chatMuteNotifications,
                 ),
                 onTap: () {
                   Navigator.pop(context);
@@ -1276,7 +1296,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               if (participants.isNotEmpty) ...[
                 const SizedBox(height: 8),
                 Text(
-                  currentRoom.isGroup ? 'Members' : 'Participant',
+                  currentRoom.isGroup ? l10n.chatMembers : l10n.chatParticipant,
                   style: Theme.of(context)
                       .textTheme
                       .titleSmall
@@ -1316,6 +1336,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   }
 
   void _toggleMute() {
+    final l10n = AppLocalizations.of(context);
     final currentRoom = _getCurrentRoom();
     final nextValue = !_isRoomMuted(currentRoom);
 
@@ -1327,37 +1348,36 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       SnackBar(
         content: Text(
           nextValue
-              ? 'Notifications muted for this chat.'
-              : 'Notifications unmuted for this chat.',
+              ? l10n.chatNotificationsMuted
+              : l10n.chatNotificationsUnmuted,
         ),
       ),
     );
   }
 
   Future<void> _openCall({required bool isVideoCall}) async {
+    final l10n = AppLocalizations.of(context);
     final currentRoom = _getCurrentRoom();
     final currentUser = ref.read(currentUserProvider);
     final callController = ref.read(chatCallControllerProvider.notifier);
 
     if (currentRoom == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Unable to start a call right now.')),
+        SnackBar(content: Text(l10n.chatUnableToStartCall)),
       );
       return;
     }
 
     if (currentRoom.isGroup) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Group voice and video calls are not supported yet.'),
-        ),
+        SnackBar(content: Text(l10n.chatGroupCallNotSupported)),
       );
       return;
     }
 
     if (currentUser == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please sign in again to place a call.')),
+        SnackBar(content: Text(l10n.chatSignInToCall)),
       );
       return;
     }
@@ -1373,7 +1393,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         return;
       }
       final errorMessage = ref.read(chatCallControllerProvider).errorMessage ??
-          'Unable to start the call.';
+          l10n.chatUnableToStartCallGeneric;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(errorMessage)),
       );
@@ -1400,11 +1420,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   }
 
   void _openParticipantProfile() {
+    final l10n = AppLocalizations.of(context);
     final currentRoom = _getCurrentRoom();
 
     if (currentRoom == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Profile is not available right now.')),
+        SnackBar(content: Text(l10n.chatProfileUnavailable)),
       );
       return;
     }
@@ -1412,8 +1433,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     final participant = _getProfileParticipant(currentRoom);
     if (participant == null || participant.id.isEmpty || currentRoom.isGroup) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content: Text('This chat does not have a single profile to open.')),
+        SnackBar(content: Text(l10n.chatSingleProfileUnavailable)),
       );
       return;
     }

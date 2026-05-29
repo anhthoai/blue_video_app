@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../core/services/dating_service.dart';
+import '../../l10n/app_localizations.dart';
 import '../../models/dating_model.dart';
 import '../../core/theme/app_theme.dart';
 import '../../widgets/common/presigned_image.dart';
@@ -55,13 +56,13 @@ class _PrivateAlbumScreenState extends ConsumerState<PrivateAlbumScreen> {
       if (mounted) {
         ref.invalidate(_albumProvider(widget.targetUserId));
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Photo uploaded!')),
+          SnackBar(content: Text(AppLocalizations.of(context).datingPhotoUploaded)),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Error: $e')));
+            .showSnackBar(SnackBar(content: Text('${AppLocalizations.of(context).error}: $e')));
       }
     }
   }
@@ -70,17 +71,17 @@ class _PrivateAlbumScreenState extends ConsumerState<PrivateAlbumScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Delete Photo'),
-        content: const Text('Remove this photo from your private album?'),
+        title: Text(AppLocalizations.of(context).datingDeletePhoto),
+        content: Text(AppLocalizations.of(context).datingRemovePhotoConfirm),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
+            child: Text(AppLocalizations.of(context).cancel),
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
             child:
-                const Text('Delete', style: TextStyle(color: Colors.red)),
+                Text(AppLocalizations.of(context).delete, style: const TextStyle(color: Colors.red)),
           ),
         ],
       ),
@@ -93,30 +94,31 @@ class _PrivateAlbumScreenState extends ConsumerState<PrivateAlbumScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Error: $e')));
+            .showSnackBar(SnackBar(content: Text('${AppLocalizations.of(context).error}: $e')));
       }
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final profileAsync = ref.watch(_albumProvider(widget.targetUserId));
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(_isOwner ? 'My Private Album' : 'Private Album'),
+        title: Text(_isOwner ? l10n.datingMyPrivateAlbum : l10n.datingPrivateAlbum),
         actions: [
           if (_isOwner)
             TextButton.icon(
               onPressed: () => _showAccessRequests(context),
               icon: const Icon(Icons.notifications_outlined),
-              label: const Text('Requests'),
+              label: Text(l10n.datingRequests),
             ),
         ],
       ),
       body: profileAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('Error: $e')),
+        error: (e, _) => Center(child: Text('${l10n.error}: $e')),
         data: (profile) {
           final photos = profile?.privateAlbumPhotos ?? [];
           return _buildGrid(context, photos);
@@ -319,18 +321,19 @@ class _AccessRequestsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context);
     final requestsAsync = FutureProvider.autoDispose(
       (_) => DatingService().getPrivateAlbumAccessRequests(type: 'received'),
     );
     final data = ref.watch(requestsAsync);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Access Requests')),
+      appBar: AppBar(title: Text(l10n.datingAccessRequests)),
       body: data.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('Error: $e')),
+        error: (e, _) => Center(child: Text('${l10n.error}: $e')),
         data: (requests) => requests.isEmpty
-            ? const Center(child: Text('No pending requests'))
+            ? Center(child: Text(l10n.datingNoPendingRequests))
             : ListView.separated(
                 padding: const EdgeInsets.all(16),
                 itemCount: requests.length,
@@ -353,14 +356,14 @@ class _RequestTile extends StatelessWidget {
       await DatingService().respondPrivateAlbumAccess(request.id, status);
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(status == 'ACCEPTED' ? 'Accepted!' : 'Denied')),
+          SnackBar(content: Text(status == 'ACCEPTED' ? AppLocalizations.of(context).datingAccepted : AppLocalizations.of(context).datingDenied)),
         );
         Navigator.pop(context);
       }
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Error: $e')));
+            .showSnackBar(SnackBar(content: Text('${AppLocalizations.of(context).error}: $e')));
       }
     }
   }
@@ -379,7 +382,7 @@ class _RequestTile extends StatelessWidget {
       title: Text(
         (request.requester?['firstName'] ?? request.requester?['username'] ?? 'User') as String,
       ),
-      subtitle: const Text('Wants to see your private album'),
+      subtitle: Text(AppLocalizations.of(context).datingWantsToSeePrivateAlbum),
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [

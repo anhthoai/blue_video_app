@@ -215,10 +215,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             fontSize: 16,
             fontWeight: FontWeight.w600,
           ),
-          tabs: const [
-            Tab(text: 'Explore'),
-            Tab(text: 'Following'),
-            Tab(text: 'For You'),
+          tabs: [
+            Tab(text: l10n.discover),
+            Tab(text: l10n.following),
+            Tab(text: l10n.forYou),
           ],
         ),
         actions: [

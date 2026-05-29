@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../l10n/app_localizations.dart';
 import '../../models/chat_room.dart';
 import '../common/presigned_image.dart';
 
@@ -49,7 +50,7 @@ class ChatRoomTile extends StatelessWidget {
         children: [
           Expanded(
             child: Text(
-              room.lastMessagePreview,
+              _localizedLastMessagePreview(context),
               style: TextStyle(
                 color:
                     room.hasUnreadMessages ? Colors.black87 : Colors.grey[600],
@@ -87,6 +88,29 @@ class ChatRoomTile extends StatelessWidget {
             )
           : null,
     );
+  }
+
+  String _localizedLastMessagePreview(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final message = room.lastMessage;
+    final metaType = message?.metadata?['type'] as String?;
+
+    if (metaType == 'private_album_request') {
+      return l10n.chatPrivateAlbumRequestText;
+    }
+    if (metaType == 'private_album_response') {
+      return l10n.chatPrivateAlbumUnlockedText;
+    }
+
+    final preview = room.lastMessagePreview;
+    final normalized = preview.trim().toLowerCase();
+    if (normalized == 'may i check out your private album?') {
+      return l10n.chatPrivateAlbumRequestText;
+    }
+    if (normalized == 'i have unlocked my privacy album to you') {
+      return l10n.chatPrivateAlbumUnlockedText;
+    }
+    return preview;
   }
 
   Widget _buildAvatar(BuildContext context) {

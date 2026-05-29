@@ -178,23 +178,24 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
   }
 
   String _filterLabel(_ChatListFilter filter) {
+    final l10n = AppLocalizations.of(context);
     switch (filter) {
       case _ChatListFilter.all:
-        return 'All';
+        return l10n.all;
       case _ChatListFilter.unread:
-        return 'Unread';
+        return l10n.chatFilterUnread;
       case _ChatListFilter.online:
-        return 'Online';
+        return l10n.online;
       case _ChatListFilter.yourTurn:
-        return 'YourTurn';
+        return l10n.chatFilterYourTurn;
       case _ChatListFilter.distance:
-        return 'Distance';
+        return l10n.chatFilterDistance;
       case _ChatListFilter.withPrivateAlbum:
-        return 'With Private Album';
+        return l10n.chatFilterWithPrivateAlbum;
       case _ChatListFilter.role:
-        return 'Role';
+        return l10n.chatFilterRole;
       case _ChatListFilter.group:
-        return 'Group';
+        return l10n.chatFilterGroup;
     }
   }
 
@@ -277,6 +278,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
   }
 
   Future<void> _showChatSearch() async {
+    final l10n = AppLocalizations.of(context);
     final chatState = ref.read(chatServiceStateProvider);
     final currentUserId = ref.read(currentUserProvider)?.id;
 
@@ -285,6 +287,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
       delegate: _ChatRoomSearchDelegate(
         rooms: chatState.rooms,
         currentUserId: currentUserId,
+        searchFieldLabel: l10n.chatSearchChats,
       ),
     );
 
@@ -637,7 +640,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
               ),
               ListTile(
                 leading: const Icon(Icons.refresh),
-                title: const Text('Refresh chats'),
+                title: Text(dialogL10n.chatRefreshChats),
                 onTap: () {
                   Navigator.pop(context);
                   _loadChatRooms();
@@ -773,7 +776,8 @@ class _ChatRoomSearchDelegate extends SearchDelegate<ChatRoom?> {
   _ChatRoomSearchDelegate({
     required this.rooms,
     required this.currentUserId,
-  }) : super(searchFieldLabel: 'Search chats');
+    required String searchFieldLabel,
+  }) : super(searchFieldLabel: searchFieldLabel);
 
   final List<ChatRoom> rooms;
   final String? currentUserId;
@@ -831,11 +835,12 @@ class _ChatRoomSearchDelegate extends SearchDelegate<ChatRoom?> {
   }
 
   Widget _buildRoomList(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final filteredRooms = _filterRooms();
 
     if (filteredRooms.isEmpty) {
       return Center(
-        child: Text(query.trim().isEmpty ? 'Search chats' : 'No chats found'),
+        child: Text(query.trim().isEmpty ? l10n.chatSearchChats : l10n.chatNoChatsFound),
       );
     }
 

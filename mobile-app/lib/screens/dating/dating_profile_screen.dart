@@ -6,6 +6,7 @@ import '../../core/services/api_service.dart';
 import '../../core/services/chat_service.dart';
 import '../../core/services/dating_service.dart';
 import '../../core/theme/app_theme.dart';
+import '../../l10n/app_localizations.dart';
 import '../../models/dating_model.dart';
 import '../../widgets/common/presigned_image.dart';
 import 'private_album_screen.dart';
@@ -66,13 +67,14 @@ class _DatingProfileScreenState extends ConsumerState<DatingProfileScreen> {
   }
 
   String _privateAlbumButtonText(String? status) {
+    final l10n = AppLocalizations.of(context);
     if (status == 'ACCEPTED') {
-      return 'Open His Private Album';
+      return l10n.datingOpenPrivateAlbum;
     }
     if (status == 'PENDING') {
-      return 'Waiting for Permission';
+      return l10n.datingWaitingPermission;
     }
-    return 'Request Unlock';
+    return l10n.datingRequestUnlock;
   }
 
   Future<void> _handlePrivateAlbumAction(DatingProfile profile) async {
@@ -94,7 +96,7 @@ class _DatingProfileScreenState extends ConsumerState<DatingProfileScreen> {
     if (status == 'PENDING') {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Request sent. Check your chat for updates.')),
+        SnackBar(content: Text(AppLocalizations.of(context).datingRequestSentCheckChat)),
       );
       return;
     }
@@ -105,7 +107,7 @@ class _DatingProfileScreenState extends ConsumerState<DatingProfileScreen> {
       if (!mounted) return;
       final chatRoomId = result['chatRoomId'] as String?;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Request sent via chat.')),
+        SnackBar(content: Text(AppLocalizations.of(context).datingRequestSentViaChat)),
       );
       ref.invalidate(_profileProvider(widget.userId));
       if (chatRoomId != null) {
@@ -117,13 +119,13 @@ class _DatingProfileScreenState extends ConsumerState<DatingProfileScreen> {
       if (message.toLowerCase().contains('already') ||
           message.toLowerCase().contains('pending')) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Request already sent. Check your chat.')),
+          SnackBar(content: Text(AppLocalizations.of(context).datingRequestAlreadySentCheckChat)),
         );
         ref.invalidate(_profileProvider(widget.userId));
         return;
       }
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e')),
+        SnackBar(content: Text('${AppLocalizations.of(context).error}: $e')),
       );
     }
   }
@@ -140,7 +142,7 @@ class _DatingProfileScreenState extends ConsumerState<DatingProfileScreen> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e')),
+        SnackBar(content: Text('${AppLocalizations.of(context).error}: $e')),
       );
     }
   }
@@ -159,7 +161,7 @@ class _DatingProfileScreenState extends ConsumerState<DatingProfileScreen> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e')),
+        SnackBar(content: Text('${AppLocalizations.of(context).error}: $e')),
       );
     } finally {
       if (mounted) setState(() => _processingBottomAction = false);
@@ -173,12 +175,12 @@ class _DatingProfileScreenState extends ConsumerState<DatingProfileScreen> {
       await ApiService().followUser(widget.userId);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Friend request sent')),
+        SnackBar(content: Text(AppLocalizations.of(context).datingFriendRequestSent)),
       );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e')),
+        SnackBar(content: Text('${AppLocalizations.of(context).error}: $e')),
       );
     } finally {
       if (mounted) setState(() => _processingBottomAction = false);
@@ -236,6 +238,7 @@ class _DatingProfileScreenState extends ConsumerState<DatingProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final profileAsync = ref.watch(_profileProvider(widget.userId));
 
     return Scaffold(
@@ -245,9 +248,9 @@ class _DatingProfileScreenState extends ConsumerState<DatingProfileScreen> {
         onHorizontalDragEnd: _handleProfileSwipeEnd,
         child: profileAsync.when(
           loading: () => const Center(child: CircularProgressIndicator()),
-          error: (e, _) => Center(child: Text('Error: $e')),
+          error: (e, _) => Center(child: Text('${l10n.error}: $e')),
           data: (profile) => profile == null
-              ? const Center(child: Text('Profile not found'))
+              ? Center(child: Text(l10n.datingProfileNotFound))
               : _buildProfile(context, profile),
         ),
       ),
@@ -267,7 +270,7 @@ class _DatingProfileScreenState extends ConsumerState<DatingProfileScreen> {
                 child: OutlinedButton.icon(
                   onPressed: _processingBottomAction ? null : _startMessage,
                   icon: const Icon(Icons.message_outlined),
-                  label: const Text('Message'),
+                  label: Text(l10n.messages),
                 ),
               ),
               const SizedBox(width: 8),
@@ -370,7 +373,7 @@ class _DatingProfileScreenState extends ConsumerState<DatingProfileScreen> {
               if (profile.age != null) '${profile.age}',
             ].join(', '),
             distanceText: profile.distanceKm != null
-              ? (profile.distanceKm == 0 ? '0m away' : '${profile.distanceKm} km away')
+              ? (profile.distanceKm == 0 ? '0m' : '${profile.distanceKm} km')
               : null,
             onTapPhoto: (index) => _openPhotoGallery(photos, index),
           ),
@@ -420,6 +423,7 @@ class _DatingProfileScreenState extends ConsumerState<DatingProfileScreen> {
   }
 
   Widget _buildPrivateAlbumMediaCard(DatingProfile profile) {
+    final l10n = AppLocalizations.of(context);
     final status = profile.privateAlbumAccessStatus;
     final buttonText = _privateAlbumButtonText(status);
 
@@ -448,7 +452,7 @@ class _DatingProfileScreenState extends ConsumerState<DatingProfileScreen> {
                 const Icon(Icons.lock, color: Colors.white, size: 38),
                 const SizedBox(height: 10),
                 Text(
-                  'Private Photos: ${profile.privateAlbumPhotoCount}',
+                  '${l10n.datingPrivatePhotos}: ${profile.privateAlbumPhotoCount}',
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 18,
@@ -458,10 +462,10 @@ class _DatingProfileScreenState extends ConsumerState<DatingProfileScreen> {
                 const SizedBox(height: 8),
                 Text(
                   status == 'ACCEPTED'
-                      ? 'You have permission to view private album.'
+                    ? l10n.datingPrivateAlbumPermissionGranted
                       : status == 'PENDING'
-                          ? 'Access request was sent and is waiting approval.'
-                          : 'Request permission to unlock private album.',
+                      ? l10n.datingPrivateAlbumPending
+                      : l10n.datingPrivateAlbumRequestPermission,
                   textAlign: TextAlign.center,
                   style: const TextStyle(color: Colors.white70, fontSize: 13),
                 ),
@@ -499,6 +503,7 @@ class _DatingProfileScreenState extends ConsumerState<DatingProfileScreen> {
   }
 
   Widget _buildActionResult() {
+    final l10n = AppLocalizations.of(context);
     final isLike = _lastAction == 'LIKE' || _lastAction == 'SUPERLIKE';
     return Container(
       width: double.infinity,
@@ -509,8 +514,8 @@ class _DatingProfileScreenState extends ConsumerState<DatingProfileScreen> {
       ),
       child: Text(
         isLike
-            ? (_lastAction == 'SUPERLIKE' ? 'Super liked' : 'Liked. Waiting for match...')
-            : 'Passed',
+            ? (_lastAction == 'SUPERLIKE' ? l10n.datingSuperLiked : l10n.datingLikedWaitingMatch)
+            : l10n.datingPassed,
         textAlign: TextAlign.center,
         style: TextStyle(
           fontSize: 16,
@@ -522,32 +527,33 @@ class _DatingProfileScreenState extends ConsumerState<DatingProfileScreen> {
   }
 
   Widget _buildPersonalInfo(DatingProfile profile) {
+    final l10n = AppLocalizations.of(context);
     final rows = <_InfoRow>[];
 
     if (profile.heightCm != null) {
-      rows.add(_InfoRow(label: 'Height', value: '${profile.heightCm} cm'));
+      rows.add(_InfoRow(label: l10n.datingHeight, value: '${profile.heightCm} cm'));
     }
     if (profile.weightKg != null) {
-      rows.add(_InfoRow(label: 'Weight', value: '${profile.weightKg} kg'));
+      rows.add(_InfoRow(label: l10n.datingWeight, value: '${profile.weightKg} kg'));
     }
     if (profile.bodyHair != null) {
       rows.add(_InfoRow(
-        label: 'Body Hair',
+        label: l10n.datingBodyHair,
         value: DatingConstants.bodyHairLabels[profile.bodyHair] ?? profile.bodyHair!,
       ));
     }
     if (profile.languages.isNotEmpty) {
-      rows.add(_InfoRow(label: 'Languages', value: profile.languages.join(', ')));
+      rows.add(_InfoRow(label: l10n.datingLanguages, value: profile.languages.join(', ')));
     }
     if (profile.whereILive != null) {
-      rows.add(_InfoRow(label: 'Lives In', value: profile.whereILive!));
+      rows.add(_InfoRow(label: l10n.datingLivesIn, value: profile.whereILive!));
     }
     if (profile.nationality != null) {
-      rows.add(_InfoRow(label: 'Nationality', value: profile.nationality!));
+      rows.add(_InfoRow(label: l10n.datingNationality, value: profile.nationality!));
     }
     if (profile.relationshipStatus != null) {
       rows.add(_InfoRow(
-        label: 'Relationship',
+        label: l10n.datingRelationship,
         value: DatingConstants.relationshipStatusLabels[profile.relationshipStatus] ??
             profile.relationshipStatus!,
       ));
@@ -556,7 +562,7 @@ class _DatingProfileScreenState extends ConsumerState<DatingProfileScreen> {
     if (rows.isEmpty) return const SizedBox.shrink();
 
     return _Section(
-      title: 'About Me',
+      title: l10n.datingAboutMe,
       child: Column(
         children: rows.map((r) => _InfoRowWidget(row: r)).toList(),
       ),
@@ -574,6 +580,7 @@ class _DatingProfileScreenState extends ConsumerState<DatingProfileScreen> {
   }
 
   Widget _buildExpectations(DatingProfile profile) {
+    final l10n = AppLocalizations.of(context);
     final hasData = profile.lookingFor.isNotEmpty ||
         profile.whereToMeet.isNotEmpty ||
         profile.preferredTribes.isNotEmpty;
@@ -581,25 +588,25 @@ class _DatingProfileScreenState extends ConsumerState<DatingProfileScreen> {
     if (!hasData) return const SizedBox.shrink();
 
     return _Section(
-      title: 'Looking For',
+      title: l10n.datingLookingFor,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (profile.lookingFor.isNotEmpty)
             _ChipGroup(
-              label: 'Interested In',
+              label: l10n.datingInterestedIn,
               values: profile.lookingFor,
               labelMap: DatingConstants.lookingForLabels,
             ),
           if (profile.whereToMeet.isNotEmpty)
             _ChipGroup(
-              label: 'Where To Meet',
+              label: l10n.datingWhereToMeet,
               values: profile.whereToMeet,
               labelMap: DatingConstants.whereToMeetLabels,
             ),
           if (profile.preferredTribes.isNotEmpty)
             _ChipGroup(
-              label: 'Tribes',
+              label: l10n.datingTribes,
               values: profile.preferredTribes,
               labelMap: DatingConstants.tribeLabels,
             ),
@@ -659,6 +666,7 @@ class _SwipeMediaArea extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       // Absorb vertical drags in this area and manually drive the PageView
@@ -792,11 +800,11 @@ class _SwipeMediaArea extends StatelessWidget {
                       ),
                   ],
                   if (totalPages > 1)
-                    const Padding(
+                    Padding(
                       padding: EdgeInsets.only(top: 6),
                       child: Text(
-                        'Swipe up/down to browse photos and private album',
-                        style: TextStyle(color: Colors.white70, fontSize: 12),
+                        l10n.datingSwipeHint,
+                        style: const TextStyle(color: Colors.white70, fontSize: 12),
                       ),
                     ),
                 ],

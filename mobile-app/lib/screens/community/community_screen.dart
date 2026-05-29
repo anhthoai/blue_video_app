@@ -229,20 +229,26 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
   }
 
   Widget _buildPrimaryTabs() {
+    final l10n = AppLocalizations.of(context);
     return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceAround,
       children: [
-        _buildPrimaryTabButton(
-          label: 'Following',
-          tab: _CommunityTopTab.following,
+        Expanded(
+          child: _buildPrimaryTabButton(
+            label: l10n.following,
+            tab: _CommunityTopTab.following,
+          ),
         ),
-        _buildPrimaryTabButton(
-          label: 'Original',
-          tab: _CommunityTopTab.original,
+        Expanded(
+          child: _buildPrimaryTabButton(
+            label: l10n.communityOriginal,
+            tab: _CommunityTopTab.original,
+          ),
         ),
-        _buildPrimaryTabButton(
-          label: 'Request',
-          tab: _CommunityTopTab.request,
+        Expanded(
+          child: _buildPrimaryTabButton(
+            label: l10n.communityRequest,
+            tab: _CommunityTopTab.request,
+          ),
         ),
       ],
     );
@@ -262,14 +268,17 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
       },
       borderRadius: BorderRadius.circular(12),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
               label,
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               style: TextStyle(
-                fontSize: 18,
+                fontSize: 16,
                 fontWeight: FontWeight.w800,
                 color: isSelected ? AppTheme.primaryColor : Colors.black,
               ),
@@ -310,6 +319,7 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
     CommunityServiceState communityState,
     AuthService authState,
   ) {
+    final l10n = AppLocalizations.of(context);
     final posts = _feedPostsForCurrentFilter(communityState);
 
     return RefreshIndicator(
@@ -319,8 +329,8 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
         padding: const EdgeInsets.fromLTRB(12, 8, 12, 120),
         children: [
           _buildSectionHeader(
-            title: 'Hot Forums',
-            actionText: 'More',
+            title: l10n.communityHotForums,
+            actionText: l10n.communityMore,
             onAction: () => context.push('/main/forums/hot'),
           ),
           const SizedBox(height: 14),
@@ -349,7 +359,7 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
             ),
           const SizedBox(height: 18),
           _buildCreatorStrip(
-            title: 'Content Creators',
+            title: l10n.communityContentCreators,
             creators: hubState.creators.take(3).toList(),
           ),
           const SizedBox(height: 18),
@@ -358,7 +368,7 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
             child: Row(
               children: [
                 _buildSelectorChip(
-                  label: 'Recommended',
+                  label: l10n.communityRecommended,
                   selected: _selectedFeedTab == _CommunityFeedTab.recommended,
                   onTap: () {
                     setState(() {
@@ -367,7 +377,7 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
                   },
                 ),
                 _buildSelectorChip(
-                  label: 'Newest',
+                  label: l10n.newest,
                   selected: _selectedFeedTab == _CommunityFeedTab.newest,
                   onTap: () {
                     setState(() {
@@ -376,7 +386,7 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
                   },
                 ),
                 _buildSelectorChip(
-                  label: 'Highlights',
+                  label: l10n.communityHighlights,
                   selected: _selectedFeedTab == _CommunityFeedTab.highlights,
                   onTap: () {
                     setState(() {
@@ -385,7 +395,7 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
                   },
                 ),
                 _buildSelectorChip(
-                  label: 'Videos',
+                  label: l10n.videos,
                   selected: _selectedFeedTab == _CommunityFeedTab.videos,
                   onTap: () {
                     setState(() {

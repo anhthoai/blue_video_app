@@ -30,6 +30,22 @@ class SettingsScreen extends ConsumerWidget {
           return '中文';
         case 'ja':
           return '日本語';
+        case 'vi':
+          return 'Tiếng Việt';
+        case 'ko':
+          return '한국어';
+        case 'th':
+          return 'ไทย';
+        case 'pt':
+          return 'Português';
+        case 'es':
+          return 'Español';
+        case 'id':
+          return 'Bahasa Indonesia';
+        case 'tr':
+          return 'Türkçe';
+        case 'ar':
+          return 'العربية';
         case 'en':
         default:
           return 'English';

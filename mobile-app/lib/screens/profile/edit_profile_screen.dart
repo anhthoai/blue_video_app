@@ -4,9 +4,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:intl/intl.dart';
 
 import '../../core/services/auth_service.dart';
 import '../../core/services/dating_service.dart';
+import '../../l10n/app_localizations.dart';
 import '../../models/dating_model.dart';
 import '../dating/dating_profile_edit_screen.dart';
 import '../dating/private_album_screen.dart';
@@ -60,6 +62,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
 
   Future<void> _saveProfile() async {
     if (!_formKey.currentState!.validate()) return;
+    final l10n = AppLocalizations.of(context);
 
     setState(() {
       _isLoading = true;
@@ -83,16 +86,16 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
         ref.invalidate(currentUserProvider);
 
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Profile updated successfully!'),
+          SnackBar(
+            content: Text(l10n.updatedSuccessfully),
             backgroundColor: Colors.green,
           ),
         );
         context.pop();
       } else if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Failed to update profile'),
+          SnackBar(
+            content: Text(l10n.profileProfileUpdateFailed),
             backgroundColor: Colors.red,
           ),
         );
@@ -100,7 +103,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
+          SnackBar(content: Text('${l10n.error}: $e')),
         );
       }
     } finally {
@@ -127,6 +130,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
   }
 
   Future<void> _pickAvatar() async {
+    final l10n = AppLocalizations.of(context);
     final ImagePicker picker = ImagePicker();
     final XFile? image = await picker.pickImage(
       source: ImageSource.gallery,
@@ -147,15 +151,15 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
         if (updatedUser != null && mounted) {
           _reloadUserData(); // Reload the form with updated data
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Avatar updated successfully!'),
+            SnackBar(
+              content: Text(l10n.updatedSuccessfully),
               backgroundColor: Colors.green,
             ),
           );
         } else if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Failed to upload avatar'),
+            SnackBar(
+              content: Text(l10n.uploadFailed),
               backgroundColor: Colors.red,
             ),
           );
@@ -163,7 +167,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error uploading avatar: $e')),
+            SnackBar(content: Text('${l10n.errorUploadingFile}: $e')),
           );
         }
       } finally {
@@ -177,6 +181,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
   }
 
   Future<void> _pickBanner() async {
+    final l10n = AppLocalizations.of(context);
     final ImagePicker picker = ImagePicker();
     final XFile? image = await picker.pickImage(
       source: ImageSource.gallery,
@@ -197,15 +202,15 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
         if (updatedUser != null && mounted) {
           _reloadUserData(); // Reload the form with updated data
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Banner updated successfully!'),
+            SnackBar(
+              content: Text(l10n.updatedSuccessfully),
               backgroundColor: Colors.green,
             ),
           );
         } else if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Failed to upload banner'),
+            SnackBar(
+              content: Text(l10n.uploadFailed),
               backgroundColor: Colors.red,
             ),
           );
@@ -213,7 +218,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error uploading banner: $e')),
+            SnackBar(content: Text('${l10n.errorUploadingFile}: $e')),
           );
         }
       } finally {
@@ -242,11 +247,12 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
 
   Future<void> _pickDatingAvatarPhoto() async {
     if (_isUploadingDatingPhoto) return;
+    final l10n = AppLocalizations.of(context);
 
     final currentCount = _datingProfile?.publicPhotos.length ?? 0;
     if (currentCount >= 5) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Maximum reached: 1 main avatar + 5 extra photos')),
+        SnackBar(content: Text(l10n.profileDatingMaxPhotosReached)),
       );
       return;
     }
@@ -266,12 +272,12 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
       await _loadDatingProfile();
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Dating avatar added')), 
+        SnackBar(content: Text(l10n.profileDatingAvatarAdded)),
       );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error uploading dating avatar: $e')),
+        SnackBar(content: Text('${l10n.errorUploadingFile}: $e')),
       );
     } finally {
       if (mounted) setState(() => _isUploadingDatingPhoto = false);
@@ -279,30 +285,32 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
   }
 
   Future<void> _deleteDatingAvatarPhoto(int index) async {
+    final l10n = AppLocalizations.of(context);
     try {
       await DatingService().deletePublicPhoto(index);
       await _loadDatingProfile();
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error deleting dating avatar: $e')),
+        SnackBar(content: Text('${l10n.error}: ${l10n.profileDatingAvatarDeleteError}: $e')),
       );
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final user = ref.watch(currentUserProvider);
 
     if (user == null) {
-      return const Scaffold(
-        body: Center(child: Text('Please log in')),
+      return Scaffold(
+        body: Center(child: Text(l10n.profilePleaseLogIn)),
       );
     }
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Edit Profile'),
+        title: Text(l10n.editProfile),
         actions: [
           if (_isLoading)
             const Center(
@@ -318,8 +326,8 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
           else
             TextButton(
               onPressed: _saveProfile,
-              child: const Text('Save',
-                  style: TextStyle(fontWeight: FontWeight.bold)),
+              child: Text(l10n.save,
+              style: const TextStyle(fontWeight: FontWeight.bold)),
             ),
         ],
       ),
@@ -451,9 +459,9 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                     // Email (Read-only)
                     TextFormField(
                       initialValue: user.email,
-                      decoration: const InputDecoration(
-                        labelText: 'Email',
-                        prefixIcon: Icon(Icons.email),
+                      decoration: InputDecoration(
+                        labelText: l10n.email,
+                        prefixIcon: const Icon(Icons.email),
                         enabled: false,
                       ),
                     ),
@@ -463,17 +471,17 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                     // Username
                     TextFormField(
                       controller: _usernameController,
-                      decoration: const InputDecoration(
-                        labelText: 'Username',
-                        prefixIcon: Icon(Icons.person),
-                        hintText: 'Enter your username',
+                      decoration: InputDecoration(
+                        labelText: l10n.username,
+                        prefixIcon: const Icon(Icons.person),
+                        hintText: l10n.profileEnterUsername,
                       ),
                       validator: (value) {
                         if (value == null || value.isEmpty) {
-                          return 'Please enter a username';
+                          return l10n.profileUsernameRequired;
                         }
                         if (value.length < 3) {
-                          return 'Username must be at least 3 characters';
+                          return l10n.profileUsernameMinLength;
                         }
                         return null;
                       },
@@ -484,10 +492,10 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                     // First Name
                     TextFormField(
                       controller: _firstNameController,
-                      decoration: const InputDecoration(
-                        labelText: 'First Name',
-                        prefixIcon: Icon(Icons.person_outline),
-                        hintText: 'Enter your first name',
+                      decoration: InputDecoration(
+                        labelText: l10n.profileFirstName,
+                        prefixIcon: const Icon(Icons.person_outline),
+                        hintText: l10n.profileEnterFirstName,
                       ),
                     ),
 
@@ -496,10 +504,10 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                     // Last Name
                     TextFormField(
                       controller: _lastNameController,
-                      decoration: const InputDecoration(
-                        labelText: 'Last Name',
-                        prefixIcon: Icon(Icons.person_outline),
-                        hintText: 'Enter your last name',
+                      decoration: InputDecoration(
+                        labelText: l10n.profileLastName,
+                        prefixIcon: const Icon(Icons.person_outline),
+                        hintText: l10n.profileEnterLastName,
                       ),
                     ),
 
@@ -508,17 +516,17 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                     // Bio
                     TextFormField(
                       controller: _bioController,
-                      decoration: const InputDecoration(
-                        labelText: 'Bio',
-                        prefixIcon: Icon(Icons.info),
-                        hintText: 'Tell us about yourself',
+                      decoration: InputDecoration(
+                        labelText: l10n.bio,
+                        prefixIcon: const Icon(Icons.info),
+                        hintText: l10n.profileBioHint,
                         alignLabelWithHint: true,
                       ),
                       maxLines: 4,
                       maxLength: 200,
                       validator: (value) {
                         if (value != null && value.length > 200) {
-                          return 'Bio must be less than 200 characters';
+                          return l10n.profileBioMaxLength;
                         }
                         return null;
                       },
@@ -532,14 +540,14 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text(
-                              'Dating Avatars (max 6)',
-                              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                            Text(
+                              l10n.profileDatingAvatarsMax6,
+                              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
                             ),
                             const SizedBox(height: 8),
-                            const Text(
-                              'First photo is your main avatar. Swipe up in Dating Profile to see the rest.',
-                              style: TextStyle(fontSize: 12, color: Colors.grey),
+                            Text(
+                              l10n.profileDatingAvatarsHelp,
+                              style: const TextStyle(fontSize: 12, color: Colors.grey),
                             ),
                             const SizedBox(height: 12),
                             Wrap(
@@ -572,10 +580,8 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                               leading: const CircleAvatar(
                                 child: Icon(Icons.favorite_outline),
                               ),
-                              title: const Text('Edit Dating Profile'),
-                              subtitle: const Text(
-                                'Manage dating bio, expectations and privacy',
-                              ),
+                              title: Text(l10n.datingEditProfile),
+                              subtitle: Text(l10n.profileEditDatingProfileSubtitle),
                               trailing: const Icon(Icons.chevron_right),
                               onTap: () {
                                 Navigator.push(
@@ -592,10 +598,8 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                               leading: const CircleAvatar(
                                 child: Icon(Icons.lock_outline),
                               ),
-                              title: const Text('Private Album (max 9 images)'),
-                              subtitle: const Text(
-                                'Upload and manage private dating photos',
-                              ),
+                              title: Text(l10n.profilePrivateAlbumMax9Images),
+                              subtitle: Text(l10n.profilePrivateAlbumSubtitle),
                               trailing: const Icon(Icons.chevron_right),
                               onTap: () {
                                 Navigator.push(
@@ -621,7 +625,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'Account Information',
+                              l10n.profileAccountInformation,
                               style: Theme.of(context)
                                   .textTheme
                                   .titleMedium
@@ -631,19 +635,19 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                             ),
                             const SizedBox(height: 16),
                             _buildInfoRow(
-                              'Account ID',
-                              user.id.substring(0, 8) + '...',
+                              l10n.profileAccountId,
+                              '${user.id.substring(0, 8)}...',
                               Icons.fingerprint,
                             ),
                             const Divider(height: 24),
                             _buildInfoRow(
-                              'Verified',
-                              user.isVerified ? 'Yes' : 'No',
+                              l10n.profileVerified,
+                              user.isVerified ? l10n.profileYes : l10n.profileNo,
                               user.isVerified ? Icons.verified : Icons.pending,
                             ),
                             const Divider(height: 24),
                             _buildInfoRow(
-                              'Member Since',
+                              l10n.profileMemberSince,
                               _formatDate(user.createdAt),
                               Icons.calendar_today,
                             ),
@@ -663,7 +667,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'Danger Zone',
+                              l10n.profileDangerZone,
                               style: Theme.of(context)
                                   .textTheme
                                   .titleMedium
@@ -678,7 +682,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                                 _showDeleteAccountDialog();
                               },
                               icon: const Icon(Icons.delete_forever),
-                              label: const Text('Delete Account'),
+                              label: Text(l10n.profileDeleteAccount),
                               style: OutlinedButton.styleFrom(
                                 foregroundColor: Colors.red,
                                 side: const BorderSide(color: Colors.red),
@@ -717,9 +721,9 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                                         Colors.white),
                                   ),
                                 )
-                              : const Text(
-                                  'Save Changes',
-                                  style: TextStyle(
+                                : Text(
+                                  l10n.saveChanges,
+                                  style: const TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.bold,
                                   ),
@@ -806,9 +810,9 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                 color: Colors.black54,
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: const Text(
-                'Main',
-                style: TextStyle(color: Colors.white, fontSize: 10),
+              child: Text(
+                AppLocalizations.of(context).profileMainAvatar,
+                style: const TextStyle(color: Colors.white, fontSize: 10),
               ),
             ),
           ),
@@ -880,29 +884,30 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
   }
 
   void _showDeleteAccountDialog() {
+    final l10n = AppLocalizations.of(context);
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Delete Account'),
-        content: const Text(
-          'Are you sure you want to delete your account? This action cannot be undone and all your data will be permanently deleted.',
+        title: Text(l10n.profileDeleteAccount),
+        content: Text(
+          l10n.profileDeleteAccountConfirmMessage,
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
+            child: Text(l10n.cancel),
           ),
           TextButton(
             onPressed: () {
               Navigator.pop(context);
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Account deletion coming soon'),
+                SnackBar(
+                  content: Text(l10n.profileDeleteAccountComingSoon),
                 ),
               );
             },
             style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('Delete'),
+            child: Text(l10n.delete),
           ),
         ],
       ),
@@ -910,20 +915,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
   }
 
   String _formatDate(DateTime date) {
-    final months = [
-      'January',
-      'February',
-      'March',
-      'April',
-      'May',
-      'June',
-      'July',
-      'August',
-      'September',
-      'October',
-      'November',
-      'December'
-    ];
-    return '${months[date.month - 1]} ${date.day}, ${date.year}';
+    final locale = Localizations.localeOf(context).toLanguageTag();
+    return DateFormat.yMMMMd(locale).format(date);
   }
 }

@@ -1191,4 +1191,675 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get iAgreeToThe => '我同意';
+
+  // Dating feature
+  @override
+  String get datingExplore => '发现';
+
+  @override
+  String get datingMeet => '匹配';
+
+  @override
+  String get datingSearchProfiles => '搜索资料';
+
+  @override
+  String get datingSearchHint => '姓名、圈子、地点...';
+
+  @override
+  String get datingClear => '清除';
+
+  @override
+  String get datingEnableLocation => '请开启定位服务';
+
+  @override
+  String get datingLocationPermissionDenied => '定位权限被拒绝，请在设置中开启。';
+
+  @override
+  String get datingLocationError => '无法获取定位';
+
+  @override
+  String get datingPlanUnlimitedUnlocked => 'Unlimited 已解锁';
+
+  @override
+  String get datingPlanVipUnlocked => 'VIP 已解锁';
+
+  @override
+  String get datingPlanFreeUnlocked => '免费方案';
+
+  @override
+  String get datingUpdateLocation => '更新位置';
+
+  @override
+  String get datingSmart => '智能';
+
+  @override
+  String get datingNewFace => '新用户';
+
+  @override
+  String get datingNoUsersNearby => '附近暂无用户';
+
+  @override
+  String get datingAllowLocationAndTryAgain => '请允许定位后重试。';
+
+  @override
+  String get datingYou => '你';
+
+  @override
+  String get datingUnlockMoreProfilesBanner => '升级 VIP 或 Unlimited 解锁更多资料';
+
+  @override
+  String get datingRequestSentCheckChat => '请求已发送，请在聊天中查看更新。';
+
+  @override
+  String get datingRequestSentViaChat => '请求已发送，对方可在聊天中同意。';
+
+  @override
+  String get datingRequestAlreadySentCheckChat => '请求已发送，请查看聊天。';
+
+  @override
+  String get datingFriendRequestSent => '好友请求已发送';
+
+  @override
+  String get datingProfileNotFound => '未找到该资料';
+
+  @override
+  String get datingOpenPrivateAlbum => '打开私密相册';
+
+  @override
+  String get datingWaitingPermission => '等待授权';
+
+  @override
+  String get datingRequestUnlock => '申请解锁';
+
+  @override
+  String get datingPrivatePhotos => '私密照片';
+
+  @override
+  String get datingPrivateAlbumPermissionGranted => '私密相册访问已获批准。';
+
+  @override
+  String get datingPrivateAlbumPending => '你的请求正在等待批准。';
+
+  @override
+  String get datingPrivateAlbumRequestPermission => '申请权限以查看私密照片。';
+
+  @override
+  String get datingSuperLiked => '超级喜欢！';
+
+  @override
+  String get datingLikedWaitingMatch => '已喜欢，等待匹配！';
+
+  @override
+  String get datingPassed => '跳过';
+
+  @override
+  String get datingHeight => '身高';
+
+  @override
+  String get datingWeight => '体重';
+
+  @override
+  String get datingBodyType => '体型';
+
+  @override
+  String get datingBodyHair => '体毛';
+
+  @override
+  String get datingLanguages => '语言';
+
+  @override
+  String get datingLivesIn => '居住地';
+
+  @override
+  String get datingNationality => '国籍';
+
+  @override
+  String get datingEthnicity => '族裔';
+
+  @override
+  String get datingRelationship => '关系状态';
+
+  @override
+  String get datingAboutMe => '关于我';
+
+  @override
+  String get datingLookingFor => '寻找';
+
+  @override
+  String get datingInterestedIn => '感兴趣';
+
+  @override
+  String get datingWhereToMeet => '见面地点';
+
+  @override
+  String get datingTribes => '圈子';
+
+  @override
+  String get datingSwipeHint => '上下滑动浏览媒体';
+
+  @override
+  String get datingFilters => '筛选';
+
+  @override
+  String get datingReset => '重置';
+
+  @override
+  String get datingRole => '角色';
+
+  @override
+  String get datingApplyFilters => '应用筛选';
+
+  @override
+  String get datingAge => '年龄';
+
+  @override
+  String get datingNoMatchesYet => '暂无匹配';
+
+  @override
+  String get datingLikeSomeoneBack => '先喜欢别人并获得回赞，即可形成匹配！';
+
+  @override
+  String get datingAiSuggestionsActive => 'AI 推荐已开启';
+
+  @override
+  String get datingAutoSuggestionsPerDay => '每日自动推荐匹配';
+
+  @override
+  String get datingUpgradeVipForAiMatch => '升级 VIP 以解锁 AI 匹配';
+
+  @override
+  String get datingAiSuggestions => 'AI 推荐';
+
+  @override
+  String get datingDailySuggestions => '每日推荐';
+
+  @override
+  String get datingMutualMatches => '互相匹配';
+
+  @override
+  String get datingAiMatchModeActive => 'AI 匹配模式已启用';
+
+  @override
+  String get datingAutoMatchMode => '自动匹配模式';
+
+  @override
+  String get datingVipAiScoring => 'VIP AI 评分';
+
+  @override
+  String get datingUpgradeVipAiAccuracy => '升级 VIP 获取更高准确度的 AI 匹配';
+
+  @override
+  String get datingReject => '拒绝';
+
+  @override
+  String get datingAiScore => 'AI 评分';
+
+  @override
+  String get datingMutualMatch => '互相匹配';
+
+  @override
+  String get datingPhotoUploaded => '照片已上传';
+
+  @override
+  String get datingDeletePhoto => '删除此照片？';
+
+  @override
+  String get datingRemovePhotoConfirm => '此操作将从你的私密相册中删除该照片。';
+
+  @override
+  String get datingMyPrivateAlbum => '我的私密相册';
+
+  @override
+  String get datingPrivateAlbum => '私密相册';
+
+  @override
+  String get datingRequests => '请求';
+
+  @override
+  String get datingAccessRequests => '访问请求';
+
+  @override
+  String get datingNoPendingRequests => '暂无待处理请求';
+
+  @override
+  String get datingAccepted => '已同意';
+
+  @override
+  String get datingDenied => '已拒绝';
+
+  @override
+  String get datingWantsToSeePrivateAlbum => '想查看你的私密相册';
+
+  @override
+  String get datingNotEnoughCoins => '金币不足，请先充值。';
+
+  @override
+  String get datingActivatedSuccessfully => '开通成功！';
+
+  @override
+  String get datingPurchaseFailed => '购买失败';
+
+  @override
+  String get datingUpgradeTitle => '升级 Dating';
+
+  @override
+  String get datingYourFreePreviewReached => '你已达到免费预览上限';
+
+  @override
+  String get datingFreeUsersViewFirst => '免费用户仅可查看附近前20个资料。';
+
+  @override
+  String get datingCurrentPlanCoins => '当前方案与金币';
+
+  @override
+  String get datingViewUpToProfiles => '每日最多查看20个资料';
+
+  @override
+  String get datingUnlimitedProfileViews => '无限查看资料';
+
+  @override
+  String get datingSeeNearbyProfiles => '查看附近资料';
+
+  @override
+  String get datingAiMatchingSuggestions => 'AI 匹配推荐';
+
+  @override
+  String get datingPriorityDiscovery => '优先曝光';
+
+  @override
+  String get datingUnlimitedNearbyBrowsing => '无限浏览附近用户';
+
+  @override
+  String get datingBestAiQuality => '最佳 AI 匹配质量';
+
+  @override
+  String get datingHighestPriorityVisibility => '最高优先曝光';
+
+  @override
+  String get datingAvailableDurations => '可选时长';
+
+  @override
+  String get datingPurchaseCoins => '购买';
+
+  @override
+  String get datingRechargeCoins => '充值';
+
+  @override
+  String get datingEditProfile => '编辑 Dating 资料';
+
+  @override
+  String get datingPersonalInformation => '个人信息';
+
+  @override
+  String get datingExpectations => '期望';
+
+  @override
+  String get datingPrivacySettings => '隐私与设置';
+
+  @override
+  String get datingShowDistance => '显示距离';
+
+  @override
+  String get datingShowDistanceSubtitle => '让他人看到你与TA的距离';
+
+  @override
+  String get datingShowOnlineStatus => '显示在线状态';
+
+  @override
+  String get datingAiMatching => 'AI 匹配';
+
+  @override
+  String get datingAiMatchingSubtitle => '让 AI 为你寻找最佳匹配（仅 VIP）';
+
+  @override
+  String get datingSelectDateOfBirth => '选择出生日期';
+
+  @override
+  String get datingDateOfBirth => '出生日期 *';
+
+  @override
+  String get datingTapToSelect => '点击选择';
+
+  @override
+  String get datingSelectPrefix => '选择';
+
+  // Profile and chat extras
+  @override
+  String get profileDatingAvatarsMax6 => 'Dating头像（最多6张）';
+
+  @override
+  String get profileDatingAvatarsHelp =>
+      '第一张是主头像。在Dating资料中上滑可查看其余照片。';
+
+  @override
+  String get profileEditDatingProfileSubtitle =>
+      '管理Dating简介、期望和隐私设置';
+
+  @override
+  String get profilePrivateAlbumMax9Images => '私密相册（最多9张）';
+
+  @override
+  String get profilePrivateAlbumSubtitle => '上传并管理私密Dating照片';
+
+  @override
+  String get profilePleaseLogIn => '请先登录';
+
+  @override
+  String get profileUsernameRequired => '请输入用户名';
+
+  @override
+  String get profileUsernameMinLength => '用户名至少3个字符';
+
+  @override
+  String get profileBioMaxLength => '个人简介不能超过200个字符';
+
+  @override
+  String get profileAccountInformation => '账户信息';
+
+  @override
+  String get profileAccountId => '账户ID';
+
+  @override
+  String get profileVerified => '已认证';
+
+  @override
+  String get profileMemberSince => '注册时间';
+
+  @override
+  String get profileDangerZone => '危险操作';
+
+  @override
+  String get profileDeleteAccount => '删除账户';
+
+  @override
+  String get profileDeleteAccountConfirmMessage =>
+      '确定要删除你的账户吗？此操作无法撤销，所有数据将被永久删除。';
+
+  @override
+  String get profileDeleteAccountComingSoon => '账户删除功能即将上线';
+
+  @override
+  String get profileMainAvatar => '主头像';
+
+  @override
+  String get profileYes => '是';
+
+  @override
+  String get profileNo => '否';
+
+  @override
+  String get profileDatingMaxPhotosReached => '已达上限：1张主头像 + 5张附加照片';
+
+  @override
+  String get profileDatingAvatarAdded => '已添加Dating头像';
+
+  @override
+  String get profileDatingAvatarDeleteError => '删除Dating头像失败';
+
+  @override
+  String get profileProfileUpdateFailed => '更新资料失败';
+
+  @override
+  String get profileFirstName => '名';
+
+  @override
+  String get profileLastName => '姓';
+
+  @override
+  String get profileEnterFirstName => '请输入名';
+
+  @override
+  String get profileEnterLastName => '请输入姓';
+
+  @override
+  String get profileEnterUsername => '请输入用户名';
+
+  @override
+  String get profileBioHint => '介绍一下你自己';
+
+  @override
+  String get chatFilterYourTurn => '轮到你';
+
+  @override
+  String get chatFilterUnread => '未读';
+
+  @override
+  String get chatFilterDistance => '距离';
+
+  @override
+  String get chatFilterWithPrivateAlbum => '有私密相册';
+
+  @override
+  String get chatFilterRole => '角色';
+
+  @override
+  String get chatFilterGroup => '群聊';
+
+  @override
+  String get chatRefreshChats => '刷新聊天';
+
+  @override
+  String get chatSearchChats => '搜索聊天';
+
+  @override
+  String get chatNoChatsFound => '未找到聊天';
+
+  @override
+  String get chatPrivateAlbumRequestText => '我可以查看你的私密相册吗？';
+
+  @override
+  String get chatPrivateAlbumUnlockedText => '我已向你开放我的私密相册';
+
+  @override
+  String get chatAlbumAccessGranted => '已同意相册访问！';
+
+  @override
+  String get chatAgree => '同意';
+
+  @override
+  String get chatAgreed => '已同意';
+
+  @override
+  String get chatViewPrivateAlbum => '查看私密相册';
+
+  @override
+  String get chatRevokeAccess => '撤销访问';
+
+  @override
+  String get chatAccessRevoked => '访问已撤销。';
+
+  @override
+  String get chatAccessInvalid => '访问无效';
+
+    @override
+    String get chatPrivateAlbumRequestSent => '私密相册请求已发送。';
+
+    @override
+    String get chatPrivateAlbumRequestAlreadySent => '请求已发送。';
+
+    @override
+    String get chatPrivateAlbumNoPhotos => '私密相册暂时没有照片。';
+
+    @override
+    String get chatRequestSent => '请求已发送';
+
+    @override
+    String get chatSendRequest => '发送请求';
+
+    @override
+    String get chatProfileSnapshot => '资料快照';
+
+    @override
+    String get chatPersonalProfile => '个人资料';
+
+    @override
+    String get chatMatchedExpectations => '匹配期望';
+
+    @override
+    String get chatNoMatchedExpectations => '暂无匹配期望。';
+
+    @override
+    String get chatYearsShort => '岁';
+
+    @override
+    String get chatCentimetersShort => 'cm';
+
+    @override
+    String get chatKilogramsShort => 'kg';
+
+    @override
+    String get chatInfo => '聊天信息';
+
+    @override
+    String get chatMuteNotifications => '静音通知';
+
+    @override
+    String get chatUnmuteNotifications => '取消静音通知';
+
+    @override
+    String get chatRoom => '聊天房间';
+
+    @override
+    String get chatMembers => '名成员';
+
+    @override
+    String get chatOnlineNow => '在线';
+
+    @override
+    String get chatDirectMessage => '私聊';
+
+    @override
+    String get chatParticipant => '参与者';
+
+    @override
+    String get chatNoMessagesYet => '还没有消息';
+
+    @override
+    String get chatStartConversation => '开始聊天吧！';
+
+    @override
+    String get chatAttachmentPhoto => '照片';
+
+    @override
+    String get chatAttachmentPhotoSubtitle => '从相册发送照片';
+
+    @override
+    String get chatAttachmentCamera => '相机';
+
+    @override
+    String get chatAttachmentCameraSubtitle => '拍摄照片';
+
+    @override
+    String get chatAttachmentVideo => '视频';
+
+    @override
+    String get chatAttachmentVideoSubtitle => '发送视频';
+
+    @override
+    String get chatAttachmentDocument => '文档';
+
+    @override
+    String get chatAttachmentDocumentSubtitle => '发送 PDF、DOC 等文件';
+
+    @override
+    String get chatAttachmentAudio => '音频';
+
+    @override
+    String get chatAttachmentAudioSubtitle => '发送音频文件';
+
+    @override
+    String get chatUploadingFile => '正在上传文件...';
+
+    @override
+    String get chatFileSentSuccessfully => '文件发送成功！';
+
+    @override
+    String get chatFailedToUploadFile => '文件上传失败';
+
+    @override
+    String get chatUnableToLoadDetails => '当前无法加载聊天详情。';
+
+    @override
+    String get chatNotificationsMuted => '已静音此聊天通知。';
+
+    @override
+    String get chatNotificationsUnmuted => '已恢复此聊天通知。';
+
+    @override
+    String get chatUnableToStartCall => '当前无法发起通话。';
+
+    @override
+    String get chatGroupCallNotSupported => '暂不支持群组语音和视频通话。';
+
+    @override
+    String get chatSignInToCall => '请重新登录后再拨打通话。';
+
+    @override
+    String get chatUnableToStartCallGeneric => '无法发起通话。';
+
+    @override
+    String get chatProfileUnavailable => '当前无法查看资料。';
+
+    @override
+    String get chatSingleProfileUnavailable => '此聊天无法打开单个资料。';
+
+    @override
+    String get communityOriginal => '原创';
+
+    @override
+    String get communityRequest => '求片';
+
+    @override
+    String get communityHotForums => '热门论坛';
+
+    @override
+    String get communityMore => '更多';
+
+    @override
+    String get communityContentCreators => '内容创作者';
+
+    @override
+    String get communityRecommended => '推荐';
+
+    @override
+    String get communityHighlights => '精选';
+
+    @override
+    String get hotForumsMomentumTitle => '社区热度增长最快的话题';
+
+    @override
+    String get hotForumsMomentumSubtitle => '打开论坛查看最新帖子，或关注后在关注页持续追踪。';
+
+    @override
+    String get hotForumsLoadErrorTitle => '论坛加载失败';
+
+    @override
+    String get hotForumsEmptyTitle => '暂无热门论坛';
+
+    @override
+    String get hotForumsEmptySubtitle => '当后台有活跃话题流量时，这里会显示。';
+
+    @override
+    String get contentCreatorMoreAppears => '随着活跃度提升，会有更多创作者出现在这里。';
+
+    @override
+    String get contentCreatorMetricLikes => '点赞';
+
+    @override
+    String get contentCreatorMetricUploads => '上传';
+
+    @override
+    String get contentCreatorMetricEarnings => '收益';
+
+    @override
+    String get contentCreatorMetricCoins => '金币';
+
+    @override
+    String get contentCreatorWindowDay => '日';
+
+    @override
+    String get contentCreatorWindowWeek => '周';
+
+    @override
+    String get contentCreatorWindowMonth => '月';
 }

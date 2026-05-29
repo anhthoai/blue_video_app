@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/services/dating_service.dart';
+import '../../l10n/app_localizations.dart';
 import '../../models/dating_model.dart';
 
 class DatingUpgradeScreen extends StatefulWidget {
@@ -93,7 +94,7 @@ class _DatingUpgradeScreenState extends State<DatingUpgradeScreen> {
     if (currentCoins < selectedDuration.coins) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Not enough coins. Please recharge first.')),
+        SnackBar(content: Text(AppLocalizations.of(context).datingNotEnoughCoins)),
       );
       context.push('/main/coin-recharge');
       return;
@@ -109,13 +110,13 @@ class _DatingUpgradeScreenState extends State<DatingUpgradeScreen> {
       if (!mounted) return;
       setState(() => _status = updated);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('${updated.tier} activated successfully')),
+        SnackBar(content: Text('${updated.tier} ${AppLocalizations.of(context).datingActivatedSuccessfully}')),
       );
       Navigator.pop(context, true);
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Purchase failed: $e')),
+        SnackBar(content: Text('${AppLocalizations.of(context).datingPurchaseFailed}: $e')),
       );
     } finally {
       if (mounted) setState(() => _purchasing = false);
@@ -124,6 +125,7 @@ class _DatingUpgradeScreenState extends State<DatingUpgradeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     if (_loading) {
       return const Scaffold(
         body: Center(child: CircularProgressIndicator()),
@@ -132,7 +134,7 @@ class _DatingUpgradeScreenState extends State<DatingUpgradeScreen> {
 
     if (_error != null) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Upgrade To Unlock More Profiles')),
+        appBar: AppBar(title: Text(l10n.datingUpgradeTitle)),
         body: Center(
           child: Padding(
             padding: const EdgeInsets.all(16),
@@ -143,7 +145,7 @@ class _DatingUpgradeScreenState extends State<DatingUpgradeScreen> {
                 const SizedBox(height: 12),
                 FilledButton(
                   onPressed: _loadData,
-                  child: const Text('Retry'),
+                  child: Text(l10n.retry),
                 ),
               ],
             ),
@@ -163,7 +165,7 @@ class _DatingUpgradeScreenState extends State<DatingUpgradeScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Upgrade To Unlock More Profiles'),
+        title: Text(l10n.datingUpgradeTitle),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
@@ -181,18 +183,18 @@ class _DatingUpgradeScreenState extends State<DatingUpgradeScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    'Your Free Preview Is Reached',
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
+                  Text(
+                    l10n.datingYourFreePreviewReached,
+                    style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Free users can view the first ${widget.freeLimit} nearest profiles. Upgrade for deeper discovery and better match quality.',
+                    '${l10n.datingFreeUsersViewFirst} (${widget.freeLimit})',
                     style: const TextStyle(fontSize: 14, height: 1.45),
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Current plan: ${_status?.tier ?? 'FREE'} • Coins: ${_status?.coinBalance ?? 0}',
+                    '${l10n.datingCurrentPlanCoins}: ${_status?.tier ?? 'FREE'} • ${_status?.coinBalance ?? 0}',
                     style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
                   ),
                 ],
@@ -201,7 +203,7 @@ class _DatingUpgradeScreenState extends State<DatingUpgradeScreen> {
             const SizedBox(height: 16),
             _PlanCard(
               title: 'VIP',
-              subtitle: 'View up to 600 profiles',
+              subtitle: l10n.datingViewUpToProfiles,
               selected: _selectedTier == 'VIP',
               onTap: () {
                 final vipPlan = _plans.firstWhere(
@@ -216,16 +218,16 @@ class _DatingUpgradeScreenState extends State<DatingUpgradeScreen> {
                 });
               },
               benefits: [
-                'See up to 600 nearby profiles',
-                'AI matching suggestions',
-                'Priority in discovery ranking',
+                l10n.datingSeeNearbyProfiles,
+                l10n.datingAiMatchingSuggestions,
+                l10n.datingPriorityDiscovery,
               ],
               color: Color(0xFF2563EB),
             ),
             const SizedBox(height: 12),
             _PlanCard(
               title: 'UNLIMITED',
-              subtitle: 'Unlimited profile views',
+              subtitle: l10n.datingUnlimitedProfileViews,
               selected: _selectedTier == 'UNLIMITED',
               onTap: () {
                 final unlimitedPlan = _plans.firstWhere(
@@ -240,16 +242,16 @@ class _DatingUpgradeScreenState extends State<DatingUpgradeScreen> {
                 });
               },
               benefits: [
-                'Unlimited nearby profile browsing',
-                'Best AI matching quality',
-                'Highest priority visibility',
+                l10n.datingUnlimitedNearbyBrowsing,
+                l10n.datingBestAiQuality,
+                l10n.datingHighestPriorityVisibility,
               ],
               color: Color(0xFF0891B2),
             ),
             const SizedBox(height: 20),
-            const Text(
-              'Available Durations',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+            Text(
+              l10n.datingAvailableDurations,
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: 10),
             Wrap(
@@ -279,7 +281,7 @@ class _DatingUpgradeScreenState extends State<DatingUpgradeScreen> {
                         height: 18,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
-                    : Text('Purchase • ${selectedDuration.coins} coins'),
+                    : Text('${l10n.datingPurchaseCoins} • ${selectedDuration.coins} ${l10n.coins}'),
               ),
             ),
             const SizedBox(height: 10),
@@ -290,7 +292,7 @@ class _DatingUpgradeScreenState extends State<DatingUpgradeScreen> {
                 style: OutlinedButton.styleFrom(
                   minimumSize: const Size.fromHeight(48),
                 ),
-                child: const Text('Recharge Coins'),
+                child: Text(l10n.datingRechargeCoins),
               ),
             ),
           ],

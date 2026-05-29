@@ -11,6 +11,7 @@ import 'package:media_kit_video/media_kit_video.dart';
 
 import '../../models/chat_message.dart';
 import '../../core/services/file_url_service.dart';
+import '../../l10n/app_localizations.dart';
 import '../common/presigned_image.dart';
 import '../../core/services/dating_service.dart';
 import '../../screens/dating/private_album_screen.dart';
@@ -63,7 +64,7 @@ class _MessageBubbleState extends State<MessageBubble> {
 
       if (profile.privateAlbumAccessStatus != 'ACCEPTED') {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Access invalid')),
+          SnackBar(content: Text(AppLocalizations.of(context).chatAccessInvalid)),
         );
         return;
       }
@@ -990,8 +991,14 @@ class _MessageBubbleState extends State<MessageBubble> {
     required bool isMe,
     required String content,
   }) {
+    final l10n = AppLocalizations.of(context);
     final hasAgreed = status == 'ACCEPTED' ||
         (requestId != null && requestId == _agreedRequestId);
+    final normalized = content.trim().toLowerCase();
+    final displayContent = normalized.isEmpty ||
+        normalized == 'may i check out your private album?'
+      ? l10n.chatPrivateAlbumRequestText
+      : content;
 
     return Container(
       padding: const EdgeInsets.all(12),
@@ -1010,7 +1017,7 @@ class _MessageBubbleState extends State<MessageBubble> {
               const SizedBox(width: 6),
               Flexible(
                 child: Text(
-                  content,
+                  displayContent,
                   style: TextStyle(
                     fontSize: 13,
                     color: Colors.purple[900],
@@ -1035,12 +1042,12 @@ class _MessageBubbleState extends State<MessageBubble> {
                           _agreedRequestId = requestId;
                         });
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Album access granted!')),
+                          SnackBar(content: Text(l10n.chatAlbumAccessGranted)),
                         );
                       } catch (e) {
                         if (!mounted) return;
                         ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('Error: $e')),
+                          SnackBar(content: Text('${l10n.error}: $e')),
                         );
                       } finally {
                         if (mounted) {
@@ -1051,7 +1058,7 @@ class _MessageBubbleState extends State<MessageBubble> {
                       }
                     },
               icon: const Icon(Icons.check, size: 16),
-              label: const Text('Agree'),
+              label: Text(l10n.chatAgree),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.purple[700],
                 foregroundColor: Colors.white,
@@ -1063,7 +1070,7 @@ class _MessageBubbleState extends State<MessageBubble> {
             ElevatedButton.icon(
               onPressed: null,
               icon: const Icon(Icons.check_circle, size: 16),
-              label: const Text('Agreed'),
+              label: Text(l10n.chatAgreed),
               style: ElevatedButton.styleFrom(
                 disabledBackgroundColor: Colors.green[100],
                 disabledForegroundColor: Colors.green[700],
@@ -1084,6 +1091,12 @@ class _MessageBubbleState extends State<MessageBubble> {
     required bool isMe,
     required String content,
   }) {
+    final l10n = AppLocalizations.of(context);
+    final normalized = content.trim().toLowerCase();
+    final displayContent = normalized.isEmpty ||
+        normalized == 'i have unlocked my privacy album to you'
+      ? l10n.chatPrivateAlbumUnlockedText
+      : content;
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -1101,7 +1114,7 @@ class _MessageBubbleState extends State<MessageBubble> {
               const SizedBox(width: 6),
               Flexible(
                 child: Text(
-                  content,
+                  displayContent,
                   style: TextStyle(fontSize: 13, color: Colors.green[900]),
                 ),
               ),
@@ -1112,7 +1125,7 @@ class _MessageBubbleState extends State<MessageBubble> {
             ElevatedButton.icon(
               onPressed: () => _openPrivateAlbumWithAccessCheck(context, ownerId),
               icon: const Icon(Icons.photo_library, size: 16),
-              label: const Text('View Private Album'),
+              label: Text(l10n.chatViewPrivateAlbum),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.green[700],
                 foregroundColor: Colors.white,
@@ -1127,17 +1140,17 @@ class _MessageBubbleState extends State<MessageBubble> {
                   await DatingService().revokePrivateAlbumAccess(requesterId);
                   if (!context.mounted) return;
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Access revoked.')),
+                    SnackBar(content: Text(l10n.chatAccessRevoked)),
                   );
                 } catch (e) {
                   if (!context.mounted) return;
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Error: $e')),
+                    SnackBar(content: Text('${l10n.error}: $e')),
                   );
                 }
               },
               icon: const Icon(Icons.lock, size: 16),
-              label: const Text('Revoke Access'),
+              label: Text(l10n.chatRevokeAccess),
               style: OutlinedButton.styleFrom(
                 foregroundColor: Colors.red[700],
                 side: BorderSide(color: Colors.red[300]!),

@@ -85,6 +85,14 @@ class BlueVideoApp extends ConsumerWidget {
         Locale('en'),
         Locale('zh'),
         Locale('ja'),
+        Locale('vi'),
+        Locale('ko'),
+        Locale('th'),
+        Locale('pt'),
+        Locale('es'),
+        Locale('id'),
+        Locale('tr'),
+        Locale('ar'),
       ],
     );
   }

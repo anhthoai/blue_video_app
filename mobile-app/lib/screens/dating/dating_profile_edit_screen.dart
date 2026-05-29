@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../core/services/dating_service.dart';
+import '../../l10n/app_localizations.dart';
 import '../../models/dating_model.dart';
 import '../../core/theme/app_theme.dart';
 
@@ -124,14 +125,14 @@ class _DatingProfileEditScreenState
       });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Profile saved!')),
+          SnackBar(content: Text(AppLocalizations.of(context).savedSuccessfully)),
         );
         Navigator.pop(context, true); // signal parent to refresh
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Error: $e')));
+            .showSnackBar(SnackBar(content: Text('${AppLocalizations.of(context).error}: $e')));
       }
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -148,11 +149,12 @@ class _DatingProfileEditScreenState
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return WillPopScope(
       onWillPop: _onWillPop,
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('Edit Dating Profile'),
+          title: Text(l10n.datingEditProfile),
           actions: [
             if (_saving)
               const Padding(
@@ -165,8 +167,8 @@ class _DatingProfileEditScreenState
             else
               TextButton(
                 onPressed: _save,
-                child: const Text('Save',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                child: Text(l10n.save,
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
               ),
           ],
         ),
@@ -177,12 +179,12 @@ class _DatingProfileEditScreenState
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-              _sectionHeader('Personal Information'),
+              _sectionHeader(l10n.datingPersonalInformation),
               const SizedBox(height: 16),
               _buildDobField(),
               const SizedBox(height: 16),
               _buildDropdown(
-                label: 'Role',
+                label: l10n.datingRole,
                 value: _role,
                 options: DatingConstants.roles,
                 labels: DatingConstants.roleLabels,
@@ -193,7 +195,7 @@ class _DatingProfileEditScreenState
                 children: [
                   Expanded(
                     child: _buildNumberField(
-                      label: 'Height (cm)',
+                      label: '${l10n.datingHeight} (cm)',
                       value: _heightCm,
                       onChanged: (v) => setState(() => _heightCm = v),
                     ),
@@ -201,7 +203,7 @@ class _DatingProfileEditScreenState
                   const SizedBox(width: 12),
                   Expanded(
                     child: _buildNumberField(
-                      label: 'Weight (kg)',
+                      label: '${l10n.datingWeight} (kg)',
                       value: _weightKg,
                       onChanged: (v) => setState(() => _weightKg = v),
                     ),
@@ -210,7 +212,7 @@ class _DatingProfileEditScreenState
               ),
               const SizedBox(height: 16),
               _buildDropdown(
-                label: 'Body Type',
+                label: l10n.datingBodyType,
                 value: _bodyType,
                 options: DatingConstants.bodyTypes,
                 labels: DatingConstants.bodyTypeLabels,
@@ -218,7 +220,7 @@ class _DatingProfileEditScreenState
               ),
               const SizedBox(height: 16),
               _buildDropdown(
-                label: 'Body Hair',
+                label: l10n.datingBodyHair,
                 value: _bodyHair,
                 options: DatingConstants.bodyHairs,
                 labels: DatingConstants.bodyHairLabels,
@@ -226,7 +228,7 @@ class _DatingProfileEditScreenState
               ),
               const SizedBox(height: 16),
               _buildMultiChip(
-                label: 'Languages',
+                label: l10n.datingLanguages,
                 options: DatingConstants.languages,
                 selected: _languages,
                 onChanged: (v) => setState(() => _languages = v),
@@ -235,16 +237,16 @@ class _DatingProfileEditScreenState
               const SizedBox(height: 16),
               TextFormField(
                 controller: _whereILiveCtrl,
-                decoration: _inputDecoration('Where I Live'),
+                decoration: _inputDecoration(l10n.datingLivesIn),
               ),
               const SizedBox(height: 16),
               TextFormField(
                 controller: _nationalityCtrl,
-                decoration: _inputDecoration('Nationality'),
+                decoration: _inputDecoration(l10n.datingNationality),
               ),
               const SizedBox(height: 16),
               _buildDropdown(
-                label: 'Ethnicity',
+                label: l10n.datingEthnicity,
                 value: _ethnicity,
                 options: DatingConstants.ethnicities,
                 labels: DatingConstants.ethnicityLabels,
@@ -252,7 +254,7 @@ class _DatingProfileEditScreenState
               ),
               const SizedBox(height: 16),
               _buildDropdown(
-                label: 'Relationship Status',
+                label: l10n.datingRelationship,
                 value: _relationshipStatus,
                 options: DatingConstants.relationshipStatuses,
                 labels: DatingConstants.relationshipStatusLabels,
@@ -260,10 +262,10 @@ class _DatingProfileEditScreenState
               ),
 
               const SizedBox(height: 32),
-              _sectionHeader('Expectations'),
+              _sectionHeader(l10n.datingExpectations),
               const SizedBox(height: 16),
               _buildMultiChip(
-                label: 'Looking For',
+                label: l10n.datingLookingFor,
                 options: DatingConstants.lookingForOptions,
                 labelMap: DatingConstants.lookingForLabels,
                 selected: _lookingFor,
@@ -271,7 +273,7 @@ class _DatingProfileEditScreenState
               ),
               const SizedBox(height: 16),
               _buildMultiChip(
-                label: 'Where to Meet',
+                label: l10n.datingWhereToMeet,
                 options: DatingConstants.whereToMeetOptions,
                 labelMap: DatingConstants.whereToMeetLabels,
                 selected: _whereToMeet,
@@ -279,7 +281,7 @@ class _DatingProfileEditScreenState
               ),
               const SizedBox(height: 16),
               _buildMultiChip(
-                label: 'Preferred Tribes (max 3)',
+                label: '${l10n.datingTribes} (max 3)',
                 options: DatingConstants.tribes,
                 selected: _preferredTribes,
                 onChanged: (v) => setState(() => _preferredTribes = v),
@@ -288,19 +290,19 @@ class _DatingProfileEditScreenState
               ),
 
               const SizedBox(height: 32),
-              _sectionHeader('Privacy & Settings'),
+              _sectionHeader(l10n.datingPrivacySettings),
               const SizedBox(height: 8),
               SwitchListTile(
                 contentPadding: EdgeInsets.zero,
-                title: const Text('Show Distance'),
-                subtitle: const Text('Let others see how far you are'),
+                title: Text(l10n.datingShowDistance),
+                subtitle: Text(l10n.datingShowDistanceSubtitle),
                 value: _showDistance,
                 onChanged: (v) => setState(() => _showDistance = v),
                 activeColor: AppTheme.primaryColor,
               ),
               SwitchListTile(
                 contentPadding: EdgeInsets.zero,
-                title: const Text('Show Online Status'),
+                title: Text(l10n.datingShowOnlineStatus),
                 value: _showOnline,
                 onChanged: (v) => setState(() => _showOnline = v),
                 activeColor: AppTheme.primaryColor,
@@ -317,15 +319,14 @@ class _DatingProfileEditScreenState
                   ),
                 ),
                 child: SwitchListTile(
-                  title: const Row(
+                  title: Row(
                     children: [
-                      Text('⭐ AI Matching'),
-                      SizedBox(width: 8),
-                      _VipBadge(),
+                      Text('⭐ ${l10n.datingAiMatching}'),
+                      const SizedBox(width: 8),
+                      const _VipBadge(),
                     ],
                   ),
-                  subtitle: const Text(
-                      'Let AI find the best matches for you (VIP only)'),
+                  subtitle: Text(l10n.datingAiMatchingSubtitle),
                   value: _aiMatchingEnabled,
                   onChanged: (v) => setState(() => _aiMatchingEnabled = v),
                   activeColor: const Color(0xFFFFD700),
@@ -349,6 +350,7 @@ class _DatingProfileEditScreenState
   }
 
   Widget _buildDobField() {
+    final l10n = AppLocalizations.of(context);
     return GestureDetector(
       onTap: () async {
         final picked = await showDatePicker(
@@ -357,16 +359,16 @@ class _DatingProfileEditScreenState
               _dateOfBirth ?? DateTime.now().subtract(const Duration(days: 365 * 25)),
           firstDate: DateTime(1940),
           lastDate: DateTime.now().subtract(const Duration(days: 365 * 18)),
-          helpText: 'Select Date of Birth',
+          helpText: l10n.datingSelectDateOfBirth,
         );
         if (picked != null) setState(() => _dateOfBirth = picked);
       },
       child: InputDecorator(
-        decoration: _inputDecoration('Date of Birth *'),
+        decoration: _inputDecoration(l10n.datingDateOfBirth),
         child: Text(
           _dateOfBirth != null
               ? DateFormat.yMMMMd().format(_dateOfBirth!)
-              : 'Tap to select',
+              : l10n.datingTapToSelect,
           style: TextStyle(
             color: _dateOfBirth != null ? null : Colors.grey,
           ),
@@ -382,11 +384,12 @@ class _DatingProfileEditScreenState
     required Map<String, String> labels,
     required void Function(String?) onChanged,
   }) {
+    final l10n = AppLocalizations.of(context);
     return DropdownButtonFormField<String>(
       value: value,
       decoration: _inputDecoration(label),
       items: [
-        DropdownMenuItem<String>(value: null, child: Text('Select $label')),
+        DropdownMenuItem<String>(value: null, child: Text('${l10n.datingSelectPrefix} $label')),
         ...options.map((o) => DropdownMenuItem(
               value: o,
               child: Text(labels[o] ?? o),
