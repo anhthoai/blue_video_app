@@ -48,6 +48,7 @@ export class UlozService {
   private sessionToken: string | null = null;
   private rootFolderSlug: string | null = null;
   private streamCache: Map<string, { url: string; expiresAt: number }> = new Map();
+  private folderPageFirstSlug: Map<string, { page: number; slug: string }> = new Map();
 
   constructor(config?: Partial<UlozConfig>) {
     this.config = {
@@ -194,18 +195,20 @@ export class UlozService {
 
   private async fetchFolderFolders(userLogin: string, folderSlug: string): Promise<any[]> {
     const endpoint = `/v9/user/${userLogin}/folder/${folderSlug}/folder-list`;
-    const perPage = 100;
+    // folder-list behaves like file-list: offset/limit pagination is reliable,
+    // while page/per_page can repeat the first page indefinitely.
+    const LIMIT = 50;
     const all: any[] = [];
-    let page = 1;
+    let offset = 0;
 
     while (true) {
-      console.log(`   > Fetching subfolders via ${endpoint} (page ${page})`);
+      console.log(`   > Fetching subfolders via ${endpoint} (offset ${offset})`);
       const response = await this.client.get(endpoint, {
-        params: { per_page: perPage, page },
+        params: { limit: LIMIT, offset },
       });
       const data = response?.data;
       const items = this.extractFoldersPage(data);
-      if (page === 1 && items.length > 0) {
+      if (offset === 0 && items.length > 0) {
         console.log(`     ↳ subfolders page 1: ${items.length} item(s)`);
       }
 
@@ -213,11 +216,16 @@ export class UlozService {
 
       all.push(...items);
 
-      const declared = typeof data?.total === 'number' ? data.total : null;
+      const declared =
+        typeof data?.metadata?.items_count === 'number'
+          ? data.metadata.items_count
+          : typeof data?.total === 'number'
+          ? data.total
+          : null;
       if (declared !== null && all.length >= declared) break;
 
-      page++;
-      if (page > 5000) {
+      offset += items.length;
+      if (offset > 250000) {
         console.warn(`[UlozService] fetchFolderFolders: safety limit reached for ${endpoint}`);
         break;
       }
@@ -235,21 +243,55 @@ export class UlozService {
     perPage: number,
   ): Promise<{ items: any[]; hasMore: boolean }> {
     const endpoint = `/v9/user/${userLogin}/folder/${folderSlug}/folder-list`;
+    const limit = Math.min(perPage, 50);
+    const offset = (page - 1) * limit;
+    const pageKey = `${userLogin}:${folderSlug}:${limit}`;
     console.log(`   > Fetching subfolders via ${endpoint} (page ${page})`);
     const response = await this.client.get(endpoint, {
-      params: { per_page: perPage, page },
+      params: { limit, offset },
     });
     const data = response?.data;
     const items = this.extractFoldersPage(data);
+
+    if (items.length === 0) {
+      this.folderPageFirstSlug.delete(pageKey);
+    }
+
+    const firstSlugRaw =
+      items.length > 0
+        ? items[0]?.slug || items[0]?.id || items[0]?.folder_slug || null
+        : null;
+    const firstSlug = firstSlugRaw ? String(firstSlugRaw) : '';
+
+    // Extra safety guard: if consecutive pages return the same first folder
+    // slug, the API is likely repeating page 1 data. Stop pagination.
+    if (page > 1 && firstSlug) {
+      const previous = this.folderPageFirstSlug.get(pageKey);
+      if (previous && previous.page === page - 1 && previous.slug === firstSlug) {
+        console.warn(
+          `[UlozService] fetchFolderFoldersPage: repeated first slug "${firstSlug}" on page ${page} for ${endpoint}; stopping pagination to avoid infinite loop`
+        );
+        this.folderPageFirstSlug.delete(pageKey);
+        return { items, hasMore: false };
+      }
+    }
+
+    if (firstSlug) {
+      this.folderPageFirstSlug.set(pageKey, { page, slug: firstSlug });
+    }
+
     if (page === 1 && items.length > 0) {
       console.log(`     ↳ subfolders page 1: ${items.length} item(s)`);
     }
-    const declared = typeof data?.total === 'number' ? data.total : null;
-    // Use items.length > 0 (same rationale as file pagination): uloz caps pages
-    // at ~50 items regardless of per_page, so items.length >= perPage would be
-    // false even when more pages exist. Fall back to declared total as an upper
-    // bound when available.
-    const hasMore = items.length > 0 && (declared === null || page * perPage < declared);
+    const declared =
+      typeof data?.metadata?.items_count === 'number'
+        ? data.metadata.items_count
+        : typeof data?.total === 'number'
+        ? data.total
+        : null;
+    // Continue while data keeps arriving. If API reports a total, use offset+
+    // current page size as an upper bound.
+    const hasMore = items.length > 0 && (declared === null || offset + items.length < declared);
     return { items, hasMore };
   }
 

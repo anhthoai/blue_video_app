@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:http/http.dart' as http;
 
+import '../../core/services/api_service.dart';
 import '../../core/models/library_item_model.dart';
 import '../../core/models/library_navigation.dart';
 import '../../core/services/ebook_server.dart';
@@ -35,6 +36,38 @@ class _LibraryEbookReaderScreenState extends State<LibraryEbookReaderScreen> {
   bool _hasReceivedInitialRelocated = false;
   int _relocatedCount = 0;
   late ContextMenu _contextMenu;
+
+  Map<String, String> _ebookRequestHeaders() {
+    return {
+      'User-Agent':
+          'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36',
+      'Accept': '*/*',
+      'Accept-Encoding': 'identity',
+    };
+  }
+
+  List<String> _buildDownloadCandidates(LibraryItemModel item) {
+    final out = <String>[];
+
+    void push(String? value) {
+      final url = value?.trim();
+      if (url == null || url.isEmpty) return;
+      if (out.contains(url)) return;
+      out.add(url);
+    }
+
+    // Preferred order:
+    // 1) resolved streamUrl from API
+    // 2) backend stream proxy (adds browser-like upstream headers)
+    // 3) raw fileUrl fallback
+    push(item.streamUrl);
+    if (item.id.isNotEmpty) {
+      push('${ApiService.baseUrl}/library/item/${Uri.encodeComponent(item.id)}/stream?proxy=1');
+    }
+    push(item.fileUrl);
+
+    return out;
+  }
 
   InAppWebViewSettings get _webViewSettings => InAppWebViewSettings(
         supportZoom: _isPdfMode,
@@ -69,8 +102,8 @@ class _LibraryEbookReaderScreenState extends State<LibraryEbookReaderScreen> {
 
   Future<void> _prepareReader() async {
     final item = widget.args.item;
-    final url = item.streamUrl ?? item.fileUrl;
-    if (url == null || url.isEmpty) {
+    final candidates = _buildDownloadCandidates(item);
+    if (candidates.isEmpty) {
       setState(() {
         _error = 'No file URL available for this book.';
         _isLoading = false;
@@ -84,10 +117,31 @@ class _LibraryEbookReaderScreenState extends State<LibraryEbookReaderScreen> {
         _error = null;
       });
 
-      final response = await http.get(Uri.parse(url));
-      if (response.statusCode >= 400) {
+      http.Response? response;
+      String? selectedUrl;
+      final failures = <String>[];
+
+      for (final candidate in candidates) {
+        try {
+          final r = await http.get(
+            Uri.parse(candidate),
+            headers: _ebookRequestHeaders(),
+          );
+          if (r.statusCode < 400) {
+            response = r;
+            selectedUrl = candidate;
+            break;
+          }
+          failures.add('$candidate -> HTTP ${r.statusCode}');
+        } catch (e) {
+          failures.add('$candidate -> $e');
+        }
+      }
+
+      if (response == null) {
         throw Exception(
-            'Failed to download ebook (HTTP ${response.statusCode}).');
+          'Failed to download ebook from all URLs. ${failures.join(' | ')}',
+        );
       }
 
       var bytes = response.bodyBytes;
@@ -97,6 +151,10 @@ class _LibraryEbookReaderScreenState extends State<LibraryEbookReaderScreen> {
 
       var extension = _deriveExtension(item);
       final isPdf = extension == 'pdf';
+
+      if (kDebugMode && selectedUrl != null) {
+        debugPrint('Ebook download URL selected: $selectedUrl');
+      }
       
       // Convert TXT to EPUB if needed
       if (extension == 'txt') {

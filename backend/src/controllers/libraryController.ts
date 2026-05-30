@@ -99,6 +99,36 @@ function pickBestMimeType(item: { mimeType?: string | null; extension?: string |
   return guessed || 'application/octet-stream';
 }
 
+function shouldPreferDirectUlozLink(item: {
+  extension?: string | null | undefined;
+  mimeType?: string | null | undefined;
+  contentType?: string | null | undefined;
+}): boolean {
+  const ext = (item.extension || '').toString().trim().toLowerCase().replace(/^\./, '');
+  const mime = (item.mimeType || '').toString().trim().toLowerCase();
+  const contentType = (item.contentType || '').toString().trim().toLowerCase();
+
+  // Keep current proxy/CDN behavior for video & image.
+  // Prefer direct uloz download links for ebook/document formats because some
+  // Cloudflare-proxied URLs can return 404 on plain HTTP client download.
+  if (['pdf', 'epub', 'mobi', 'azw3', 'djvu', 'fb2', 'txt'].includes(ext)) {
+    return true;
+  }
+
+  if (
+    mime.includes('application/pdf') ||
+    mime.includes('application/epub') ||
+    mime.includes('application/x-mobipocket-ebook') ||
+    mime.includes('application/vnd.amazon.ebook') ||
+    mime.includes('application/x-fictionbook+xml') ||
+    mime.includes('text/plain')
+  ) {
+    return true;
+  }
+
+  return contentType === 'ebook' || contentType === 'document';
+}
+
 function normalizeSection(sectionParam: string | undefined | null): string | null {
   if (!sectionParam || typeof sectionParam !== 'string') {
     return null;
@@ -171,11 +201,26 @@ async function resolveFileStreamUrl(item: {
   filePath?: string | null;
   isFolder?: boolean | null;
   source: ContentSource;
+  extension?: string | null;
+  mimeType?: string | null;
+  contentType?: string | null;
   ulozStorageId?: number | null;
   ulozSlug?: string | null;
   metadata?: any;
 }, req?: Request): Promise<string | null> {
-  const { id, fileUrl, filePath, isFolder, source, ulozStorageId, ulozSlug, metadata } = item;
+  const {
+    id,
+    fileUrl,
+    filePath,
+    isFolder,
+    source,
+    extension,
+    mimeType,
+    contentType,
+    ulozStorageId,
+    ulozSlug,
+    metadata,
+  } = item;
 
   // Handle S3 stored content
   if (fileUrl?.startsWith('s3://')) {
@@ -189,15 +234,30 @@ async function resolveFileStreamUrl(item: {
 
   // Handle uloz.to proxy CDN content (skip uloz stream API entirely)
   if (source === ContentSource.ULOZ && filePath && !isFolder) {
+    const preferDirect = shouldPreferDirectUlozLink({ extension, mimeType, contentType });
     const resolvedUlozStorageId =
       typeof ulozStorageId === 'number' && ulozStorageId > 0 ? ulozStorageId : resolveUlozStorageId(req);
     const cfg = getUlozStorageConfig(resolvedUlozStorageId);
     if (cfg.proxyCdnUrl) {
-      if (req && id && wantsBackendProxy(req)) {
-        return buildPublicUrl(req, `/api/v1/library/item/${encodeURIComponent(id)}/stream`);
+      // For ebook/document types, prefer backend /stream proxy instead of
+      // returning a raw CDN URL to the app. This still uses Cloudflare CDN as
+      // upstream, but adds robust browser-like headers server-side and avoids
+      // client-side 404/download quirks seen with direct HTTP byte fetch.
+      if (preferDirect && req && id) {
+        return buildPublicUrl(req, `/api/v1/library/item/${encodeURIComponent(id)}/stream?proxy=1`);
       }
-      return buildProxyCdnUrl(cfg.proxyCdnUrl, filePath);
+
+      if (!preferDirect) {
+        if (req && id && wantsBackendProxy(req)) {
+          return buildPublicUrl(req, `/api/v1/library/item/${encodeURIComponent(id)}/stream`);
+        }
+        return buildProxyCdnUrl(cfg.proxyCdnUrl, filePath);
+      }
+
+      // preferDirect=true but no request context (cannot build /stream URL),
+      // fall through to direct-link resolution below.
     }
+
   }
 
   // If metadata already contains a stream/download URL, use it
@@ -469,6 +529,9 @@ async function serializeLibraryItem(
           filePath: item.filePath,
           isFolder: item.isFolder,
           source: item.source,
+          extension: item.extension,
+          mimeType: item.mimeType,
+          contentType: item.contentType,
           ulozStorageId: item.ulozStorageId,
           ulozSlug: item.ulozSlug ?? null,
           metadata: item.metadata ?? undefined,
@@ -1036,10 +1099,13 @@ export async function streamLibraryItem(req: Request, res: Response) {
         source: true,
         isFolder: true,
         filePath: true,
+        fileUrl: true,
+        ulozSlug: true,
         ulozStorageId: true,
         fileSize: true,
         mimeType: true,
         extension: true,
+        contentType: true,
       },
     });
 
@@ -1192,7 +1258,7 @@ export async function streamLibraryItem(req: Request, res: Response) {
       headers['Range'] = range;
     }
 
-    const upstream = await axios.request({
+    let upstream = await axios.request({
       url: upstreamUrl,
       method: 'GET',
       headers,
@@ -1205,6 +1271,58 @@ export async function streamLibraryItem(req: Request, res: Response) {
       signal: upstreamAbort.signal,
       validateStatus: () => true,
     });
+
+    // Ebook/document fallback: some CDN paths can return 404 for direct byte
+    // downloads. If that happens, resolve a direct uloz download URL and retry.
+    const shouldRetryViaDirect =
+      upstream.status === 404 &&
+      shouldPreferDirectUlozLink({
+        extension: item.extension,
+        mimeType: item.mimeType,
+        contentType: item.contentType,
+      });
+    if (shouldRetryViaDirect) {
+      try {
+        const candidate = item.ulozSlug || item.fileUrl;
+        if (candidate) {
+          const directUrl = await getUlozService(resolvedUlozStorageId).getStreamUrl(candidate);
+          if (directUrl) {
+            const directHeaders: Record<string, string> = {
+              'User-Agent': headers['User-Agent']!,
+              'Accept': '*/*',
+              'Accept-Encoding': 'identity',
+            };
+            if (range) {
+              directHeaders['Range'] = range;
+            }
+            upstream = await axios.request({
+              url: directUrl,
+              method: 'GET',
+              headers: directHeaders,
+              responseType: 'stream',
+              maxRedirects: 5,
+              httpAgent: upstreamHttpAgent,
+              httpsAgent: upstreamHttpsAgent,
+              timeout: 60_000,
+              signal: upstreamAbort.signal,
+              validateStatus: () => true,
+            });
+            if (debugEnabled) {
+              console.log(
+                `↪️  stream proxy fallback item=${itemId} via direct link -> ${upstream.status}`
+              );
+            }
+          }
+        }
+      } catch (fallbackError: any) {
+        if (debugEnabled) {
+          console.warn(
+            `⚠️  stream proxy fallback failed item=${itemId}:`,
+            fallbackError?.message ?? String(fallbackError)
+          );
+        }
+      }
+    }
 
     if (debugEnabled) {
       const upstreamRange = (upstream.headers as any)?.['content-range'];
