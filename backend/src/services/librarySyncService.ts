@@ -358,8 +358,8 @@ export class LibrarySyncService {
                 .replace(/^\./, '');
               const childSegments = [...pathSegments, entry.name];
               const thumbnailUrl =
-                (entry.previewSmallImage?.trim()) ||
                 this.buildThumbnailUrl(storageId, entry.slug) ||
+                (entry.previewSmallImage?.trim()) ||
                 null;
               return {
                 slug: entry.slug,
@@ -702,8 +702,8 @@ export class LibrarySyncService {
           const ext = (entry.extension ?? '').toString().toLowerCase().replace(/^\./, '');
           const childSegments = [...pathSegments, entry.name];
           const thumbnailUrl =
-            (entry.previewSmallImage?.trim()) ||
             this.buildThumbnailUrl(storageId, entry.slug) ||
+            (entry.previewSmallImage?.trim()) ||
             null;
           return {
             slug: entry.slug,

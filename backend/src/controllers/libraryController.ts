@@ -509,9 +509,24 @@ async function serializeLibraryItem(
     includeChildrenCount?: boolean;
   },
 ) {
-  const thumbnailUrl = item.thumbnailUrl?.startsWith('s3://')
+  let thumbnailUrl = item.thumbnailUrl?.startsWith('s3://')
     ? await resolveMediaUrl(item.thumbnailUrl)
     : item.thumbnailUrl;
+
+  // Normalize ULOZ thumbnails to the stable CDN thumb endpoint.
+  // Older records may carry expiring preview_info URLs that turn blank after
+  // signature expiry; __ulozthumb__/small/{slug} remains stable and cacheable.
+  if (item.source === ContentSource.ULOZ && item.ulozSlug) {
+    const storageId =
+      typeof item.ulozStorageId === 'number' && item.ulozStorageId > 0
+        ? item.ulozStorageId
+        : resolveUlozStorageId(req);
+    const cfg = getUlozStorageConfig(storageId);
+    if (cfg.proxyCdnUrl) {
+      const stableThumb = `${String(cfg.proxyCdnUrl).replace(/\/+$/g, '')}/__ulozthumb__/small/${encodeURIComponent(String(item.ulozSlug))}`;
+      thumbnailUrl = stableThumb;
+    }
+  }
 
   const coverUrl = item.coverUrl?.startsWith('s3://')
     ? await resolveMediaUrl(item.coverUrl)
