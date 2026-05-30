@@ -149,7 +149,7 @@
           <a
             class="button button-secondary"
             id="ios-install-link"
-            href="https://cdn.onlybl.com/downloads/blue-video-latest.ipa"
+            href="itms-services://?action=download-manifest&url=https://onlybl.com/manifest.plist"
             data-ios-install-url=""
             data-manifest-path="../manifest.plist"
             data-fallback-url="https://cdn.onlybl.com/downloads/blue-video-latest.ipa"
@@ -251,7 +251,7 @@
       if (iosInstallUrl && iosInstallUrl.trim().length > 0) {
         iosLink.href = iosInstallUrl;
       } else if (isHttps && manifestUrl) {
-        iosLink.href = "itms-services://?action=download-manifest&url=" + encodeURIComponent(manifestUrl);
+        iosLink.href = "itms-services://?action=download-manifest&url=" + manifestUrl;
       } else if (fallbackUrl) {
         iosLink.href = fallbackUrl;
       }
