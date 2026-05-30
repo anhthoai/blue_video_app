@@ -1,15 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../core/services/auth_service.dart';
 import '../../core/services/api_service.dart';
 import '../../widgets/dialogs/payment_method_dialog.dart';
-import '../../widgets/dialogs/usdt_payment_dialog.dart';
-import '../../widgets/dialogs/credit_card_payment_dialog.dart';
 import '../../l10n/app_localizations.dart';
 
+const String _pendingPaymentOrderKey = 'pending_payment_order_id';
+
 class CoinRechargeScreen extends ConsumerStatefulWidget {
-  const CoinRechargeScreen({super.key});
+  final String? initialOrderId;
+  final bool initialPaymentSuccess;
+
+  const CoinRechargeScreen({
+    super.key,
+    this.initialOrderId,
+    this.initialPaymentSuccess = false,
+  });
 
   @override
   ConsumerState<CoinRechargeScreen> createState() => _CoinRechargeScreenState();
@@ -19,13 +28,34 @@ class _CoinRechargeScreenState extends ConsumerState<CoinRechargeScreen> {
   int selectedPackageIndex = 0;
   bool isLoading = false;
   List<Map<String, dynamic>> coinPackages = [];
-  String selectedCurrency = 'BTC';
 
   @override
   void initState() {
     super.initState();
     _loadCoinPackages();
     _refreshUserBalance();
+
+    if (widget.initialOrderId != null && widget.initialOrderId!.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        context.go(
+          '/main/payment-processing?orderId=${Uri.encodeComponent(widget.initialOrderId!)}',
+        );
+      });
+    }
+
+    if (widget.initialPaymentSuccess) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        final l10n = AppLocalizations.of(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(l10n.paymentConfirmedCoinsAdded),
+            backgroundColor: Colors.green,
+          ),
+        );
+      });
+    }
 
     // Debug: Print current user data
     final currentUser = ref.read(currentUserProvider);
@@ -39,11 +69,13 @@ class _CoinRechargeScreenState extends ConsumerState<CoinRechargeScreen> {
       print('🎯 Loading coin packages...');
       final packages = await ApiService().getCoinPackages();
       print('🎯 Loaded ${packages.length} packages: $packages');
+      if (!mounted) return;
       setState(() {
         coinPackages = packages;
         isLoading = false;
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() => isLoading = false);
       print('🎯 Error loading coin packages: $e');
       if (mounted) {
@@ -91,30 +123,31 @@ class _CoinRechargeScreenState extends ConsumerState<CoinRechargeScreen> {
     try {
       setState(() => isLoading = true);
 
-      Map<String, dynamic> paymentData;
-
-      if (method == PaymentMethod.usdt) {
-        print('📝 Creating USDT payment invoice...');
-        paymentData = await ApiService().createUsdtPaymentInvoice(coins: coins);
-      } else {
-        print('📝 Creating Credit Card payment invoice...');
-        paymentData =
-            await ApiService().createCreditCardPaymentInvoice(coins: coins);
+      if (method == PaymentMethod.creditCard) {
+        if (!mounted) return;
+        setState(() => isLoading = false);
+        final l10n = AppLocalizations.of(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(l10n.creditCardComingSoon),
+            backgroundColor: Colors.blueGrey,
+          ),
+        );
+        return;
       }
+
+      Map<String, dynamic> paymentData;
+      print('📝 Creating USDT payment invoice...');
+      paymentData = await ApiService().createUsdtPaymentInvoice(coins: coins);
 
       print('✅ Payment invoice created: $paymentData');
 
+      if (!mounted) return;
       setState(() => isLoading = false);
 
-      // Show appropriate payment dialog
-      if (mounted) {
-        if (method == PaymentMethod.usdt) {
-          _showUsdtPaymentDialog(paymentData);
-        } else {
-          _showCreditCardPaymentDialog(paymentData);
-        }
-      }
+      await _launchExternalPaymentFlow(paymentData);
     } catch (e) {
+      if (!mounted) return;
       setState(() => isLoading = false);
       print('❌ Payment failed: $e');
       if (mounted) {
@@ -126,54 +159,57 @@ class _CoinRechargeScreenState extends ConsumerState<CoinRechargeScreen> {
     }
   }
 
-  void _showUsdtPaymentDialog(Map<String, dynamic> paymentData) {
-    UsdtPaymentDialog.show(
-      context,
-      paymentData: paymentData,
-      onPaymentComplete: () {
-        Navigator.of(context).pop();
-        // Refresh user balance and update UI
-        _refreshUserBalance();
-      },
-      onCancel: () {
-        Navigator.of(context).pop();
-      },
-    );
-  }
+  Future<void> _launchExternalPaymentFlow(Map<String, dynamic> paymentData) async {
+    final l10n = AppLocalizations.of(context);
+    final orderId = paymentData['orderId']?.toString();
+    final paymentUri = paymentData['paymentUri']?.toString() ?? '';
 
-  void _showCreditCardPaymentDialog(Map<String, dynamic> paymentData) {
-    CreditCardPaymentDialog.show(
-      context,
-      paymentData: paymentData,
-      onPaymentComplete: () {
-        Navigator.of(context).pop();
-        // Refresh user balance and update UI
-        _refreshUserBalance();
-      },
-      onCancel: () {
-        Navigator.of(context).pop();
-      },
-    );
-  }
+    if (orderId == null || orderId.isEmpty || paymentUri.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(l10n.failedToOpenPaymentGateway),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
 
-  void _showPaymentDialog(Map<String, dynamic> paymentData) {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => PaymentDialog(
-        paymentData: paymentData,
-        onPaymentComplete: () {
-          Navigator.of(context).pop();
-          // Refresh user balance and update UI
-          _refreshUserBalance();
-          // Force rebuild to show updated balance
-          setState(() {});
-        },
-        onCancel: () {
-          Navigator.of(context).pop();
-        },
-      ),
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_pendingPaymentOrderKey, orderId);
+
+    final launched = await launchUrl(
+      Uri.parse(paymentUri),
+      mode: LaunchMode.externalApplication,
     );
+
+    if (!launched) {
+      await prefs.remove(_pendingPaymentOrderKey);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(l10n.couldNotOpenBrowserForPayment),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    if (!mounted) return;
+    final confirmed = await context.push<bool>(
+      '/main/payment-processing?orderId=${Uri.encodeComponent(orderId)}',
+    );
+
+    if (confirmed == true && mounted) {
+      await prefs.remove(_pendingPaymentOrderKey);
+      await _refreshUserBalance();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(l10n.paymentConfirmedCoinsAdded),
+          backgroundColor: Colors.green,
+        ),
+      );
+    }
   }
 
   Future<void> _refreshUserBalance() async {
@@ -405,6 +441,7 @@ class _CoinRechargeScreenState extends ConsumerState<CoinRechargeScreen> {
                                     setState(() {
                                       selectedPackageIndex = index;
                                     });
+                                    _processRecharge();
                                   },
                                   child: Container(
                                     padding: const EdgeInsets.all(12),
@@ -574,325 +611,6 @@ class _CoinRechargeScreenState extends ConsumerState<CoinRechargeScreen> {
                   ],
                 ),
               ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class PaymentDialog extends ConsumerStatefulWidget {
-  final Map<String, dynamic> paymentData;
-  final VoidCallback onPaymentComplete;
-  final VoidCallback onCancel;
-
-  const PaymentDialog({
-    super.key,
-    required this.paymentData,
-    required this.onPaymentComplete,
-    required this.onCancel,
-  });
-
-  @override
-  ConsumerState<PaymentDialog> createState() => _PaymentDialogState();
-}
-
-class _PaymentDialogState extends ConsumerState<PaymentDialog> {
-  bool isPaymentCompleted = false;
-  bool isProcessing = false;
-
-  Future<void> _processPaymentCompletion() async {
-    if (isProcessing) return;
-
-    setState(() => isProcessing = true);
-
-    try {
-      final paymentData = widget.paymentData;
-      final coins = paymentData['coins'] as int;
-
-      print('🎯 Processing payment completion for $coins coins');
-
-      // Get current user
-      final authService = ref.read(authServiceProvider);
-      final currentUser = authService.currentUser;
-
-      if (currentUser == null) {
-        throw Exception('User not found');
-      }
-
-      // Add coins to user's balance
-      final newBalance = currentUser.coinBalance + coins;
-      await authService.updateUserCoinBalance(
-        newBalance,
-        transactionType: 'RECHARGE',
-        description: 'Coin recharge - $coins coins',
-        paymentId: paymentData['paymentId'] as String?,
-      );
-
-      print(
-          '✅ Payment completed! Added $coins coins. New balance: $newBalance');
-
-      // Show success message
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Successfully added $coins coins to your account!'),
-            backgroundColor: Colors.green,
-          ),
-        );
-      }
-
-      // Close dialog and notify parent
-      widget.onPaymentComplete();
-    } catch (e) {
-      print('❌ Payment completion failed: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Payment failed: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() => isProcessing = false);
-      }
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final paymentData = widget.paymentData;
-    final coins = paymentData['coins'] as int;
-    final usdAmount = paymentData['usdAmount'] is int
-        ? (paymentData['usdAmount'] as int).toDouble()
-        : paymentData['usdAmount'] as double;
-    final address = paymentData['address'] as String;
-    final qrCode = paymentData['qrCode'] as String;
-
-    return Dialog(
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Container(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Header
-            Row(
-              children: [
-                const Icon(
-                  Icons.qr_code,
-                  color: Color(0xFF8B5CF6),
-                  size: 24,
-                ),
-                const SizedBox(width: 12),
-                const Expanded(
-                  child: Text(
-                    'Payment Details',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-                IconButton(
-                  onPressed: widget.onCancel,
-                  icon: const Icon(Icons.close),
-                ),
-              ],
-            ),
-
-            const SizedBox(height: 20),
-
-            // Payment Info
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.grey.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Column(
-                children: [
-                  Text(
-                    '${coins} Coins',
-                    style: const TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF8B5CF6),
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    '\$${usdAmount.toStringAsFixed(2)}',
-                    style: const TextStyle(
-                      fontSize: 16,
-                      color: Colors.grey,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 20),
-
-            // QR Code or Demo Message
-            if (qrCode.isNotEmpty && qrCode != 'demo_qr_code_base64_data')
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.grey.withOpacity(0.3)),
-                ),
-                child: Column(
-                  children: [
-                    const Text(
-                      'Scan QR Code to Pay',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    // QR Code placeholder - in real implementation, decode base64 QR code
-                    Container(
-                      width: 200,
-                      height: 200,
-                      decoration: BoxDecoration(
-                        color: Colors.grey.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: const Center(
-                        child: Text(
-                          'QR Code\n(Demo Mode)',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            color: Colors.grey,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              )
-            else
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.amber.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.amber.withOpacity(0.3)),
-                ),
-                child: Column(
-                  children: [
-                    const Text(
-                      'Demo Payment',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                        color: Colors.amber,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      'Demo mode: Click "I Have Paid" to complete',
-                      style: TextStyle(
-                        color: Colors.amber.shade700,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-            const SizedBox(height: 16),
-
-            // Payment Address
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.grey.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Payment Address:',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
-                      color: Colors.grey,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  SelectableText(
-                    address,
-                    style: const TextStyle(
-                      fontSize: 12,
-                      fontFamily: 'monospace',
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 20),
-
-            // Action Buttons
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: widget.onCancel,
-                    style: OutlinedButton.styleFrom(
-                      side: const BorderSide(color: Color(0xFF8B5CF6)),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                    ),
-                    child: const Text(
-                      'Cancel',
-                      style: TextStyle(color: Color(0xFF8B5CF6)),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: isProcessing
-                        ? null
-                        : () async {
-                            // Process the actual payment and add coins
-                            await _processPaymentCompletion();
-                          },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF8B5CF6),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                    ),
-                    child: isProcessing
-                        ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(
-                              color: Colors.white,
-                              strokeWidth: 2,
-                            ),
-                          )
-                        : const Text(
-                            'I Have Paid',
-                            style: TextStyle(color: Colors.white),
-                          ),
-                  ),
-                ),
-              ],
             ),
           ],
         ),

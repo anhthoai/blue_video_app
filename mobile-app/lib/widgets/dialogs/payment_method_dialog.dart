@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 enum PaymentMethod {
-  creditCard,
   usdt,
+  creditCard,
 }
 
 class PaymentMethodDialog extends StatefulWidget {
@@ -26,9 +25,10 @@ class PaymentMethodDialog extends StatefulWidget {
     required int coins,
     required double usdAmount,
   }) {
-    return showDialog<PaymentMethod>(
+    return showModalBottomSheet<PaymentMethod>(
       context: context,
-      barrierDismissible: true,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
       builder: (context) => PaymentMethodDialog(
         coins: coins,
         usdAmount: usdAmount,
@@ -41,33 +41,37 @@ class PaymentMethodDialog extends StatefulWidget {
 }
 
 class _PaymentMethodDialogState extends State<PaymentMethodDialog> {
-  PaymentMethod? selectedMethod;
+  PaymentMethod? selectedMethod = PaymentMethod.usdt;
 
   @override
   Widget build(BuildContext context) {
-    return Dialog(
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
+    return Container(
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      child: Container(
-        padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+      child: SafeArea(
+        top: false,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Header
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.grey[300],
+                borderRadius: BorderRadius.circular(999),
+              ),
+            ),
+            const SizedBox(height: 14),
             Row(
               children: [
-                const Icon(
-                  Icons.payment,
-                  color: Color(0xFF8B5CF6),
-                  size: 24,
-                ),
-                const SizedBox(width: 12),
                 const Expanded(
                   child: Text(
-                    'Select Payment Method',
+                    'Choose Payment Method',
                     style: TextStyle(
-                      fontSize: 18,
+                      fontSize: 22,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -78,71 +82,51 @@ class _PaymentMethodDialogState extends State<PaymentMethodDialog> {
                 ),
               ],
             ),
-
-            const SizedBox(height: 16),
-
-            // Selected Package Info
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.grey[100],
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.monetization_on, color: Colors.orange),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Selected ${widget.coins} coins',
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
+            const SizedBox(height: 10),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                'Selected ${widget.coins} coins',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.grey[700],
+                ),
               ),
             ),
-
-            const SizedBox(height: 20),
-
-            // Payment Methods
-            _buildPaymentMethod(
-              PaymentMethod.creditCard,
-              'Credit Card',
-              'Pay with Visa, MasterCard, JCB',
-              Icons.credit_card,
-              Colors.blue,
-            ),
-
-            const SizedBox(height: 12),
-
+            const SizedBox(height: 14),
             _buildPaymentMethod(
               PaymentMethod.usdt,
               'USDT (TRC20)',
-              'Pay with USDT cryptocurrency',
+              'Pay in external browser (OxaPay)',
               Icons.currency_bitcoin,
               Colors.green,
             ),
-
-            const SizedBox(height: 24),
-
-            // Pay Button
+            const SizedBox(height: 10),
+            _buildPaymentMethod(
+              PaymentMethod.creditCard,
+              'Credit Card',
+              'Coming soon',
+              Icons.credit_card,
+              Colors.grey,
+              enabled: false,
+            ),
+            const SizedBox(height: 18),
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: selectedMethod != null
-                    ? () => widget.onMethodSelected(selectedMethod!)
+                onPressed: selectedMethod == PaymentMethod.usdt
+                    ? () => widget.onMethodSelected(PaymentMethod.usdt)
                     : null,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF8B5CF6),
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(14),
                   ),
                 ),
                 child: Text(
-                  'Pay \$${widget.usdAmount.toStringAsFixed(2)}',
+                  'Continue - \$${widget.usdAmount.toStringAsFixed(2)}',
                   style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
@@ -162,36 +146,43 @@ class _PaymentMethodDialogState extends State<PaymentMethodDialog> {
     String subtitle,
     IconData icon,
     Color color,
+    {bool enabled = true}
   ) {
     final isSelected = selectedMethod == method;
 
     return GestureDetector(
-      onTap: () {
-        setState(() {
-          selectedMethod = method;
-        });
-      },
+      onTap: enabled
+          ? () {
+              setState(() {
+                selectedMethod = method;
+              });
+            }
+          : null,
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           border: Border.all(
-            color: isSelected ? color : Colors.grey[300]!,
+            color: enabled
+                ? (isSelected ? color : Colors.grey[300]!)
+                : Colors.grey[300]!,
             width: isSelected ? 2 : 1,
           ),
           borderRadius: BorderRadius.circular(12),
-          color: isSelected ? color.withOpacity(0.1) : Colors.white,
+          color: enabled
+              ? (isSelected ? color.withOpacity(0.1) : Colors.white)
+              : Colors.grey[100],
         ),
         child: Row(
           children: [
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: color.withOpacity(0.1),
+                color: enabled ? color.withOpacity(0.1) : Colors.grey[200],
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Icon(
                 icon,
-                color: color,
+                color: enabled ? color : Colors.grey,
                 size: 24,
               ),
             ),
@@ -205,7 +196,9 @@ class _PaymentMethodDialogState extends State<PaymentMethodDialog> {
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
-                      color: isSelected ? color : Colors.black87,
+                      color: enabled
+                          ? (isSelected ? color : Colors.black87)
+                          : Colors.grey,
                     ),
                   ),
                   const SizedBox(height: 4),
@@ -225,12 +218,14 @@ class _PaymentMethodDialogState extends State<PaymentMethodDialog> {
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 border: Border.all(
-                  color: isSelected ? color : Colors.grey[400]!,
+                  color: enabled
+                      ? (isSelected ? color : Colors.grey[400]!)
+                      : Colors.grey[400]!,
                   width: 2,
                 ),
-                color: isSelected ? color : Colors.transparent,
+                color: enabled && isSelected ? color : Colors.transparent,
               ),
-              child: isSelected
+              child: enabled && isSelected
                   ? const Icon(
                       Icons.check,
                       color: Colors.white,

@@ -57,6 +57,19 @@
 	<string>Blue Video uses your location to show nearby dating profiles and accurate distance.</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLName</key>
+			<string>com.onlybl.app</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>bluevideo</string>
+			</array>
+		</dict>
+	</array>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>remote-notification</string>

@@ -840,4 +840,47 @@ class AppLocalizationsAr extends AppLocalizationsEn {
 
       @override
       String get contentCreatorWindowMonth => 'شهر';
+
+  @override
+  String get paymentCheckingResultTitle => 'جار التحقق من نتيجة الدفع...';
+
+  @override
+  String get paymentSuccessSyncingTitle =>
+      'تم الدفع بنجاح، جار المزامنة إلى الحساب...';
+
+  @override
+  String get paymentSyncPendingHelp =>
+      'يمكنك مغادرة هذه الصفحة أو إغلاق التطبيق أثناء المعالجة. إذا لم يصل الرصيد خلال 30 دقيقة بعد الدفع، يرجى التواصل مع الدعم وإرسال لقطة شاشة الدفع للتحقق.';
+
+  @override
+  String get paymentOpenHome => 'العودة للرئيسية';
+
+  @override
+  String get paymentViewRechargeRecord => 'عرض سجل الشحن';
+
+  @override
+  String get paymentMissingOrder => 'معرّف الطلب مفقود.';
+
+  @override
+  String get paymentNotCompletedRetry =>
+      'لم يكتمل الدفع بعد. يرجى المحاولة مرة أخرى لاحقاً.';
+
+  @override
+  String get paymentConfirmedCoinsAdded =>
+      'تم تأكيد الدفع وإضافة العملات بنجاح!';
+
+  @override
+  String get paymentOpenedInBrowserReturnToApp =>
+      'تم فتح صفحة الدفع في المتصفح. أكمل الدفع ثم ارجع إلى التطبيق.';
+
+  @override
+  String get creditCardComingSoon => 'سيتم دعم الدفع بالبطاقة قريباً.';
+
+  @override
+  String get failedToOpenPaymentGateway =>
+      'تعذر فتح بوابة الدفع. يرجى المحاولة مرة أخرى.';
+
+  @override
+  String get couldNotOpenBrowserForPayment =>
+      'تعذر فتح المتصفح لإتمام الدفع.';
 }

@@ -1218,5 +1218,48 @@ class AppLocalizationsVi extends AppLocalizationsEn {
 
   @override
   String get contentCreatorWindowMonth => 'Tháng';
+  
+  @override
+  String get paymentCheckingResultTitle => 'Dang xac nhan ket qua thanh toan...';
+  
+  @override
+  String get paymentSuccessSyncingTitle =>
+      'Thanh toan thanh cong, dang dong bo vao tai khoan...';
+  
+  @override
+  String get paymentSyncPendingHelp =>
+      'Ban co the roi khoi trang nay hoac dong ung dung trong qua trinh xu ly. Neu sau 30 phut van chua nhan duoc, vui long lien he ho tro va gui anh chup thanh toan de xac minh.';
+  
+  @override
+  String get paymentOpenHome => 'Ve Trang Chu';
+  
+  @override
+  String get paymentViewRechargeRecord => 'Xem Lich Su Nap';
+  
+  @override
+  String get paymentMissingOrder => 'Thieu ma don hang.';
+  
+  @override
+  String get paymentNotCompletedRetry =>
+      'Thanh toan chua hoan tat. Vui long thu lai sau.';
+  
+  @override
+  String get paymentConfirmedCoinsAdded =>
+      'Da xac nhan thanh toan. Coin da duoc cong thanh cong!';
+  
+  @override
+  String get paymentOpenedInBrowserReturnToApp =>
+      'Trang thanh toan da mo tren trinh duyet. Hoan tat thanh toan va quay lai ung dung.';
+  
+  @override
+  String get creditCardComingSoon => 'Thanh toan bang the se duoc ho tro som.';
+  
+  @override
+  String get failedToOpenPaymentGateway =>
+      'Khong the mo cong thanh toan. Vui long thu lai.';
+  
+  @override
+  String get couldNotOpenBrowserForPayment =>
+      'Khong the mo trinh duyet de thanh toan.';
 }
 

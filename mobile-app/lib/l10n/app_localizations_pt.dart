@@ -844,4 +844,48 @@ class AppLocalizationsPt extends AppLocalizationsEn {
 
       @override
       String get contentCreatorWindowMonth => 'Mes';
+
+  @override
+  String get paymentCheckingResultTitle => 'Verificando resultado do pagamento...';
+
+  @override
+  String get paymentSuccessSyncingTitle =>
+      'Pagamento confirmado, sincronizando na conta...';
+
+  @override
+  String get paymentSyncPendingHelp =>
+      'Voce pode sair desta pagina ou fechar o app durante o processamento. Se o saldo nao cair em ate 30 minutos apos o pagamento, contate o suporte e envie o comprovante para verificacao.';
+
+  @override
+  String get paymentOpenHome => 'Voltar para Inicio';
+
+  @override
+  String get paymentViewRechargeRecord => 'Ver Historico de Recarga';
+
+  @override
+  String get paymentMissingOrder => 'ID do pedido ausente.';
+
+  @override
+  String get paymentNotCompletedRetry =>
+      'Pagamento ainda nao concluido. Tente novamente depois.';
+
+  @override
+  String get paymentConfirmedCoinsAdded =>
+      'Pagamento confirmado. Moedas adicionadas com sucesso!';
+
+  @override
+  String get paymentOpenedInBrowserReturnToApp =>
+      'Pagamento aberto no navegador. Conclua o pagamento e volte ao app.';
+
+  @override
+  String get creditCardComingSoon =>
+      'Pagamento com cartao de credito em breve.';
+
+  @override
+  String get failedToOpenPaymentGateway =>
+      'Nao foi possivel abrir o gateway de pagamento. Tente novamente.';
+
+  @override
+  String get couldNotOpenBrowserForPayment =>
+      'Nao foi possivel abrir o navegador para pagamento.';
 }

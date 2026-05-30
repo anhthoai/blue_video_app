@@ -1,221 +1,152 @@
 # Payment Testing Guide
 
-This document explains how to test the Blue Video payment flow, covering both real IPN callbacks from the payment gateway and the mock IPN endpoint that is available for local development.
+This guide covers the current payment flow using OxaPay only.
+
+- Gateway: OxaPay
+- Supported payment method: USDT (TRC20) only
+- Legacy payment methods (credit card / old gateway): removed
 
 ---
 
-## 1. Glossary
+## 1. Prerequisites
 
-- **IPN (Instant Payment Notification)**: Server to server callback sent by the payment gateway when a transaction changes status.
-- **Order ID / Invoice ID**: Unique identifier returned by the backend when you create an invoice. This value is used when polling or triggering mock IPN events.
-- **Gateway**: External provider (MyPremium.Store / PayFlare) that hosts the credit card payment form and sends IPN callbacks.
-
-## 1.1 Prerequisites
-
-Before testing payments, ensure you have configured the payment gateway credentials in `backend/.env`:
+Configure backend payment environment values in backend/.env:
 
 ```env
-# MyPremium.Store Payment Gateway Credentials
-MPS_API_KEY=your_api_key_here
-MPS_SECRET_KEY=your_secret_key_here
-BASE_URL=http://192.168.1.100:3000  # Your server IP (not localhost!)
+OXAPAY_MERCHANT_API_KEY=your_oxapay_merchant_api_key
+OXAPAY_CALLBACK_TOKEN=your_random_callback_token
+OXAPAY_RETURN_URL=https://api.onlybl.com/payment-return
+BASE_URL=http://192.168.1.100:3000
+PUBLIC_API_URL=https://api.onlybl.com
+
+# Optional for Universal Links / App Links (.well-known generation)
+ANDROID_PACKAGE_NAME=com.onlybl.app
+ANDROID_SHA256_CERT_FINGERPRINTS=AA:BB:...:ZZ
+IOS_TEAM_ID=ABCDE12345
+IOS_BUNDLE_ID=com.onlybl.app
 ```
 
-**Important:** If these credentials are missing or invalid, you'll get a "Prerequest failed" error from the gateway.
+Notes:
+- PUBLIC_API_URL is used to build OxaPay callback/return URLs and must be public HTTPS.
+- BASE_URL can remain local/internal for development usage.
+- OXAPAY_CALLBACK_TOKEN is used to protect the callback endpoint.
+- OXAPAY_RETURN_URL must be a valid HTTP(S) URL accepted by OxaPay.
 
 ---
 
-## 2. Payment Endpoints
+## 2. Active Payment Endpoints
 
-### User-Facing Redirect Endpoints
+### Invoice creation
 
-After processing the payment, the gateway redirects the user to:
+- POST /api/v1/payment/create-usdt-invoice
+- POST /api/v1/payment/create-invoice (USDT-only compatibility endpoint)
+- POST /api/v1/payment/create-invoice-demo (USDT-only demo endpoint)
 
-**Success**: `GET /payment/success`
-- Displays "Payment Successful!" message
-- Mobile app detects this and polls for payment status
+### Callback and status
 
-**Failure**: `GET /payment/fail?msg=error_message`
-- Displays "Payment Failed" with error details
-- Mobile app detects this and shows error to user
+- POST /api/v1/payment/ipn
+- GET /api/v1/payment/status/:orderId
+- POST /api/v1/payment/simulate-ipn/:orderId (local/dev helper)
 
-### IPN Callback Endpoint
+### Redirect pages
 
-The backend exposes an IPN handler at:
-
-```
-POST /api/v1/payment/ipn
-```
-
-### Production URL
-
-```
-https://<your-domain>/api/v1/payment/ipn
-```
-
-### Local Development URL
-
-```
-http://<YOUR_LOCAL_IP>:3000/api/v1/payment/ipn
-```
-
-Example: `http://192.168.1.100:3000/api/v1/payment/ipn`
-
-> **Important:** Set `BASE_URL` in `backend/.env` to your local IP (e.g., `BASE_URL=http://192.168.1.100:3000`) so the mobile app can access success/fail redirect URLs.
-
-> **Note:** For external gateway IPN callbacks, use a tunnelling tool (ngrok, Cloudflare Tunnel, localtunnel, …) and register the tunnel URL as the IPN callback in the payment dashboard.
+- GET /payment/success
+- GET /payment/fail?msg=...
 
 ---
 
-## 3. Testing with Real Payments
+## 3. OxaPay Callback Setup
 
-1. **Configure IPN URL in the Gateway**
-   - Log in to the MyPremium.Store (PayFlare) dashboard.
-   - Set the callback / IPN URL to your production server URL (`https://…/api/v1/payment/ipn`) or your tunnel URL if you are testing locally.
+In OxaPay merchant settings, set callback URL:
 
-2. **Create a Credit Card Invoice**
-   - In the mobile app choose Coins → Credit Card, or upgrade to VIP and pick Credit Card.
-   - The backend will create an invoice and return `trans_id`, `amount`, `sign`, `endpoint_url`, and `orderId`.
+```text
+https://<your-domain>/api/v1/payment/ipn?token=<OXAPAY_CALLBACK_TOKEN>
+```
 
-3. **Complete the Payment**
-   - The Flutter app opens a WebView that auto-posts the invoice data to `endpoint_url`.
-   - Fill in the test card information and submit.
+For local testing, use a tunnel URL (ngrok/Cloudflare Tunnel/localtunnel), for example:
 
-4. **Observe IPN Callback**
-   - After the gateway processes the payment it sends a POST request to `/api/v1/payment/ipn`.
-   - Backend verifies the signature, finalises the payment record, and marks the VIP subscription (or coin purchase) as completed.
-   - Logs you should see:
-     - `🎯 IPN notification received:`
-     - `✅ Payment completed…`
-
-5. **Client Confirmation**
-   - The app polls `/api/v1/payment/status/:orderId` (every 10 seconds).
-   - Once the payment is marked `COMPLETED` the WebView closes and the success flow (coin balance update / VIP activation) runs.
-
-### Tips
-
-- Use test cards supplied by the gateway.
-- Ensure the IPN URL uses HTTPS in production.
-- Keep browser dev tools open if you need to inspect form submission – the HTML auto-submits but you can disable `onload` for debugging if necessary.
+```text
+https://xxxx.ngrok.io/api/v1/payment/ipn?token=<OXAPAY_CALLBACK_TOKEN>
+```
 
 ---
 
-## 4. Troubleshooting Gateway Timeout (Error 504)
+## 3.1 Universal Links / App Links Setup (Recommended)
 
-### Symptom
-WebView shows: "Gateway time-out - Error code 504" from Cloudflare when trying to submit payment.
+1. Configure app link domain in mobile app:
+  - Android app host placeholder is in android/app/build.gradle.kts as appLinkHost.
+  - iOS associated domain is in ios/Runner/Runner.entitlements as applinks:api.your-app.com.
+2. Serve association files from backend:
+  - GET /.well-known/assetlinks.json
+  - GET /.well-known/apple-app-site-association
+3. Fill backend env values used by these endpoints:
+  - ANDROID_PACKAGE_NAME
+  - ANDROID_SHA256_CERT_FINGERPRINTS (comma-separated SHA256 fingerprints)
+  - IOS_TEAM_ID
+  - IOS_BUNDLE_ID
+4. Use HTTPS return URL for OxaPay:
+  - OXAPAY_RETURN_URL=https://api.your-app.com/payment-return
 
-### Cause
-The payment gateway (`premiumflare.net/paygate/payblis/checkout/`) is slow or overloaded. Even though the homepage loads fine in a browser, the **actual payment processing endpoint** may timeout when receiving the POST request with payment data.
-
-This is **NOT your app's fault** - it's a gateway infrastructure issue.
-
-### Solutions
-
-**Option 1: Wait and Retry**
-- Gateway might recover in a few minutes
-- Try again during off-peak hours
-
-**Option 2: Use Mock IPN (Recommended for Development)**
-- See section below to bypass the gateway entirely
-- Perfect for testing the payment flow locally
-
-**Option 3: Contact Gateway Support**
-- Email support@premiumflare.net or mypremium.store
-- Report the 504 timeout issue
-- Verify your API credentials are active
+Result:
+- If links are verified, browser opens app directly.
+- If verification fails, the backend return page still shows an Open App fallback button.
 
 ---
 
-## 5. Testing with Mock IPN (No external gateway)
+## 4. Real Payment Test (USDT TRC20)
 
-For rapid testing or when the gateway is down, you can trigger the backend's mock endpoint. This simulates a successful `COMPLETED` IPN without contacting the real gateway.
+1. Open app and go to coin recharge or VIP subscription.
+2. Tap a package amount to open the payment method bottom sheet.
+3. Select USDT (TRC20). Credit Card is shown but disabled as coming soon.
+4. Tap Continue to create invoice and open OxaPay in external browser.
+5. Complete payment in browser/wallet.
+6. OxaPay returns to https://api.onlybl.com/payment-return?orderId=... which then opens the app via Universal Links/App Links fallback flow.
+7. OxaPay also sends callback to /api/v1/payment/ipn.
+8. App auto-checks /api/v1/payment/status/:orderId and updates balance/subscription automatically.
+9. If user closes the payment processing screen, app-level pending checker still confirms payment and shows toast on completion/failure.
 
-### Endpoint
-
-```
-POST /api/v1/payment/mock-ipn/:orderId
-```
-
-- Replace `:orderId` with the invoice/order ID returned when creating the payment.
-- Requires no body payload. The server builds a fake IPN matching the real structure and processes it via the same logic used for production.
-
-### Steps
-
-1. Generate an invoice (Coins → Credit Card or VIP → Credit Card).
-2. Copy the `orderId` (log output or API response).
-3. Call the mock IPN endpoint:
-
-   ```bash
-   curl -X POST http://localhost:3000/api/v1/payment/simulate-ipn/<orderId>
-   ```
-
-4. The backend logs `🎭 Simulating IPN for local development…` and the payment becomes `COMPLETED` immediately.
-5. The app polling loop detects the status change and runs the normal success flow.
-
-> **Reminder:** Mock IPN is intended for local development and is implemented in the backend server (`backend/src/server.ts`). Do not expose or rely on it in production.
+Expected logs:
+- Payment invoice creation logs
+- IPN notification received
+- Payment completed and balance/subscription update logs
 
 ---
 
-## 5. Troubleshooting
+## 5. Fast Local Test (No Real Transfer)
 
-| Symptom | Possible Cause | Resolution |
-| --- | --- | --- |
-| WebView closes but payment never completes | No IPN received | Ensure callback URL is correct, reachable, and the gateway has the updated URL |
-| IPN request logged but status stays pending | Signature validation failed | Verify API keys/secrets used in `paymentService.verifyIPNSignature` |
-| Local testing fails | Gateway cannot reach localhost | Use a tunnel service or trigger the mock IPN endpoint |
-| WebView shows gateway error | Missing `trans_id`, `amount`, or `sign` | Confirm invoice API returns the fields and they are passed through the dialog |
-| `ERR_CLEARTEXT_NOT_PERMITTED` in WebView | Android blocks HTTP traffic | Already fixed - see "Android Cleartext Traffic" section below |
+Use simulate endpoint:
 
-### Android Cleartext Traffic (Already Configured)
-
-Android 9+ blocks HTTP (cleartext) traffic by default. The app is already configured to allow localhost HTTP for development:
-
-**File: `android/app/src/main/AndroidManifest.xml`**
-```xml
-<application
-    android:networkSecurityConfig="@xml/network_security_config"
-    android:usesCleartextTraffic="true">
+```bash
+curl -X POST http://localhost:3000/api/v1/payment/simulate-ipn/<orderId>
 ```
 
-**File: `android/app/src/main/res/xml/network_security_config.xml`**
-```xml
-<network-security-config>
-    <domain-config cleartextTrafficPermitted="true">
-        <domain includeSubdomains="true">localhost</domain>
-        <domain includeSubdomains="true">127.0.0.1</domain>
-        <domain includeSubdomains="true">10.0.2.2</domain>
-        <domain includeSubdomains="true">192.168.1.100</domain>
-    </domain-config>
-    <base-config cleartextTrafficPermitted="false" />
-</network-security-config>
-```
+This marks the payment as completed through the same processing path.
 
-> **Note:** Production builds should only use HTTPS. The configuration above allows HTTP only for localhost development.
+Behavior with app auto confirmation:
+- Yes, this works with the new workflow.
+- Pending orderId is saved locally after invoice creation.
+- The processing page polls status and updates UI immediately when terminal state is reached.
+- An app-wide checker also validates pending orders on interval and app resume, so confirmation still happens even if the processing page is closed.
+- On confirmation, current user profile balance is refreshed and coin history balance stays in sync with Profile.
 
 ---
 
-## 6. Useful Logs & Commands
+## 6. Troubleshooting
 
-- Backend logs around IPN handling
-  - `🎯 IPN notification received:`
-  - `✅ Payment completed…`
-  - `❌ Payment failed…`
-- Manual status check
-
-  ```bash
-  curl http://localhost:3000/api/v1/payment/status/<orderId>
-  ```
-
-- Regenerate an invoice if the previous one has expired.
+- IPN returns 401 Unauthorized callback:
+  - token missing or mismatch between OxaPay callback URL and OXAPAY_CALLBACK_TOKEN.
+- Payment remains PENDING:
+  - callback URL unreachable from internet, wrong BASE_URL, or tunnel not active.
+- App cannot confirm payment:
+  - verify orderId used by app matches extOrderId in backend record.
+  - verify pending order key exists in app local storage until terminal status.
+- Missing invoice creation:
+  - verify OXAPAY_MERCHANT_API_KEY is valid.
 
 ---
 
 ## 7. Summary
 
-- Always configure the correct IPN URL for real transactions.
-- Use the WebView flow to submit real credit card details to the gateway.
-- Use the mock IPN endpoint for fast, offline testing.
-- Watch backend logs to verify processing.
-
-This guide should help you confidently test both real and simulated payment flows end to end.
+- Payment stack is now OxaPay + USDT TRC20 only.
+- Old credit card and legacy gateway flow is removed.
+- Use callback token + status polling + simulate endpoint for reliable testing.

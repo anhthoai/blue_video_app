@@ -923,6 +923,44 @@ class AppLocalizationsJa extends AppLocalizations {
   @override
   String get trendingNow => 'トレンド';
 
+    @override
+    String get paymentCheckingResultTitle => '決済結果を確認中...';
+
+    @override
+    String get paymentSuccessSyncingTitle => '支払い完了、残高へ同期中...';
+
+    @override
+    String get paymentSyncPendingHelp =>
+      '処理中はこのページを離れるかアプリを閉じても問題ありません。支払い後30分経っても反映されない場合は、サポートへ支払いスクリーンショットを送ってください。';
+
+    @override
+    String get paymentOpenHome => 'ホームへ戻る';
+
+    @override
+    String get paymentViewRechargeRecord => 'チャージ履歴を見る';
+
+    @override
+    String get paymentMissingOrder => '注文IDが見つかりません。';
+
+    @override
+    String get paymentNotCompletedRetry => '支払いはまだ完了していません。後でもう一度お試しください。';
+
+    @override
+    String get paymentConfirmedCoinsAdded => '支払いが確認され、コインが追加されました。';
+
+    @override
+    String get paymentOpenedInBrowserReturnToApp =>
+      '支払いページをブラウザで開きました。支払い完了後にアプリへ戻ってください。';
+
+    @override
+    String get creditCardComingSoon => 'クレジットカード決済は近日対応予定です。';
+
+    @override
+    String get failedToOpenPaymentGateway => '決済ページを開けませんでした。もう一度お試しください。';
+
+    @override
+    String get couldNotOpenBrowserForPayment => '支払い用ブラウザを開けませんでした。';
+
   // Category filters
   @override
   String get all => 'すべて';

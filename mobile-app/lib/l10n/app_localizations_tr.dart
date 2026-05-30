@@ -845,4 +845,47 @@ class AppLocalizationsTr extends AppLocalizationsEn {
 
       @override
       String get contentCreatorWindowMonth => 'Ay';
+
+  @override
+  String get paymentCheckingResultTitle => 'Odeme sonucu kontrol ediliyor...';
+
+  @override
+  String get paymentSuccessSyncingTitle =>
+      'Odeme basarili, hesaba senkronize ediliyor...';
+
+  @override
+  String get paymentSyncPendingHelp =>
+      'Islem sirasinda bu sayfadan cikabilir veya uygulamayi kapatabilirsiniz. Odemeden sonraki 30 dakika icinde bakiye yansimazsa destek iletisime gecip odeme ekran goruntusunu gonderin.';
+
+  @override
+  String get paymentOpenHome => 'Ana Sayfaya Don';
+
+  @override
+  String get paymentViewRechargeRecord => 'Yukleme Gecmisini Gor';
+
+  @override
+  String get paymentMissingOrder => 'Siparis kimligi eksik.';
+
+  @override
+  String get paymentNotCompletedRetry =>
+      'Odeme henuz tamamlanmadi. Lutfen daha sonra tekrar deneyin.';
+
+  @override
+  String get paymentConfirmedCoinsAdded =>
+      'Odeme onaylandi. Jetonlar basariyla eklendi!';
+
+  @override
+  String get paymentOpenedInBrowserReturnToApp =>
+      'Odeme tarayicida acildi. Odemeyi tamamlayip uygulamaya donun.';
+
+  @override
+  String get creditCardComingSoon => 'Kredi karti odemesi yakinda desteklenecek.';
+
+  @override
+  String get failedToOpenPaymentGateway =>
+      'Odeme ag gecidi acilamadi. Lutfen tekrar deneyin.';
+
+  @override
+  String get couldNotOpenBrowserForPayment =>
+      'Odeme icin tarayici acilamadi.';
 }

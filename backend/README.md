@@ -12,7 +12,7 @@ A comprehensive backend API for the Blue Video social media application, built w
 - **Database**: PostgreSQL with Redis for caching
 - **Security**: Rate limiting, CORS, helmet, input validation
 - **💰 Coin System**: Complete coin-based monetization system
-- **💳 Payment Gateway**: USDT (TRC20) and Credit Card payment processing
+- **💳 Payment Gateway**: OxaPay USDT (TRC20) payment processing
 - **📊 Transaction Tracking**: Complete coin transaction history with Order IDs
 - **🔔 IPN Processing**: Real-time payment confirmation system
 
@@ -25,7 +25,7 @@ A comprehensive backend API for the Blue Video social media application, built w
 - **Video Processing**: FFmpeg
 - **Authentication**: JWT + Refresh Tokens
 - **Security**: Helmet, CORS, Rate Limiting
-- **Payment Processing**: mypremium.store API integration
+- **Payment Processing**: OxaPay Merchant Invoice API integration
 - **Cryptocurrency**: USDT (TRC20) support
 - **IPN Handling**: Real-time payment notifications
 
@@ -90,10 +90,17 @@ S3_REGION=us-east-1
 CDN_URL=https://your-cdn-domain.com
 CDN_CACHE_TTL=31536000
 
-# Payment Gateway Configuration
-PAYMENT_API_KEY=your_payment_api_key
-PAYMENT_API_URL=https://api.mypremium.store
-PAYMENT_IPN_URL=https://your-domain.com/api/v1/payment/ipn
+# OxaPay Configuration (USDT TRC20 only)
+OXAPAY_MERCHANT_API_KEY=your_oxapay_merchant_api_key
+OXAPAY_CALLBACK_TOKEN=your_random_callback_token
+OXAPAY_RETURN_URL=bluevideo://payment-return
+BASE_URL=https://your-domain.com
+
+# Optional Universal Links / App Links metadata
+ANDROID_PACKAGE_NAME=com.onlybl.app
+ANDROID_SHA256_CERT_FINGERPRINTS=AA:BB:...:ZZ
+IOS_TEAM_ID=ABCDE12345
+IOS_BUNDLE_ID=com.onlybl.app
 ```
 
 ### 3. Database Setup
@@ -220,18 +227,7 @@ GET /api/v1/coin-packages
 
 #### Create USDT Payment Invoice
 ```http
-POST /api/v1/payment/usdt/invoice
-Authorization: Bearer your_access_token
-Content-Type: application/json
-
-{
-  "coins": 100
-}
-```
-
-#### Create Credit Card Payment Invoice
-```http
-POST /api/v1/payment/credit-card/invoice
+POST /api/v1/payment/create-usdt-invoice
 Authorization: Bearer your_access_token
 Content-Type: application/json
 
@@ -249,9 +245,9 @@ Authorization: Bearer your_access_token
 #### IPN Notification Endpoint
 ```http
 POST /api/v1/payment/ipn
-Content-Type: application/x-www-form-urlencoded
+Content-Type: application/x-www-form-urlencoded or application/json
 
-extOrderId=order_123&status=OK&sbpayMethod=cryptocurrency&...
+order_id=order_123&status=PAID&currency=USDT&network=TRC20&txid=...
 ```
 
 #### Get Coin Transaction History
@@ -297,26 +293,34 @@ Authorization: Bearer your_access_token
 
 ### Payment Gateway Setup
 
-1. **Register with mypremium.store:**
-   - Create an account at https://mypremium.store
-   - Get your API key from the dashboard
-   - Configure your IPN URL: `https://your-domain.com/api/v1/payment/ipn`
+1. **Register with OxaPay Merchant Service:**
+   - Create an account at https://oxapay.com
+   - Generate a Merchant API key
+   - Configure your callback URL: `https://your-domain.com/api/v1/payment/ipn?token=<OXAPAY_CALLBACK_TOKEN>`
 
 2. **Configure environment variables:**
    ```env
-   PAYMENT_API_KEY=your_payment_api_key
-   PAYMENT_API_URL=https://api.mypremium.store
-   PAYMENT_IPN_URL=https://your-domain.com/api/v1/payment/ipn
+   OXAPAY_MERCHANT_API_KEY=your_oxapay_merchant_api_key
+   OXAPAY_CALLBACK_TOKEN=your_random_callback_token
+   OXAPAY_RETURN_URL=https://your-domain.com/payment-return
+   BASE_URL=https://your-domain.com
+   ANDROID_PACKAGE_NAME=com.onlybl.app
+   ANDROID_SHA256_CERT_FINGERPRINTS=AA:BB:...:ZZ
+   IOS_TEAM_ID=ABCDE12345
+   IOS_BUNDLE_ID=com.onlybl.app
    ```
 
 3. **Supported Payment Methods:**
-   - **USDT (TRC20)**: Cryptocurrency payments
-   - **Credit Card**: Traditional card payments
+   - **USDT (TRC20)** only
 
 4. **IPN (Instant Payment Notification):**
-   - Payment gateway sends notifications to your IPN endpoint
+   - OxaPay sends notifications to your IPN endpoint
    - Backend processes payments and updates user coin balance
    - Frontend polls payment status until completion
+
+5. **Domain association files (for direct app open):**
+   - `GET /.well-known/assetlinks.json`
+   - `GET /.well-known/apple-app-site-association`
 
 ### OVH VPS Setup
 
@@ -411,7 +415,7 @@ server {
 - **Input Validation** with Joi
 - **Password Hashing** with bcrypt
 - **SQL Injection** protection with parameterized queries
-- **Payment Security** with IPN signature verification
+- **Payment Security** with callback token verification
 - **Order ID Validation** to prevent duplicate payments
 - **Transaction Logging** for complete audit trail
 
@@ -425,8 +429,8 @@ server {
 
 ### Payment Flow
 1. **Invoice Creation**: Generate payment invoice with unique Order ID
-2. **Payment Processing**: User pays via USDT or Credit Card
-3. **IPN Notification**: Payment gateway sends confirmation
+2. **Payment Processing**: User pays via USDT (TRC20)
+3. **IPN Notification**: OxaPay sends confirmation
 4. **Balance Update**: Backend updates user coin balance
 5. **Transaction Logging**: Record transaction in database
 6. **Frontend Sync**: Real-time balance updates via polling
@@ -500,9 +504,10 @@ npm run lint:fix
 | `JWT_SECRET` | JWT secret key | Required |
 | `S3_ENDPOINT` | S3 endpoint | Required |
 | `CDN_URL` | CDN URL | Required |
-| `PAYMENT_API_KEY` | Payment gateway API key | Required |
-| `PAYMENT_API_URL` | Payment gateway API URL | Required |
-| `PAYMENT_IPN_URL` | IPN callback URL | Required |
+| `OXAPAY_MERCHANT_API_KEY` | OxaPay Merchant API key | Required |
+| `OXAPAY_CALLBACK_TOKEN` | Callback security token | Recommended |
+| `OXAPAY_RETURN_URL` | App deep-link return URL after browser payment | Recommended |
+| `BASE_URL` | Public backend base URL used in callback/return URLs | Required |
 
 ## 🤝 Contributing
 

@@ -2151,7 +2151,7 @@ class ApiService {
   // Create payment invoice
   Future<Map<String, dynamic>> createPaymentInvoice({
     required int coins,
-    String targetCurrency = 'BTC',
+    String targetCurrency = 'USDT',
   }) async {
     try {
       final headers = await _getHeaders();
@@ -2203,33 +2203,6 @@ class ApiService {
     }
   }
 
-  // Create Credit Card payment invoice
-  Future<Map<String, dynamic>> createCreditCardPaymentInvoice({
-    required int coins,
-  }) async {
-    try {
-      final headers = await _getHeaders();
-      final response = await http.post(
-        Uri.parse('$baseUrl/payment/create-credit-card-invoice'),
-        headers: headers,
-        body: jsonEncode({
-          'coins': coins,
-        }),
-      );
-
-      final data = await _handleResponse(response);
-      if (data['success'] == true) {
-        return data['data'];
-      } else {
-        throw Exception(
-            data['message'] ?? 'Failed to create Credit Card payment invoice');
-      }
-    } catch (e) {
-      print('Error creating Credit Card payment invoice: $e');
-      rethrow;
-    }
-  }
-
   // Get payment history
   Future<List<Map<String, dynamic>>> getPaymentHistory({
     int page = 1,
@@ -2250,6 +2223,27 @@ class ApiService {
       }
     } catch (e) {
       print('Error getting payment history: $e');
+      rethrow;
+    }
+  }
+
+  // Get single payment status by order ID
+  Future<Map<String, dynamic>> getPaymentStatus(String orderId) async {
+    try {
+      final headers = await _getHeaders();
+      final response = await http.get(
+        Uri.parse('$baseUrl/payment/status/$orderId'),
+        headers: headers,
+      );
+
+      final data = await _handleResponse(response);
+      if (data['success'] == true && data['data'] is Map<String, dynamic>) {
+        return data['data'] as Map<String, dynamic>;
+      }
+
+      throw Exception(data['message'] ?? 'Failed to get payment status');
+    } catch (e) {
+      print('Error getting payment status: $e');
       rethrow;
     }
   }
@@ -2451,14 +2445,12 @@ class ApiService {
 
   // Create VIP subscription
   Future<Map<String, dynamic>> createVipSubscription(
-      String authorId, String packageId,
-      {String? paymentMethod}) async {
+      String authorId, String packageId) async {
     try {
       final headers = await _getHeaders();
       final body = {
         'authorId': authorId,
         'packageId': packageId,
-        if (paymentMethod != null) 'paymentMethod': paymentMethod,
       };
 
       final response = await http.post(

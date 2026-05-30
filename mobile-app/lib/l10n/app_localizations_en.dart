@@ -930,6 +930,47 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get trendingNow => 'Trending Now';
 
+  @override
+  String get paymentCheckingResultTitle => 'Checking payment result...';
+
+  @override
+  String get paymentSuccessSyncingTitle => 'Payment successful, syncing to account...';
+
+  @override
+  String get paymentSyncPendingHelp =>
+      'You can leave this page or close the app while processing. If funds are not credited within 30 minutes after payment, contact support and send your payment screenshot for verification.';
+
+  @override
+  String get paymentOpenHome => 'Back to Home';
+
+  @override
+  String get paymentViewRechargeRecord => 'View Recharge Record';
+
+  @override
+  String get paymentMissingOrder => 'Missing order id.';
+
+  @override
+  String get paymentNotCompletedRetry => 'Payment is not completed yet. Please try again later.';
+
+  @override
+  String get paymentConfirmedCoinsAdded =>
+      'Payment confirmed. Coins added successfully!';
+
+  @override
+  String get paymentOpenedInBrowserReturnToApp =>
+      'Payment opened in browser. Complete payment and return to app.';
+
+  @override
+  String get creditCardComingSoon => 'Credit Card payment will be supported soon.';
+
+  @override
+  String get failedToOpenPaymentGateway =>
+      'Failed to open payment gateway. Please try again.';
+
+  @override
+  String get couldNotOpenBrowserForPayment =>
+      'Could not open browser for payment.';
+
   // Category filters
   @override
   String get all => 'All';

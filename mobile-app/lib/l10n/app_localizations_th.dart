@@ -838,4 +838,47 @@ class AppLocalizationsTh extends AppLocalizationsEn {
 
       @override
       String get contentCreatorWindowMonth => 'เดือน';
+
+  @override
+  String get paymentCheckingResultTitle => 'กำลังตรวจสอบผลการชำระเงิน...';
+
+  @override
+  String get paymentSuccessSyncingTitle =>
+      'ชำระเงินสำเร็จ กำลังซิงก์เข้าบัญชี...';
+
+  @override
+  String get paymentSyncPendingHelp =>
+      'ระหว่างประมวลผล คุณสามารถออกจากหน้านี้หรือปิดแอปได้ หากผ่านไป 30 นาทีแล้วยังไม่เข้า กรุณาติดต่อฝ่ายบริการและส่งภาพหน้าจอการชำระเงินเพื่อยืนยัน';
+
+  @override
+  String get paymentOpenHome => 'กลับหน้าแรก';
+
+  @override
+  String get paymentViewRechargeRecord => 'ดูประวัติการเติมเงิน';
+
+  @override
+  String get paymentMissingOrder => 'ไม่พบรหัสคำสั่งซื้อ';
+
+  @override
+  String get paymentNotCompletedRetry =>
+      'การชำระเงินยังไม่เสร็จสมบูรณ์ โปรดลองใหม่ภายหลัง';
+
+  @override
+  String get paymentConfirmedCoinsAdded =>
+      'ยืนยันการชำระเงินแล้ว เพิ่มเหรียญเรียบร้อย!';
+
+  @override
+  String get paymentOpenedInBrowserReturnToApp =>
+      'เปิดหน้าชำระเงินในเบราว์เซอร์แล้ว ชำระเงินให้เสร็จและกลับเข้าแอป';
+
+  @override
+  String get creditCardComingSoon => 'การชำระเงินด้วยบัตรเครดิตจะพร้อมใช้งานเร็วๆ นี้';
+
+  @override
+  String get failedToOpenPaymentGateway =>
+      'ไม่สามารถเปิดช่องทางชำระเงินได้ โปรดลองอีกครั้ง';
+
+  @override
+  String get couldNotOpenBrowserForPayment =>
+      'ไม่สามารถเปิดเบราว์เซอร์เพื่อชำระเงินได้';
 }

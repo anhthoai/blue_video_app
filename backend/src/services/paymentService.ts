@@ -3,7 +3,7 @@ import crypto from 'crypto';
 export interface PaymentRequest {
   usdAmount: number;
   extOrderId: string;
-  targetCurrency: string;
+  targetCurrency?: string;
 }
 
 export interface PaymentResponse {
@@ -16,238 +16,183 @@ export interface PaymentResponse {
   addr: string;
 }
 
-export interface CreditCardPaymentRequest {
-  amount: number;
-  currency: string;
-  extOrderId: string;
-  email: string;
-  productName: string;
-}
-
-export interface CreditCardPaymentResponse {
-  transId: string;
-  amount: string;
-  amountTry?: string;
-  status: string;
-  endpointUrl: string;
-  sign: string;
-}
-
 export interface IPNNotification {
-  btcAmount?: string;
-  sbpayMethod: string;
-  txid: string;
+  order_id?: string;
+  track_id?: string;
   status: string;
-  currencyCode: string;
-  signature: string;
-  extOrderId: string;
+  txid?: string;
+  currency?: string;
+  network?: string;
+  amount?: string;
+  paid_amount?: string;
+  type?: string;
+
+  // Legacy fields kept for backward compatibility with old payload shapes.
+  sbpayMethod?: string;
+  currencyCode?: string;
+  signature?: string;
+  extOrderId?: string;
   btcTxid?: string;
-  usdAmount?: string;
-  prerequest?: string;
 }
 
 export class PaymentService {
-  private readonly apiKey: string;
-  private readonly secretKey: string;
-  private readonly baseUrl: string = 'http://mypremium.store';
+  private readonly merchantApiKey: string;
+  private readonly callbackToken: string;
+  private readonly baseUrl: string = 'https://api.oxapay.com/v1';
 
   constructor() {
-    this.apiKey = process.env['MPS_API_KEY'] || 'dusrpykr1uq2vq800bo3f8xm9dikzpj8';
-    this.secretKey = process.env['MPS_SECRET_KEY'] || '3r4y9ug0mevqhv8h';
+    this.merchantApiKey = process.env['OXAPAY_MERCHANT_API_KEY'] || '';
+    this.callbackToken = process.env['OXAPAY_CALLBACK_TOKEN'] || '';
   }
 
   /**
-   * Create a USDT (cryptocurrency) payment invoice
+   * Create an OxaPay USDT (TRC20) payment invoice.
    */
   async createInvoice(request: PaymentRequest): Promise<PaymentResponse> {
     try {
-      const formData = new URLSearchParams();
-      formData.append('op', 'create_invoice');
-      formData.append('api_key', this.apiKey);
-      formData.append('usd_amount', request.usdAmount.toString());
-      formData.append('ext_order_id', request.extOrderId);
-      formData.append('gen_qr_code', '1');
-      formData.append('target_currency', request.targetCurrency);
+      if (!this.merchantApiKey) {
+        throw new Error('OXAPAY_MERCHANT_API_KEY is not configured');
+      }
 
-      console.log('🔗 Creating USDT invoice:', {
+      const callbackBaseUrl = this.resolveHttpUrl(
+        process.env['PUBLIC_API_URL'],
+        process.env['BASE_URL'] || 'https://api.onlybl.com',
+      );
+      const callbackTokenQuery = this.callbackToken
+        ? `?token=${encodeURIComponent(this.callbackToken)}`
+        : '';
+      const appReturnUrlBase = this.resolveHttpUrl(
+        process.env['OXAPAY_RETURN_URL'],
+        `${callbackBaseUrl}/payment-return`,
+      );
+      const returnUrl = appReturnUrlBase.includes('?')
+        ? `${appReturnUrlBase}&orderId=${encodeURIComponent(request.extOrderId)}`
+        : `${appReturnUrlBase}?orderId=${encodeURIComponent(request.extOrderId)}`;
+
+      const payload = {
+        amount: Number(request.usdAmount.toFixed(2)),
+        currency: 'USDT',
+        to_currency: 'USDT',
+        lifetime: 60,
+        fee_paid_by_payer: 1,
+        order_id: request.extOrderId,
+        callback_url: `${callbackBaseUrl}/api/v1/payment/ipn${callbackTokenQuery}`,
+        return_url: returnUrl,
+        description: `USDT TRC20 payment for order ${request.extOrderId}`,
+      };
+
+      console.log('🔗 Creating OxaPay USDT invoice:', {
         usdAmount: request.usdAmount,
         extOrderId: request.extOrderId,
-        targetCurrency: request.targetCurrency,
+        currency: 'USDT',
       });
 
-      const response = await fetch(this.baseUrl, {
+      const response = await fetch(`${this.baseUrl}/payment/invoice`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
+          'Content-Type': 'application/json',
+          merchant_api_key: this.merchantApiKey,
         },
-        body: formData,
+        body: JSON.stringify(payload),
       });
 
       const data = await response.json() as any;
-      console.log('🔗 USDT invoice response:', data);
+      console.log('🔗 OxaPay invoice response:', data);
 
-      if (data.status !== 'OK') {
-        throw new Error(data.error || 'Failed to create invoice');
+      if (!response.ok || data.status !== 200 || !data.data?.track_id || !data.data?.payment_url) {
+        throw new Error(data?.message || data?.error?.message || 'Failed to create OxaPay invoice');
       }
 
       return {
-        id: data.id.toString(),
-        paymentUri: data.payment_uri || '',
-        currencyCode: data.currency_code,
-        qrCode: data.qr_code,
-        amount: data.amount,
-        status: data.status,
-        addr: data.addr,
+        id: String(data.data.track_id),
+        paymentUri: String(data.data.payment_url),
+        currencyCode: 'USDT',
+        qrCode: '',
+        amount: Number(request.usdAmount.toFixed(2)),
+        status: 'PENDING',
+        addr: '',
       };
     } catch (error) {
-      console.error('❌ USDT invoice creation error:', error);
-      throw new Error('Failed to create USDT payment invoice');
+      console.error('❌ OxaPay USDT invoice creation error:', error);
+      throw new Error('Failed to create OxaPay USDT payment invoice');
     }
   }
 
-  /**
-   * Create a Credit Card payment invoice
-   */
-  async createCreditCardInvoice(request: CreditCardPaymentRequest): Promise<CreditCardPaymentResponse> {
-    try {
-      const formData = new URLSearchParams();
-      formData.append('op', 'cc_checkout');
-      formData.append('api_key', this.apiKey);
-      formData.append('api_ver', '1.2');
-      formData.append('amount', request.amount.toString());
-      formData.append('currency', request.currency);
-      formData.append('ext_order_id', request.extOrderId);
-      formData.append('success_uri', `${process.env['BASE_URL'] || 'http://localhost:3000'}/payment/success`);
-      formData.append('fail_uri', `${process.env['BASE_URL'] || 'http://localhost:3000'}/payment/fail`);
-      formData.append('email', request.email);
-      formData.append('product_name', request.productName);
+  private resolveHttpUrl(value: string | undefined, fallback: string): string {
+    const candidate = String(value || '').trim();
+    const fallbackValue = String(fallback || '').trim();
 
-      console.log('💳 Creating Credit Card invoice:', {
-        amount: request.amount,
-        currency: request.currency,
-        extOrderId: request.extOrderId,
-        email: request.email,
-      });
-
-      const response = await fetch(this.baseUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: formData,
-      });
-
-      const data = await response.json() as any;
-      console.log('💳 Credit Card invoice response:', data);
-
-      if (data.status !== 'OK') {
-        throw new Error(data.error || 'Failed to create credit card invoice');
+    const normalize = (urlValue: string): string | null => {
+      if (!urlValue) return null;
+      try {
+        const parsed = new URL(urlValue);
+        if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
+          return parsed.toString().replace(/\/$/, '');
+        }
+      } catch {
+        return null;
       }
+      return null;
+    };
 
-      return {
-        transId: data.trans_id,
-        amount: data.amount,
-        amountTry: data.amount_try,
-        status: data.status,
-        endpointUrl: data.endpoint_url,
-        sign: data.sign,
-      };
-    } catch (error) {
-      console.error('❌ Credit Card invoice creation error:', error);
-      throw new Error('Failed to create credit card payment invoice');
-    }
+    return (
+      normalize(candidate) ||
+      normalize(fallbackValue) ||
+      'https://api.onlybl.com'
+    );
   }
 
   /**
-   * Verify IPN signature for cryptocurrency payments
+   * Verify callback token sent to callback endpoint.
    */
-  verifyCryptoIPNSignature(notification: IPNNotification): boolean {
-    try {
-      // Sort keys alphabetically (excluding 'signature')
-      const sortedKeys = Object.keys(notification)
-        .filter(key => key !== 'signature')
-        .sort();
+  verifyCallbackToken(token?: string): boolean {
+    if (!this.callbackToken) {
+      return true;
+    }
 
-      // Create payload by concatenating values in sorted order
-      let payload = '';
-      for (const key of sortedKeys) {
-        payload += notification[key as keyof IPNNotification] || '';
-      }
-
-      // Append secret key
-      payload += this.secretKey;
-
-      // Calculate SHA256 hash
-      const calculatedSignature = crypto
-        .createHash('sha256')
-        .update(payload)
-        .digest('hex');
-
-      console.log('🔐 IPN signature verification:', {
-        payload: payload.substring(0, 100) + '...',
-        calculatedSignature,
-        receivedSignature: notification.signature,
-        match: calculatedSignature === notification.signature,
-      });
-
-      return calculatedSignature === notification.signature;
-    } catch (error) {
-      console.error('❌ IPN signature verification error:', error);
+    if (!token) {
       return false;
     }
-  }
 
-  /**
-   * Verify IPN signature for credit card payments
-   */
-  verifyCreditCardIPNSignature(notification: IPNNotification): boolean {
-    try {
-      // Sort keys alphabetically (excluding 'signature')
-      const sortedKeys = Object.keys(notification)
-        .filter(key => key !== 'signature')
-        .sort();
-
-      // Create payload by concatenating values in sorted order
-      let payload = '';
-      for (const key of sortedKeys) {
-        payload += notification[key as keyof IPNNotification] || '';
-      }
-
-      // Append secret key
-      payload += this.secretKey;
-
-      // Calculate SHA256 hash
-      const calculatedSignature = crypto
-        .createHash('sha256')
-        .update(payload)
-        .digest('hex');
-
-      console.log('🔐 Credit Card IPN signature verification:', {
-        payload: payload.substring(0, 100) + '...',
-        calculatedSignature,
-        receivedSignature: notification.signature,
-        match: calculatedSignature === notification.signature,
-      });
-
-      return calculatedSignature === notification.signature;
-    } catch (error) {
-      console.error('❌ Credit Card IPN signature verification error:', error);
+    if (token.length !== this.callbackToken.length) {
       return false;
     }
+
+    return crypto.timingSafeEqual(
+      Buffer.from(token),
+      Buffer.from(this.callbackToken),
+    );
   }
 
   /**
-   * Verify IPN signature (generic method)
+   * Normalize payment notification fields to internal values.
    */
-  verifyIPNSignature(notification: IPNNotification): boolean {
-    if (notification.sbpayMethod === 'bitcoin' || notification.sbpayMethod === 'cryptocurrency') {
-      return this.verifyCryptoIPNSignature(notification);
-    } else if (notification.sbpayMethod === 'creditcard') {
-      return this.verifyCreditCardIPNSignature(notification);
-    }
-    
-    console.warn('⚠️ Unknown payment method:', notification.sbpayMethod);
-    return false;
+  normalizeNotification(notification: IPNNotification): {
+    extOrderId: string;
+    status: string;
+    txid: string;
+    currencyCode: string;
+    paymentMethod: 'USDT';
+  } {
+    const extOrderId = notification.order_id || notification.extOrderId || '';
+    const txid = notification.txid || notification.btcTxid || '';
+    const currencyCode = (notification.currency || notification.currencyCode || 'USDT').toUpperCase();
+
+    return {
+      extOrderId,
+      status: notification.status,
+      txid,
+      currencyCode,
+      paymentMethod: 'USDT',
+    };
+  }
+
+  /**
+   * Determine whether callback status should be treated as paid.
+   */
+  isCompletedStatus(status: string): boolean {
+    const normalized = String(status || '').toUpperCase();
+    return ['PAID', 'COMPLETED', 'CONFIRMED', 'OK'].includes(normalized);
   }
 
   /**

@@ -40,6 +40,7 @@ import '../../screens/community/request_submission_screen.dart';
 import '../../screens/community/search_results_screen.dart';
 import '../../screens/coin/coin_recharge_screen.dart';
 import '../../screens/coin/coin_history_screen.dart';
+import '../../screens/coin/payment_processing_screen.dart';
 import '../../screens/vip/vip_subscription_screen.dart';
 import '../../screens/discover/category_detail_screen.dart';
 import '../../screens/playlist/playlist_detail_screen.dart';
@@ -84,6 +85,17 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/splash',
         builder: (context, state) => const SplashScreen(),
+      ),
+
+      GoRoute(
+        path: '/payment-return',
+        redirect: (context, state) {
+          final orderId = state.uri.queryParameters['orderId'];
+          if (orderId != null && orderId.isNotEmpty) {
+            return '/main/payment-processing?orderId=${Uri.encodeComponent(orderId)}';
+          }
+          return '/main/coin-recharge';
+        },
       ),
 
       // Auth Routes
@@ -227,7 +239,17 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
             path: 'coin-recharge',
-            builder: (context, state) => const CoinRechargeScreen(),
+            builder: (context, state) => CoinRechargeScreen(
+              initialOrderId: state.uri.queryParameters['orderId'],
+              initialPaymentSuccess:
+                  state.uri.queryParameters['paymentSuccess'] == '1',
+            ),
+          ),
+          GoRoute(
+            path: 'payment-processing',
+            builder: (context, state) => PaymentProcessingScreen(
+              orderId: state.uri.queryParameters['orderId'] ?? '',
+            ),
           ),
           GoRoute(
             path: 'coin-history',

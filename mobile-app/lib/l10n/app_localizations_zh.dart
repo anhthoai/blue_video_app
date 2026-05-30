@@ -921,6 +921,44 @@ class AppLocalizationsZh extends AppLocalizations {
   @override
   String get trendingNow => '热门推荐';
 
+  @override
+  String get paymentCheckingResultTitle => '正在确认支付结果...';
+
+  @override
+  String get paymentSuccessSyncingTitle => '支付成功，正在同步到账...';
+
+  @override
+  String get paymentSyncPendingHelp =>
+      '处理过程可离开本页面或关闭APP。支付后若30分钟后未到账，请联系在线客服，发送支付截图凭证为您处理。';
+
+  @override
+  String get paymentOpenHome => '返回首页';
+
+  @override
+  String get paymentViewRechargeRecord => '查看充值记录';
+
+  @override
+  String get paymentMissingOrder => '缺少订单号。';
+
+  @override
+  String get paymentNotCompletedRetry => '支付尚未完成，请稍后再试。';
+
+  @override
+  String get paymentConfirmedCoinsAdded => '支付已确认，金币已成功到账！';
+
+  @override
+  String get paymentOpenedInBrowserReturnToApp =>
+      '支付页面已在浏览器打开，请完成支付后返回应用。';
+
+  @override
+  String get creditCardComingSoon => '信用卡支付即将支持。';
+
+  @override
+  String get failedToOpenPaymentGateway => '无法打开支付网关，请重试。';
+
+  @override
+  String get couldNotOpenBrowserForPayment => '无法打开浏览器进行支付。';
+
   // Category filters
   @override
   String get all => '全部';

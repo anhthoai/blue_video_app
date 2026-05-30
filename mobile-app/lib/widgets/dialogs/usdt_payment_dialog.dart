@@ -43,14 +43,19 @@ class UsdtPaymentDialog extends ConsumerStatefulWidget {
 class _UsdtPaymentDialogState extends ConsumerState<UsdtPaymentDialog> {
   bool isPaymentCompleted = false;
 
+  double _parseAmount(dynamic value) {
+    if (value is num) return value.toDouble();
+    if (value is String) return double.tryParse(value) ?? 0.0;
+    return 0.0;
+  }
+
   @override
   Widget build(BuildContext context) {
     final paymentData = widget.paymentData;
-    final amount = paymentData['amount'] is String
-        ? double.parse(paymentData['amount'] as String)
-        : (paymentData['amount'] as double? ?? 0.0);
+    final amount = _parseAmount(paymentData['amount']);
     final address = paymentData['address'] as String? ?? '';
     final qrCode = paymentData['qrCode'] as String? ?? '';
+    final paymentUri = paymentData['paymentUri'] as String? ?? '';
 
     return Dialog(
       shape: RoundedRectangleBorder(
@@ -164,15 +169,15 @@ class _UsdtPaymentDialogState extends ConsumerState<UsdtPaymentDialog> {
                             )
                           : const Center(
                               child: Icon(
-                                Icons.qr_code,
-                                size: 100,
+                                Icons.link,
+                                size: 80,
                                 color: Colors.grey,
                               ),
                             ),
                     ),
                     const SizedBox(height: 16),
                     const Text(
-                      'Withdrawal Address:',
+                      'Payment Destination:',
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w500,
@@ -190,7 +195,7 @@ class _UsdtPaymentDialogState extends ConsumerState<UsdtPaymentDialog> {
                           Flexible(
                             flex: 3,
                             child: Text(
-                              address,
+                              address.isNotEmpty ? address : paymentUri,
                               style: const TextStyle(
                                 fontSize: 10,
                                 fontFamily: 'monospace',
@@ -203,7 +208,8 @@ class _UsdtPaymentDialogState extends ConsumerState<UsdtPaymentDialog> {
                           Flexible(
                             flex: 1,
                             child: ElevatedButton(
-                              onPressed: () => _copyToClipboard(address),
+                              onPressed: () =>
+                                  _copyToClipboard(address.isNotEmpty ? address : paymentUri),
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: Colors.orange,
                                 foregroundColor: Colors.white,
@@ -220,6 +226,19 @@ class _UsdtPaymentDialogState extends ConsumerState<UsdtPaymentDialog> {
                         ],
                       ),
                     ),
+                    if (paymentUri.isNotEmpty) ...[
+                      const SizedBox(height: 12),
+                      Text(
+                        paymentUri,
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: Colors.grey[700],
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
                   ],
                 ),
               ),

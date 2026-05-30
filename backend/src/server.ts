@@ -4480,7 +4480,7 @@ app.get('/api/v1/authors/:authorId/vip-packages', authenticateToken, async (req,
 app.post('/api/v1/vip-subscriptions', authenticateToken, async (req, res): Promise<void> => {
   try {
     const currentUserId = req.user?.id;
-    let { authorId, packageId, paymentMethod: requestedMethod } = req.body;
+    let { authorId, packageId } = req.body;
     
     if (!currentUserId) {
       res.status(401).json({
@@ -4724,168 +4724,82 @@ app.post('/api/v1/vip-subscriptions', authenticateToken, async (req, res): Promi
         },
       });
     } else {
-      // User doesn't have enough coins - create payment invoice using selected method
+      // User doesn't have enough coins - create OxaPay USDT invoice
       const usdAmount = requiredCoins / 100; // Convert coins to USD
-      const method = requestedMethod === 'CREDIT_CARD' ? 'CREDIT_CARD' : 'USDT';
       const extOrderId = `VIP${Date.now()}`;
+      const usdt = await paymentService.createInvoice({
+        usdAmount: usdAmount,
+        extOrderId: extOrderId,
+        targetCurrency: 'USDT',
+      });
 
-      if (method === 'CREDIT_CARD') {
-        // Need user email for credit card invoice
-        const ccUser = await prisma.user.findUnique({
-          where: { id: currentUserId },
-          select: { email: true, username: true },
-        });
-        if (!ccUser || !ccUser.email) {
-          res.status(400).json({ success: false, message: 'User email required for credit card payment' });
-          return;
-        }
-
-        const cc = await paymentService.createCreditCardInvoice({
+      const payment = await prisma.payment.create({
+        data: {
+          userId: currentUserId,
+          extOrderId: extOrderId,
           amount: usdAmount,
+          coins: requiredCoins,
           currency: 'USD',
-          extOrderId: extOrderId,
-          email: ccUser.email,
-          productName: `VIP Subscription - ${vipPackage.duration}`,
-        });
-
-        const payment = await prisma.payment.create({
-          data: {
-            userId: currentUserId,
-            extOrderId: extOrderId,
-            amount: usdAmount,
-            coins: requiredCoins,
-            currency: 'USD',
-            paymentMethod: 'CREDIT_CARD',
-            status: 'PENDING',
-            metadata: {
-              type: 'VIP_SUBSCRIPTION',
-              authorId: authorId,
-              packageId: packageId,
-              duration: vipPackage.duration,
-              transId: cc.transId,
-              endpointUrl: cc.endpointUrl,
-              sign: cc.sign,
-            },
-          },
-        });
-
-        const subscription = await prisma.vipSubscription.create({
-          data: {
-            subscriberId: currentUserId,
+          paymentMethod: 'USDT',
+          status: 'PENDING',
+          paymentAddress: usdt.addr,
+          paymentUri: usdt.paymentUri,
+          qrCode: usdt.qrCode,
+          metadata: {
+            type: 'VIP_SUBSCRIPTION',
             authorId: authorId,
             packageId: packageId,
-            startDate: startDate,
-            endDate: endDate,
-            status: 'PENDING',
-            paymentId: payment.id,
+            duration: vipPackage.duration,
+            trackId: usdt.id,
           },
-        });
+        },
+      });
 
-        res.json({
-          success: true,
-          data: {
-            subscription: {
-              id: subscription.id,
-              author: {
-                id: vipPackage.author.id,
-                username: vipPackage.author.username,
-                firstName: vipPackage.author.firstName,
-                avatarUrl: vipPackage.author.avatarUrl,
-              },
-              package: {
-                id: vipPackage.id,
-                duration: vipPackage.duration,
-                price: usdAmount,
-                coins: vipPackage.coins,
-              },
-              startDate: subscription.startDate,
-              endDate: subscription.endDate,
-              status: subscription.status,
+      const subscription = await prisma.vipSubscription.create({
+        data: {
+          subscriberId: currentUserId,
+          authorId: authorId,
+          packageId: packageId,
+          startDate: startDate,
+          endDate: endDate,
+          status: 'PENDING',
+          paymentId: payment.id,
+        },
+      });
+
+      res.json({
+        success: true,
+        data: {
+          subscription: {
+            id: subscription.id,
+            author: {
+              id: vipPackage.author.id,
+              username: vipPackage.author.username,
+              firstName: vipPackage.author.firstName,
+              avatarUrl: vipPackage.author.avatarUrl,
             },
-            payment: {
-              orderId: extOrderId,
-              transId: cc.transId,
-              endpointUrl: cc.endpointUrl,
-              sign: cc.sign,
-              amount: usdAmount,
-              coins: requiredCoins,
-              method: 'CREDIT_CARD',
-              status: 'PENDING',
+            package: {
+              id: vipPackage.id,
+              duration: vipPackage.duration,
+              price: usdAmount,
+              coins: vipPackage.coins,
             },
+            startDate: subscription.startDate,
+            endDate: subscription.endDate,
+            status: subscription.status,
           },
-        });
-      } else {
-        const usdt = await paymentService.createInvoice({
-          usdAmount: usdAmount,
-          extOrderId: extOrderId,
-          targetCurrency: 'USDT',
-        });
-
-        const payment = await prisma.payment.create({
-          data: {
-            userId: currentUserId,
-            extOrderId: usdt.id,
-            amount: usdAmount,
-            coins: requiredCoins,
-            currency: 'USD',
-            paymentMethod: 'USDT',
-            status: 'PENDING',
-            paymentAddress: usdt.addr,
+          payment: {
+            orderId: extOrderId,
+            paymentUri: usdt.paymentUri,
+            address: usdt.addr,
             qrCode: usdt.qrCode,
-            metadata: {
-              type: 'VIP_SUBSCRIPTION',
-              authorId: authorId,
-              packageId: packageId,
-              duration: vipPackage.duration,
-            },
-          },
-        });
-
-        const subscription = await prisma.vipSubscription.create({
-          data: {
-            subscriberId: currentUserId,
-            authorId: authorId,
-            packageId: packageId,
-            startDate: startDate,
-            endDate: endDate,
+            amount: usdAmount,
+            coins: requiredCoins,
+            method: 'USDT_TRC20',
             status: 'PENDING',
-            paymentId: payment.id,
           },
-        });
-
-        res.json({
-          success: true,
-          data: {
-            subscription: {
-              id: subscription.id,
-              author: {
-                id: vipPackage.author.id,
-                username: vipPackage.author.username,
-                firstName: vipPackage.author.firstName,
-                avatarUrl: vipPackage.author.avatarUrl,
-              },
-              package: {
-                id: vipPackage.id,
-                duration: vipPackage.duration,
-                price: usdAmount,
-                coins: vipPackage.coins,
-              },
-              startDate: subscription.startDate,
-              endDate: subscription.endDate,
-              status: subscription.status,
-            },
-            payment: {
-              orderId: usdt.id,
-              address: usdt.addr,
-              qrCode: usdt.qrCode,
-              amount: usdAmount,
-              coins: requiredCoins,
-              method: 'USDT',
-              status: 'PENDING',
-            },
-          },
-        });
-      }
+        },
+      });
     }
   } catch (error) {
     console.error('❌ Error creating VIP subscription:', error);
@@ -12247,7 +12161,7 @@ app.get('/api/v1/payment/packages', (_req, res): void => {
 // Demo payment endpoint (no auth required)
 app.post('/api/v1/payment/create-invoice-demo', async (req, res): Promise<void> => {
   try {
-    const { coins, targetCurrency = 'BTC' } = req.body;
+    const { coins } = req.body;
 
     if (!coins) {
       res.status(400).json({
@@ -12267,7 +12181,7 @@ app.post('/api/v1/payment/create-invoice-demo', async (req, res): Promise<void> 
     const paymentResponse = await paymentService.createInvoice({
       usdAmount,
       extOrderId,
-      targetCurrency,
+      targetCurrency: 'USDT',
     });
 
     res.json({
@@ -12296,7 +12210,7 @@ app.post('/api/v1/payment/create-invoice-demo', async (req, res): Promise<void> 
 // Create payment invoice
 app.post('/api/v1/payment/create-invoice', authenticateToken, async (req, res): Promise<void> => {
   try {
-    const { coins, targetCurrency = 'BTC' } = req.body;
+    const { coins } = req.body;
     const currentUserId = req.user?.id || 'demo-user-id'; // Fallback for demo
 
     if (!coins) {
@@ -12317,7 +12231,7 @@ app.post('/api/v1/payment/create-invoice', authenticateToken, async (req, res): 
     const paymentResponse = await paymentService.createInvoice({
       usdAmount,
       extOrderId,
-      targetCurrency,
+      targetCurrency: 'USDT',
     });
 
     // Store payment record in database
@@ -12327,12 +12241,13 @@ app.post('/api/v1/payment/create-invoice', authenticateToken, async (req, res): 
         extOrderId,
         amount: usdAmount,
         coins,
-        currency: targetCurrency,
+        currency: 'USD',
         status: 'PENDING',
         paymentId: paymentResponse.id,
         paymentAddress: paymentResponse.addr,
         paymentUri: paymentResponse.paymentUri,
         qrCode: paymentResponse.qrCode,
+        paymentMethod: 'USDT',
       },
     });
 
@@ -12438,105 +12353,20 @@ app.post('/api/v1/payment/create-usdt-invoice', authenticateToken, async (req, r
   }
 });
 
-// Real Credit Card payment endpoint
-app.post('/api/v1/payment/create-credit-card-invoice', authenticateToken, async (req, res): Promise<void> => {
-  try {
-    const currentUserId = req.user?.id;
-    const { coins } = req.body;
-
-    if (!currentUserId) {
-      res.status(401).json({
-        success: false,
-        message: 'Authentication required',
-      });
-      return;
-    }
-
-    if (!coins) {
-      res.status(400).json({
-        success: false,
-        message: 'Coins amount is required',
-      });
-      return;
-    }
-
-    // Get user email
-    const user = await prisma.user.findUnique({
-      where: { id: currentUserId },
-      select: { email: true, username: true },
-    });
-
-    if (!user) {
-      res.status(404).json({
-        success: false,
-        message: 'User not found',
-      });
-      return;
-    }
-
-    // Convert coins to USD
-    const usdAmount = paymentService.coinsToUsd(coins);
-
-    // Generate unique order ID
-    const extOrderId = `CC${Date.now()}`;
-
-    // Create Credit Card payment invoice
-    const paymentResponse = await paymentService.createCreditCardInvoice({
-      amount: usdAmount,
-      currency: 'USD',
-      extOrderId: extOrderId,
-      email: user.email,
-      productName: `Coin Recharge - ${coins} coins`,
-    });
-
-    // Store payment record in database
-    await prisma.payment.create({
-      data: {
-        userId: currentUserId,
-        extOrderId: extOrderId,
-        amount: usdAmount,
-        currency: 'USD',
-        coins: coins,
-        status: 'PENDING',
-        paymentMethod: 'CREDIT_CARD',
-        metadata: {
-          transId: paymentResponse.transId,
-          endpointUrl: paymentResponse.endpointUrl,
-          sign: paymentResponse.sign,
-        },
-      },
-    });
-
-    res.json({
-      success: true,
-      data: {
-        orderId: extOrderId,
-        transId: paymentResponse.transId,
-        amount: paymentResponse.amount,
-        currency: 'USD',
-        endpointUrl: paymentResponse.endpointUrl,
-        sign: paymentResponse.sign,
-        coins: coins,
-        usdAmount: usdAmount,
-      },
-    });
-  } catch (error) {
-    console.error('❌ Credit Card payment invoice creation error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to create Credit Card payment invoice',
-    });
-    return;
-  }
-});
-
 // Handle IPN notifications
 
 // Extract IPN processing logic into a reusable function
 async function processIPNNotification(notification: IPNNotification): Promise<void> {
+  const normalized = paymentService.normalizeNotification(notification);
+
+  if (!normalized.extOrderId) {
+    console.error('Payment callback missing order id:', notification);
+    throw new Error('Missing order id in callback');
+  }
+
   // Find payment record
   const payment = await prisma.payment.findUnique({
-    where: { extOrderId: notification.extOrderId },
+    where: { extOrderId: normalized.extOrderId },
     include: { 
       user: true,
       vipSubscriptions: {
@@ -12549,17 +12379,17 @@ async function processIPNNotification(notification: IPNNotification): Promise<vo
   });
 
   if (!payment) {
-    console.error('Payment not found:', notification.extOrderId);
+    console.error('Payment not found:', normalized.extOrderId);
     throw new Error('Payment not found');
   }
 
-  if (notification.status === 'OK') {
+  if (paymentService.isCompletedStatus(normalized.status)) {
     // Update payment status
     await prisma.payment.update({
       where: { id: payment.id },
       data: {
         status: 'COMPLETED',
-        transactionId: notification.btcTxid || notification.txid,
+        transactionId: normalized.txid,
         completedAt: new Date(),
       },
     });
@@ -12627,7 +12457,7 @@ async function processIPNNotification(notification: IPNNotification): Promise<vo
           paymentId: payment.id,
           metadata: {
             paymentMethod: payment.paymentMethod,
-            transactionId: notification.btcTxid || notification.txid,
+            transactionId: normalized.txid,
             gatewayNotification: notification as any,
           },
         },
@@ -12647,7 +12477,7 @@ async function processIPNNotification(notification: IPNNotification): Promise<vo
             authorId: author.id,
             packageId: packageInfo.id,
             duration: packageInfo.duration,
-            transactionId: notification.btcTxid || notification.txid,
+            transactionId: normalized.txid,
             gatewayNotification: notification as any,
           },
         },
@@ -12667,7 +12497,7 @@ async function processIPNNotification(notification: IPNNotification): Promise<vo
             subscriberId: payment.userId,
             packageId: packageInfo.id,
             duration: packageInfo.duration,
-            transactionId: notification.btcTxid || notification.txid,
+            transactionId: normalized.txid,
             gatewayNotification: notification as any,
           },
         },
@@ -12695,7 +12525,7 @@ async function processIPNNotification(notification: IPNNotification): Promise<vo
           paymentId: payment.id,
           metadata: {
             paymentMethod: payment.paymentMethod,
-            transactionId: notification.btcTxid || notification.txid,
+            transactionId: normalized.txid,
             gatewayNotification: notification as any, // Type assertion for JSON storage
           },
         },
@@ -12721,7 +12551,7 @@ async function processIPNNotification(notification: IPNNotification): Promise<vo
       });
     }
 
-    console.log(`❌ Payment failed for order: ${notification.extOrderId}`);
+    console.log(`❌ Payment failed for order: ${normalized.extOrderId}`);
   }
 }
 
@@ -12749,13 +12579,11 @@ app.post('/api/v1/payment/simulate-ipn/:orderId', async (req, res): Promise<void
 
     // Simulate successful IPN notification
     const mockIPN: IPNNotification = {
-      extOrderId: orderId,
-      status: 'OK',
-      sbpayMethod: payment.paymentMethod === 'USDT' ? 'cryptocurrency' : 'creditcard',
-      currencyCode: payment.paymentMethod === 'USDT' ? 'USDT' : 'USD',
-      btcTxid: payment.paymentMethod === 'USDT' ? `mock_tx_${Date.now()}` : '',
-      txid: payment.paymentMethod === 'USDT' ? `mock_tx_${Date.now()}` : '',
-      signature: 'mock_signature_for_local_dev',
+      order_id: orderId,
+      status: 'PAID',
+      currency: 'USDT',
+      network: 'TRC20',
+      txid: `mock_tx_${Date.now()}`,
     };
 
     // Process the mock IPN
@@ -12813,6 +12641,95 @@ app.get('/payment/success', async (req, res): Promise<void> => {
     console.log('   Query params:', req.query);
     
     // Return a simple HTML page that the WebView can detect
+
+  app.get('/payment-return', (req, res): void => {
+    const rawOrderId = typeof req.query['orderId'] === 'string' ? req.query['orderId'] : '';
+    const orderId = encodeURIComponent(rawOrderId);
+    const appDeepLink = rawOrderId
+      ? `bluevideo://payment-return?orderId=${orderId}`
+      : 'bluevideo://payment-return';
+
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.status(200).send(`
+      <!doctype html>
+      <html lang="en">
+        <head>
+          <meta charset="utf-8" />
+          <meta name="viewport" content="width=device-width, initial-scale=1" />
+          <title>Blue Video Payment</title>
+          <style>
+            body { font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif; margin: 0; background: #f6f6f8; color: #16181d; }
+            .wrap { max-width: 520px; margin: 48px auto; padding: 24px; }
+            .card { background: #fff; border-radius: 16px; padding: 24px; box-shadow: 0 8px 24px rgba(0,0,0,0.08); text-align: center; }
+            h1 { margin: 0 0 8px; font-size: 32px; }
+            p { margin: 8px 0; color: #666; line-height: 1.5; }
+            .actions { margin-top: 24px; display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+            .btn { border: 0; border-radius: 999px; padding: 12px 18px; font-weight: 600; text-decoration: none; }
+            .btn-primary { background: #d5bc79; color: #fff; }
+            .btn-secondary { background: #fff; color: #856d2b; border: 1px solid #c8b071; }
+          </style>
+        </head>
+        <body>
+          <div class="wrap">
+            <div class="card">
+              <h1>正在确认支付结果...</h1>
+              <p>处理过程可离开本页面或关闭APP。</p>
+              <p>支付后若30分钟后未到账，请联系在线客服，发送支付截图凭证为您处理。</p>
+              <div class="actions">
+                <a class="btn btn-primary" href="${appDeepLink}">返回首页</a>
+                <a class="btn btn-secondary" href="/payment/success">查看充值记录</a>
+              </div>
+            </div>
+          </div>
+          <script>
+            window.location.replace(${JSON.stringify(appDeepLink)});
+          </script>
+        </body>
+      </html>
+    `);
+  });
+
+  app.get('/.well-known/assetlinks.json', (_req, res): void => {
+    const packageName = process.env['ANDROID_PACKAGE_NAME'] || 'com.onlybl.app';
+    const fingerprintsRaw = process.env['ANDROID_SHA256_CERT_FINGERPRINTS'] || '';
+    const fingerprints = fingerprintsRaw
+      .split(',')
+      .map((value) => value.trim())
+      .filter(Boolean);
+
+    const statement = {
+      relation: ['delegate_permission/common.handle_all_urls'],
+      target: {
+        namespace: 'android_app',
+        package_name: packageName,
+        sha256_cert_fingerprints: fingerprints,
+      },
+    };
+
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    res.status(200).json([statement]);
+  });
+
+  app.get('/.well-known/apple-app-site-association', (_req, res): void => {
+    const teamId = process.env['IOS_TEAM_ID'] || '';
+    const bundleId = process.env['IOS_BUNDLE_ID'] || 'com.onlybl.app';
+    const appId = teamId ? `${teamId}.${bundleId}` : bundleId;
+
+    const payload = {
+      applinks: {
+        apps: [],
+        details: [
+          {
+            appID: appId,
+            paths: ['/payment-return', '/payment-return/*'],
+          },
+        ],
+      },
+    };
+
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    res.status(200).json(payload);
+  });
     res.send(`
       <!DOCTYPE html>
       <html>
@@ -12947,17 +12864,16 @@ app.get(/^\/payment\/fail(.*)$/, async (req, res): Promise<void> => {
   }
 });
 
-app.post('/api/v1/payment/ipn', express.urlencoded({ extended: true }), async (req, res): Promise<void> => {
+app.post('/api/v1/payment/ipn', express.urlencoded({ extended: true }), express.json(), async (req, res): Promise<void> => {
   try {
     const notification: IPNNotification = req.body;
+    const callbackToken = (req.query['token'] as string) || (req.headers['x-callback-token'] as string) || (notification as any)['token'];
 
     console.log('🎯 IPN notification received:', notification);
 
-    // For demo purposes, accept all notifications
-    // In production, verify signature
-    if (!paymentService.verifyIPNSignature(notification)) {
-      console.error('Invalid IPN signature:', notification);
-      res.status(400).send('Invalid signature');
+    if (!paymentService.verifyCallbackToken(callbackToken)) {
+      console.error('Invalid callback token for payment IPN');
+      res.status(401).send('Unauthorized callback');
       return;
     }
 

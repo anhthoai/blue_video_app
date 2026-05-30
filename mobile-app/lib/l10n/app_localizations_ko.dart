@@ -845,4 +845,43 @@ class AppLocalizationsKo extends AppLocalizationsEn {
 
       @override
       String get contentCreatorWindowMonth => '월';
+
+  @override
+  String get paymentCheckingResultTitle => '결제 결과를 확인 중입니다...';
+
+  @override
+  String get paymentSuccessSyncingTitle => '결제가 완료되어 계정에 동기화 중입니다...';
+
+  @override
+  String get paymentSyncPendingHelp =>
+      '처리 중에는 이 페이지를 나가거나 앱을 닫아도 됩니다. 결제 후 30분이 지나도 반영되지 않으면 고객센터에 결제 스크린샷을 보내 주세요.';
+
+  @override
+  String get paymentOpenHome => '홈으로 이동';
+
+  @override
+  String get paymentViewRechargeRecord => '충전 내역 보기';
+
+  @override
+  String get paymentMissingOrder => '주문 ID가 없습니다.';
+
+  @override
+  String get paymentNotCompletedRetry => '결제가 아직 완료되지 않았습니다. 나중에 다시 시도해 주세요.';
+
+  @override
+  String get paymentConfirmedCoinsAdded => '결제가 확인되어 코인이 정상 반영되었습니다!';
+
+  @override
+  String get paymentOpenedInBrowserReturnToApp =>
+      '브라우저에서 결제 페이지를 열었습니다. 결제 완료 후 앱으로 돌아오세요.';
+
+  @override
+  String get creditCardComingSoon => '신용카드 결제는 곧 지원됩니다.';
+
+  @override
+  String get failedToOpenPaymentGateway =>
+      '결제 게이트웨이를 열 수 없습니다. 다시 시도해 주세요.';
+
+  @override
+  String get couldNotOpenBrowserForPayment => '결제를 위한 브라우저를 열 수 없습니다.';
 }

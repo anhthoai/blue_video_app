@@ -846,4 +846,46 @@ class AppLocalizationsId extends AppLocalizationsEn {
 
       @override
       String get contentCreatorWindowMonth => 'Bulan';
+
+  @override
+  String get paymentCheckingResultTitle => 'Memeriksa hasil pembayaran...';
+
+  @override
+  String get paymentSuccessSyncingTitle => 'Pembayaran berhasil, sinkron ke akun...';
+
+  @override
+  String get paymentSyncPendingHelp =>
+      'Anda dapat meninggalkan halaman ini atau menutup aplikasi saat diproses. Jika saldo belum masuk setelah 30 menit, hubungi dukungan dan kirim screenshot pembayaran untuk verifikasi.';
+
+  @override
+  String get paymentOpenHome => 'Kembali ke Beranda';
+
+  @override
+  String get paymentViewRechargeRecord => 'Lihat Riwayat Isi Ulang';
+
+  @override
+  String get paymentMissingOrder => 'ID pesanan tidak ditemukan.';
+
+  @override
+  String get paymentNotCompletedRetry =>
+      'Pembayaran belum selesai. Silakan coba lagi nanti.';
+
+  @override
+  String get paymentConfirmedCoinsAdded =>
+      'Pembayaran terkonfirmasi. Koin berhasil ditambahkan!';
+
+  @override
+  String get paymentOpenedInBrowserReturnToApp =>
+      'Halaman pembayaran dibuka di browser. Selesaikan pembayaran lalu kembali ke aplikasi.';
+
+  @override
+  String get creditCardComingSoon => 'Pembayaran kartu kredit akan segera tersedia.';
+
+  @override
+  String get failedToOpenPaymentGateway =>
+      'Gagal membuka gerbang pembayaran. Silakan coba lagi.';
+
+  @override
+  String get couldNotOpenBrowserForPayment =>
+      'Tidak dapat membuka browser untuk pembayaran.';
 }

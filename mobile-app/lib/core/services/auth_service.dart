@@ -443,18 +443,20 @@ class CurrentUserNotifier extends StateNotifier<UserModel?> {
   }
 
   void _onAuthServiceChanged() {
-    // Only update state if not disposed
+    // Defer state update to avoid notifying consumer elements during teardown.
     if (_isDisposed) return;
 
-    try {
-      if (mounted) {
+    Future.microtask(() {
+      if (_isDisposed || !mounted) return;
+
+      try {
         state = _authService.currentUser;
+      } catch (e) {
+        // Ignore lifecycle races during widget/provider disposal.
+        print(
+            '⚠️ CurrentUserNotifier: Unable to update state (widget disposed): $e');
       }
-    } catch (e) {
-      // Widget might be in the process of being disposed, ignore the error
-      print(
-          '⚠️ CurrentUserNotifier: Unable to update state (widget disposed): $e');
-    }
+    });
   }
 
   @override

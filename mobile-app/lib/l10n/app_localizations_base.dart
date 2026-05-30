@@ -366,6 +366,18 @@ abstract class AppLocalizations {
   String get used;
   String get earned;
   String get trendingNow;
+  String get paymentCheckingResultTitle;
+  String get paymentSuccessSyncingTitle;
+  String get paymentSyncPendingHelp;
+  String get paymentOpenHome;
+  String get paymentViewRechargeRecord;
+  String get paymentMissingOrder;
+  String get paymentNotCompletedRetry;
+  String get paymentConfirmedCoinsAdded;
+  String get paymentOpenedInBrowserReturnToApp;
+  String get creditCardComingSoon;
+  String get failedToOpenPaymentGateway;
+  String get couldNotOpenBrowserForPayment;
 
   // Category filters
   String get all;

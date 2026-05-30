@@ -15,6 +15,7 @@ class CoinHistoryScreen extends ConsumerStatefulWidget {
 class _CoinHistoryScreenState extends ConsumerState<CoinHistoryScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  AuthService? _authService;
   int _currentPage = 1;
   final int _pageSize = 20;
   bool _isLoading = false;
@@ -28,14 +29,35 @@ class _CoinHistoryScreenState extends ConsumerState<CoinHistoryScreen>
   @override
   void initState() {
     super.initState();
+    _authService = ref.read(authServiceProvider);
+    _authService?.addListener(_handleAuthChanged);
     _tabController = TabController(length: 3, vsync: this);
-    _loadTransactions();
+    _refreshAllData();
+  }
+
+  void _handleAuthChanged() {
+    if (!mounted) return;
+    setState(() {});
   }
 
   @override
   void dispose() {
+    _authService?.removeListener(_handleAuthChanged);
     _tabController.dispose();
     super.dispose();
+  }
+
+  Future<void> _refreshUserBalance() async {
+    try {
+      await ref.read(authServiceProvider).refreshCurrentUser();
+    } catch (_) {
+      // Keep UI responsive even if balance refresh fails temporarily.
+    }
+  }
+
+  Future<void> _refreshAllData() async {
+    await _refreshUserBalance();
+    await _loadTransactions(refresh: true);
   }
 
   Future<void> _loadTransactions({bool refresh = false}) async {
@@ -83,6 +105,10 @@ class _CoinHistoryScreenState extends ConsumerState<CoinHistoryScreen>
             rechargeTxs.length == _pageSize;
         _currentPage++;
       });
+
+      if (refresh) {
+        await _refreshUserBalance();
+      }
     } catch (e) {
       print('Error loading transactions: $e');
       if (mounted) {
@@ -160,7 +186,8 @@ class _CoinHistoryScreenState extends ConsumerState<CoinHistoryScreen>
 
   @override
   Widget build(BuildContext context) {
-    final currentUser = ref.watch(currentUserProvider);
+    ref.watch(currentUserProvider);
+    final currentUser = _authService?.currentUser;
     final userCoinBalance = currentUser?.coinBalance ?? 0;
 
     return Scaffold(
@@ -201,13 +228,7 @@ class _CoinHistoryScreenState extends ConsumerState<CoinHistoryScreen>
                         ),
                         IconButton(
                           onPressed: () async {
-                            await _loadTransactions(refresh: true);
-                            // Also refresh user balance from server
-                            try {
-                              await ref
-                                  .read(authServiceProvider)
-                                  .refreshCurrentUser();
-                            } catch (_) {}
+                            await _refreshAllData();
                           },
                           icon: const Icon(Icons.refresh, color: Colors.white),
                         ),
@@ -321,7 +342,7 @@ class _CoinHistoryScreenState extends ConsumerState<CoinHistoryScreen>
     }
 
     return RefreshIndicator(
-      onRefresh: () => _loadTransactions(refresh: true),
+      onRefresh: _refreshAllData,
       color: const Color(0xFF8B5CF6),
       child: ListView.builder(
         padding: const EdgeInsets.all(16),
