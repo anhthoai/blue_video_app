@@ -762,7 +762,9 @@ class _ShortVideoFeedViewState extends ConsumerState<ShortVideoFeedView> {
                 key: ValueKey('${video.id}-$index'),
                 video: video,
                 isActive: index == _currentIndex,
-                shouldPreload: index == _currentIndex + 1,
+                shouldPreload:
+                    index == _currentIndex + 1 ||
+                    index == _currentIndex + 2,
                 immersiveMode: widget.immersiveMode,
               );
             },
@@ -1007,11 +1009,15 @@ class _ShortVideoPageState extends ConsumerState<_ShortVideoPage> {
   Player? _player;
   VideoController? _videoController;
   StreamSubscription<bool>? _playingSubscription;
+  StreamSubscription<bool>? _bufferingSubscription;
   StreamSubscription<Duration>? _positionSubscription;
   StreamSubscription<Duration?>? _durationSubscription;
+  StreamSubscription<VideoParams>? _videoParamsSubscription;
   Timer? _likeBurstTimer;
   bool _isInitializing = false;
   bool _isReady = false;
+  bool _hasFirstFrame = false;
+  bool _isBuffering = false;
   bool _isPlaying = false;
   bool _isMuted = false;
   bool _hasTrackedView = false;
@@ -1019,6 +1025,7 @@ class _ShortVideoPageState extends ConsumerState<_ShortVideoPage> {
   bool _isScrubbing = false;
   bool _isFollowingCreator = false;
   bool _isLoadingFollow = false;
+  bool _pendingAutoPlay = false;
   Offset? _likeBurstOffset;
   Offset? _lastDoubleTapPosition;
   double? _scrubPositionMilliseconds;
@@ -1074,6 +1081,7 @@ class _ShortVideoPageState extends ConsumerState<_ShortVideoPage> {
 
     if (oldWidget.isActive != widget.isActive) {
       if (widget.isActive && !_isLockedVideo) {
+        _pendingAutoPlay = true;
         if (_videoController == null) {
           unawaited(_ensureVideoReady(autoPlay: true));
         } else {
@@ -1083,6 +1091,7 @@ class _ShortVideoPageState extends ConsumerState<_ShortVideoPage> {
           }
         }
       } else {
+        _pendingAutoPlay = false;
         unawaited(_player?.pause());
       }
     }
@@ -1092,8 +1101,10 @@ class _ShortVideoPageState extends ConsumerState<_ShortVideoPage> {
   void dispose() {
     _likeBurstTimer?.cancel();
     _playingSubscription?.cancel();
+    _bufferingSubscription?.cancel();
     _positionSubscription?.cancel();
     _durationSubscription?.cancel();
+    _videoParamsSubscription?.cancel();
     _player?.dispose();
     super.dispose();
   }
@@ -1200,6 +1211,11 @@ class _ShortVideoPageState extends ConsumerState<_ShortVideoPage> {
       _errorMessage = null;
     });
 
+    final requestedAutoPlay = autoPlay;
+    if (requestedAutoPlay) {
+      _pendingAutoPlay = true;
+    }
+
     try {
       final playbackUrl = await _resolvePlaybackUrl(widget.video);
       if (!mounted) {
@@ -1234,12 +1250,24 @@ class _ShortVideoPageState extends ConsumerState<_ShortVideoPage> {
         });
       });
 
+      _bufferingSubscription = player.stream.buffering.listen((buffering) {
+        if (!mounted) {
+          return;
+        }
+        setState(() {
+          _isBuffering = buffering;
+        });
+      });
+
       _positionSubscription = player.stream.position.listen((position) {
         if (!mounted || _isScrubbing) {
           return;
         }
         setState(() {
           _currentPosition = position;
+          if (!_hasFirstFrame) {
+            _hasFirstFrame = true;
+          }
         });
       });
 
@@ -1252,7 +1280,17 @@ class _ShortVideoPageState extends ConsumerState<_ShortVideoPage> {
         });
       });
 
-      await player.open(Media(playbackUrl), play: autoPlay && widget.isActive);
+      _videoParamsSubscription = player.stream.videoParams.listen((_) {
+        if (!mounted || _hasFirstFrame) {
+          return;
+        }
+        setState(() {
+          _hasFirstFrame = true;
+        });
+      });
+
+      final shouldAutoPlayOnOpen = requestedAutoPlay && widget.isActive;
+      await player.open(Media(playbackUrl), play: shouldAutoPlayOnOpen);
       await player.setVolume(_isMuted ? 0 : 100);
 
       if (!mounted) {
@@ -1264,8 +1302,16 @@ class _ShortVideoPageState extends ConsumerState<_ShortVideoPage> {
         _isReady = true;
       });
 
+      // If this page became active while preloading, force autoplay now.
+      if (widget.isActive && (_pendingAutoPlay || !shouldAutoPlayOnOpen)) {
+        await player.play();
+      }
+
       if (widget.isActive) {
+        _pendingAutoPlay = false;
         await _incrementViewCount();
+      } else {
+        _pendingAutoPlay = false;
       }
     } catch (_) {
       if (!mounted) {
@@ -1275,6 +1321,7 @@ class _ShortVideoPageState extends ConsumerState<_ShortVideoPage> {
         _isInitializing = false;
         _errorMessage = 'Unable to start this video right now.';
       });
+      _pendingAutoPlay = false;
     }
   }
 
@@ -1633,16 +1680,22 @@ class _ShortVideoPageState extends ConsumerState<_ShortVideoPage> {
     _likeBurstTimer?.cancel();
     _playingSubscription?.cancel();
     _playingSubscription = null;
+    _bufferingSubscription?.cancel();
+    _bufferingSubscription = null;
     _positionSubscription?.cancel();
     _positionSubscription = null;
     _durationSubscription?.cancel();
     _durationSubscription = null;
+    _videoParamsSubscription?.cancel();
+    _videoParamsSubscription = null;
     _player?.dispose();
     _player = null;
     _videoController = null;
     _errorMessage = null;
     _isInitializing = false;
     _isReady = false;
+    _hasFirstFrame = false;
+    _isBuffering = false;
     _isPlaying = false;
     _isMuted = false;
     _hasTrackedView = false;
@@ -1861,6 +1914,29 @@ class _ShortVideoPageState extends ConsumerState<_ShortVideoPage> {
                 ),
               ),
             ),
+            Positioned.fill(
+              child: IgnorePointer(
+                child: AnimatedOpacity(
+                  opacity: (!_hasFirstFrame || (_isReady && _isBuffering))
+                      ? 1.0
+                      : 0.0,
+                  duration: const Duration(milliseconds: 180),
+                  curve: Curves.easeOut,
+                  child: _buildThumbnailBackdrop(),
+                ),
+              ),
+            ),
+            if (_isReady && _isBuffering)
+              const Center(
+                child: SizedBox(
+                  width: 30,
+                  height: 30,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2.6,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
             if (!_isPlaying)
               Center(
                 child: Container(
