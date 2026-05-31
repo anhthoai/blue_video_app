@@ -330,6 +330,38 @@ class AppLocalizationsTr extends AppLocalizationsEn {
   String get createAccount => 'Hesap olustur';
 
   @override
+  String get enableBiometricLoginOnDevice =>
+      'Bu cihazda biyometrik girisi etkinlestir';
+
+  @override
+  String get signInWithBiometrics => 'Biyometrik ile giris yap';
+
+  @override
+  String get biometricLoginFailed =>
+      'Biyometrik giris basarisiz oldu veya iptal edildi';
+
+  @override
+  String get biometricLoginError => 'Biyometrik giris hatasi';
+
+  @override
+  String get biometricLogin => 'Biyometrik Giris';
+
+  @override
+  String get biometricLoginDescription =>
+      'Bu cihazda hizli giris icin biyometrigi kullanin';
+
+  @override
+  String get biometricLoginDisabled => 'Biyometrik giris devre disi birakildi';
+
+  @override
+  String get biometricLoginDisableFailed =>
+      'Biyometrik giris devre disi birakilamadi';
+
+  @override
+  String get authenticateToLogin =>
+      'Blue Video\'ya giris yapmak icin kimlik dogrulayin';
+
+  @override
   String get createPost => 'Gonderi olustur';
 
   @override

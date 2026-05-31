@@ -330,6 +330,33 @@ class AppLocalizationsKo extends AppLocalizationsEn {
   String get createAccount => '계정 만들기';
 
   @override
+  String get enableBiometricLoginOnDevice => '이 기기에서 생체 인증 로그인 사용';
+
+  @override
+  String get signInWithBiometrics => '생체 인증으로 로그인';
+
+  @override
+  String get biometricLoginFailed => '생체 인증 로그인이 실패했거나 취소되었습니다';
+
+  @override
+  String get biometricLoginError => '생체 인증 로그인 오류';
+
+  @override
+  String get biometricLogin => '생체 인증 로그인';
+
+  @override
+  String get biometricLoginDescription => '이 기기에서 생체 인증으로 빠르게 로그인';
+
+  @override
+  String get biometricLoginDisabled => '생체 인증 로그인이 비활성화되었습니다';
+
+  @override
+  String get biometricLoginDisableFailed => '생체 인증 로그인 비활성화 실패';
+
+  @override
+  String get authenticateToLogin => 'Blue Video 로그인 인증을 진행해 주세요';
+
+  @override
   String get createPost => '게시물 작성';
 
   @override
@@ -442,8 +469,7 @@ class AppLocalizationsKo extends AppLocalizationsEn {
   String get datingEnableLocation => '위치 서비스를 켜주세요';
 
   @override
-  String get datingLocationPermissionDenied =>
-      '위치 권한이 거부되었습니다. 설정에서 허용해 주세요.';
+  String get datingLocationPermissionDenied => '위치 권한이 거부되었습니다. 설정에서 허용해 주세요.';
 
   @override
   String get datingLocationError => '위치를 가져올 수 없습니다';
@@ -473,8 +499,7 @@ class AppLocalizationsKo extends AppLocalizationsEn {
   String get datingNoMatchesYet => '아직 매치가 없습니다';
 
   @override
-  String get datingLikeSomeoneBack =>
-      '좋아요를 보내고 서로 좋아요가 되면 여기에 표시됩니다!';
+  String get datingLikeSomeoneBack => '좋아요를 보내고 서로 좋아요가 되면 여기에 표시됩니다!';
 
   @override
   String get datingUpgradeVipForAiMatch => 'AI 매치를 위해 VIP로 업그레이드';
@@ -492,16 +517,13 @@ class AppLocalizationsKo extends AppLocalizationsEn {
   String get datingEditProfile => '데이트 프로필 수정';
 
   @override
-  String get datingRequestSentCheckChat =>
-      '요청을 보냈습니다. 채팅에서 업데이트를 확인하세요.';
+  String get datingRequestSentCheckChat => '요청을 보냈습니다. 채팅에서 업데이트를 확인하세요.';
 
   @override
-  String get datingRequestSentViaChat =>
-      '요청을 채팅으로 보냈습니다. 상대가 채팅에서 수락할 수 있습니다.';
+  String get datingRequestSentViaChat => '요청을 채팅으로 보냈습니다. 상대가 채팅에서 수락할 수 있습니다.';
 
   @override
-  String get datingRequestAlreadySentCheckChat =>
-      '이미 요청이 전송되었습니다. 채팅을 확인하세요.';
+  String get datingRequestAlreadySentCheckChat => '이미 요청이 전송되었습니다. 채팅을 확인하세요.';
 
   @override
   String get datingFriendRequestSent => '친구 요청을 보냈습니다';
@@ -514,8 +536,7 @@ class AppLocalizationsKo extends AppLocalizationsEn {
       '첫 사진이 메인 아바타입니다. 데이트 프로필에서 위로 스와이프해 나머지 사진을 확인하세요.';
 
   @override
-  String get profileEditDatingProfileSubtitle =>
-      '데이트 소개, 기대사항, 개인정보를 관리하세요';
+  String get profileEditDatingProfileSubtitle => '데이트 소개, 기대사항, 개인정보를 관리하세요';
 
   @override
   String get profilePrivateAlbumMax9Images => '비공개 앨범 (최대 9장)';
@@ -523,81 +544,81 @@ class AppLocalizationsKo extends AppLocalizationsEn {
   @override
   String get profilePrivateAlbumSubtitle => '비공개 데이트 사진 업로드 및 관리';
 
-    @override
-    String get profilePleaseLogIn => '로그인해 주세요';
+  @override
+  String get profilePleaseLogIn => '로그인해 주세요';
 
-    @override
-    String get profileUsernameRequired => '사용자 이름을 입력해 주세요';
+  @override
+  String get profileUsernameRequired => '사용자 이름을 입력해 주세요';
 
-    @override
-    String get profileUsernameMinLength => '사용자 이름은 3자 이상이어야 합니다';
+  @override
+  String get profileUsernameMinLength => '사용자 이름은 3자 이상이어야 합니다';
 
-    @override
-    String get profileBioMaxLength => '소개는 200자 미만이어야 합니다';
+  @override
+  String get profileBioMaxLength => '소개는 200자 미만이어야 합니다';
 
-    @override
-    String get profileAccountInformation => '계정 정보';
+  @override
+  String get profileAccountInformation => '계정 정보';
 
-    @override
-    String get profileAccountId => '계정 ID';
+  @override
+  String get profileAccountId => '계정 ID';
 
-    @override
-    String get profileVerified => '인증 상태';
+  @override
+  String get profileVerified => '인증 상태';
 
-    @override
-    String get profileMemberSince => '가입일';
+  @override
+  String get profileMemberSince => '가입일';
 
-    @override
-    String get profileDangerZone => '위험 구역';
+  @override
+  String get profileDangerZone => '위험 구역';
 
-    @override
-    String get profileDeleteAccount => '계정 삭제';
+  @override
+  String get profileDeleteAccount => '계정 삭제';
 
-    @override
-    String get profileDeleteAccountConfirmMessage =>
-            '정말로 계정을 삭제하시겠습니까? 이 작업은 되돌릴 수 없으며 모든 데이터가 영구 삭제됩니다.';
+  @override
+  String get profileDeleteAccountConfirmMessage =>
+      '정말로 계정을 삭제하시겠습니까? 이 작업은 되돌릴 수 없으며 모든 데이터가 영구 삭제됩니다.';
 
-    @override
-    String get profileDeleteAccountComingSoon => '계정 삭제 기능은 곧 제공됩니다';
+  @override
+  String get profileDeleteAccountComingSoon => '계정 삭제 기능은 곧 제공됩니다';
 
-    @override
-    String get profileMainAvatar => '메인';
+  @override
+  String get profileMainAvatar => '메인';
 
-    @override
-    String get profileYes => '예';
+  @override
+  String get profileYes => '예';
 
-    @override
-    String get profileNo => '아니요';
+  @override
+  String get profileNo => '아니요';
 
-    @override
-    String get profileDatingMaxPhotosReached => '최대치 도달: 메인 1장 + 추가 5장';
+  @override
+  String get profileDatingMaxPhotosReached => '최대치 도달: 메인 1장 + 추가 5장';
 
-    @override
-    String get profileDatingAvatarAdded => '데이트 아바타가 추가되었습니다';
+  @override
+  String get profileDatingAvatarAdded => '데이트 아바타가 추가되었습니다';
 
-    @override
-    String get profileDatingAvatarDeleteError => '데이트 아바타 삭제 오류';
+  @override
+  String get profileDatingAvatarDeleteError => '데이트 아바타 삭제 오류';
 
-    @override
-    String get profileProfileUpdateFailed => '프로필 업데이트에 실패했습니다';
+  @override
+  String get profileProfileUpdateFailed => '프로필 업데이트에 실패했습니다';
 
-    @override
-    String get profileFirstName => '이름';
+  @override
+  String get profileFirstName => '이름';
 
-    @override
-    String get profileLastName => '성';
+  @override
+  String get profileLastName => '성';
 
-    @override
-    String get profileEnterFirstName => '이름을 입력하세요';
+  @override
+  String get profileEnterFirstName => '이름을 입력하세요';
 
-    @override
-    String get profileEnterLastName => '성을 입력하세요';
+  @override
+  String get profileEnterLastName => '성을 입력하세요';
 
-    @override
-    String get profileEnterUsername => '사용자 이름을 입력하세요';
+  @override
+  String get profileEnterUsername => '사용자 이름을 입력하세요';
 
-    @override
-    String get profileBioHint => '자기소개를 입력해 주세요';
+  @override
+  String get profileBioHint => '자기소개를 입력해 주세요';
 
   @override
   String get chatFilterYourTurn => '내 차례';
@@ -650,201 +671,198 @@ class AppLocalizationsKo extends AppLocalizationsEn {
   @override
   String get chatAccessInvalid => '유효하지 않은 접근 권한';
 
-    @override
-    String get chatPrivateAlbumRequestSent => '비공개 앨범 요청을 보냈습니다.';
+  @override
+  String get chatPrivateAlbumRequestSent => '비공개 앨범 요청을 보냈습니다.';
 
-    @override
-    String get chatPrivateAlbumRequestAlreadySent => '요청이 이미 전송되었습니다.';
+  @override
+  String get chatPrivateAlbumRequestAlreadySent => '요청이 이미 전송되었습니다.';
 
-    @override
-    String get chatPrivateAlbumNoPhotos => '비공개 앨범에 아직 사진이 없습니다.';
+  @override
+  String get chatPrivateAlbumNoPhotos => '비공개 앨범에 아직 사진이 없습니다.';
 
-    @override
-    String get chatRequestSent => '요청 보냄';
+  @override
+  String get chatRequestSent => '요청 보냄';
 
-    @override
-    String get chatSendRequest => '요청 보내기';
+  @override
+  String get chatSendRequest => '요청 보내기';
 
-    @override
-    String get chatProfileSnapshot => '프로필 스냅샷';
+  @override
+  String get chatProfileSnapshot => '프로필 스냅샷';
 
-    @override
-    String get chatPersonalProfile => '개인 프로필';
+  @override
+  String get chatPersonalProfile => '개인 프로필';
 
-    @override
-    String get chatMatchedExpectations => '일치한 기대사항';
+  @override
+  String get chatMatchedExpectations => '일치한 기대사항';
 
-    @override
-    String get chatNoMatchedExpectations => '일치한 기대사항이 아직 없습니다.';
+  @override
+  String get chatNoMatchedExpectations => '일치한 기대사항이 아직 없습니다.';
 
-    @override
-    String get chatYearsShort => '세';
+  @override
+  String get chatYearsShort => '세';
 
-    @override
-    String get chatCentimetersShort => 'cm';
+  @override
+  String get chatCentimetersShort => 'cm';
 
-    @override
-    String get chatKilogramsShort => 'kg';
+  @override
+  String get chatKilogramsShort => 'kg';
 
-    @override
-    String get chatInfo => '채팅 정보';
+  @override
+  String get chatInfo => '채팅 정보';
 
-    @override
-    String get chatMuteNotifications => '알림 끄기';
+  @override
+  String get chatMuteNotifications => '알림 끄기';
 
-    @override
-    String get chatUnmuteNotifications => '알림 켜기';
+  @override
+  String get chatUnmuteNotifications => '알림 켜기';
 
-    @override
-    String get chatRoom => '채팅방';
+  @override
+  String get chatRoom => '채팅방';
 
-    @override
-    String get chatMembers => '명';
+  @override
+  String get chatMembers => '명';
 
-    @override
-    String get chatOnlineNow => '현재 온라인';
+  @override
+  String get chatOnlineNow => '현재 온라인';
 
-    @override
-    String get chatDirectMessage => '개인 메시지';
+  @override
+  String get chatDirectMessage => '개인 메시지';
 
-    @override
-    String get chatParticipant => '참여자';
+  @override
+  String get chatParticipant => '참여자';
 
-    @override
-    String get chatNoMessagesYet => '아직 메시지가 없습니다';
+  @override
+  String get chatNoMessagesYet => '아직 메시지가 없습니다';
 
-    @override
-    String get chatStartConversation => '대화를 시작하세요!';
+  @override
+  String get chatStartConversation => '대화를 시작하세요!';
 
-    @override
-    String get chatAttachmentPhoto => '사진';
+  @override
+  String get chatAttachmentPhoto => '사진';
 
-    @override
-    String get chatAttachmentPhotoSubtitle => '갤러리에서 사진 보내기';
+  @override
+  String get chatAttachmentPhotoSubtitle => '갤러리에서 사진 보내기';
 
-    @override
-    String get chatAttachmentCamera => '카메라';
+  @override
+  String get chatAttachmentCamera => '카메라';
 
-    @override
-    String get chatAttachmentCameraSubtitle => '사진 촬영';
+  @override
+  String get chatAttachmentCameraSubtitle => '사진 촬영';
 
-    @override
-    String get chatAttachmentVideo => '동영상';
+  @override
+  String get chatAttachmentVideo => '동영상';
 
-    @override
-    String get chatAttachmentVideoSubtitle => '동영상 보내기';
+  @override
+  String get chatAttachmentVideoSubtitle => '동영상 보내기';
 
-    @override
-    String get chatAttachmentDocument => '문서';
+  @override
+  String get chatAttachmentDocument => '문서';
 
-    @override
-    String get chatAttachmentDocumentSubtitle => 'PDF, DOC 등 보내기';
+  @override
+  String get chatAttachmentDocumentSubtitle => 'PDF, DOC 등 보내기';
 
-    @override
-    String get chatAttachmentAudio => '오디오';
+  @override
+  String get chatAttachmentAudio => '오디오';
 
-    @override
-    String get chatAttachmentAudioSubtitle => '오디오 파일 보내기';
+  @override
+  String get chatAttachmentAudioSubtitle => '오디오 파일 보내기';
 
-    @override
-    String get chatUploadingFile => '파일 업로드 중...';
+  @override
+  String get chatUploadingFile => '파일 업로드 중...';
 
-    @override
-    String get chatFileSentSuccessfully => '파일을 성공적으로 보냈습니다!';
+  @override
+  String get chatFileSentSuccessfully => '파일을 성공적으로 보냈습니다!';
 
-    @override
-    String get chatFailedToUploadFile => '파일 업로드에 실패했습니다';
+  @override
+  String get chatFailedToUploadFile => '파일 업로드에 실패했습니다';
 
-    @override
-    String get chatUnableToLoadDetails => '지금은 채팅 상세를 불러올 수 없습니다.';
+  @override
+  String get chatUnableToLoadDetails => '지금은 채팅 상세를 불러올 수 없습니다.';
 
-    @override
-    String get chatNotificationsMuted => '이 채팅의 알림을 끔으로 설정했습니다.';
+  @override
+  String get chatNotificationsMuted => '이 채팅의 알림을 끔으로 설정했습니다.';
 
-    @override
-    String get chatNotificationsUnmuted => '이 채팅의 알림 끔을 해제했습니다.';
+  @override
+  String get chatNotificationsUnmuted => '이 채팅의 알림 끔을 해제했습니다.';
 
-    @override
-    String get chatUnableToStartCall => '지금은 통화를 시작할 수 없습니다.';
+  @override
+  String get chatUnableToStartCall => '지금은 통화를 시작할 수 없습니다.';
 
-    @override
-    String get chatGroupCallNotSupported => '그룹 음성/영상 통화는 아직 지원되지 않습니다.';
+  @override
+  String get chatGroupCallNotSupported => '그룹 음성/영상 통화는 아직 지원되지 않습니다.';
 
-    @override
-    String get chatSignInToCall => '통화를 위해 다시 로그인해 주세요.';
+  @override
+  String get chatSignInToCall => '통화를 위해 다시 로그인해 주세요.';
 
-    @override
-    String get chatUnableToStartCallGeneric => '통화를 시작할 수 없습니다.';
+  @override
+  String get chatUnableToStartCallGeneric => '통화를 시작할 수 없습니다.';
 
-    @override
-    String get chatProfileUnavailable => '현재 프로필을 열 수 없습니다.';
+  @override
+  String get chatProfileUnavailable => '현재 프로필을 열 수 없습니다.';
 
-    @override
-    String get chatSingleProfileUnavailable =>
-            '이 채팅에서는 단일 프로필을 열 수 없습니다.';
+  @override
+  String get chatSingleProfileUnavailable => '이 채팅에서는 단일 프로필을 열 수 없습니다.';
 
-      @override
-      String get communityOriginal => '오리지널';
+  @override
+  String get communityOriginal => '오리지널';
 
-      @override
-      String get communityRequest => '요청';
+  @override
+  String get communityRequest => '요청';
 
-      @override
-      String get communityHotForums => '인기 포럼';
+  @override
+  String get communityHotForums => '인기 포럼';
 
-      @override
-      String get communityMore => '더보기';
+  @override
+  String get communityMore => '더보기';
 
-      @override
-      String get communityContentCreators => '콘텐츠 크리에이터';
+  @override
+  String get communityContentCreators => '콘텐츠 크리에이터';
 
-      @override
-      String get communityRecommended => '추천';
+  @override
+  String get communityRecommended => '추천';
 
-      @override
-      String get communityHighlights => '하이라이트';
+  @override
+  String get communityHighlights => '하이라이트';
 
-      @override
-      String get hotForumsMomentumTitle => '커뮤니티 상승세가 가장 빠른 주제';
+  @override
+  String get hotForumsMomentumTitle => '커뮤니티 상승세가 가장 빠른 주제';
 
-      @override
-      String get hotForumsMomentumSubtitle =>
-          '포럼을 열어 최신 게시글을 보거나, 팔로우해 Following에서 계속 확인하세요.';
+  @override
+  String get hotForumsMomentumSubtitle =>
+      '포럼을 열어 최신 게시글을 보거나, 팔로우해 Following에서 계속 확인하세요.';
 
-      @override
-      String get hotForumsLoadErrorTitle => '포럼을 불러올 수 없습니다';
+  @override
+  String get hotForumsLoadErrorTitle => '포럼을 불러올 수 없습니다';
 
-      @override
-      String get hotForumsEmptyTitle => '아직 인기 포럼이 없습니다';
+  @override
+  String get hotForumsEmptyTitle => '아직 인기 포럼이 없습니다';
 
-      @override
-      String get hotForumsEmptySubtitle =>
-          '백엔드에 활발한 주제 트래픽이 생기면 여기에 표시됩니다.';
+  @override
+  String get hotForumsEmptySubtitle => '백엔드에 활발한 주제 트래픽이 생기면 여기에 표시됩니다.';
 
-      @override
-      String get contentCreatorMoreAppears =>
-          '활동이 늘어나면 더 많은 크리에이터가 여기에 표시됩니다.';
+  @override
+  String get contentCreatorMoreAppears => '활동이 늘어나면 더 많은 크리에이터가 여기에 표시됩니다.';
 
-      @override
-      String get contentCreatorMetricLikes => '좋아요';
+  @override
+  String get contentCreatorMetricLikes => '좋아요';
 
-      @override
-      String get contentCreatorMetricUploads => '업로드';
+  @override
+  String get contentCreatorMetricUploads => '업로드';
 
-      @override
-      String get contentCreatorMetricEarnings => '수익';
+  @override
+  String get contentCreatorMetricEarnings => '수익';
 
-      @override
-      String get contentCreatorMetricCoins => '코인';
+  @override
+  String get contentCreatorMetricCoins => '코인';
 
-      @override
-      String get contentCreatorWindowDay => '일';
+  @override
+  String get contentCreatorWindowDay => '일';
 
-      @override
-      String get contentCreatorWindowWeek => '주';
+  @override
+  String get contentCreatorWindowWeek => '주';
 
-      @override
-      String get contentCreatorWindowMonth => '월';
+  @override
+  String get contentCreatorWindowMonth => '월';
 
   @override
   String get paymentCheckingResultTitle => '결제 결과를 확인 중입니다...';
@@ -879,8 +897,7 @@ class AppLocalizationsKo extends AppLocalizationsEn {
   String get creditCardComingSoon => '신용카드 결제는 곧 지원됩니다.';
 
   @override
-  String get failedToOpenPaymentGateway =>
-      '결제 게이트웨이를 열 수 없습니다. 다시 시도해 주세요.';
+  String get failedToOpenPaymentGateway => '결제 게이트웨이를 열 수 없습니다. 다시 시도해 주세요.';
 
   @override
   String get couldNotOpenBrowserForPayment => '결제를 위한 브라우저를 열 수 없습니다.';

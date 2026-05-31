@@ -16,6 +16,7 @@ A comprehensive video streaming and social platform built with Flutter.
 
 ### 👤 User Management
 - User registration and login
+- Biometric login (Face ID/Fingerprint/Device credential)
 - Phone number verification
 - Password reset functionality
 - Social login integration
@@ -194,6 +195,7 @@ flutter test --coverage
 
 - Data encryption in transit and at rest
 - Secure authentication
+- Optional biometric app lock on reopen/resume
 - API security
 - Content protection
 - Privacy settings

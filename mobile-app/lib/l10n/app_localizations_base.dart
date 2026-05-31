@@ -196,6 +196,17 @@ abstract class AppLocalizations {
   String get enterUsername;
   String get confirmPassword;
   String get createAccount;
+  String get enableBiometricLoginOnDevice;
+  String get signInWithBiometrics;
+  String get biometricLoginFailed;
+  String get biometricLoginError;
+  String get biometricLogin;
+  String get biometricLoginDescription;
+  String get biometricLoginDisabled;
+  String get biometricLoginDisableFailed;
+  String get authenticateToLogin;
+  String get biometricLoginEnabled;
+  String get biometricSetupRequired;
 
   // Post/Community
   String get createPost;

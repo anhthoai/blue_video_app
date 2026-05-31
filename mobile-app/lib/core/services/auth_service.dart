@@ -1,6 +1,9 @@
 import 'dart:io';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:local_auth/local_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../models/user_model.dart';
@@ -10,6 +13,13 @@ import 'notification_service.dart';
 class AuthService {
   final SharedPreferences _prefs;
   final ApiService _apiService = ApiService();
+  final FlutterSecureStorage _secureStorage = const FlutterSecureStorage();
+  final LocalAuthentication _localAuth = LocalAuthentication();
+
+  static const String _biometricEnabledKey = 'biometric_login_enabled';
+  static const String _biometricEmailKey = 'biometric_login_email';
+  static const String _biometricPasswordKey = 'biometric_login_password';
+
   UserModel? _currentUser;
   final List<VoidCallback> _listeners = [];
   DateTime? _lastNotificationTime;
@@ -165,6 +175,7 @@ class AuthService {
     required String email,
     required String password,
     bool rememberMe = false,
+    bool? enableBiometricLogin,
   }) async {
     try {
       print('🔐 AuthService: Starting login for $email');
@@ -197,6 +208,15 @@ class AuthService {
         // Save tokens
         await _prefs.setString('access_token', tokens['accessToken'] ?? '');
         await _prefs.setString('refresh_token', tokens['refreshToken'] ?? '');
+
+        final shouldStoreForBiometric =
+            enableBiometricLogin ?? await isBiometricLoginEnabled();
+        if (shouldStoreForBiometric) {
+          await _storeBiometricCredentials(email: email, password: password);
+          await _prefs.setBool(_biometricEnabledKey, true);
+        } else if (enableBiometricLogin == false) {
+          await disableBiometricLogin();
+        }
 
         // Always save user data to ensure coin balance is available
         await _saveUserToPrefs();
@@ -419,6 +439,131 @@ class AuthService {
   // Get access token
   Future<String?> getAccessToken() async {
     return _prefs.getString('access_token');
+  }
+
+  Future<bool> isBiometricLoginEnabled() async {
+    return _prefs.getBool(_biometricEnabledKey) ?? false;
+  }
+
+  Future<bool> canUseBiometrics() async {
+    try {
+      final canCheckBiometrics = await _localAuth.canCheckBiometrics;
+      final isSupported = await _localAuth.isDeviceSupported();
+      return canCheckBiometrics || isSupported;
+    } catch (error) {
+      debugPrint('Biometric availability check failed: $error');
+      return false;
+    }
+  }
+
+  Future<bool> hasStoredBiometricCredentials() async {
+    final email = await _secureStorage.read(key: _biometricEmailKey);
+    final password = await _secureStorage.read(key: _biometricPasswordKey);
+    return email != null &&
+        email.isNotEmpty &&
+        password != null &&
+        password.isNotEmpty;
+  }
+
+  Future<bool> isBiometricLoginAvailable() async {
+    final enabled = await isBiometricLoginEnabled();
+    if (!enabled) return false;
+
+    final canUse = await canUseBiometrics();
+    if (!canUse) return false;
+
+    return hasStoredBiometricCredentials();
+  }
+
+  Future<bool> authenticateForBiometricLogin({String? localizedReason}) async {
+    try {
+      return await _localAuth.authenticate(
+        localizedReason:
+            localizedReason ?? 'Authenticate to login to Blue Video',
+        options: const AuthenticationOptions(
+          stickyAuth: true,
+          biometricOnly: false,
+          useErrorDialogs: true,
+        ),
+      );
+    } catch (error) {
+      debugPrint('Biometric authentication failed: $error');
+      return false;
+    }
+  }
+
+  Future<void> setBiometricLoginEnabled({
+    required bool enabled,
+    String? email,
+    String? password,
+  }) async {
+    await _prefs.setBool(_biometricEnabledKey, enabled);
+
+    if (enabled) {
+      if (email != null &&
+          password != null &&
+          email.isNotEmpty &&
+          password.isNotEmpty) {
+        await _storeBiometricCredentials(email: email, password: password);
+      }
+      return;
+    }
+  }
+
+  Future<void> disableBiometricLogin() async {
+    await setBiometricLoginEnabled(enabled: false);
+  }
+
+  Future<UserModel?> signInWithBiometrics({
+    bool rememberMe = true,
+    String? localizedReason,
+  }) async {
+    final enabled = await isBiometricLoginEnabled();
+    if (!enabled) {
+      debugPrint('Biometric login requested but feature is disabled');
+      return null;
+    }
+
+    final authenticated = await authenticateForBiometricLogin(
+      localizedReason: localizedReason,
+    );
+    if (!authenticated) {
+      return null;
+    }
+
+    final email = await _secureStorage.read(key: _biometricEmailKey);
+    final password = await _secureStorage.read(key: _biometricPasswordKey);
+    if (email == null ||
+        password == null ||
+        email.isEmpty ||
+        password.isEmpty) {
+      debugPrint('No stored credentials available for biometric login');
+      return null;
+    }
+
+    return signInWithEmailAndPassword(
+      email: email,
+      password: password,
+      rememberMe: rememberMe,
+      enableBiometricLogin: true,
+    );
+  }
+
+  Future<void> _storeBiometricCredentials({
+    required String email,
+    required String password,
+  }) async {
+    await _secureStorage.write(key: _biometricEmailKey, value: email);
+    await _secureStorage.write(key: _biometricPasswordKey, value: password);
+  }
+
+  Future<void> _clearBiometricCredentials() async {
+    try {
+      await _secureStorage.delete(key: _biometricEmailKey);
+      await _secureStorage.delete(key: _biometricPasswordKey);
+    } on PlatformException catch (error) {
+      debugPrint('Failed to clear biometric credentials: $error');
+    }
   }
 }
 

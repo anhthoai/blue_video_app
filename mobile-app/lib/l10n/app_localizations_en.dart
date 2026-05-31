@@ -146,8 +146,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get notificationsDisabled => 'Notifications disabled';
 
   @override
-  String get notificationsRestricted =>
-      'Notification access needs attention';
+  String get notificationsRestricted => 'Notification access needs attention';
 
   @override
   String get requestNotificationPermission => 'Allow notifications';
@@ -163,8 +162,7 @@ class AppLocalizationsEn extends AppLocalizations {
       'Tell us what happened, what you expected, and which device you are using.';
 
   @override
-  String get feedbackEmptyMessage =>
-      'Enter a message before sharing feedback';
+  String get feedbackEmptyMessage => 'Enter a message before sharing feedback';
 
   @override
   String get feedbackShareFailed => 'Unable to open the share sheet';
@@ -490,6 +488,42 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get createAccount => 'Create Account';
+
+  @override
+  String get enableBiometricLoginOnDevice =>
+      'Enable biometric login on this device';
+
+  @override
+  String get signInWithBiometrics => 'Sign in with biometrics';
+
+  @override
+  String get biometricLoginFailed => 'Biometric login failed or was cancelled';
+
+  @override
+  String get biometricLoginError => 'Biometric login error';
+
+  @override
+  String get biometricLogin => 'Biometric Login';
+
+  @override
+  String get biometricLoginDescription =>
+      'Use biometrics to sign in quickly on this device';
+
+  @override
+  String get biometricLoginDisabled => 'Biometric login disabled';
+
+  @override
+  String get biometricLoginDisableFailed => 'Failed to disable biometric login';
+
+  @override
+  String get authenticateToLogin => 'Authenticate to login to Blue Video';
+
+  @override
+  String get biometricLoginEnabled => 'Biometric login enabled';
+
+  @override
+  String get biometricSetupRequired =>
+      'Please sign in with email and password once to finish biometric setup.';
 
   // Post/Community
   @override
@@ -934,7 +968,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get paymentCheckingResultTitle => 'Checking payment result...';
 
   @override
-  String get paymentSuccessSyncingTitle => 'Payment successful, syncing to account...';
+  String get paymentSuccessSyncingTitle =>
+      'Payment successful, syncing to account...';
 
   @override
   String get paymentSyncPendingHelp =>
@@ -950,7 +985,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get paymentMissingOrder => 'Missing order id.';
 
   @override
-  String get paymentNotCompletedRetry => 'Payment is not completed yet. Please try again later.';
+  String get paymentNotCompletedRetry =>
+      'Payment is not completed yet. Please try again later.';
 
   @override
   String get paymentConfirmedCoinsAdded =>
@@ -961,7 +997,8 @@ class AppLocalizationsEn extends AppLocalizations {
       'Payment opened in browser. Complete payment and return to app.';
 
   @override
-  String get creditCardComingSoon => 'Credit Card payment will be supported soon.';
+  String get creditCardComingSoon =>
+      'Credit Card payment will be supported soon.';
 
   @override
   String get failedToOpenPaymentGateway =>
@@ -991,8 +1028,8 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get library => 'Library';
 
-    @override
-    String get database => 'Database';
+  @override
+  String get database => 'Database';
 
   @override
   String get movies => 'Movies';
@@ -1360,8 +1397,8 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get datingWeight => 'Weight';
 
-    @override
-    String get datingBodyType => 'Body type';
+  @override
+  String get datingBodyType => 'Body type';
 
   @override
   String get datingBodyHair => 'Body hair';
@@ -1375,8 +1412,8 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get datingNationality => 'Nationality';
 
-    @override
-    String get datingEthnicity => 'Ethnicity';
+  @override
+  String get datingEthnicity => 'Ethnicity';
 
   @override
   String get datingRelationship => 'Relationship';
@@ -1425,8 +1462,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get datingAiSuggestionsActive => 'AI suggestions are active';
 
   @override
-  String get datingAutoSuggestionsPerDay =>
-      'Auto match suggestions every day';
+  String get datingAutoSuggestionsPerDay => 'Auto match suggestions every day';
 
   @override
   String get datingUpgradeVipForAiMatch =>
@@ -1498,8 +1534,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get datingWantsToSeePrivateAlbum => 'wants to see your private album';
 
   @override
-  String get datingNotEnoughCoins =>
-      'Not enough coins. Please recharge first.';
+  String get datingNotEnoughCoins => 'Not enough coins. Please recharge first.';
 
   @override
   String get datingActivatedSuccessfully => 'Activated successfully!';
@@ -1648,8 +1683,7 @@ class AppLocalizationsEn extends AppLocalizations {
       'Are you sure you want to delete your account? This action cannot be undone and all your data will be permanently deleted.';
 
   @override
-  String get profileDeleteAccountComingSoon =>
-      'Account deletion coming soon';
+  String get profileDeleteAccountComingSoon => 'Account deletion coming soon';
 
   @override
   String get profileMainAvatar => 'Main';
@@ -1694,8 +1728,8 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get chatFilterYourTurn => 'YourTurn';
 
-    @override
-    String get chatFilterUnread => 'Unread';
+  @override
+  String get chatFilterUnread => 'Unread';
 
   @override
   String get chatFilterDistance => 'Distance';
@@ -1719,10 +1753,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get chatNoChatsFound => 'No chats found';
 
   @override
-  String get chatPrivateAlbumRequestText => 'May I check out your private album?';
+  String get chatPrivateAlbumRequestText =>
+      'May I check out your private album?';
 
   @override
-  String get chatPrivateAlbumUnlockedText => 'I have unlocked my privacy album to you';
+  String get chatPrivateAlbumUnlockedText =>
+      'I have unlocked my privacy album to you';
 
   @override
   String get chatAlbumAccessGranted => 'Album access granted!';
@@ -1858,8 +1894,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get chatNotificationsMuted => 'Notifications muted for this chat.';
 
   @override
-  String get chatNotificationsUnmuted =>
-      'Notifications unmuted for this chat.';
+  String get chatNotificationsUnmuted => 'Notifications unmuted for this chat.';
 
   @override
   String get chatUnableToStartCall => 'Unable to start a call right now.';

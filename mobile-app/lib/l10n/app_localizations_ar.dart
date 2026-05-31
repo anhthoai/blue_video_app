@@ -330,6 +330,37 @@ class AppLocalizationsAr extends AppLocalizationsEn {
   String get createAccount => 'إنشاء حساب';
 
   @override
+  String get enableBiometricLoginOnDevice =>
+      'تفعيل تسجيل الدخول البيومتري على هذا الجهاز';
+
+  @override
+  String get signInWithBiometrics => 'تسجيل الدخول بالبصمة';
+
+  @override
+  String get biometricLoginFailed => 'فشل تسجيل الدخول البيومتري أو تم إلغاؤه';
+
+  @override
+  String get biometricLoginError => 'خطأ في تسجيل الدخول البيومتري';
+
+  @override
+  String get biometricLogin => 'تسجيل الدخول البيومتري';
+
+  @override
+  String get biometricLoginDescription =>
+      'استخدم البصمة لتسجيل الدخول بسرعة على هذا الجهاز';
+
+  @override
+  String get biometricLoginDisabled => 'تم تعطيل تسجيل الدخول البيومتري';
+
+  @override
+  String get biometricLoginDisableFailed =>
+      'تعذر تعطيل تسجيل الدخول البيومتري';
+
+  @override
+  String get authenticateToLogin =>
+      'يرجى التحقق لتسجيل الدخول إلى Blue Video';
+
+  @override
   String get createPost => 'إنشاء منشور';
 
   @override

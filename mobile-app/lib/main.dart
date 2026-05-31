@@ -27,7 +27,7 @@ void main() async {
 
   // Load environment variables (optional - will use defaults if .env is missing)
   try {
-  await dotenv.load(fileName: ".env");
+    await dotenv.load(fileName: ".env");
     debugPrint('✅ .env file loaded successfully');
     debugPrint('   API_BASE_URL: ${dotenv.env['API_BASE_URL'] ?? 'not set'}');
   } catch (e) {
@@ -72,6 +72,9 @@ class _BlueVideoAppState extends ConsumerState<BlueVideoApp>
       GlobalKey<ScaffoldMessengerState>();
   Timer? _pendingPaymentTimer;
   bool _isCheckingPendingPayment = false;
+  bool _isBiometricGateVisible = false;
+  bool _isBiometricPromptInProgress = false;
+  bool _isBiometricUnlockRequired = false;
 
   @override
   void initState() {
@@ -79,6 +82,7 @@ class _BlueVideoAppState extends ConsumerState<BlueVideoApp>
     WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _checkPendingPayment();
+      _initializeBiometricGate();
     });
     _pendingPaymentTimer = Timer.periodic(
       const Duration(seconds: 12),
@@ -97,6 +101,107 @@ class _BlueVideoAppState extends ConsumerState<BlueVideoApp>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       _checkPendingPayment();
+      if (_isBiometricUnlockRequired) {
+        _enforceBiometricGate();
+      }
+    } else if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.detached) {
+      _markBiometricUnlockRequired();
+    }
+  }
+
+  Future<void> _initializeBiometricGate() async {
+    if (!mounted) return;
+
+    final authService = ref.read(authServiceProvider);
+    if (!authService.isLoggedIn) return;
+
+    final biometricEnabled = await authService.isBiometricLoginEnabled();
+    if (!mounted || !biometricEnabled) {
+      _isBiometricUnlockRequired = false;
+      return;
+    }
+
+    _isBiometricUnlockRequired = true;
+    await _enforceBiometricGate();
+  }
+
+  Future<void> _markBiometricUnlockRequired() async {
+    if (!mounted || _isBiometricPromptInProgress) return;
+
+    final authService = ref.read(authServiceProvider);
+    if (!authService.isLoggedIn) return;
+
+    final biometricEnabled = await authService.isBiometricLoginEnabled();
+    if (!mounted || !biometricEnabled) return;
+
+    _isBiometricUnlockRequired = true;
+
+    setState(() {
+      _isBiometricGateVisible = true;
+    });
+  }
+
+  Future<void> _enforceBiometricGate() async {
+    if (!mounted || _isBiometricPromptInProgress) return;
+    if (!_isBiometricUnlockRequired && !_isBiometricGateVisible) return;
+
+    final authService = ref.read(authServiceProvider);
+    if (!authService.isLoggedIn) {
+      _isBiometricUnlockRequired = false;
+      if (_isBiometricGateVisible && mounted) {
+        setState(() {
+          _isBiometricGateVisible = false;
+        });
+      }
+      return;
+    }
+
+    final biometricEnabled = await authService.isBiometricLoginEnabled();
+    final canUseBiometric = await authService.canUseBiometrics();
+
+    if (!mounted || !biometricEnabled || !canUseBiometric) {
+      _isBiometricUnlockRequired = false;
+      if (_isBiometricGateVisible && mounted) {
+        setState(() {
+          _isBiometricGateVisible = false;
+        });
+      }
+      return;
+    }
+
+    setState(() {
+      _isBiometricGateVisible = true;
+      _isBiometricPromptInProgress = true;
+    });
+
+    try {
+      final promptContext = _messengerKey.currentContext;
+      final localizedReason = promptContext != null
+          ? AppLocalizations.of(promptContext).authenticateToLogin
+          : 'Authenticate to login to Blue Video';
+
+      final authenticated = await authService.authenticateForBiometricLogin(
+        localizedReason: localizedReason,
+      );
+
+      if (!mounted) return;
+
+      setState(() {
+        _isBiometricGateVisible = !authenticated;
+        _isBiometricUnlockRequired = !authenticated;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _isBiometricGateVisible = true;
+        _isBiometricUnlockRequired = true;
+      });
+    } finally {
+      if (!mounted) return;
+      setState(() {
+        _isBiometricPromptInProgress = false;
+      });
     }
   }
 
@@ -118,7 +223,9 @@ class _BlueVideoAppState extends ConsumerState<BlueVideoApp>
         await prefs.remove(_pendingPaymentOrderKey);
         await ref.read(authServiceProvider).refreshCurrentUser();
         _showPaymentSnackBar(success: true);
-      } else if (status == 'FAILED' || status == 'CANCELED' || status == 'CANCELLED') {
+      } else if (status == 'FAILED' ||
+          status == 'CANCELED' ||
+          status == 'CANCELLED') {
         await prefs.remove(_pendingPaymentOrderKey);
         _showPaymentSnackBar(success: false);
       }
@@ -135,8 +242,9 @@ class _BlueVideoAppState extends ConsumerState<BlueVideoApp>
     if (messenger == null || context == null) return;
 
     final l10n = AppLocalizations.of(context);
-    final message =
-        success ? l10n.paymentConfirmedCoinsAdded : l10n.paymentNotCompletedRetry;
+    final message = success
+        ? l10n.paymentConfirmedCoinsAdded
+        : l10n.paymentNotCompletedRetry;
     messenger.showSnackBar(
       SnackBar(
         content: Text(message),
@@ -158,6 +266,68 @@ class _BlueVideoAppState extends ConsumerState<BlueVideoApp>
       title: 'Blue Video App',
       debugShowCheckedModeBanner: false,
       scaffoldMessengerKey: _messengerKey,
+      builder: (context, child) {
+        if (!_isBiometricGateVisible) {
+          return child ?? const SizedBox.shrink();
+        }
+
+        final l10n = AppLocalizations.of(context);
+        return Stack(
+          children: [
+            child ?? const SizedBox.shrink(),
+            ModalBarrier(
+              dismissible: false,
+              color: Colors.black.withValues(alpha: 0.65),
+            ),
+            Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 320),
+                child: Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.fingerprint, size: 48),
+                        const SizedBox(height: 12),
+                        Text(
+                          l10n.biometricLogin,
+                          style: Theme.of(context).textTheme.titleLarge,
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          l10n.authenticateToLogin,
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 16),
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton.icon(
+                            onPressed: _isBiometricPromptInProgress
+                                ? null
+                                : _enforceBiometricGate,
+                            icon: _isBiometricPromptInProgress
+                                ? const SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Colors.white,
+                                    ),
+                                  )
+                                : const Icon(Icons.fingerprint),
+                            label: Text(l10n.signInWithBiometrics),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
       themeMode: themeMode,

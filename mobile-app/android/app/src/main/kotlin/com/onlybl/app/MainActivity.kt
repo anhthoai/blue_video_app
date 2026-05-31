@@ -1,18 +1,15 @@
 package com.onlybl.app
 
 import android.view.WindowManager
-import io.flutter.embedding.android.FlutterActivity
+import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.android.RenderMode
-import io.flutter.embedding.android.TransparencyMode
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 
-class MainActivity : FlutterActivity() {
+class MainActivity : FlutterFragmentActivity() {
 	private val contentProtectionChannel = "com.onlybl.app/content_protection"
 
 	override fun getRenderMode(): RenderMode = RenderMode.texture
-
-	override fun getTransparencyMode(): TransparencyMode = TransparencyMode.opaque
 
 	override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
 		super.configureFlutterEngine(flutterEngine)

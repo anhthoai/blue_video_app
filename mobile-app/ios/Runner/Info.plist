@@ -55,6 +55,8 @@
 	<string>Blue Video needs microphone access for voice and video calls in chat.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Blue Video uses your location to show nearby dating profiles and accurate distance.</string>
+	<key>NSFaceIDUsageDescription</key>
+	<string>Blue Video uses Face ID to securely sign you in.</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 	<key>CFBundleURLTypes</key>

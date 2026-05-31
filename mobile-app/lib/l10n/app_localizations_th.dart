@@ -330,6 +330,37 @@ class AppLocalizationsTh extends AppLocalizationsEn {
   String get createAccount => 'สร้างบัญชี';
 
   @override
+  String get enableBiometricLoginOnDevice =>
+      'เปิดใช้การเข้าสู่ระบบด้วยไบโอเมตริกบนอุปกรณ์นี้';
+
+  @override
+  String get signInWithBiometrics => 'เข้าสู่ระบบด้วยไบโอเมตริก';
+
+  @override
+  String get biometricLoginFailed =>
+      'การเข้าสู่ระบบด้วยไบโอเมตริกล้มเหลวหรือถูกยกเลิก';
+
+  @override
+  String get biometricLoginError => 'ข้อผิดพลาดการเข้าสู่ระบบด้วยไบโอเมตริก';
+
+  @override
+  String get biometricLogin => 'เข้าสู่ระบบด้วยไบโอเมตริก';
+
+  @override
+  String get biometricLoginDescription =>
+      'ใช้ไบโอเมตริกเพื่อเข้าสู่ระบบอย่างรวดเร็วบนอุปกรณ์นี้';
+
+  @override
+  String get biometricLoginDisabled => 'ปิดการเข้าสู่ระบบด้วยไบโอเมตริกแล้ว';
+
+  @override
+  String get biometricLoginDisableFailed =>
+      'ไม่สามารถปิดการเข้าสู่ระบบด้วยไบโอเมตริกได้';
+
+  @override
+  String get authenticateToLogin => 'ยืนยันตัวตนเพื่อเข้าสู่ระบบ Blue Video';
+
+  @override
   String get createPost => 'สร้างโพสต์';
 
   @override

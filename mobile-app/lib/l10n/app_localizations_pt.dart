@@ -330,6 +330,37 @@ class AppLocalizationsPt extends AppLocalizationsEn {
   String get createAccount => 'Criar conta';
 
   @override
+  String get enableBiometricLoginOnDevice =>
+      'Ativar login biometrico neste dispositivo';
+
+  @override
+  String get signInWithBiometrics => 'Entrar com biometria';
+
+  @override
+  String get biometricLoginFailed =>
+      'Login biometrico falhou ou foi cancelado';
+
+  @override
+  String get biometricLoginError => 'Erro no login biometrico';
+
+  @override
+  String get biometricLogin => 'Login Biometrico';
+
+  @override
+  String get biometricLoginDescription =>
+      'Use biometria para entrar rapidamente neste dispositivo';
+
+  @override
+  String get biometricLoginDisabled => 'Login biometrico desativado';
+
+  @override
+  String get biometricLoginDisableFailed =>
+      'Falha ao desativar login biometrico';
+
+  @override
+  String get authenticateToLogin => 'Autentique-se para entrar no Blue Video';
+
+  @override
   String get createPost => 'Criar post';
 
   @override

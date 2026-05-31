@@ -13,11 +13,114 @@ import '../../l10n/app_localizations.dart';
 import 'privacy_policy_screen.dart';
 import '../../widgets/common/app_logo.dart';
 
-class SettingsScreen extends ConsumerWidget {
+class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<SettingsScreen> createState() => _SettingsScreenState();
+}
+
+class _SettingsScreenState extends ConsumerState<SettingsScreen> {
+  bool _isBiometricSupported = false;
+  bool _isBiometricEnabled = false;
+  bool _isUpdatingBiometric = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadBiometricState();
+  }
+
+  Future<void> _loadBiometricState() async {
+    final authService = ref.read(authServiceProvider);
+    final supported = await authService.canUseBiometrics();
+    final enabled = await authService.isBiometricLoginEnabled();
+
+    if (!mounted) return;
+
+    setState(() {
+      _isBiometricSupported = supported;
+      _isBiometricEnabled = enabled;
+    });
+  }
+
+  Future<void> _handleBiometricToggle(bool value) async {
+    final l10n = AppLocalizations.of(context);
+
+    setState(() {
+      _isUpdatingBiometric = true;
+    });
+
+    if (!value) {
+      try {
+        await ref.read(authServiceProvider).disableBiometricLogin();
+        if (!mounted) return;
+        setState(() {
+          _isBiometricEnabled = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(l10n.biometricLoginDisabled)),
+        );
+      } catch (error) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${l10n.biometricLoginDisableFailed}: $error'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      } finally {
+        if (!mounted) return;
+        setState(() {
+          _isUpdatingBiometric = false;
+        });
+      }
+      return;
+    }
+
+    try {
+      final authService = ref.read(authServiceProvider);
+
+      final authenticated = await authService.authenticateForBiometricLogin(
+        localizedReason: l10n.authenticateToLogin,
+      );
+
+      if (!authenticated) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(l10n.biometricLoginFailed)),
+        );
+        return;
+      }
+
+      await authService.setBiometricLoginEnabled(enabled: true);
+
+      if (!mounted) return;
+      setState(() {
+        _isBiometricEnabled = true;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(l10n.biometricLoginEnabled)),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('${l10n.biometricLoginError}: $error'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      if (!mounted) return;
+      setState(() {
+        _isUpdatingBiometric = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final currentLocale = ref.watch(localeProvider);
     final currentTheme = ref.watch(themeProvider);
@@ -97,6 +200,19 @@ class SettingsScreen extends ConsumerWidget {
                     subtitle: 'Update the password for this account',
                     onTap: () => context.push('/main/settings/change-password'),
                   ),
+                  if (_isBiometricSupported)
+                    _buildSwitchTile(
+                      context,
+                      icon: Icons.fingerprint,
+                      title: l10n.biometricLogin,
+                      subtitle: l10n.biometricLoginDescription,
+                      value: _isBiometricEnabled,
+                      onChanged: _isUpdatingBiometric
+                          ? null
+                          : (value) {
+                              _handleBiometricToggle(value);
+                            },
+                    ),
                   _buildListTile(
                     context,
                     icon: Icons.notifications_outlined,
@@ -453,6 +569,23 @@ class SettingsScreen extends ConsumerWidget {
       subtitle: Text(subtitle),
       trailing: const Icon(Icons.chevron_right),
       onTap: onTap,
+    );
+  }
+
+  Widget _buildSwitchTile(
+    BuildContext context, {
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required bool value,
+    required ValueChanged<bool>? onChanged,
+  }) {
+    return SwitchListTile(
+      secondary: Icon(icon, color: Colors.blue),
+      title: Text(title),
+      subtitle: Text(subtitle),
+      value: value,
+      onChanged: onChanged,
     );
   }
 }

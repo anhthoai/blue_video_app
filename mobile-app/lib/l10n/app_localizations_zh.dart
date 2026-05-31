@@ -486,6 +486,39 @@ class AppLocalizationsZh extends AppLocalizations {
   @override
   String get createAccount => '创建账号';
 
+  @override
+  String get enableBiometricLoginOnDevice => '启用此设备生物识别登录';
+
+  @override
+  String get signInWithBiometrics => '使用生物识别登录';
+
+  @override
+  String get biometricLoginFailed => '生物识别登录失败或已取消';
+
+  @override
+  String get biometricLoginError => '生物识别登录错误';
+
+  @override
+  String get biometricLogin => '生物识别登录';
+
+  @override
+  String get biometricLoginDescription => '使用生物识别快速登录此设备';
+
+  @override
+  String get biometricLoginDisabled => '已关闭生物识别登录';
+
+  @override
+  String get biometricLoginDisableFailed => '关闭生物识别登录失败';
+
+  @override
+  String get authenticateToLogin => '请验证身份以登录 Blue Video';
+
+  @override
+  String get biometricLoginEnabled => '已启用生物识别登录';
+
+  @override
+  String get biometricSetupRequired => '请先使用邮箱和密码登录一次以完成生物识别设置。';
+
   // Post/Community
   @override
   String get createPost => '创建帖子';
@@ -947,8 +980,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get paymentConfirmedCoinsAdded => '支付已确认，金币已成功到账！';
 
   @override
-  String get paymentOpenedInBrowserReturnToApp =>
-      '支付页面已在浏览器打开，请完成支付后返回应用。';
+  String get paymentOpenedInBrowserReturnToApp => '支付页面已在浏览器打开，请完成支付后返回应用。';
 
   @override
   String get creditCardComingSoon => '信用卡支付即将支持。';
@@ -1566,12 +1598,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get profileDatingAvatarsMax6 => 'Dating头像（最多6张）';
 
   @override
-  String get profileDatingAvatarsHelp =>
-      '第一张是主头像。在Dating资料中上滑可查看其余照片。';
+  String get profileDatingAvatarsHelp => '第一张是主头像。在Dating资料中上滑可查看其余照片。';
 
   @override
-  String get profileEditDatingProfileSubtitle =>
-      '管理Dating简介、期望和隐私设置';
+  String get profileEditDatingProfileSubtitle => '管理Dating简介、期望和隐私设置';
 
   @override
   String get profilePrivateAlbumMax9Images => '私密相册（最多9张）';
@@ -1709,195 +1739,195 @@ class AppLocalizationsZh extends AppLocalizations {
   @override
   String get chatAccessInvalid => '访问无效';
 
-    @override
-    String get chatPrivateAlbumRequestSent => '私密相册请求已发送。';
+  @override
+  String get chatPrivateAlbumRequestSent => '私密相册请求已发送。';
 
-    @override
-    String get chatPrivateAlbumRequestAlreadySent => '请求已发送。';
+  @override
+  String get chatPrivateAlbumRequestAlreadySent => '请求已发送。';
 
-    @override
-    String get chatPrivateAlbumNoPhotos => '私密相册暂时没有照片。';
+  @override
+  String get chatPrivateAlbumNoPhotos => '私密相册暂时没有照片。';
 
-    @override
-    String get chatRequestSent => '请求已发送';
+  @override
+  String get chatRequestSent => '请求已发送';
 
-    @override
-    String get chatSendRequest => '发送请求';
+  @override
+  String get chatSendRequest => '发送请求';
 
-    @override
-    String get chatProfileSnapshot => '资料快照';
+  @override
+  String get chatProfileSnapshot => '资料快照';
 
-    @override
-    String get chatPersonalProfile => '个人资料';
+  @override
+  String get chatPersonalProfile => '个人资料';
 
-    @override
-    String get chatMatchedExpectations => '匹配期望';
+  @override
+  String get chatMatchedExpectations => '匹配期望';
 
-    @override
-    String get chatNoMatchedExpectations => '暂无匹配期望。';
+  @override
+  String get chatNoMatchedExpectations => '暂无匹配期望。';
 
-    @override
-    String get chatYearsShort => '岁';
+  @override
+  String get chatYearsShort => '岁';
 
-    @override
-    String get chatCentimetersShort => 'cm';
+  @override
+  String get chatCentimetersShort => 'cm';
 
-    @override
-    String get chatKilogramsShort => 'kg';
+  @override
+  String get chatKilogramsShort => 'kg';
 
-    @override
-    String get chatInfo => '聊天信息';
+  @override
+  String get chatInfo => '聊天信息';
 
-    @override
-    String get chatMuteNotifications => '静音通知';
+  @override
+  String get chatMuteNotifications => '静音通知';
 
-    @override
-    String get chatUnmuteNotifications => '取消静音通知';
+  @override
+  String get chatUnmuteNotifications => '取消静音通知';
 
-    @override
-    String get chatRoom => '聊天房间';
+  @override
+  String get chatRoom => '聊天房间';
 
-    @override
-    String get chatMembers => '名成员';
+  @override
+  String get chatMembers => '名成员';
 
-    @override
-    String get chatOnlineNow => '在线';
+  @override
+  String get chatOnlineNow => '在线';
 
-    @override
-    String get chatDirectMessage => '私聊';
+  @override
+  String get chatDirectMessage => '私聊';
 
-    @override
-    String get chatParticipant => '参与者';
+  @override
+  String get chatParticipant => '参与者';
 
-    @override
-    String get chatNoMessagesYet => '还没有消息';
+  @override
+  String get chatNoMessagesYet => '还没有消息';
 
-    @override
-    String get chatStartConversation => '开始聊天吧！';
+  @override
+  String get chatStartConversation => '开始聊天吧！';
 
-    @override
-    String get chatAttachmentPhoto => '照片';
+  @override
+  String get chatAttachmentPhoto => '照片';
 
-    @override
-    String get chatAttachmentPhotoSubtitle => '从相册发送照片';
+  @override
+  String get chatAttachmentPhotoSubtitle => '从相册发送照片';
 
-    @override
-    String get chatAttachmentCamera => '相机';
+  @override
+  String get chatAttachmentCamera => '相机';
 
-    @override
-    String get chatAttachmentCameraSubtitle => '拍摄照片';
+  @override
+  String get chatAttachmentCameraSubtitle => '拍摄照片';
 
-    @override
-    String get chatAttachmentVideo => '视频';
+  @override
+  String get chatAttachmentVideo => '视频';
 
-    @override
-    String get chatAttachmentVideoSubtitle => '发送视频';
+  @override
+  String get chatAttachmentVideoSubtitle => '发送视频';
 
-    @override
-    String get chatAttachmentDocument => '文档';
+  @override
+  String get chatAttachmentDocument => '文档';
 
-    @override
-    String get chatAttachmentDocumentSubtitle => '发送 PDF、DOC 等文件';
+  @override
+  String get chatAttachmentDocumentSubtitle => '发送 PDF、DOC 等文件';
 
-    @override
-    String get chatAttachmentAudio => '音频';
+  @override
+  String get chatAttachmentAudio => '音频';
 
-    @override
-    String get chatAttachmentAudioSubtitle => '发送音频文件';
+  @override
+  String get chatAttachmentAudioSubtitle => '发送音频文件';
 
-    @override
-    String get chatUploadingFile => '正在上传文件...';
+  @override
+  String get chatUploadingFile => '正在上传文件...';
 
-    @override
-    String get chatFileSentSuccessfully => '文件发送成功！';
+  @override
+  String get chatFileSentSuccessfully => '文件发送成功！';
 
-    @override
-    String get chatFailedToUploadFile => '文件上传失败';
+  @override
+  String get chatFailedToUploadFile => '文件上传失败';
 
-    @override
-    String get chatUnableToLoadDetails => '当前无法加载聊天详情。';
+  @override
+  String get chatUnableToLoadDetails => '当前无法加载聊天详情。';
 
-    @override
-    String get chatNotificationsMuted => '已静音此聊天通知。';
+  @override
+  String get chatNotificationsMuted => '已静音此聊天通知。';
 
-    @override
-    String get chatNotificationsUnmuted => '已恢复此聊天通知。';
+  @override
+  String get chatNotificationsUnmuted => '已恢复此聊天通知。';
 
-    @override
-    String get chatUnableToStartCall => '当前无法发起通话。';
+  @override
+  String get chatUnableToStartCall => '当前无法发起通话。';
 
-    @override
-    String get chatGroupCallNotSupported => '暂不支持群组语音和视频通话。';
+  @override
+  String get chatGroupCallNotSupported => '暂不支持群组语音和视频通话。';
 
-    @override
-    String get chatSignInToCall => '请重新登录后再拨打通话。';
+  @override
+  String get chatSignInToCall => '请重新登录后再拨打通话。';
 
-    @override
-    String get chatUnableToStartCallGeneric => '无法发起通话。';
+  @override
+  String get chatUnableToStartCallGeneric => '无法发起通话。';
 
-    @override
-    String get chatProfileUnavailable => '当前无法查看资料。';
+  @override
+  String get chatProfileUnavailable => '当前无法查看资料。';
 
-    @override
-    String get chatSingleProfileUnavailable => '此聊天无法打开单个资料。';
+  @override
+  String get chatSingleProfileUnavailable => '此聊天无法打开单个资料。';
 
-    @override
-    String get communityOriginal => '原创';
+  @override
+  String get communityOriginal => '原创';
 
-    @override
-    String get communityRequest => '求片';
+  @override
+  String get communityRequest => '求片';
 
-    @override
-    String get communityHotForums => '热门论坛';
+  @override
+  String get communityHotForums => '热门论坛';
 
-    @override
-    String get communityMore => '更多';
+  @override
+  String get communityMore => '更多';
 
-    @override
-    String get communityContentCreators => '内容创作者';
+  @override
+  String get communityContentCreators => '内容创作者';
 
-    @override
-    String get communityRecommended => '推荐';
+  @override
+  String get communityRecommended => '推荐';
 
-    @override
-    String get communityHighlights => '精选';
+  @override
+  String get communityHighlights => '精选';
 
-    @override
-    String get hotForumsMomentumTitle => '社区热度增长最快的话题';
+  @override
+  String get hotForumsMomentumTitle => '社区热度增长最快的话题';
 
-    @override
-    String get hotForumsMomentumSubtitle => '打开论坛查看最新帖子，或关注后在关注页持续追踪。';
+  @override
+  String get hotForumsMomentumSubtitle => '打开论坛查看最新帖子，或关注后在关注页持续追踪。';
 
-    @override
-    String get hotForumsLoadErrorTitle => '论坛加载失败';
+  @override
+  String get hotForumsLoadErrorTitle => '论坛加载失败';
 
-    @override
-    String get hotForumsEmptyTitle => '暂无热门论坛';
+  @override
+  String get hotForumsEmptyTitle => '暂无热门论坛';
 
-    @override
-    String get hotForumsEmptySubtitle => '当后台有活跃话题流量时，这里会显示。';
+  @override
+  String get hotForumsEmptySubtitle => '当后台有活跃话题流量时，这里会显示。';
 
-    @override
-    String get contentCreatorMoreAppears => '随着活跃度提升，会有更多创作者出现在这里。';
+  @override
+  String get contentCreatorMoreAppears => '随着活跃度提升，会有更多创作者出现在这里。';
 
-    @override
-    String get contentCreatorMetricLikes => '点赞';
+  @override
+  String get contentCreatorMetricLikes => '点赞';
 
-    @override
-    String get contentCreatorMetricUploads => '上传';
+  @override
+  String get contentCreatorMetricUploads => '上传';
 
-    @override
-    String get contentCreatorMetricEarnings => '收益';
+  @override
+  String get contentCreatorMetricEarnings => '收益';
 
-    @override
-    String get contentCreatorMetricCoins => '金币';
+  @override
+  String get contentCreatorMetricCoins => '金币';
 
-    @override
-    String get contentCreatorWindowDay => '日';
+  @override
+  String get contentCreatorWindowDay => '日';
 
-    @override
-    String get contentCreatorWindowWeek => '周';
+  @override
+  String get contentCreatorWindowWeek => '周';
 
-    @override
-    String get contentCreatorWindowMonth => '月';
+  @override
+  String get contentCreatorWindowMonth => '月';
 }

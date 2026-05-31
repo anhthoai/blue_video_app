@@ -330,6 +330,36 @@ class AppLocalizationsId extends AppLocalizationsEn {
   String get createAccount => 'Buat akun';
 
   @override
+  String get enableBiometricLoginOnDevice =>
+      'Aktifkan login biometrik di perangkat ini';
+
+  @override
+  String get signInWithBiometrics => 'Masuk dengan biometrik';
+
+  @override
+  String get biometricLoginFailed => 'Login biometrik gagal atau dibatalkan';
+
+  @override
+  String get biometricLoginError => 'Error login biometrik';
+
+  @override
+  String get biometricLogin => 'Login Biometrik';
+
+  @override
+  String get biometricLoginDescription =>
+      'Gunakan biometrik untuk masuk lebih cepat di perangkat ini';
+
+  @override
+  String get biometricLoginDisabled => 'Login biometrik dinonaktifkan';
+
+  @override
+  String get biometricLoginDisableFailed =>
+      'Gagal menonaktifkan login biometrik';
+
+  @override
+  String get authenticateToLogin => 'Autentikasi untuk masuk ke Blue Video';
+
+  @override
   String get createPost => 'Buat post';
 
   @override

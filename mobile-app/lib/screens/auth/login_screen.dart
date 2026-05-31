@@ -18,8 +18,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _isLoading = false;
+  bool _isBiometricLoading = false;
   bool _obscurePassword = true;
   bool _rememberMe = false;
+  bool _isBiometricEnabled = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadBiometricState();
+  }
 
   @override
   void dispose() {
@@ -142,9 +150,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         final email = _emailController.text.trim();
                         final location = Uri(
                           path: '/auth/forgot-password',
-                          queryParameters: email.isEmpty
-                              ? null
-                              : {'email': email},
+                          queryParameters:
+                              email.isEmpty ? null : {'email': email},
                         ).toString();
                         context.push(location);
                       },
@@ -168,6 +175,26 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         : Text(l10n.signIn),
                   ),
                 ),
+
+                if (_isBiometricEnabled) ...[
+                  const SizedBox(height: 12),
+                  Tooltip(
+                    message: l10n.signInWithBiometrics,
+                    child: IconButton.filledTonal(
+                      onPressed: (_isLoading || _isBiometricLoading)
+                          ? null
+                          : _handleBiometricLogin,
+                      iconSize: 28,
+                      icon: _isBiometricLoading
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.fingerprint),
+                    ),
+                  ),
+                ],
 
                 const SizedBox(height: 24),
 
@@ -285,7 +312,72 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         setState(() {
           _isLoading = false;
         });
+        await _loadBiometricState();
       }
     }
+  }
+
+  Future<void> _handleBiometricLogin() async {
+    final l10n = AppLocalizations.of(context);
+    final messenger = ScaffoldMessenger.maybeOf(context);
+
+    setState(() {
+      _isBiometricLoading = true;
+    });
+
+    try {
+      final authService = ref.read(authServiceProvider);
+      final hasStoredCredentials =
+          await authService.hasStoredBiometricCredentials();
+      if (!hasStoredCredentials) {
+        if (!mounted) return;
+        messenger?.showSnackBar(
+          SnackBar(content: Text(l10n.biometricSetupRequired)),
+        );
+        return;
+      }
+
+      final user = await authService.signInWithBiometrics(
+        localizedReason: l10n.authenticateToLogin,
+      );
+
+      if (!mounted) return;
+
+      if (user != null) {
+        context.go('/main');
+      } else {
+        messenger?.showSnackBar(
+          SnackBar(
+            content: Text(l10n.biometricLoginFailed),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (error) {
+      if (!mounted) return;
+      messenger?.showSnackBar(
+        SnackBar(
+          content: Text('${l10n.biometricLoginError}: $error'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      if (!mounted) return;
+      setState(() {
+        _isBiometricLoading = false;
+      });
+      await _loadBiometricState();
+    }
+  }
+
+  Future<void> _loadBiometricState() async {
+    final authService = ref.read(authServiceProvider);
+    final enabled = await authService.isBiometricLoginEnabled();
+
+    if (!mounted) return;
+
+    setState(() {
+      _isBiometricEnabled = enabled;
+    });
   }
 }

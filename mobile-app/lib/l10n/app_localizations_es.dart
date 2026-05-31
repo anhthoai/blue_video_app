@@ -330,6 +330,38 @@ class AppLocalizationsEs extends AppLocalizationsEn {
   String get createAccount => 'Crear cuenta';
 
   @override
+  String get enableBiometricLoginOnDevice =>
+      'Activar inicio de sesion biometrico en este dispositivo';
+
+  @override
+  String get signInWithBiometrics => 'Iniciar sesion con biometria';
+
+  @override
+  String get biometricLoginFailed =>
+      'El inicio de sesion biometrico fallo o fue cancelado';
+
+  @override
+  String get biometricLoginError => 'Error de inicio de sesion biometrico';
+
+  @override
+  String get biometricLogin => 'Inicio de sesion biometrico';
+
+  @override
+  String get biometricLoginDescription =>
+      'Usa biometria para iniciar sesion rapido en este dispositivo';
+
+  @override
+  String get biometricLoginDisabled => 'Inicio de sesion biometrico desactivado';
+
+  @override
+  String get biometricLoginDisableFailed =>
+      'No se pudo desactivar el inicio de sesion biometrico';
+
+  @override
+  String get authenticateToLogin =>
+      'Autenticate para iniciar sesion en Blue Video';
+
+  @override
   String get createPost => 'Crear publicacion';
 
   @override

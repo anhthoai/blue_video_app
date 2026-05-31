@@ -384,6 +384,37 @@ class AppLocalizationsVi extends AppLocalizationsEn {
   String get createAccount => 'Tạo tài khoản';
 
   @override
+  String get enableBiometricLoginOnDevice =>
+      'Bật đăng nhập sinh trắc học trên thiết bị này';
+
+  @override
+  String get signInWithBiometrics => 'Đăng nhập bằng sinh trắc học';
+
+  @override
+  String get biometricLoginFailed =>
+      'Đăng nhập sinh trắc học thất bại hoặc đã hủy';
+
+  @override
+  String get biometricLoginError => 'Lỗi đăng nhập sinh trắc học';
+
+  @override
+  String get biometricLogin => 'Đăng nhập sinh trắc học';
+
+  @override
+  String get biometricLoginDescription =>
+      'Dùng sinh trắc học để đăng nhập nhanh trên thiết bị này';
+
+  @override
+  String get biometricLoginDisabled => 'Đã tắt đăng nhập sinh trắc học';
+
+  @override
+  String get biometricLoginDisableFailed =>
+      'Không thể tắt đăng nhập sinh trắc học';
+
+  @override
+  String get authenticateToLogin => 'Xác thực để đăng nhập Blue Video';
+
+  @override
   String get createPost => 'Tạo bài viết';
 
   @override

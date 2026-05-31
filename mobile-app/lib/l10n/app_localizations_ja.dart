@@ -157,8 +157,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get feedbackMessageLabel => 'フィードバック内容';
 
   @override
-  String get feedbackMessageHint =>
-      '起きたこと、期待していた結果、利用している端末について教えてください。';
+  String get feedbackMessageHint => '起きたこと、期待していた結果、利用している端末について教えてください。';
 
   @override
   String get feedbackEmptyMessage => '共有する前にメッセージを入力してください';
@@ -487,6 +486,40 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get createAccount => 'アカウントを作成';
+
+  @override
+  String get enableBiometricLoginOnDevice => 'この端末で生体認証ログインを有効にする';
+
+  @override
+  String get signInWithBiometrics => '生体認証でサインイン';
+
+  @override
+  String get biometricLoginFailed => '生体認証ログインに失敗したか、キャンセルされました';
+
+  @override
+  String get biometricLoginError => '生体認証ログインエラー';
+
+  @override
+  String get biometricLogin => '生体認証ログイン';
+
+  @override
+  String get biometricLoginDescription => 'この端末で生体認証を使ってすばやくサインインします';
+
+  @override
+  String get biometricLoginDisabled => '生体認証ログインを無効にしました';
+
+  @override
+  String get biometricLoginDisableFailed => '生体認証ログインの無効化に失敗しました';
+
+  @override
+  String get authenticateToLogin => 'Blue Video にログインするため認証してください';
+
+  @override
+  String get biometricLoginEnabled => '生体認証ログインを有効にしました';
+
+  @override
+  String get biometricSetupRequired =>
+      '生体認証の設定を完了するため、メールとパスワードで一度サインインしてください。';
 
   // Post/Community
   @override
@@ -923,43 +956,43 @@ class AppLocalizationsJa extends AppLocalizations {
   @override
   String get trendingNow => 'トレンド';
 
-    @override
-    String get paymentCheckingResultTitle => '決済結果を確認中...';
+  @override
+  String get paymentCheckingResultTitle => '決済結果を確認中...';
 
-    @override
-    String get paymentSuccessSyncingTitle => '支払い完了、残高へ同期中...';
+  @override
+  String get paymentSuccessSyncingTitle => '支払い完了、残高へ同期中...';
 
-    @override
-    String get paymentSyncPendingHelp =>
+  @override
+  String get paymentSyncPendingHelp =>
       '処理中はこのページを離れるかアプリを閉じても問題ありません。支払い後30分経っても反映されない場合は、サポートへ支払いスクリーンショットを送ってください。';
 
-    @override
-    String get paymentOpenHome => 'ホームへ戻る';
+  @override
+  String get paymentOpenHome => 'ホームへ戻る';
 
-    @override
-    String get paymentViewRechargeRecord => 'チャージ履歴を見る';
+  @override
+  String get paymentViewRechargeRecord => 'チャージ履歴を見る';
 
-    @override
-    String get paymentMissingOrder => '注文IDが見つかりません。';
+  @override
+  String get paymentMissingOrder => '注文IDが見つかりません。';
 
-    @override
-    String get paymentNotCompletedRetry => '支払いはまだ完了していません。後でもう一度お試しください。';
+  @override
+  String get paymentNotCompletedRetry => '支払いはまだ完了していません。後でもう一度お試しください。';
 
-    @override
-    String get paymentConfirmedCoinsAdded => '支払いが確認され、コインが追加されました。';
+  @override
+  String get paymentConfirmedCoinsAdded => '支払いが確認され、コインが追加されました。';
 
-    @override
-    String get paymentOpenedInBrowserReturnToApp =>
+  @override
+  String get paymentOpenedInBrowserReturnToApp =>
       '支払いページをブラウザで開きました。支払い完了後にアプリへ戻ってください。';
 
-    @override
-    String get creditCardComingSoon => 'クレジットカード決済は近日対応予定です。';
+  @override
+  String get creditCardComingSoon => 'クレジットカード決済は近日対応予定です。';
 
-    @override
-    String get failedToOpenPaymentGateway => '決済ページを開けませんでした。もう一度お試しください。';
+  @override
+  String get failedToOpenPaymentGateway => '決済ページを開けませんでした。もう一度お試しください。';
 
-    @override
-    String get couldNotOpenBrowserForPayment => '支払い用ブラウザを開けませんでした。';
+  @override
+  String get couldNotOpenBrowserForPayment => '支払い用ブラウザを開けませんでした。';
 
   // Category filters
   @override
@@ -1232,689 +1265,675 @@ class AppLocalizationsJa extends AppLocalizations {
   @override
   String get iAgreeToThe => '同意します';
 
-    // Dating feature
-    @override
-    String get datingExplore => '探す';
+  // Dating feature
+  @override
+  String get datingExplore => '探す';
 
-    @override
-    String get datingMeet => 'マッチ';
+  @override
+  String get datingMeet => 'マッチ';
 
-    @override
-    String get datingSearchProfiles => 'プロフィール検索';
+  @override
+  String get datingSearchProfiles => 'プロフィール検索';
 
-    @override
-    String get datingSearchHint => '名前、タイプ、場所...';
+  @override
+  String get datingSearchHint => '名前、タイプ、場所...';
 
-    @override
-    String get datingClear => 'クリア';
+  @override
+  String get datingClear => 'クリア';
 
-    @override
-    String get datingEnableLocation => '位置情報サービスを有効にしてください';
+  @override
+  String get datingEnableLocation => '位置情報サービスを有効にしてください';
 
-    @override
-    String get datingLocationPermissionDenied =>
-      '位置情報の許可が拒否されました。設定で有効にしてください。';
+  @override
+  String get datingLocationPermissionDenied => '位置情報の許可が拒否されました。設定で有効にしてください。';
 
-    @override
-    String get datingLocationError => '位置情報を取得できませんでした';
+  @override
+  String get datingLocationError => '位置情報を取得できませんでした';
 
-    @override
-    String get datingPlanUnlimitedUnlocked => 'Unlimited 開放中';
+  @override
+  String get datingPlanUnlimitedUnlocked => 'Unlimited 開放中';
 
-    @override
-    String get datingPlanVipUnlocked => 'VIP 開放中';
+  @override
+  String get datingPlanVipUnlocked => 'VIP 開放中';
 
-    @override
-    String get datingPlanFreeUnlocked => '無料プラン';
+  @override
+  String get datingPlanFreeUnlocked => '無料プラン';
 
-    @override
-    String get datingUpdateLocation => '位置情報を更新';
+  @override
+  String get datingUpdateLocation => '位置情報を更新';
 
-    @override
-    String get datingSmart => 'スマート';
+  @override
+  String get datingSmart => 'スマート';
 
-    @override
-    String get datingNewFace => '新規';
+  @override
+  String get datingNewFace => '新規';
 
-    @override
-    String get datingNoUsersNearby => '近くにユーザーが見つかりません';
+  @override
+  String get datingNoUsersNearby => '近くにユーザーが見つかりません';
 
-    @override
-    String get datingAllowLocationAndTryAgain =>
-      '位置情報を許可して、もう一度お試しください。';
+  @override
+  String get datingAllowLocationAndTryAgain => '位置情報を許可して、もう一度お試しください。';
 
-    @override
-    String get datingYou => 'あなた';
+  @override
+  String get datingYou => 'あなた';
 
-    @override
-    String get datingUnlockMoreProfilesBanner => 'VIP または Unlimited でさらに解放';
+  @override
+  String get datingUnlockMoreProfilesBanner => 'VIP または Unlimited でさらに解放';
 
-    @override
-    String get datingRequestSentCheckChat =>
-      'リクエストを送信しました。チャットで更新を確認してください。';
+  @override
+  String get datingRequestSentCheckChat => 'リクエストを送信しました。チャットで更新を確認してください。';
 
-    @override
-    String get datingRequestSentViaChat =>
-      'リクエストを送信しました。相手はチャットから承認できます。';
+  @override
+  String get datingRequestSentViaChat => 'リクエストを送信しました。相手はチャットから承認できます。';
 
-    @override
-    String get datingRequestAlreadySentCheckChat =>
-      'すでに送信済みです。チャットを確認してください。';
+  @override
+  String get datingRequestAlreadySentCheckChat => 'すでに送信済みです。チャットを確認してください。';
 
-    @override
-    String get datingFriendRequestSent => 'フレンドリクエストを送信しました';
+  @override
+  String get datingFriendRequestSent => 'フレンドリクエストを送信しました';
 
-    @override
-    String get datingProfileNotFound => 'プロフィールが見つかりません';
+  @override
+  String get datingProfileNotFound => 'プロフィールが見つかりません';
 
-    @override
-    String get datingOpenPrivateAlbum => 'プライベートアルバムを開く';
+  @override
+  String get datingOpenPrivateAlbum => 'プライベートアルバムを開く';
 
-    @override
-    String get datingWaitingPermission => '承認待ち';
+  @override
+  String get datingWaitingPermission => '承認待ち';
 
-    @override
-    String get datingRequestUnlock => '閲覧を申請';
+  @override
+  String get datingRequestUnlock => '閲覧を申請';
 
-    @override
-    String get datingPrivatePhotos => 'プライベート写真';
+  @override
+  String get datingPrivatePhotos => 'プライベート写真';
 
-    @override
-    String get datingPrivateAlbumPermissionGranted =>
-      'プライベートアルバムの閲覧が許可されました。';
+  @override
+  String get datingPrivateAlbumPermissionGranted => 'プライベートアルバムの閲覧が許可されました。';
 
-    @override
-    String get datingPrivateAlbumPending => 'あなたの申請は承認待ちです。';
+  @override
+  String get datingPrivateAlbumPending => 'あなたの申請は承認待ちです。';
 
-    @override
-    String get datingPrivateAlbumRequestPermission =>
+  @override
+  String get datingPrivateAlbumRequestPermission =>
       'プライベート写真を閲覧するための許可を申請してください。';
 
-    @override
-    String get datingSuperLiked => 'スーパーいいね！';
+  @override
+  String get datingSuperLiked => 'スーパーいいね！';
 
-    @override
-    String get datingLikedWaitingMatch => 'いいねしました。マッチ待ちです！';
+  @override
+  String get datingLikedWaitingMatch => 'いいねしました。マッチ待ちです！';
 
-    @override
-    String get datingPassed => 'スキップ';
+  @override
+  String get datingPassed => 'スキップ';
 
-    @override
-    String get datingHeight => '身長';
+  @override
+  String get datingHeight => '身長';
 
-    @override
-    String get datingWeight => '体重';
+  @override
+  String get datingWeight => '体重';
 
-    @override
-    String get datingBodyType => '体型';
+  @override
+  String get datingBodyType => '体型';
 
-    @override
-    String get datingBodyHair => '体毛';
+  @override
+  String get datingBodyHair => '体毛';
 
-    @override
-    String get datingLanguages => '言語';
+  @override
+  String get datingLanguages => '言語';
 
-    @override
-    String get datingLivesIn => '居住地';
+  @override
+  String get datingLivesIn => '居住地';
 
-    @override
-    String get datingNationality => '国籍';
+  @override
+  String get datingNationality => '国籍';
 
-    @override
-    String get datingEthnicity => '民族';
+  @override
+  String get datingEthnicity => '民族';
 
-    @override
-    String get datingRelationship => '交際状況';
+  @override
+  String get datingRelationship => '交際状況';
 
-    @override
-    String get datingAboutMe => '自己紹介';
+  @override
+  String get datingAboutMe => '自己紹介';
 
-    @override
-    String get datingLookingFor => '探している関係';
+  @override
+  String get datingLookingFor => '探している関係';
 
-    @override
-    String get datingInterestedIn => '興味対象';
+  @override
+  String get datingInterestedIn => '興味対象';
 
-    @override
-    String get datingWhereToMeet => '会いたい場所';
+  @override
+  String get datingWhereToMeet => '会いたい場所';
 
-    @override
-    String get datingTribes => 'タイプ';
+  @override
+  String get datingTribes => 'タイプ';
 
-    @override
-    String get datingSwipeHint => '上下スワイプでメディアを切替';
+  @override
+  String get datingSwipeHint => '上下スワイプでメディアを切替';
 
-    @override
-    String get datingFilters => 'フィルター';
+  @override
+  String get datingFilters => 'フィルター';
 
-    @override
-    String get datingReset => 'リセット';
+  @override
+  String get datingReset => 'リセット';
 
-    @override
-    String get datingRole => '役割';
+  @override
+  String get datingRole => '役割';
 
-    @override
-    String get datingApplyFilters => 'フィルターを適用';
+  @override
+  String get datingApplyFilters => 'フィルターを適用';
 
-    @override
-    String get datingAge => '年齢';
+  @override
+  String get datingAge => '年齢';
 
-    @override
-    String get datingNoMatchesYet => 'まだマッチがありません';
+  @override
+  String get datingNoMatchesYet => 'まだマッチがありません';
 
-    @override
-    String get datingLikeSomeoneBack =>
-      '相手をいいねして、相互いいねになるとマッチします。';
+  @override
+  String get datingLikeSomeoneBack => '相手をいいねして、相互いいねになるとマッチします。';
 
-    @override
-    String get datingAiSuggestionsActive => 'AI提案が有効です';
+  @override
+  String get datingAiSuggestionsActive => 'AI提案が有効です';
 
-    @override
-    String get datingAutoSuggestionsPerDay => '毎日自動でマッチ提案';
+  @override
+  String get datingAutoSuggestionsPerDay => '毎日自動でマッチ提案';
 
-    @override
-    String get datingUpgradeVipForAiMatch => 'AIマッチを使うにはVIPにアップグレード';
+  @override
+  String get datingUpgradeVipForAiMatch => 'AIマッチを使うにはVIPにアップグレード';
 
-    @override
-    String get datingAiSuggestions => 'AI提案';
+  @override
+  String get datingAiSuggestions => 'AI提案';
 
-    @override
-    String get datingDailySuggestions => '本日の提案';
+  @override
+  String get datingDailySuggestions => '本日の提案';
 
-    @override
-    String get datingMutualMatches => '相互マッチ';
+  @override
+  String get datingMutualMatches => '相互マッチ';
 
-    @override
-    String get datingAiMatchModeActive => 'AIマッチモード有効';
+  @override
+  String get datingAiMatchModeActive => 'AIマッチモード有効';
 
-    @override
-    String get datingAutoMatchMode => '自動マッチモード';
+  @override
+  String get datingAutoMatchMode => '自動マッチモード';
 
-    @override
-    String get datingVipAiScoring => 'VIP AIスコア';
+  @override
+  String get datingVipAiScoring => 'VIP AIスコア';
 
-    @override
-    String get datingUpgradeVipAiAccuracy =>
-      'より高精度なAIマッチのためVIPへアップグレード';
+  @override
+  String get datingUpgradeVipAiAccuracy => 'より高精度なAIマッチのためVIPへアップグレード';
 
-    @override
-    String get datingReject => '拒否';
+  @override
+  String get datingReject => '拒否';
 
-    @override
-    String get datingAiScore => 'AIスコア';
+  @override
+  String get datingAiScore => 'AIスコア';
 
-    @override
-    String get datingMutualMatch => '相互マッチ';
+  @override
+  String get datingMutualMatch => '相互マッチ';
 
-    @override
-    String get datingPhotoUploaded => '写真をアップロードしました';
+  @override
+  String get datingPhotoUploaded => '写真をアップロードしました';
 
-    @override
-    String get datingDeletePhoto => '写真を削除しますか？';
+  @override
+  String get datingDeletePhoto => '写真を削除しますか？';
 
-    @override
-    String get datingRemovePhotoConfirm =>
-      'この写真はプライベートアルバムから削除されます。';
+  @override
+  String get datingRemovePhotoConfirm => 'この写真はプライベートアルバムから削除されます。';
 
-    @override
-    String get datingMyPrivateAlbum => 'マイプライベートアルバム';
+  @override
+  String get datingMyPrivateAlbum => 'マイプライベートアルバム';
 
-    @override
-    String get datingPrivateAlbum => 'プライベートアルバム';
+  @override
+  String get datingPrivateAlbum => 'プライベートアルバム';
 
-    @override
-    String get datingRequests => 'リクエスト';
+  @override
+  String get datingRequests => 'リクエスト';
 
-    @override
-    String get datingAccessRequests => '閲覧リクエスト';
+  @override
+  String get datingAccessRequests => '閲覧リクエスト';
 
-    @override
-    String get datingNoPendingRequests => '保留中のリクエストはありません';
+  @override
+  String get datingNoPendingRequests => '保留中のリクエストはありません';
 
-    @override
-    String get datingAccepted => '承認済み';
+  @override
+  String get datingAccepted => '承認済み';
 
-    @override
-    String get datingDenied => '拒否済み';
+  @override
+  String get datingDenied => '拒否済み';
 
-    @override
-    String get datingWantsToSeePrivateAlbum => 'があなたのプライベートアルバムを見たいです';
+  @override
+  String get datingWantsToSeePrivateAlbum => 'があなたのプライベートアルバムを見たいです';
 
-    @override
-    String get datingNotEnoughCoins => 'コインが不足しています。先にチャージしてください。';
+  @override
+  String get datingNotEnoughCoins => 'コインが不足しています。先にチャージしてください。';
 
-    @override
-    String get datingActivatedSuccessfully => '有効化しました！';
+  @override
+  String get datingActivatedSuccessfully => '有効化しました！';
 
-    @override
-    String get datingPurchaseFailed => '購入に失敗しました';
+  @override
+  String get datingPurchaseFailed => '購入に失敗しました';
 
-    @override
-    String get datingUpgradeTitle => 'Datingをアップグレード';
+  @override
+  String get datingUpgradeTitle => 'Datingをアップグレード';
 
-    @override
-    String get datingYourFreePreviewReached => '無料プレビューの上限に達しました';
+  @override
+  String get datingYourFreePreviewReached => '無料プレビューの上限に達しました';
 
-    @override
-    String get datingFreeUsersViewFirst => '無料ユーザーは近くの最初の20件のみ閲覧できます。';
+  @override
+  String get datingFreeUsersViewFirst => '無料ユーザーは近くの最初の20件のみ閲覧できます。';
 
-    @override
-    String get datingCurrentPlanCoins => '現在のプランとコイン';
+  @override
+  String get datingCurrentPlanCoins => '現在のプランとコイン';
 
-    @override
-    String get datingViewUpToProfiles => '1日20件まで閲覧';
+  @override
+  String get datingViewUpToProfiles => '1日20件まで閲覧';
 
-    @override
-    String get datingUnlimitedProfileViews => 'プロフィール閲覧無制限';
+  @override
+  String get datingUnlimitedProfileViews => 'プロフィール閲覧無制限';
 
-    @override
-    String get datingSeeNearbyProfiles => '近くのプロフィールを表示';
+  @override
+  String get datingSeeNearbyProfiles => '近くのプロフィールを表示';
 
-    @override
-    String get datingAiMatchingSuggestions => 'AIマッチ提案';
+  @override
+  String get datingAiMatchingSuggestions => 'AIマッチ提案';
 
-    @override
-    String get datingPriorityDiscovery => '優先表示';
+  @override
+  String get datingPriorityDiscovery => '優先表示';
 
-    @override
-    String get datingUnlimitedNearbyBrowsing => '近くのユーザーを無制限で閲覧';
+  @override
+  String get datingUnlimitedNearbyBrowsing => '近くのユーザーを無制限で閲覧';
 
-    @override
-    String get datingBestAiQuality => '最高品質のAIマッチ';
+  @override
+  String get datingBestAiQuality => '最高品質のAIマッチ';
 
-    @override
-    String get datingHighestPriorityVisibility => '最優先で表示';
+  @override
+  String get datingHighestPriorityVisibility => '最優先で表示';
 
-    @override
-    String get datingAvailableDurations => '利用可能期間';
+  @override
+  String get datingAvailableDurations => '利用可能期間';
 
-    @override
-    String get datingPurchaseCoins => '購入';
+  @override
+  String get datingPurchaseCoins => '購入';
 
-    @override
-    String get datingRechargeCoins => 'チャージ';
+  @override
+  String get datingRechargeCoins => 'チャージ';
 
-    @override
-    String get datingEditProfile => 'Datingプロフィールを編集';
+  @override
+  String get datingEditProfile => 'Datingプロフィールを編集';
 
-    @override
-    String get datingPersonalInformation => '基本情報';
+  @override
+  String get datingPersonalInformation => '基本情報';
 
-    @override
-    String get datingExpectations => '希望条件';
+  @override
+  String get datingExpectations => '希望条件';
 
-    @override
-    String get datingPrivacySettings => 'プライバシーと設定';
+  @override
+  String get datingPrivacySettings => 'プライバシーと設定';
 
-    @override
-    String get datingShowDistance => '距離を表示';
+  @override
+  String get datingShowDistance => '距離を表示';
 
-    @override
-    String get datingShowDistanceSubtitle => '他のユーザーに距離を表示します';
+  @override
+  String get datingShowDistanceSubtitle => '他のユーザーに距離を表示します';
 
-    @override
-    String get datingShowOnlineStatus => 'オンライン状態を表示';
+  @override
+  String get datingShowOnlineStatus => 'オンライン状態を表示';
 
-    @override
-    String get datingAiMatching => 'AIマッチング';
+  @override
+  String get datingAiMatching => 'AIマッチング';
 
-    @override
-    String get datingAiMatchingSubtitle =>
-      'AIが最適な相手を提案します（VIP限定）';
+  @override
+  String get datingAiMatchingSubtitle => 'AIが最適な相手を提案します（VIP限定）';
 
-    @override
-    String get datingSelectDateOfBirth => '生年月日を選択';
+  @override
+  String get datingSelectDateOfBirth => '生年月日を選択';
 
-    @override
-    String get datingDateOfBirth => '生年月日 *';
+  @override
+  String get datingDateOfBirth => '生年月日 *';
 
-    @override
-    String get datingTapToSelect => 'タップして選択';
+  @override
+  String get datingTapToSelect => 'タップして選択';
 
-    @override
-    String get datingSelectPrefix => '選択';
+  @override
+  String get datingSelectPrefix => '選択';
 
-    // Profile and chat extras
-    @override
-    String get profileDatingAvatarsMax6 => 'Datingアバター（最大6枚）';
+  // Profile and chat extras
+  @override
+  String get profileDatingAvatarsMax6 => 'Datingアバター（最大6枚）';
 
-    @override
-    String get profileDatingAvatarsHelp =>
-        '最初の写真がメインアバターです。Datingプロフィールで上にスワイプすると他の写真が表示されます。';
+  @override
+  String get profileDatingAvatarsHelp =>
+      '最初の写真がメインアバターです。Datingプロフィールで上にスワイプすると他の写真が表示されます。';
 
-    @override
-    String get profileEditDatingProfileSubtitle =>
-        'Datingの自己紹介、希望条件、プライバシーを管理';
+  @override
+  String get profileEditDatingProfileSubtitle => 'Datingの自己紹介、希望条件、プライバシーを管理';
 
-    @override
-    String get profilePrivateAlbumMax9Images => 'プライベートアルバム（最大9枚）';
+  @override
+  String get profilePrivateAlbumMax9Images => 'プライベートアルバム（最大9枚）';
 
-    @override
-    String get profilePrivateAlbumSubtitle => 'プライベート写真をアップロード・管理';
+  @override
+  String get profilePrivateAlbumSubtitle => 'プライベート写真をアップロード・管理';
 
-    @override
-    String get profilePleaseLogIn => 'ログインしてください';
+  @override
+  String get profilePleaseLogIn => 'ログインしてください';
 
-    @override
-    String get profileUsernameRequired => 'ユーザー名を入力してください';
+  @override
+  String get profileUsernameRequired => 'ユーザー名を入力してください';
 
-    @override
-    String get profileUsernameMinLength => 'ユーザー名は3文字以上必要です';
+  @override
+  String get profileUsernameMinLength => 'ユーザー名は3文字以上必要です';
 
-    @override
-    String get profileBioMaxLength => '自己紹介は200文字以内で入力してください';
+  @override
+  String get profileBioMaxLength => '自己紹介は200文字以内で入力してください';
 
-    @override
-    String get profileAccountInformation => 'アカウント情報';
+  @override
+  String get profileAccountInformation => 'アカウント情報';
 
-    @override
-    String get profileAccountId => 'アカウントID';
+  @override
+  String get profileAccountId => 'アカウントID';
 
-    @override
-    String get profileVerified => '認証済み';
+  @override
+  String get profileVerified => '認証済み';
 
-    @override
-    String get profileMemberSince => '登録日';
+  @override
+  String get profileMemberSince => '登録日';
 
-    @override
-    String get profileDangerZone => '危険ゾーン';
+  @override
+  String get profileDangerZone => '危険ゾーン';
 
-    @override
-    String get profileDeleteAccount => 'アカウントを削除';
+  @override
+  String get profileDeleteAccount => 'アカウントを削除';
 
-    @override
-    String get profileDeleteAccountConfirmMessage =>
+  @override
+  String get profileDeleteAccountConfirmMessage =>
       'アカウントを削除してもよろしいですか？この操作は取り消せず、すべてのデータが完全に削除されます。';
 
-    @override
-    String get profileDeleteAccountComingSoon => 'アカウント削除は近日対応予定です';
+  @override
+  String get profileDeleteAccountComingSoon => 'アカウント削除は近日対応予定です';
 
-    @override
-    String get profileMainAvatar => 'メイン';
+  @override
+  String get profileMainAvatar => 'メイン';
 
-    @override
-    String get profileYes => 'はい';
+  @override
+  String get profileYes => 'はい';
 
-    @override
-    String get profileNo => 'いいえ';
+  @override
+  String get profileNo => 'いいえ';
 
-    @override
-    String get profileDatingMaxPhotosReached =>
-      '上限に達しました: メイン1枚 + 追加5枚';
+  @override
+  String get profileDatingMaxPhotosReached => '上限に達しました: メイン1枚 + 追加5枚';
 
-    @override
-    String get profileDatingAvatarAdded => 'Datingアバターを追加しました';
+  @override
+  String get profileDatingAvatarAdded => 'Datingアバターを追加しました';
 
-    @override
-    String get profileDatingAvatarDeleteError => 'Datingアバターの削除に失敗しました';
+  @override
+  String get profileDatingAvatarDeleteError => 'Datingアバターの削除に失敗しました';
 
-    @override
-    String get profileProfileUpdateFailed => 'プロフィールの更新に失敗しました';
+  @override
+  String get profileProfileUpdateFailed => 'プロフィールの更新に失敗しました';
 
-    @override
-    String get profileFirstName => '名';
+  @override
+  String get profileFirstName => '名';
 
-    @override
-    String get profileLastName => '姓';
+  @override
+  String get profileLastName => '姓';
 
-    @override
-    String get profileEnterFirstName => '名を入力してください';
+  @override
+  String get profileEnterFirstName => '名を入力してください';
 
-    @override
-    String get profileEnterLastName => '姓を入力してください';
+  @override
+  String get profileEnterLastName => '姓を入力してください';
 
-    @override
-    String get profileEnterUsername => 'ユーザー名を入力してください';
+  @override
+  String get profileEnterUsername => 'ユーザー名を入力してください';
 
-    @override
-    String get profileBioHint => 'あなたについて教えてください';
+  @override
+  String get profileBioHint => 'あなたについて教えてください';
 
-    @override
-    String get chatFilterYourTurn => 'あなたの番';
+  @override
+  String get chatFilterYourTurn => 'あなたの番';
 
-    @override
-    String get chatFilterUnread => '未読';
+  @override
+  String get chatFilterUnread => '未読';
 
-    @override
-    String get chatFilterDistance => '距離';
+  @override
+  String get chatFilterDistance => '距離';
 
-    @override
-    String get chatFilterWithPrivateAlbum => 'プライベートアルバムあり';
+  @override
+  String get chatFilterWithPrivateAlbum => 'プライベートアルバムあり';
 
-    @override
-    String get chatFilterRole => '役割';
+  @override
+  String get chatFilterRole => '役割';
 
-    @override
-    String get chatFilterGroup => 'グループ';
+  @override
+  String get chatFilterGroup => 'グループ';
 
-    @override
-    String get chatRefreshChats => 'チャットを更新';
+  @override
+  String get chatRefreshChats => 'チャットを更新';
 
-    @override
-    String get chatSearchChats => 'チャットを検索';
+  @override
+  String get chatSearchChats => 'チャットを検索';
 
-    @override
-    String get chatNoChatsFound => 'チャットが見つかりません';
+  @override
+  String get chatNoChatsFound => 'チャットが見つかりません';
 
-    @override
-    String get chatPrivateAlbumRequestText => 'あなたのプライベートアルバムを見てもいいですか？';
+  @override
+  String get chatPrivateAlbumRequestText => 'あなたのプライベートアルバムを見てもいいですか？';
 
-    @override
-    String get chatPrivateAlbumUnlockedText => 'あなた向けにプライベートアルバムを解放しました';
+  @override
+  String get chatPrivateAlbumUnlockedText => 'あなた向けにプライベートアルバムを解放しました';
 
-    @override
-    String get chatAlbumAccessGranted => 'アルバムアクセスを許可しました！';
+  @override
+  String get chatAlbumAccessGranted => 'アルバムアクセスを許可しました！';
 
-    @override
-    String get chatAgree => '同意';
+  @override
+  String get chatAgree => '同意';
 
-    @override
-    String get chatAgreed => '同意済み';
+  @override
+  String get chatAgreed => '同意済み';
 
-    @override
-    String get chatViewPrivateAlbum => 'プライベートアルバムを見る';
+  @override
+  String get chatViewPrivateAlbum => 'プライベートアルバムを見る';
 
-    @override
-    String get chatRevokeAccess => 'アクセスを取り消す';
+  @override
+  String get chatRevokeAccess => 'アクセスを取り消す';
 
-    @override
-    String get chatAccessRevoked => 'アクセスを取り消しました。';
+  @override
+  String get chatAccessRevoked => 'アクセスを取り消しました。';
 
-    @override
-    String get chatAccessInvalid => 'アクセスが無効です';
+  @override
+  String get chatAccessInvalid => 'アクセスが無効です';
 
-    @override
-    String get chatPrivateAlbumRequestSent => 'プライベートアルバムのリクエストを送信しました。';
+  @override
+  String get chatPrivateAlbumRequestSent => 'プライベートアルバムのリクエストを送信しました。';
 
-    @override
-    String get chatPrivateAlbumRequestAlreadySent => 'リクエストは既に送信済みです。';
+  @override
+  String get chatPrivateAlbumRequestAlreadySent => 'リクエストは既に送信済みです。';
 
-    @override
-    String get chatPrivateAlbumNoPhotos => 'プライベートアルバムに写真がありません。';
+  @override
+  String get chatPrivateAlbumNoPhotos => 'プライベートアルバムに写真がありません。';
 
-    @override
-    String get chatRequestSent => '送信済み';
+  @override
+  String get chatRequestSent => '送信済み';
 
-    @override
-    String get chatSendRequest => 'リクエスト送信';
+  @override
+  String get chatSendRequest => 'リクエスト送信';
 
-    @override
-    String get chatProfileSnapshot => 'プロフィール概要';
+  @override
+  String get chatProfileSnapshot => 'プロフィール概要';
 
-    @override
-    String get chatPersonalProfile => '個人プロフィール';
+  @override
+  String get chatPersonalProfile => '個人プロフィール';
 
-    @override
-    String get chatMatchedExpectations => '一致した希望条件';
+  @override
+  String get chatMatchedExpectations => '一致した希望条件';
 
-    @override
-    String get chatNoMatchedExpectations => '一致した希望条件はまだありません。';
+  @override
+  String get chatNoMatchedExpectations => '一致した希望条件はまだありません。';
 
-    @override
-    String get chatYearsShort => '歳';
+  @override
+  String get chatYearsShort => '歳';
 
-    @override
-    String get chatCentimetersShort => 'cm';
+  @override
+  String get chatCentimetersShort => 'cm';
 
-    @override
-    String get chatKilogramsShort => 'kg';
+  @override
+  String get chatKilogramsShort => 'kg';
 
-    @override
-    String get chatInfo => 'チャット情報';
+  @override
+  String get chatInfo => 'チャット情報';
 
-    @override
-    String get chatMuteNotifications => '通知をミュート';
+  @override
+  String get chatMuteNotifications => '通知をミュート';
 
-    @override
-    String get chatUnmuteNotifications => '通知ミュートを解除';
+  @override
+  String get chatUnmuteNotifications => '通知ミュートを解除';
 
-    @override
-    String get chatRoom => 'チャットルーム';
+  @override
+  String get chatRoom => 'チャットルーム';
 
-    @override
-    String get chatMembers => '人';
+  @override
+  String get chatMembers => '人';
 
-    @override
-    String get chatOnlineNow => 'オンライン中';
+  @override
+  String get chatOnlineNow => 'オンライン中';
 
-    @override
-    String get chatDirectMessage => 'ダイレクトメッセージ';
+  @override
+  String get chatDirectMessage => 'ダイレクトメッセージ';
 
-    @override
-    String get chatParticipant => '参加者';
+  @override
+  String get chatParticipant => '参加者';
 
-    @override
-    String get chatNoMessagesYet => 'まだメッセージがありません';
+  @override
+  String get chatNoMessagesYet => 'まだメッセージがありません';
 
-    @override
-    String get chatStartConversation => '会話を始めましょう！';
+  @override
+  String get chatStartConversation => '会話を始めましょう！';
 
-    @override
-    String get chatAttachmentPhoto => '写真';
+  @override
+  String get chatAttachmentPhoto => '写真';
 
-    @override
-    String get chatAttachmentPhotoSubtitle => 'ギャラリーから写真を送信';
+  @override
+  String get chatAttachmentPhotoSubtitle => 'ギャラリーから写真を送信';
 
-    @override
-    String get chatAttachmentCamera => 'カメラ';
+  @override
+  String get chatAttachmentCamera => 'カメラ';
 
-    @override
-    String get chatAttachmentCameraSubtitle => '写真を撮影';
+  @override
+  String get chatAttachmentCameraSubtitle => '写真を撮影';
 
-    @override
-    String get chatAttachmentVideo => '動画';
+  @override
+  String get chatAttachmentVideo => '動画';
 
-    @override
-    String get chatAttachmentVideoSubtitle => '動画を送信';
+  @override
+  String get chatAttachmentVideoSubtitle => '動画を送信';
 
-    @override
-    String get chatAttachmentDocument => 'ドキュメント';
+  @override
+  String get chatAttachmentDocument => 'ドキュメント';
 
-    @override
-    String get chatAttachmentDocumentSubtitle => 'PDF・DOC などを送信';
+  @override
+  String get chatAttachmentDocumentSubtitle => 'PDF・DOC などを送信';
 
-    @override
-    String get chatAttachmentAudio => '音声';
+  @override
+  String get chatAttachmentAudio => '音声';
 
-    @override
-    String get chatAttachmentAudioSubtitle => '音声ファイルを送信';
+  @override
+  String get chatAttachmentAudioSubtitle => '音声ファイルを送信';
 
-    @override
-    String get chatUploadingFile => 'ファイルをアップロード中...';
+  @override
+  String get chatUploadingFile => 'ファイルをアップロード中...';
 
-    @override
-    String get chatFileSentSuccessfully => 'ファイルを送信しました！';
+  @override
+  String get chatFileSentSuccessfully => 'ファイルを送信しました！';
 
-    @override
-    String get chatFailedToUploadFile => 'ファイルのアップロードに失敗しました';
+  @override
+  String get chatFailedToUploadFile => 'ファイルのアップロードに失敗しました';
 
-    @override
-    String get chatUnableToLoadDetails => '現在チャット詳細を読み込めません。';
+  @override
+  String get chatUnableToLoadDetails => '現在チャット詳細を読み込めません。';
 
-    @override
-    String get chatNotificationsMuted => 'このチャットの通知をミュートしました。';
+  @override
+  String get chatNotificationsMuted => 'このチャットの通知をミュートしました。';
 
-    @override
-    String get chatNotificationsUnmuted => 'このチャットの通知ミュートを解除しました。';
+  @override
+  String get chatNotificationsUnmuted => 'このチャットの通知ミュートを解除しました。';
 
-    @override
-    String get chatUnableToStartCall => '現在通話を開始できません。';
+  @override
+  String get chatUnableToStartCall => '現在通話を開始できません。';
 
-    @override
-    String get chatGroupCallNotSupported => 'グループの音声・ビデオ通話は未対応です。';
+  @override
+  String get chatGroupCallNotSupported => 'グループの音声・ビデオ通話は未対応です。';
 
-    @override
-    String get chatSignInToCall => '通話するには再度サインインしてください。';
+  @override
+  String get chatSignInToCall => '通話するには再度サインインしてください。';
 
-    @override
-    String get chatUnableToStartCallGeneric => '通話を開始できません。';
+  @override
+  String get chatUnableToStartCallGeneric => '通話を開始できません。';
 
-    @override
-    String get chatProfileUnavailable => '現在プロフィールを開けません。';
+  @override
+  String get chatProfileUnavailable => '現在プロフィールを開けません。';
 
-    @override
-    String get chatSingleProfileUnavailable => 'このチャットでは単一プロフィールを開けません。';
+  @override
+  String get chatSingleProfileUnavailable => 'このチャットでは単一プロフィールを開けません。';
 
-    @override
-    String get communityOriginal => 'オリジナル';
+  @override
+  String get communityOriginal => 'オリジナル';
 
-    @override
-    String get communityRequest => 'リクエスト';
+  @override
+  String get communityRequest => 'リクエスト';
 
-    @override
-    String get communityHotForums => '人気フォーラム';
+  @override
+  String get communityHotForums => '人気フォーラム';
 
-    @override
-    String get communityMore => 'もっと見る';
+  @override
+  String get communityMore => 'もっと見る';
 
-    @override
-    String get communityContentCreators => 'コンテンツクリエイター';
+  @override
+  String get communityContentCreators => 'コンテンツクリエイター';
 
-    @override
-    String get communityRecommended => 'おすすめ';
+  @override
+  String get communityRecommended => 'おすすめ';
 
-    @override
-    String get communityHighlights => 'ハイライト';
+  @override
+  String get communityHighlights => 'ハイライト';
 
-    @override
-    String get hotForumsMomentumTitle => '勢いのあるコミュニティトピック';
+  @override
+  String get hotForumsMomentumTitle => '勢いのあるコミュニティトピック';
 
-    @override
-    String get hotForumsMomentumSubtitle =>
+  @override
+  String get hotForumsMomentumSubtitle =>
       'フォーラムを開いて最新投稿を確認するか、フォローしてFollowingで追跡できます。';
 
-    @override
-    String get hotForumsLoadErrorTitle => 'フォーラムを読み込めませんでした';
+  @override
+  String get hotForumsLoadErrorTitle => 'フォーラムを読み込めませんでした';
 
-    @override
-    String get hotForumsEmptyTitle => '人気フォーラムはまだありません';
+  @override
+  String get hotForumsEmptyTitle => '人気フォーラムはまだありません';
 
-    @override
-    String get hotForumsEmptySubtitle =>
-      'バックエンドで話題のトラフィックが増えると、ここに表示されます。';
+  @override
+  String get hotForumsEmptySubtitle => 'バックエンドで話題のトラフィックが増えると、ここに表示されます。';
 
-    @override
-    String get contentCreatorMoreAppears =>
-      'アクティビティが増えると、さらに多くのクリエイターが表示されます。';
+  @override
+  String get contentCreatorMoreAppears => 'アクティビティが増えると、さらに多くのクリエイターが表示されます。';
 
-    @override
-    String get contentCreatorMetricLikes => 'いいね';
+  @override
+  String get contentCreatorMetricLikes => 'いいね';
 
-    @override
-    String get contentCreatorMetricUploads => 'アップロード';
+  @override
+  String get contentCreatorMetricUploads => 'アップロード';
 
-    @override
-    String get contentCreatorMetricEarnings => '収益';
+  @override
+  String get contentCreatorMetricEarnings => '収益';
 
-    @override
-    String get contentCreatorMetricCoins => 'コイン';
+  @override
+  String get contentCreatorMetricCoins => 'コイン';
 
-    @override
-    String get contentCreatorWindowDay => '日';
+  @override
+  String get contentCreatorWindowDay => '日';
 
-    @override
-    String get contentCreatorWindowWeek => '週';
+  @override
+  String get contentCreatorWindowWeek => '週';
 
-    @override
-    String get contentCreatorWindowMonth => '月';
+  @override
+  String get contentCreatorWindowMonth => '月';
 }
