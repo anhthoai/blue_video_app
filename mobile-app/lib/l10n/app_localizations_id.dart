@@ -443,6 +443,9 @@ class AppLocalizationsId extends AppLocalizationsEn {
   @override
   String get viewProfile => 'Lihat profil';
 
+    @override
+    String get overview => 'Tinjauan';
+
   @override
   String get public => 'Publik';
 
@@ -458,6 +461,12 @@ class AppLocalizationsId extends AppLocalizationsEn {
 
   @override
   String get datingMeet => 'Temui';
+
+    @override
+    String get datingSmart => 'Semua';
+
+    @override
+    String get datingTrendingInYourArea => 'Sedang tren di area Anda';
 
   @override
   String get datingSearchProfiles => 'Cari profil';
@@ -892,6 +901,579 @@ class AppLocalizationsId extends AppLocalizationsEn {
 
   @override
   String get paymentViewRechargeRecord => 'Lihat Riwayat Isi Ulang';
+
+    @override
+    String get changePassword => 'Ganti Kata Sandi';
+
+    @override
+    String get changePasswordSubtitle => 'Perbarui kata sandi untuk akun ini';
+
+    @override
+    String get adminSection => 'Admin';
+
+    @override
+    String get managementDashboard => 'Dasbor Manajemen';
+
+    @override
+    String get managementDashboardSubtitle => 'Statistik, video, kategori, pengguna';
+
+    @override
+    String get reportsMenu => 'Laporan';
+
+    @override
+    String get reportsMenuSubtitle => 'Tinjau dan moderasi laporan';
+
+    @override
+    String get feedbackInbox => 'Kotak Masuk Feedback';
+
+    @override
+    String get feedbackInboxSubtitle => 'Balas feedback pengguna';
+
+    @override
+    String get changePasswordHelp => 'Perbarui kata sandi yang Anda gunakan untuk masuk ke akun ini.';
+
+    @override
+    String get currentPasswordLabel => 'Kata sandi saat ini';
+
+    @override
+    String get newPasswordLabel => 'Kata sandi baru';
+
+    @override
+    String get confirmNewPasswordLabel => 'Konfirmasi kata sandi baru';
+
+    @override
+    String get currentPasswordRequired => 'Masukkan kata sandi saat ini';
+
+    @override
+    String get newPasswordRequired => 'Masukkan kata sandi baru';
+
+    @override
+    String get newPasswordMinLength => 'Kata sandi harus minimal 6 karakter';
+
+    @override
+    String get newPasswordMustDiffer => 'Kata sandi baru harus berbeda';
+
+    @override
+    String get confirmNewPasswordRequired => 'Konfirmasi kata sandi baru Anda';
+
+    @override
+    String get changePasswordSuccess => 'Kata sandi berhasil diubah';
+
+    @override
+    String get changePasswordFailed => 'Gagal mengubah kata sandi';
+
+    @override
+    String get groupName => 'Nama grup';
+
+    @override
+    String get groupNameRequired => 'Nama grup wajib diisi';
+
+    @override
+    String get addAtLeastOneMember => 'Tambahkan setidaknya satu anggota';
+
+    @override
+    String get selectedMembers => 'Dipilih';
+
+    @override
+    String get noUsersFound => 'Tidak ada pengguna ditemukan';
+
+    @override
+    String get errorLoadingUsers => 'Gagal memuat pengguna';
+
+    @override
+    String get communityUploadMasters => 'Master Upload';
+
+    @override
+    String get communityTopics => 'Topik';
+
+    @override
+    String get communityUsers => 'Pengguna';
+
+    @override
+    String get communityNothingHereRetry => 'Belum ada apa-apa di sini, ketuk untuk coba lagi';
+
+    @override
+    String get communityFollowForumHint => 'Ikuti forum dari tab Original agar pembaruannya muncul di sini.';
+
+    @override
+    String get communityFollowUserHint => 'Ikuti pengguna untuk melihat postingan dan unggahan terbaru mereka.';
+
+    @override
+    String get communityNoForumsYet => 'Belum ada forum';
+
+    @override
+    String get communityRefreshHint => 'Tarik untuk memuat ulang setelah pusat komunitas selesai dimuat.';
+
+    @override
+    String get communityNoOriginalPostsYet => 'Belum ada postingan original';
+
+    @override
+    String get communityCreateFirstPostHint => 'Buat postingan komunitas pertama atau tarik untuk memuat ulang.';
+
+    @override
+    String get communityRequestLatest => 'Terbaru';
+
+    @override
+    String get communityRequestRanking => 'Peringkat';
+
+    @override
+    String get communityRequestGuide => 'Minta klip tertentu, tentukan hadiah koin, lalu biarkan pengguna lain mengunggah file atau melampirkan tautan pencarian. Tautan hasil pencarian gratis bagi kontributor.';
+
+    @override
+    String get communitySearchingRequests => 'Mencari permintaan untuk';
+
+    @override
+    String get communityNoRankingYet => 'Belum ada data peringkat';
+
+    @override
+    String get communityRankingHint => 'Kecocokan permintaan yang diterima akan mulai mengisi papan ini.';
+
+    @override
+    String get communityNoRequestsFound => 'Tidak ada permintaan yang cocok dengan pencarian ini';
+
+    @override
+    String get communityTryAnotherKeyword => 'Coba kata kunci lain atau buat permintaan hadiah baru.';
+
+    @override
+    String get createPostAddContentOrMedia => 'Silakan tambahkan konten atau media';
+
+    @override
+    String get createPostSuccess => 'Postingan berhasil dibuat!';
+
+    @override
+    String get createPostError => 'Gagal membuat postingan';
+
+    @override
+    String get createPostAddMedia => 'Tambah Media';
+
+    @override
+    String get createPostSelectedSummary => 'gambar dan video dipilih';
+
+    @override
+    String get createPostProcessingVideos => 'Memproses video...';
+
+    @override
+    String get createPostAudience => 'Audiens';
+
+    @override
+    String get createPostFreePostHint => '0 = Post gratis';
+
+    @override
+    String get createPostValidCost => 'Masukkan biaya yang valid (0 atau lebih)';
+
+    @override
+    String get createPostVipOnly => 'VIP Saja';
+
+    @override
+    String get createPostVipOnlySubtitle => 'Hanya pengguna VIP yang dapat melihat post ini';
+
+    @override
+    String get createPostMakePublicSubtitle => 'Siapa pun dapat melihat post ini';
+
+    @override
+    String get createPostMakePrivateSubtitle => 'Hanya orang yang Anda ikuti yang dapat melihat post ini';
+
+    @override
+    String get createPostSettings => 'Pengaturan Post';
+
+    @override
+    String get createPostAllowComments => 'Izinkan Komentar';
+
+    @override
+    String get createPostAllowCommentsSubtitle => 'Izinkan orang mengomentari post ini';
+
+    @override
+    String get createPostAllowLinks => 'Izinkan Tautan di Komentar';
+
+    @override
+    String get createPostAllowLinksSubtitle => 'Izinkan orang memposting tautan di komentar';
+
+    @override
+    String get createPostPinPost => 'Sematkan Post Ini';
+
+    @override
+    String get createPostPinPostSubtitle => 'Biarkan post ini tetap di atas';
+
+    @override
+    String get createPostNsfw => 'Konten NSFW';
+
+    @override
+    String get createPostNsfwSubtitle => 'Tandai sebagai tidak aman untuk kerja';
+
+    @override
+    String get createPostWhoCanReply => 'Siapa yang Bisa Membalas?';
+
+    @override
+    String get createPostFollowers => 'Pengikut';
+
+    @override
+    String get createPostPaidViewers => 'Penonton Berbayar';
+
+    @override
+    String get createPostPeopleYouFollow => 'Orang yang Anda Ikuti';
+
+    @override
+    String get createPostVerifiedFollowers => 'Pengikut Terverifikasi';
+
+    @override
+    String get createPostNoOne => 'Tidak Ada';
+
+    @override
+    String get tagsOptional => 'Tag (Opsional)';
+
+    @override
+    String get selectedMedia => 'Media Terpilih';
+
+    @override
+    String get imagesLabel => 'Gambar';
+
+    @override
+    String get videosLabel => 'Video';
+
+    @override
+    String get createRequest => 'Buat Permintaan';
+
+    @override
+    String get createRequestBannerTitle => 'Atur hadiah dan kumpulkan kecocokan dari komunitas';
+
+    @override
+    String get createRequestBannerSubtitle => 'Orang lain dapat mengunggah file atau melampirkan tautan media dari pencarian. Anda menyetujui hasil terbaik lalu melepaskan koin hadiah.';
+
+    @override
+    String get createRequestWhatLookingFor => 'Apa yang Anda cari?';
+
+    @override
+    String get createRequestDescribeHint => 'Jelaskan album lengkap, video, atau file yang Anda inginkan. Tambahkan detail adegan, nama, atau kata kunci untuk membantu pencarian.';
+
+    @override
+    String get createRequestDescribeRequired => 'Jelaskan apa yang Anda butuhkan';
+
+    @override
+    String get createRequestHeadlineHint => 'Baris pertama akan otomatis menjadi judul permintaan, jadi Anda hanya perlu satu deskripsi gaya post di sini.';
+
+    @override
+    String get createRequestKeywords => 'Kata kunci';
+
+    @override
+    String get createRequestKeywordsHint => 'Pisahkan kata kunci dengan koma';
+
+    @override
+    String get createRequestReferenceImages => 'Gambar referensi';
+
+    @override
+    String get attach => 'Lampirkan';
+
+    @override
+    String get createRequestReferenceHint => 'Opsional. Tambahkan tangkapan layar atau gambar sampul agar kontributor tahu album, video, atau set mana yang Anda inginkan.';
+
+    @override
+    String get coinBounty => 'Hadiah koin';
+
+    @override
+    String get coinBountyHint => '0 diperbolehkan. Anda dapat menambah koin nanti dari layar detail.';
+
+    @override
+    String get coinBountyValidation => 'Koin tidak boleh negatif';
+
+    @override
+    String get availableBalance => 'Saldo tersedia';
+
+    @override
+    String get publishing => 'Menerbitkan...';
+
+    @override
+    String get publishRequest => 'Terbitkan Permintaan';
+
+    @override
+    String get attachImagesFailed => 'Gagal melampirkan gambar';
+
+    @override
+    String get insufficientCoinsBounty => 'Anda tidak memiliki cukup koin untuk hadiah ini.';
+
+    @override
+    String get addLabel => 'Tambah';
+
+    @override
+    String get failedLoadLibrarySections => 'Gagal memuat bagian perpustakaan';
+
+    @override
+    String get noItemsFoundIn => 'Tidak ada item ditemukan di';
+
+    @override
+    String get ifRecentImportTryRefresh => 'Jika Anda baru mengimpor konten, coba muat ulang.';
+
+    @override
+    String get unableToLoadSection => 'Tidak dapat memuat';
+
+    @override
+    String get movieNotFound => 'Film tidak ditemukan';
+
+    @override
+    String get originalTitlesLabel => 'Judul asli';
+
+    @override
+    String get releaseLabel => 'Rilis';
+
+    @override
+    String get countryLabel => 'Negara';
+
+    @override
+    String get adultLabel => 'Dewasa';
+
+    @override
+    String get filesLabel => 'File';
+
+    @override
+    String get importFromUlozTo => 'Impor dari uloz.to';
+
+    @override
+    String get videoFileLabel => 'File Video';
+
+    @override
+    String get noEpisodesYet => 'Belum ada episode.';
+
+    @override
+    String get noLikedVideosYet => 'Belum ada video yang disukai';
+
+    @override
+    String get likedVideosWillAppear => 'Video yang Anda sukai akan muncul di sini';
+
+    @override
+    String get refreshLikedVideos => 'Muat Ulang Video yang Disukai';
+
+    @override
+    String get noPlaylistsYet => 'Belum ada playlist';
+
+    @override
+    String get createFirstPlaylist => 'Buat playlist pertama Anda';
+
+    @override
+    String get refreshPlaylists => 'Muat Ulang Playlist';
+
+    @override
+    String get refreshPosts => 'Muat Ulang Post';
+
+    @override
+    String get privateLabel => 'Pribadi';
+
+    @override
+    String get totalViews => 'Total Tayangan';
+
+    @override
+    String get totalLikes => 'Total Suka';
+
+    @override
+    String get totalComments => 'Total Komentar';
+
+    @override
+    String get engagementRate => 'Tingkat Keterlibatan';
+
+    @override
+    String get likesPerVideo => 'Suka per Video';
+
+    @override
+    String get commentsPerVideo => 'Komentar per Video';
+
+    @override
+    String get viewsPerVideo => 'Tayangan per Video';
+
+    @override
+    String get uploadingProgress => 'Mengunggah';
+
+    @override
+    String get selectThumbnailOptional => 'Pilih Thumbnail (Opsional)';
+
+    @override
+    String get generatingThumbnails => 'Membuat thumbnail...';
+
+    @override
+    String get autoGeneratedThumbnails => 'Thumbnail Otomatis';
+
+    @override
+    String get selectThumbnailOrUpload => 'Pilih thumbnail atau unggah milik Anda sendiri';
+
+    @override
+    String get enterVideoTitle => 'Masukkan judul video';
+
+    @override
+    String get enterTitleRequired => 'Silakan masukkan judul';
+
+    @override
+    String get enterVideoDescription => 'Masukkan deskripsi video';
+
+    @override
+    String get tagExamples => 'tag1, tag2, tag3';
+
+    @override
+    String get validCostMessage => 'Masukkan biaya yang valid (0 atau lebih)';
+
+    @override
+    String get uploadFailedWithError => 'Unggahan gagal';
+
+    @override
+    String get addMovie => 'Tambah Film';
+
+    @override
+    String get addNewMovie => 'Tambah Film Baru';
+
+    @override
+    String get manualMovieEntry => 'Input Film Manual';
+
+    @override
+    String get titleOptional => 'Judul (opsional)';
+
+    @override
+    String get provideTitleToSearchHint => 'Masukkan judul untuk mencari entri yang sudah ada. Anda bisa mengosongkannya jika menggunakan ID eksternal.';
+
+    @override
+    String get checking => 'Memeriksa...';
+
+    @override
+    String get typeLabel => 'Tipe';
+
+    @override
+    String get externalIdsOptional => 'ID Eksternal (Opsional)';
+
+    @override
+    String get tvSeriesLabel => 'Serial TV';
+
+    @override
+    String get noTmdbMatches => 'Tidak ada hasil di TMDb.';
+
+    @override
+    String get originalLabel => 'Asli';
+
+    @override
+    String get importFromTmdb => 'Impor dari TMDb';
+
+    @override
+    String get enterTitleOrExternalId => 'Masukkan judul atau setidaknya satu ID eksternal untuk melanjutkan.';
+
+    @override
+    String get failedSearchExistingTitles => 'Gagal mencari judul yang sudah ada';
+
+    @override
+    String get failedSearchTmdb => 'Gagal mencari di TMDb';
+
+    @override
+    String get movieImportedSuccessfully => 'Film berhasil diimpor';
+
+    @override
+    String get failedImportMovie => 'Gagal mengimpor film';
+
+    @override
+    String get noExistingTitlesFound => 'Tidak ditemukan judul yang sudah ada menggunakan identifier yang diberikan.';
+
+    @override
+    String get continueAddNewTitle => 'Anda dapat melanjutkan menambahkan judul baru dengan tombol di bawah.';
+
+    @override
+    String get foundExistingTitles => 'Judul yang sudah ada ditemukan';
+
+    @override
+    String get noMatchingExistingTitles => 'Tidak ada judul yang sudah ada yang cocok dengan informasi yang diberikan.';
+
+    @override
+    String get languageLabel => 'Bahasa';
+
+    @override
+    String get genreLabel => 'Genre';
+
+    @override
+    String get alternativeTitles => 'Judul Alternatif';
+
+    @override
+    String get noAlternativeTitlesYet => 'Belum ada judul alternatif yang ditambahkan.';
+
+    @override
+    String get plotOverview => 'Plot / Ringkasan';
+
+    @override
+    String get runtimeMinutes => 'Durasi (menit)';
+
+    @override
+    String get genresCommaSeparated => 'Genre (dipisahkan dengan koma)';
+
+    @override
+    String get countriesCommaSeparated => 'Negara (dipisahkan dengan koma)';
+
+    @override
+    String get languagesCommaSeparated => 'Bahasa (dipisahkan dengan koma)';
+
+    @override
+    String get posterImageUrl => 'URL Gambar Poster';
+
+    @override
+    String get videoTrailerUrl => 'URL Trailer Video';
+
+    @override
+    String get titleRequired => 'Judul wajib diisi';
+
+    @override
+    String get failedCreateMovie => 'Gagal membuat film';
+
+    @override
+    String get failedLoadPlaylists => 'Gagal memuat playlist';
+
+    @override
+    String get noPlaylistsPromptCreate => 'Anda belum punya playlist. Ingin membuatnya sekarang?';
+
+    @override
+    String get untitledLabel => 'Tanpa Judul';
+
+    @override
+    String get saveQrComingSoon => 'Simpan QR segera hadir';
+
+    @override
+    String get scanToViewProfile => 'Pindai untuk Melihat Profil';
+
+    @override
+    String get adminAccessRequired => 'Akses admin diperlukan';
+
+    @override
+    String get adminAccessOnly => 'Layar ini hanya tersedia untuk akun administrator.';
+
+    @override
+    String get adminUnableLoadData => 'Tidak dapat memuat data admin';
+
+    @override
+    String get aiMatchingProvider => 'Penyedia Pencocokan AI';
+
+    @override
+    String get addToPlaylistFailed => 'Gagal menambahkan ke playlist';
+
+    @override
+    String get freeContentBonusCoins => 'Bonus Koin Konten Gratis';
+
+    @override
+    String get freeContentBonusCoinsSubtitle => 'Atur hadiah koin untuk post media gratis dan unggahan video publik gratis.';
+
+    @override
+    String get freeMediaPost => 'Post media gratis';
+
+    @override
+    String get freeVideoUpload => 'Unggahan video gratis';
+
+    @override
+    String get screenCaptureProtection => 'Perlindungan tangkapan layar';
+
+    @override
+    String get screenCaptureProtectionSubtitle => 'Memblokir screenshot dan perekaman di Android serta menerapkan masking sebaik mungkin di iOS untuk konten terlindungi.';
+
+    @override
+    String get datingFeature => 'Fitur Dating';
+
+    @override
+    String get datingFeatureSubtitle => 'Aktifkan atau nonaktifkan tab Dating untuk semua pengguna di aplikasi.';
+
+    @override
+    String get searchRadius => 'Radius pencarian';
+
+    @override
+    String get recentFeedback => 'Feedback terbaru';
+
+    @override
+    String get noFeedbackSubmittedYet => 'Belum ada feedback yang dikirim.';
 
   @override
   String get paymentMissingOrder => 'ID pesanan tidak ditemukan.';

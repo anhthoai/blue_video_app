@@ -9,6 +9,7 @@ import 'package:path_provider/path_provider.dart';
 import '../../core/services/api_service.dart';
 import '../../core/services/community_service.dart';
 import '../../core/utils/video_utils.dart';
+import '../../l10n/app_localizations.dart';
 import '../../models/community_post.dart';
 
 class CreatePostScreen extends ConsumerStatefulWidget {
@@ -176,13 +177,14 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
   }
 
   Future<void> _createPost() async {
+    final l10n = AppLocalizations.of(context);
     if (!_formKey.currentState!.validate()) return;
 
     if (_contentController.text.trim().isEmpty &&
         _selectedImages.isEmpty &&
         _selectedVideos.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please add some content or media')),
+        SnackBar(content: Text(l10n.createPostAddContentOrMedia)),
       );
       return;
     }
@@ -238,7 +240,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Post created successfully!')),
+            SnackBar(content: Text(l10n.createPostSuccess)),
           );
           // Pop with success result to trigger refresh
           context.pop(true);
@@ -250,7 +252,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
       print('Error creating post: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error creating post: $e')),
+          SnackBar(content: Text('${l10n.createPostError}: $e')),
         );
       }
     } finally {
@@ -282,9 +284,10 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Create Post'),
+        title: Text(l10n.createPost),
         actions: [
           TextButton(
             onPressed: _isLoading ? null : _createPost,
@@ -294,7 +297,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
                     height: 20,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
-                : const Text('Post'),
+                : Text(l10n.createPost),
           ),
         ],
       ),
@@ -312,8 +315,8 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
                       controller: _contentController,
                       maxLines: 5,
                       maxLength: 500,
-                      decoration: const InputDecoration(
-                        hintText: 'What\'s on your mind?',
+                      decoration: InputDecoration(
+                        hintText: l10n.whatsOnYourMind,
                         border: OutlineInputBorder(),
                         counterText: '', // Hide counter for now
                       ),
@@ -325,9 +328,9 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
                     Card(
                       child: ListTile(
                         leading: const Icon(Icons.photo_library),
-                        title: const Text('Add Media'),
+                        title: Text(l10n.createPostAddMedia),
                         subtitle: Text(
-                          '${_selectedImages.length} images, ${_selectedVideos.length} videos selected',
+                          '${_selectedImages.length} ${l10n.imagesLabel}, ${_selectedVideos.length} ${l10n.videosLabel} ${l10n.createPostSelectedSummary}',
                         ),
                         trailing: const Icon(Icons.add),
                         onTap: _isLoading ? null : _pickMedia,
@@ -344,7 +347,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
                           borderRadius: BorderRadius.circular(8),
                           border: Border.all(color: Colors.blue),
                         ),
-                        child: const Row(
+                        child: Row(
                           children: [
                             SizedBox(
                               width: 20,
@@ -352,7 +355,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
                               child: CircularProgressIndicator(strokeWidth: 2),
                             ),
                             SizedBox(width: 12),
-                            Text('Processing videos...'),
+                            Text(l10n.createPostProcessingVideos),
                           ],
                         ),
                       ),
@@ -375,7 +378,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'Audience',
+                              l10n.createPostAudience,
                               style: Theme.of(context).textTheme.titleMedium,
                             ),
                             const SizedBox(height: 16),
@@ -383,18 +386,18 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
                             // Cost
                             TextFormField(
                               controller: _costController,
-                              decoration: const InputDecoration(
-                                labelText: 'Cost (Coins)',
+                              decoration: InputDecoration(
+                                labelText: l10n.costCoins,
                                 hintText: '0',
                                 border: OutlineInputBorder(),
-                                helperText: '0 = Free post',
+                                helperText: l10n.createPostFreePostHint,
                               ),
                               keyboardType: TextInputType.number,
                               validator: (value) {
                                 if (value != null && value.isNotEmpty) {
                                   final cost = int.tryParse(value);
                                   if (cost == null || cost < 0) {
-                                    return 'Please enter a valid cost (0 or greater)';
+                                    return l10n.createPostValidCost;
                                   }
                                 }
                                 return null;
@@ -406,9 +409,8 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
 
                             // VIP Requirement
                             SwitchListTile(
-                              title: const Text('VIP Only'),
-                              subtitle: const Text(
-                                  'Only VIP users can view this post'),
+                                title: Text(l10n.createPostVipOnly),
+                                subtitle: Text(l10n.createPostVipOnlySubtitle),
                               value: _requiresVip,
                               onChanged: _isLoading
                                   ? null
@@ -421,11 +423,11 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
 
                             // Public/Private
                             SwitchListTile(
-                              title: const Text('Make Public'),
+                              title: Text(l10n.makePublic),
                               subtitle: Text(
                                 _isPublic
-                                    ? 'Anyone can see this post'
-                                    : 'Only people you follow can see this post',
+                                ? l10n.createPostMakePublicSubtitle
+                                : l10n.createPostMakePrivateSubtitle,
                               ),
                               value: _isPublic,
                               onChanged: _isLoading
@@ -451,16 +453,15 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'Post Settings',
+                              l10n.createPostSettings,
                               style: Theme.of(context).textTheme.titleMedium,
                             ),
                             const SizedBox(height: 16),
 
                             // Allow Comments
                             SwitchListTile(
-                              title: const Text('Allow Comments'),
-                              subtitle:
-                                  const Text('Let people comment on this post'),
+                                title: Text(l10n.createPostAllowComments),
+                                subtitle: Text(l10n.createPostAllowCommentsSubtitle),
                               value: _allowComments,
                               onChanged: _isLoading
                                   ? null
@@ -473,9 +474,8 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
 
                             // Allow Comment Links
                             SwitchListTile(
-                              title: const Text('Allow Links in Comments'),
-                              subtitle: const Text(
-                                  'Let people post links in comments'),
+                                title: Text(l10n.createPostAllowLinks),
+                                subtitle: Text(l10n.createPostAllowLinksSubtitle),
                               value: _allowCommentLinks,
                               onChanged: _isLoading
                                   ? null
@@ -488,8 +488,8 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
 
                             // Pin Post
                             SwitchListTile(
-                              title: const Text('Pin This Post'),
-                              subtitle: const Text('Keep this post at the top'),
+                              title: Text(l10n.createPostPinPost),
+                              subtitle: Text(l10n.createPostPinPostSubtitle),
                               value: _isPinned,
                               onChanged: _isLoading
                                   ? null
@@ -502,8 +502,8 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
 
                             // NSFW
                             SwitchListTile(
-                              title: const Text('NSFW Content'),
-                              subtitle: const Text('Mark as not safe for work'),
+                              title: Text(l10n.createPostNsfw),
+                              subtitle: Text(l10n.createPostNsfwSubtitle),
                               value: _isNsfw,
                               onChanged: _isLoading
                                   ? null
@@ -528,7 +528,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'Who Can Reply?',
+                              l10n.createPostWhoCanReply,
                               style: Theme.of(context).textTheme.titleMedium,
                             ),
                             const SizedBox(height: 16),
@@ -539,21 +539,21 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
                                 contentPadding: EdgeInsets.symmetric(
                                     horizontal: 16, vertical: 12),
                               ),
-                              items: const [
+                                items: [
                                 DropdownMenuItem(
                                     value: 'FOLLOWERS',
-                                    child: Text('Followers')),
+                                  child: Text(l10n.createPostFollowers)),
                                 DropdownMenuItem(
                                     value: 'PAID_VIEWERS',
-                                    child: Text('Paid Viewers')),
+                                  child: Text(l10n.createPostPaidViewers)),
                                 DropdownMenuItem(
                                     value: 'FOLLOWING',
-                                    child: Text('People You Follow')),
+                                  child: Text(l10n.createPostPeopleYouFollow)),
                                 DropdownMenuItem(
                                     value: 'VERIFIED_FOLLOWING',
-                                    child: Text('Verified Followers')),
+                                  child: Text(l10n.createPostVerifiedFollowers)),
                                 DropdownMenuItem(
-                                    value: 'NO_ONE', child: Text('No One')),
+                                  value: 'NO_ONE', child: Text(l10n.createPostNoOne)),
                               ],
                               onChanged: _isLoading
                                   ? null
@@ -575,11 +575,11 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
                     // Tags (Optional)
                     TextFormField(
                       controller: _tagsController,
-                      decoration: const InputDecoration(
-                        labelText: 'Tags (Optional)',
+                      decoration: InputDecoration(
+                        labelText: l10n.tagsOptional,
                         border: OutlineInputBorder(),
-                        hintText: 'tag1, tag2, tag3',
-                        helperText: 'Separate tags with commas',
+                        hintText: l10n.tagExamples,
+                        helperText: l10n.separateTagsWithCommas,
                       ),
                       enabled: !_isLoading,
                     ),
@@ -603,8 +603,8 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
                                 child:
                                     CircularProgressIndicator(strokeWidth: 2),
                               )
-                            : const Text(
-                                'Create Post',
+                            : Text(
+                              l10n.createPost,
                                 style: TextStyle(
                                     fontSize: 16, fontWeight: FontWeight.bold),
                               ),
@@ -625,14 +625,14 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Selected Media',
+              AppLocalizations.of(context).selectedMedia,
               style: Theme.of(context).textTheme.titleMedium,
             ),
             const SizedBox(height: 12),
 
             // Images
             if (_selectedImages.isNotEmpty) ...[
-              Text('Images:', style: Theme.of(context).textTheme.titleSmall),
+              Text('${AppLocalizations.of(context).imagesLabel}:', style: Theme.of(context).textTheme.titleSmall),
               const SizedBox(height: 8),
               SizedBox(
                 height: 80,
@@ -687,7 +687,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
 
             // Videos
             if (_selectedVideos.isNotEmpty) ...[
-              Text('Videos:', style: Theme.of(context).textTheme.titleSmall),
+              Text('${AppLocalizations.of(context).videosLabel}:', style: Theme.of(context).textTheme.titleSmall),
               const SizedBox(height: 8),
               SizedBox(
                 height: 80,

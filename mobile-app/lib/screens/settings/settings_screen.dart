@@ -196,8 +196,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   _buildListTile(
                     context,
                     icon: Icons.lock_outline,
-                    title: 'Change Password',
-                    subtitle: 'Update the password for this account',
+                    title: l10n.changePassword,
+                    subtitle: l10n.changePasswordSubtitle,
                     onTap: () => context.push('/main/settings/change-password'),
                   ),
                   if (_isBiometricSupported)
@@ -282,27 +282,27 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 const SizedBox(height: 24),
                 _buildSection(
                   context,
-                  'Admin',
+                  l10n.adminSection,
                   [
                     _buildListTile(
                       context,
                       icon: Icons.admin_panel_settings_outlined,
-                      title: 'Management Dashboard',
-                      subtitle: 'Statistics, videos, categories, users',
+                      title: l10n.managementDashboard,
+                      subtitle: l10n.managementDashboardSubtitle,
                       onTap: () => context.push('/main/settings/admin'),
                     ),
                     _buildListTile(
                       context,
                       icon: Icons.flag_outlined,
-                      title: 'Reports',
-                      subtitle: 'Review and moderate reports',
+                      title: l10n.reportsMenu,
+                      subtitle: l10n.reportsMenuSubtitle,
                       onTap: () => context.push('/main/settings/admin/reports'),
                     ),
                     _buildListTile(
                       context,
                       icon: Icons.mark_email_read_outlined,
-                      title: 'Feedback Inbox',
-                      subtitle: 'Reply to user feedback',
+                      title: l10n.feedbackInbox,
+                      subtitle: l10n.feedbackInboxSubtitle,
                       onTap: () =>
                           context.push('/main/settings/admin/feedback'),
                     ),

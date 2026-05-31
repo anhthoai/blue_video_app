@@ -24,7 +24,7 @@ class MovieDetailScreen extends ConsumerWidget {
       body: movieAsync.when(
         data: (movie) {
           if (movie == null) {
-            return const Center(child: Text('Movie not found'));
+            return Center(child: Text(l10n.movieNotFound));
           }
           return _buildMovieDetail(context, ref, movie, l10n);
         },
@@ -161,7 +161,7 @@ class MovieDetailScreen extends ConsumerWidget {
                             Padding(
                               padding: const EdgeInsets.only(bottom: 4),
                               child: Text(
-                                'Original title(s): ${movie.alternativeTitles!.map((alt) => alt.title).join(', ')}',
+                                '${l10n.originalTitlesLabel}: ${movie.alternativeTitles!.map((alt) => alt.title).join(', ')}',
                                 style: TextStyle(
                                   fontSize: 14,
                                   color: Colors.grey[700],
@@ -230,7 +230,7 @@ class MovieDetailScreen extends ConsumerWidget {
                             Padding(
                               padding: const EdgeInsets.only(top: 8),
                               child: Text(
-                                'Country: ${movie.countries!.join(', ')}',
+                                '${l10n.countryLabel}: ${movie.countries!.join(', ')}',
                                 style: TextStyle(
                                   fontSize: 13,
                                   color: Colors.grey[700],
@@ -240,7 +240,7 @@ class MovieDetailScreen extends ConsumerWidget {
                           Padding(
                             padding: const EdgeInsets.only(top: 4),
                             child: Text(
-                              'Adult: ${movie.isAdult ? 'Yes' : 'No'}',
+                              '${l10n.adultLabel}: ${movie.isAdult ? l10n.profileYes : l10n.profileNo}',
                               style: TextStyle(
                                 fontSize: 13,
                                 color: movie.isAdult
@@ -380,7 +380,7 @@ class MovieDetailScreen extends ConsumerWidget {
                       children: [
                         Expanded(
                           child: Text(
-                            isMovieType ? 'Files' : l10n.episodes,
+                            isMovieType ? l10n.filesLabel : l10n.episodes,
                             style: const TextStyle(
                                 fontSize: 18, fontWeight: FontWeight.bold),
                           ),
@@ -388,7 +388,7 @@ class MovieDetailScreen extends ConsumerWidget {
                         if (isAdmin)
                           IconButton(
                             icon: const Icon(Icons.add),
-                            tooltip: 'Import from uloz.to',
+                            tooltip: l10n.importFromUlozTo,
                             onPressed: () => _showImportEpisodesDialog(
                               context,
                               ref,
@@ -455,7 +455,7 @@ class MovieDetailScreen extends ConsumerWidget {
                                               CrossAxisAlignment.start,
                                           children: [
                                             Text(
-                                              ep.title ?? 'Video File',
+                                              ep.title ?? l10n.videoFileLabel,
                                               style: const TextStyle(
                                                 fontWeight: FontWeight.w600,
                                                 fontSize: 13,
@@ -515,7 +515,7 @@ class MovieDetailScreen extends ConsumerWidget {
                         ),
                     if (!hasEpisodes)
                       Text(
-                        'No episodes available yet.',
+                        l10n.noEpisodesYet,
                         style: TextStyle(
                           fontSize: 14,
                           color: Colors.grey[600],

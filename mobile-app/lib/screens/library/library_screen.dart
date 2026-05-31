@@ -67,8 +67,8 @@ class LibraryScreen extends ConsumerWidget {
                 TextButton.icon(
                   onPressed: () => context.push('/main/library/add'),
                   icon: const Icon(Icons.add, color: Colors.white),
-                  label: const Text(
-                    'Add',
+                  label: Text(
+                    l10n.addLabel,
                     style: TextStyle(color: Colors.white),
                   ),
                 ),
@@ -116,7 +116,7 @@ class LibraryScreen extends ConsumerWidget {
                     size: 48, color: Colors.redAccent),
                 const SizedBox(height: 16),
                 Text(
-                  'Failed to load library sections',
+                  l10n.failedLoadLibrarySections,
                   style: Theme.of(context).textTheme.titleMedium,
                   textAlign: TextAlign.center,
                 ),
@@ -385,6 +385,7 @@ class _LibraryItemsViewState extends ConsumerState<LibraryItemsView>
   }
 
   Widget _buildEmptyState(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return ListView(
       physics: const AlwaysScrollableScrollPhysics(),
       children: [
@@ -392,7 +393,7 @@ class _LibraryItemsViewState extends ConsumerState<LibraryItemsView>
         Icon(Icons.video_library_outlined, size: 56, color: Colors.grey[400]),
         const SizedBox(height: 16),
         Text(
-          'No items found in ${widget.folderTitle ?? widget.section}',
+          '${l10n.noItemsFoundIn} ${widget.folderTitle ?? widget.section}',
           textAlign: TextAlign.center,
           style: Theme.of(context)
               .textTheme
@@ -401,7 +402,7 @@ class _LibraryItemsViewState extends ConsumerState<LibraryItemsView>
         ),
         const SizedBox(height: 12),
         Text(
-          'If you recently imported content, try refreshing.',
+          l10n.ifRecentImportTryRefresh,
           textAlign: TextAlign.center,
           style: Theme.of(context)
               .textTheme
@@ -413,6 +414,7 @@ class _LibraryItemsViewState extends ConsumerState<LibraryItemsView>
   }
 
   Widget _buildErrorState(BuildContext context, Object error) {
+    final l10n = AppLocalizations.of(context);
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -421,7 +423,7 @@ class _LibraryItemsViewState extends ConsumerState<LibraryItemsView>
               size: 48, color: Colors.orangeAccent),
           const SizedBox(height: 12),
           Text(
-            'Unable to load ${widget.folderTitle ?? widget.section}',
+            '${l10n.unableToLoadSection} ${widget.folderTitle ?? widget.section}',
             style: Theme.of(context)
                 .textTheme
                 .titleMedium

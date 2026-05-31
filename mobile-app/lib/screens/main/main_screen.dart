@@ -29,8 +29,8 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     const HomeScreen(),
     const LibraryScreen(),
     const CommunityScreen(),
-    const ChatListScreen(),
     const CurrentUserProfileScreen(),
+    const ChatListScreen(),
   ];
 
   @override
@@ -83,8 +83,12 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     _prevDatingEnabled = datingEnabled;
 
     final screens = [
-      ..._baseScreens,
+      const HomeScreen(),
+      const LibraryScreen(),
+      const CommunityScreen(),
+      const CurrentUserProfileScreen(),
       if (datingEnabled) const DatingScreen(),
+      const ChatListScreen(),
     ];
 
     // Clamp index
@@ -107,11 +111,6 @@ class _MainScreenState extends ConsumerState<MainScreen> {
         label: l10n.community,
       ),
       BottomNavigationBarItem(
-        icon: const Icon(Icons.chat_outlined),
-        activeIcon: const Icon(Icons.chat),
-        label: l10n.chat,
-      ),
-      BottomNavigationBarItem(
         icon: const Icon(Icons.person_outlined),
         activeIcon: const Icon(Icons.person),
         label: l10n.profile,
@@ -122,6 +121,11 @@ class _MainScreenState extends ConsumerState<MainScreen> {
           activeIcon: Icon(Icons.favorite),
           label: 'Dating',
         ),
+      BottomNavigationBarItem(
+        icon: const Icon(Icons.chat_outlined),
+        activeIcon: const Icon(Icons.chat),
+        label: l10n.chat,
+      ),
     ];
 
     return Scaffold(

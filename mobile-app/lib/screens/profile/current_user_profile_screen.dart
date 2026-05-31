@@ -834,6 +834,7 @@ class _CurrentUserProfileScreenState
   }
 
   Widget _buildPostsTab() {
+    final l10n = AppLocalizations.of(context);
     if (_isLoadingPosts) {
       return const Center(child: CircularProgressIndicator());
     }
@@ -850,7 +851,7 @@ class _CurrentUserProfileScreenState
                     size: 64, color: Colors.grey[400]),
                 const SizedBox(height: 16),
                 Text(
-                  'No posts yet',
+                  l10n.noPostsYet,
                   style: TextStyle(color: Colors.grey[600]),
                 ),
                 const SizedBox(height: 24),
@@ -859,7 +860,7 @@ class _CurrentUserProfileScreenState
                     context.push('/main/community/create-post');
                   },
                   icon: const Icon(Icons.add),
-                  label: const Text('Create Post'),
+                  label: Text(l10n.createPost),
                 ),
                 const SizedBox(height: 16),
                 ElevatedButton.icon(
@@ -867,7 +868,7 @@ class _CurrentUserProfileScreenState
                     _loadUserPosts();
                   },
                   icon: const Icon(Icons.refresh),
-                  label: const Text('Refresh Posts'),
+                  label: Text(l10n.refreshPosts),
                 ),
               ],
             ),
@@ -901,6 +902,7 @@ class _CurrentUserProfileScreenState
   }
 
   Widget _buildLikedTab() {
+    final l10n = AppLocalizations.of(context);
     if (_isLoadingLiked) {
       return const Center(child: CircularProgressIndicator());
     }
@@ -916,7 +918,7 @@ class _CurrentUserProfileScreenState
                 Icon(Icons.favorite_outline, size: 64, color: Colors.grey[400]),
                 const SizedBox(height: 16),
                 Text(
-                  'No liked videos yet',
+                  l10n.noLikedVideosYet,
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w600,
@@ -925,7 +927,7 @@ class _CurrentUserProfileScreenState
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Videos you like will appear here',
+                  l10n.likedVideosWillAppear,
                   style: TextStyle(
                     fontSize: 14,
                     color: Colors.grey[600],
@@ -937,7 +939,7 @@ class _CurrentUserProfileScreenState
                     _loadLikedVideos();
                   },
                   icon: const Icon(Icons.refresh),
-                  label: const Text('Refresh Liked Videos'),
+                  label: Text(l10n.refreshLikedVideos),
                 ),
               ],
             ),
@@ -1067,6 +1069,7 @@ class _CurrentUserProfileScreenState
   }
 
   Widget _buildPlaylistsTab() {
+    final l10n = AppLocalizations.of(context);
     if (_isLoadingPlaylists) {
       return const Center(child: CircularProgressIndicator());
     }
@@ -1083,7 +1086,7 @@ class _CurrentUserProfileScreenState
                     size: 64, color: Colors.grey[400]),
                 const SizedBox(height: 16),
                 Text(
-                  'No playlists yet',
+                  l10n.noPlaylistsYet,
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w600,
@@ -1092,7 +1095,7 @@ class _CurrentUserProfileScreenState
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Create your first playlist',
+                  l10n.createFirstPlaylist,
                   style: TextStyle(
                     fontSize: 14,
                     color: Colors.grey[600],
@@ -1104,7 +1107,7 @@ class _CurrentUserProfileScreenState
                     _showCreatePlaylistDialog();
                   },
                   icon: const Icon(Icons.add),
-                  label: const Text('Create Playlist'),
+                  label: Text(l10n.createPlaylist),
                 ),
                 const SizedBox(height: 16),
                 ElevatedButton.icon(
@@ -1112,7 +1115,7 @@ class _CurrentUserProfileScreenState
                     _loadUserPlaylists();
                   },
                   icon: const Icon(Icons.refresh),
-                  label: const Text('Refresh Playlists'),
+                  label: Text(l10n.refreshPlaylists),
                 ),
               ],
             ),
@@ -1148,7 +1151,7 @@ class _CurrentUserProfileScreenState
           right: 16,
           child: FloatingActionButton(
             onPressed: _showCreatePlaylistDialog,
-            tooltip: 'Create Playlist',
+            tooltip: l10n.createPlaylist,
             child: const Icon(Icons.add),
           ),
         ),
@@ -1157,45 +1160,40 @@ class _CurrentUserProfileScreenState
   }
 
   void _showAddToPlaylistDialog(String videoId, String videoTitle) async {
-    final currentVideoId = videoId; // Store in local variable
+    final l10n = AppLocalizations.of(context);
+    final currentVideoId = videoId;
     try {
-      // Fetch user's playlists
       final response = await _apiService.getUserPlaylists(page: 1, limit: 100);
 
       if (response['success'] != true) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-                content:
-                    Text(response['message'] ?? 'Failed to load playlists')),
+            SnackBar(content: Text(response['message'] ?? l10n.failedLoadPlaylists)),
           );
         }
         return;
       }
 
       final playlists = response['data'] as List<dynamic>;
-
       if (!mounted) return;
 
       if (playlists.isEmpty) {
-        // Show dialog to create a new playlist
         showDialog(
           context: context,
-          builder: (context) => AlertDialog(
-            title: const Text('No Playlists Found'),
-            content: const Text(
-                'You don\'t have any playlists yet. Would you like to create one?'),
+          builder: (dialogContext) => AlertDialog(
+            title: Text(l10n.noPlaylistsYet),
+            content: Text(l10n.noPlaylistsPromptCreate),
             actions: [
               TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Cancel'),
+                onPressed: () => Navigator.pop(dialogContext),
+                child: Text(l10n.cancel),
               ),
               ElevatedButton(
                 onPressed: () {
-                  Navigator.pop(context);
+                  Navigator.pop(dialogContext);
                   _showCreatePlaylistDialog();
                 },
-                child: const Text('Create Playlist'),
+                child: Text(l10n.createPlaylist),
               ),
             ],
           ),
@@ -1203,11 +1201,10 @@ class _CurrentUserProfileScreenState
         return;
       }
 
-      // Show playlist selection dialog
       showDialog(
         context: context,
-        builder: (context) {
-          final dialogL10n = AppLocalizations.of(context);
+        builder: (dialogContext) {
+          final dialogL10n = AppLocalizations.of(dialogContext);
           return AlertDialog(
             title: Text(dialogL10n.addToPlaylist),
             content: SizedBox(
@@ -1215,13 +1212,13 @@ class _CurrentUserProfileScreenState
               child: ListView.builder(
                 shrinkWrap: true,
                 itemCount: playlists.length + 1,
-                itemBuilder: (context, index) {
+                itemBuilder: (listContext, index) {
                   if (index == playlists.length) {
                     return ListTile(
                       leading: const Icon(Icons.add),
                       title: Text(dialogL10n.createNewPlaylist),
                       onTap: () {
-                        Navigator.pop(context);
+                        Navigator.pop(dialogContext);
                         _showCreatePlaylistDialog();
                       },
                     );
@@ -1230,16 +1227,20 @@ class _CurrentUserProfileScreenState
                   final playlist = playlists[index] as Map<String, dynamic>;
                   return ListTile(
                     leading: const Icon(Icons.playlist_play),
-                    title: Text(playlist['name'] ?? 'Untitled'),
-                    subtitle: Text('${playlist['videoCount'] ?? 0} videos'),
+                    title: Text(playlist['name'] ?? dialogL10n.untitledLabel),
+                    subtitle: Text(
+                      '${playlist['videoCount'] ?? 0} ${dialogL10n.videos.toLowerCase()}',
+                    ),
                     trailing: playlist['isPublic'] == false
                         ? const Icon(Icons.lock, size: 16)
                         : null,
                     onTap: () async {
-                      Navigator.pop(context);
+                      Navigator.pop(dialogContext);
                       await _addVideoToPlaylist(
-                          playlist['id'], playlist['name'],
-                          videoId: currentVideoId);
+                        '${playlist['id']}',
+                        '${playlist['name'] ?? dialogL10n.untitledLabel}',
+                        videoId: currentVideoId,
+                      );
                     },
                   );
                 },
@@ -1247,7 +1248,7 @@ class _CurrentUserProfileScreenState
             ),
             actions: [
               TextButton(
-                onPressed: () => Navigator.pop(context),
+                onPressed: () => Navigator.pop(dialogContext),
                 child: Text(dialogL10n.cancel),
               ),
             ],
@@ -1257,7 +1258,7 @@ class _CurrentUserProfileScreenState
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error loading playlists: $e')),
+          SnackBar(content: Text('${l10n.error}: $e')),
         );
       }
     }
@@ -1272,21 +1273,21 @@ class _CurrentUserProfileScreenState
       );
 
       if (mounted) {
+        final l10n = AppLocalizations.of(context);
         if (response['success'] == true) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Added to "$playlistName"')),
+            SnackBar(content: Text('${l10n.addedToPlaylist}: "$playlistName"')),
           );
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-                content: Text(response['message'] ?? 'Failed to add video')),
+            SnackBar(content: Text(response['message'] ?? l10n.addToPlaylistFailed)),
           );
         }
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
+          SnackBar(content: Text('${AppLocalizations.of(context).error}: $e')),
         );
       }
     }
@@ -1428,6 +1429,7 @@ class _CurrentUserProfileScreenState
   }
 
   Widget _buildPlaylistCard(Map<String, dynamic> playlist) {
+    final l10n = AppLocalizations.of(context);
     return Card(
       elevation: 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -1471,7 +1473,7 @@ class _CurrentUserProfileScreenState
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          playlist['name'] ?? 'Untitled Playlist',
+                          playlist['name'] ?? l10n.untitledLabel,
                           style: const TextStyle(
                             fontWeight: FontWeight.w600,
                             fontSize: 13,
@@ -1481,7 +1483,7 @@ class _CurrentUserProfileScreenState
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          '${playlist['videoCount'] ?? 0} videos',
+                          '${playlist['videoCount'] ?? 0} ${l10n.videos.toLowerCase()}',
                           style: TextStyle(
                             color: Colors.grey[600],
                             fontSize: 11,
@@ -1497,8 +1499,8 @@ class _CurrentUserProfileScreenState
                           color: Colors.orange[100],
                           borderRadius: BorderRadius.circular(2),
                         ),
-                        child: const Text(
-                          'Private',
+                        child: Text(
+                          AppLocalizations.of(context).privateLabel,
                           style: TextStyle(
                             color: Colors.orange,
                             fontSize: 8,
@@ -1517,6 +1519,7 @@ class _CurrentUserProfileScreenState
   }
 
   Widget _buildAnalyticsTab() {
+    final l10n = AppLocalizations.of(context);
     final totalViews =
         _userVideos.fold(0, (sum, video) => sum + video.viewCount);
     final totalLikes = _calculateTotalLikes();
@@ -1527,16 +1530,16 @@ class _CurrentUserProfileScreenState
       key: const PageStorageKey<String>('current-user-analytics-list'),
       padding: const EdgeInsets.all(16),
       children: [
-        _buildAnalyticsCard('Total Views', totalViews.toString(),
+        _buildAnalyticsCard(l10n.totalViews, totalViews.toString(),
             Icons.visibility, Colors.blue),
         const SizedBox(height: 12),
         _buildAnalyticsCard(
-            'Total Likes', totalLikes.toString(), Icons.favorite, Colors.red),
+          l10n.totalLikes, totalLikes.toString(), Icons.favorite, Colors.red),
         const SizedBox(height: 12),
-        _buildAnalyticsCard('Total Comments', totalComments.toString(),
+        _buildAnalyticsCard(l10n.totalComments, totalComments.toString(),
             Icons.comment, Colors.green),
         const SizedBox(height: 12),
-        _buildAnalyticsCard('Videos', _userVideos.length.toString(),
+        _buildAnalyticsCard(l10n.videos, _userVideos.length.toString(),
             Icons.video_library, Colors.orange),
         const SizedBox(height: 24),
         Card(
@@ -1546,27 +1549,27 @@ class _CurrentUserProfileScreenState
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Engagement Rate',
+                  l10n.engagementRate,
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.bold,
                       ),
                 ),
                 const SizedBox(height: 16),
                 _buildEngagementMetric(
-                    'Likes per Video',
+                  l10n.likesPerVideo,
                     _userVideos.isNotEmpty
                         ? (totalLikes / _userVideos.length).toStringAsFixed(1)
                         : '0'),
                 const SizedBox(height: 8),
                 _buildEngagementMetric(
-                    'Comments per Video',
+                  l10n.commentsPerVideo,
                     _userVideos.isNotEmpty
                         ? (totalComments / _userVideos.length)
                             .toStringAsFixed(1)
                         : '0'),
                 const SizedBox(height: 8),
                 _buildEngagementMetric(
-                    'Views per Video',
+                  l10n.viewsPerVideo,
                     _userVideos.isNotEmpty
                         ? (totalViews / _userVideos.length).toStringAsFixed(0)
                         : '0'),
@@ -1665,6 +1668,7 @@ class _CurrentUserProfileScreenState
   }
 
   void _showQRCode(user) {
+    final l10n = AppLocalizations.of(context);
     showDialog(
       context: context,
       builder: (context) => Dialog(
@@ -1674,7 +1678,7 @@ class _CurrentUserProfileScreenState
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
-                'Scan to View Profile',
+                l10n.scanToViewProfile,
                 style: Theme.of(context).textTheme.titleLarge?.copyWith(
                       fontWeight: FontWeight.bold,
                     ),
@@ -1705,18 +1709,18 @@ class _CurrentUserProfileScreenState
                   TextButton.icon(
                     onPressed: () {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Save QR coming soon')),
+                        SnackBar(content: Text(l10n.saveQrComingSoon)),
                       );
                     },
                     icon: const Icon(Icons.download),
-                    label: const Text('Save'),
+                    label: Text(l10n.save),
                   ),
                   ElevatedButton.icon(
                     onPressed: () {
                       Navigator.pop(context);
                     },
                     icon: const Icon(Icons.close),
-                    label: const Text('Close'),
+                    label: Text(l10n.close),
                   ),
                 ],
               ),

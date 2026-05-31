@@ -12,6 +12,40 @@ Successfully implemented comprehensive multi-language support for the Blue Video
 
 ## 🆕 Latest Update
 
+✅ **Targeted wording + admin Vietnamese diacritics pass completed**:
+- Short video feed: localized requested labels/messages for For You/Following header, empty-state copy, Swipe helper, Sound/Open actions, and Back to Home CTA
+- Upload flow: localized remaining hardcoded Upload Video labels/buttons (new and legacy upload screens) and aligned requested wording to l10n keys
+- Vietnamese locale: added/overrode requested strings for login text, upload text, settings privacy labels, community search label, and new short-feed keys with proper diacritics
+- Management Dashboard screen: performed a broad normalization of Vietnamese `_tr(en, vi)` literals from ASCII transliteration to accented Vietnamese across major admin actions/messages/status labels
+
+✅ **Latest localization + navigation wave (VI-first) completed for requested screens**:
+- Settings: translated Change Password menu + screen, Admin section labels, Management Dashboard menu, Reports menu, Feedback Inbox menu
+- Admin dashboard shell: localized app bar title and top tabs (Overview, Videos, Forums, Categories, Users, Reports, Feedback)
+- Chat list: localized New Group Chat creation dialog labels/errors (group name, selected members, no users, load error)
+- Community: translated hardcoded strings in Original/Following/Request tabs and request search states
+- Create Post + Create Request: translated core screen labels, hints, validation, CTA/status messages
+- Home: localized `views` unit on video cards
+- Library: localized Add button, section load failure, empty/error states, and key Movie Detail labels
+- Profile: translated requested strings in Videos/Liked/Playlists/Analytics tabs
+- Upload Video: localized uploading status, thumbnail section labels, hints, validators, and upload error text
+- Main navigation order updated to place Dating before Chat
+
+✅ **Follow-up residual translation sweep completed**:
+- Admin dashboard: translated additional shell/settings texts (restricted/error states, protection/dating cards, radius dialog, recent feedback messaging)
+- Library Add Movie flow: translated remaining visible labels/messages in Add Movie start + manual entry screens
+- Profile tabs: translated remaining Posts/Playlists/Analytics/QR dialog hardcoded strings and repaired playlist dialog flow text
+- Added supporting localization keys in base + English + Vietnamese and wired them into screens
+- Post-update diagnostics check: no errors in modified files via `get_errors`
+
+✅ **Localization resources extended**:
+- Added a new batch of localization keys in base + English + Vietnamese to support the above screens
+- Vietnamese values are provided with proper diacritics for newly added keys
+
+✅ **Cross-locale follow-up completed for the latest key batch**:
+- Translated the recent EN/VI-only localization additions into all remaining shipped mobile locales: zh, ja, ko, th, pt, es, id, tr, ar
+- Covered the latest Settings/Admin, Community, Create Post, Create Request, Library, Profile, and Upload Video strings so these locales no longer fall back to English for that wave
+- File-level diagnostics on the updated locale implementations returned no errors
+
 ✅ **Dating feature localization expanded** (EN/ZH/JA):
 - Explore tab UI and search flow
 - Meet tab empty state, AI suggestion labels, and action buttons

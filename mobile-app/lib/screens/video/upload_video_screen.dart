@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/services/video_service.dart';
+import '../../l10n/app_localizations.dart';
 
 class UploadVideoScreen extends ConsumerStatefulWidget {
   const UploadVideoScreen({super.key});
@@ -45,13 +46,14 @@ class _UploadVideoScreenState extends ConsumerState<UploadVideoScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Upload Video'),
+        title: Text(l10n.uploadVideo),
         actions: [
           TextButton(
             onPressed: _isUploading ? null : _uploadVideo,
-            child: const Text('Upload'),
+            child: Text(l10n.upload),
           ),
         ],
       ),
@@ -121,8 +123,8 @@ class _UploadVideoScreenState extends ConsumerState<UploadVideoScreen> {
 
               // Privacy Settings
               SwitchListTile(
-                title: const Text('Make video public'),
-                subtitle: const Text('Public videos can be seen by everyone'),
+                title: Text(l10n.makeVideoPublic),
+                subtitle: Text(l10n.anyoneCanWatchThisVideo),
                 value: _isPublic,
                 onChanged: (value) {
                   setState(() {

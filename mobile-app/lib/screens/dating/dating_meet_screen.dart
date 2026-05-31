@@ -464,7 +464,7 @@ class _SuggestionCard extends StatelessWidget {
                             border: Border.all(color: const Color(0xFFCFD8DC)),
                           ),
                           child: Text(
-                            reason,
+                            _localizedReason(context, reason),
                             style: const TextStyle(fontSize: 11),
                           ),
                         ))
@@ -487,6 +487,15 @@ class _SuggestionCard extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  String _localizedReason(BuildContext context, String reason) {
+    final normalized = reason.trim().toLowerCase();
+    if (normalized == 'trending in your area' ||
+        normalized.contains('trending in your area')) {
+      return AppLocalizations.of(context).datingTrendingInYourArea;
+    }
+    return reason;
   }
 
   Widget _placeholder() {

@@ -595,6 +595,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   }
 
   Widget _buildGridVideoCard(VideoModel video) {
+    final l10n = AppLocalizations.of(context);
     return GestureDetector(
       onTap: () {
         context.go('/main/video/${video.id}/player');
@@ -678,7 +679,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    '${video.viewCount} views',
+                    '${video.viewCount} ${l10n.views}',
                     style: TextStyle(
                       fontSize: 11,
                       color: Colors.grey[600],

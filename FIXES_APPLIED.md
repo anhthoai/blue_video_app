@@ -1,5 +1,39 @@
 # Fixes Applied - Library Feature ✅
 
+## Latest Fix: Mobile Localization Stabilization and Admin Translation
+
+### 5. ✅ Resolved hard analyzer breakages after l10n expansion
+**Problem**: The mobile app had multiple hard analyzer errors after broad localization changes.
+
+**Root Cause**:
+- Duplicate l10n getter declarations (`noPostsYet`) in base and English locale files.
+- Locale classes (`ja`, `zh`) directly extended the abstract base and missed newly-added getters.
+- Several screens referenced non-existent localization getters (`title`, `status`, `user`, `users`, `post`, `clear`, `importing`, `releaseDate`, `saving`) or used `l10n` out of scope.
+- Widget test imported the wrong package name (`blue_video_app` instead of `mobile`).
+
+**Solution**:
+- Removed duplicate `noPostsYet` declarations.
+- Updated `AppLocalizationsJa` and `AppLocalizationsZh` to inherit from English fallback implementation.
+- Fixed undefined `l10n` scope issues and replaced invalid getter usages in affected screens.
+- Corrected widget test package import.
+- Added more EN/VI translation coverage in Admin Dashboard dialogs/tabs using a screen-level helper for remaining hardcoded strings.
+
+**Files Changed**:
+- `mobile-app/lib/l10n/app_localizations_base.dart`
+- `mobile-app/lib/l10n/app_localizations_en.dart`
+- `mobile-app/lib/l10n/app_localizations_ja.dart`
+- `mobile-app/lib/l10n/app_localizations_zh.dart`
+- `mobile-app/lib/screens/community/community_screen.dart`
+- `mobile-app/lib/screens/community/create_post_screen.dart`
+- `mobile-app/lib/screens/community/create_request_screen.dart`
+- `mobile-app/lib/screens/home/home_screen.dart`
+- `mobile-app/lib/screens/library/add_movie/add_movie_manual_screen.dart`
+- `mobile-app/lib/screens/library/add_movie/add_movie_start_screen.dart`
+- `mobile-app/lib/screens/settings/admin_dashboard_screen.dart`
+- `mobile-app/test/widget_test.dart`
+
+---
+
 ## Latest Fix: Dating Private Album Uploads
 
 ### 4. ✅ Multer File Size Parsing and Upload Error Responses

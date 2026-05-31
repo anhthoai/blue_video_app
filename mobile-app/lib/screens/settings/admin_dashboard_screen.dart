@@ -6,6 +6,7 @@ import '../../core/services/api_service.dart';
 import '../../core/services/auth_service.dart';
 import '../../core/services/content_protection_service.dart';
 import '../../core/services/version_service.dart';
+import '../../l10n/app_localizations.dart';
 
 class AdminDashboardScreen extends ConsumerStatefulWidget {
   final int initialTab;
@@ -121,6 +122,11 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
     });
   }
 
+  String _tr(String en, String vi) {
+    final languageCode = Localizations.localeOf(context).languageCode;
+    return languageCode == 'vi' ? vi : en;
+  }
+
   Future<void> _runBusyAction(
       String key, Future<void> Function() action) async {
     _setBusy(key, true);
@@ -217,25 +223,25 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
         }
 
         if (response['success'] == true) {
-          _showMessage(response['message'] ?? 'Report updated');
+          _showMessage(response['message'] ?? _tr('Report updated', 'Đã cập nhật báo cáo'));
           await _loadAll();
         } else {
-          _showMessage(response['message'] ?? 'Failed to update report');
+          _showMessage(response['message'] ?? _tr('Failed to update report', 'Cập nhật báo cáo thất bại'));
         }
       } catch (error) {
         if (!mounted) {
           return;
         }
-        _showMessage('Failed to update report: $error');
+        _showMessage('${_tr('Failed to update report', 'Cập nhật báo cáo thất bại')}: $error');
       }
     });
   }
 
   Future<void> _replyToReport(Map<String, dynamic> report) async {
     final reply = await _promptForText(
-      title: 'Reply to report',
-      hintText: 'Add a note for this review',
-      actionLabel: 'Send reply',
+      title: _tr('Reply to report', 'Trả lời báo cáo'),
+      hintText: _tr('Add a note for this review', 'Thêm ghi chú cho đánh giá này'),
+      actionLabel: _tr('Send reply', 'Gửi phản hồi'),
     );
 
     if (reply == null || reply.trim().isEmpty) {
@@ -265,25 +271,25 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
         }
 
         if (response['success'] == true) {
-          _showMessage(response['message'] ?? 'Feedback updated');
+          _showMessage(response['message'] ?? _tr('Feedback updated', 'Đã cập nhật phản hồi'));
           await _loadAll();
         } else {
-          _showMessage(response['message'] ?? 'Failed to update feedback');
+          _showMessage(response['message'] ?? _tr('Failed to update feedback', 'Cập nhật phản hồi thất bại'));
         }
       } catch (error) {
         if (!mounted) {
           return;
         }
-        _showMessage('Failed to update feedback: $error');
+        _showMessage('${_tr('Failed to update feedback', 'Cập nhật phản hồi thất bại')}: $error');
       }
     });
   }
 
   Future<void> _replyToFeedback(Map<String, dynamic> entry) async {
     final reply = await _promptForText(
-      title: 'Reply to feedback',
-      hintText: 'Write your response',
-      actionLabel: 'Send reply',
+      title: _tr('Reply to feedback', 'Trả lời phản hồi'),
+      hintText: _tr('Write your response', 'Nhập nội dung phản hồi'),
+      actionLabel: _tr('Send reply', 'Gửi phản hồi'),
     );
 
     if (reply == null || reply.trim().isEmpty) {
@@ -319,16 +325,16 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
         }
 
         if (response['success'] == true) {
-          _showMessage(response['message'] ?? 'Video updated');
+          _showMessage(response['message'] ?? _tr('Video updated', 'Đã cập nhật video'));
           await _loadAll();
         } else {
-          _showMessage(response['message'] ?? 'Failed to update video');
+          _showMessage(response['message'] ?? _tr('Failed to update video', 'Cập nhật video thất bại'));
         }
       } catch (error) {
         if (!mounted) {
           return;
         }
-        _showMessage('Failed to update video: $error');
+        _showMessage('${_tr('Failed to update video', 'Cập nhật video thất bại')}: $error');
       }
     });
   }
@@ -336,11 +342,13 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
   Future<void> _toggleVideoVisibility(Map<String, dynamic> video) async {
     final isVisible = _isVideoVisible(video);
     final confirmed = await _confirmAction(
-      title: isVisible ? 'Deactivate video?' : 'Activate video?',
+      title: isVisible
+          ? _tr('Deactivate video?', 'Ẩn video?')
+          : _tr('Activate video?', 'Hiện video?'),
       message: isVisible
-          ? 'This video will no longer be visible to the public.'
-          : 'This video will be visible to the public again.',
-      confirmLabel: isVisible ? 'Deactivate' : 'Activate',
+          ? _tr('This video will no longer be visible to the public.', 'Video này sẽ không còn hiển thị công khai.')
+          : _tr('This video will be visible to the public again.', 'Video này sẽ hiển thị công khai trở lại.'),
+      confirmLabel: isVisible ? _tr('Deactivate', 'Ẩn') : _tr('Activate', 'Hiện'),
       destructive: isVisible,
     );
 
@@ -361,26 +369,26 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
         }
 
         if (response['success'] == true) {
-          _showMessage(response['message'] ?? 'Video updated');
+          _showMessage(response['message'] ?? _tr('Video updated', 'Đã cập nhật video'));
           await _loadAll();
         } else {
-          _showMessage(response['message'] ?? 'Failed to update video');
+          _showMessage(response['message'] ?? _tr('Failed to update video', 'Cập nhật video thất bại'));
         }
       } catch (error) {
         if (!mounted) {
           return;
         }
-        _showMessage('Failed to update video: $error');
+        _showMessage('${_tr('Failed to update video', 'Cập nhật video thất bại')}: $error');
       }
     });
   }
 
   Future<void> _deleteVideo(Map<String, dynamic> video) async {
     final confirmed = await _confirmAction(
-      title: 'Delete video?',
+      title: _tr('Delete video?', 'Xóa video?'),
       message:
-          'Delete "${video['title'] ?? 'this video'}" permanently? This action cannot be undone.',
-      confirmLabel: 'Delete',
+          '${_tr('Delete', 'Xóa')} "${video['title'] ?? _tr('this video', 'video này')}" ${_tr('permanently? This action cannot be undone.', 'vĩnh viễn? Hành động này không thể hoàn tác.')}',
+      confirmLabel: _tr('Delete', 'Xóa'),
       destructive: true,
     );
 
@@ -398,16 +406,16 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
         }
 
         if (response['success'] == true) {
-          _showMessage(response['message'] ?? 'Video deleted');
+          _showMessage(response['message'] ?? _tr('Video deleted', 'Đã xóa video'));
           await _loadAll();
         } else {
-          _showMessage(response['message'] ?? 'Failed to delete video');
+          _showMessage(response['message'] ?? _tr('Failed to delete video', 'Xóa video thất bại'));
         }
       } catch (error) {
         if (!mounted) {
           return;
         }
-        _showMessage('Failed to delete video: $error');
+        _showMessage('${_tr('Failed to delete video', 'Xóa video thất bại')}: $error');
       }
     });
   }
@@ -478,15 +486,15 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
           );
           ref.read(datingEnabledProvider.notifier).state =
               updatedSettings['datingEnabled'] == true;
-          _showMessage(response['message'] ?? 'App settings updated');
+          _showMessage(response['message'] ?? _tr('App settings updated', 'Đã cập nhật cài đặt ứng dụng'));
         } else {
-          _showMessage(response['message'] ?? 'Failed to update app settings');
+          _showMessage(response['message'] ?? _tr('Failed to update app settings', 'Cập nhật cài đặt ứng dụng thất bại'));
         }
       } catch (error) {
         if (!mounted) {
           return;
         }
-        _showMessage('Failed to update app settings: $error');
+        _showMessage('${_tr('Failed to update app settings', 'Cập nhật cài đặt ứng dụng thất bại')}: $error');
       }
     });
   }
@@ -500,32 +508,33 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
   }
 
   Future<void> _editDatingRadiusSettings(Map<String, dynamic> appSettings) async {
+    final l10n = AppLocalizations.of(context);
     final radiusCtrl = TextEditingController(
       text: '${appSettings['datingSearchRadiusKm'] ?? 3}',
     );
     final result = await showDialog<int>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Dating Search Radius'),
+        title: Text(l10n.searchRadius),
         content: TextField(
           controller: radiusCtrl,
           keyboardType: TextInputType.number,
-          decoration: const InputDecoration(
-            labelText: 'Max distance (km)',
+          decoration: InputDecoration(
+            labelText: _tr('Max distance (km)', 'Khoảng cách tối đa (km)'),
             border: OutlineInputBorder(),
           ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
+            child: Text(l10n.cancel),
           ),
           FilledButton(
             onPressed: () {
               final v = int.tryParse(radiusCtrl.text.trim());
               Navigator.pop(ctx, v);
             },
-            child: const Text('Save'),
+            child: Text(l10n.save),
           ),
         ],
       ),
@@ -536,6 +545,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
   }
 
   Future<void> _editAiMatchingSettings(Map<String, dynamic> appSettings) async {
+    final l10n = AppLocalizations.of(context);
     final providerCtrl = TextEditingController(
       text: '${appSettings['datingAiProvider'] ?? 'openai'}',
     );
@@ -548,23 +558,23 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: const Text('AI Matching Provider'),
+          title: Text(l10n.aiMatchingProvider),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               TextField(
                 controller: providerCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'Provider',
-                  helperText: 'Example: openai, gemini, anthropic',
+                decoration: InputDecoration(
+                  labelText: _tr('Provider', 'Nhà cung cấp'),
+                  helperText: _tr('Example: openai, gemini, anthropic', 'Ví dụ: openai, gemini, anthropic'),
                 ),
               ),
               const SizedBox(height: 12),
               TextField(
                 controller: modelCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'Model',
-                  helperText: 'Example: gpt-4o-mini',
+                decoration: InputDecoration(
+                  labelText: _tr('Model', 'Mô hình'),
+                  helperText: _tr('Example: gpt-4o-mini', 'Ví dụ: gpt-4o-mini'),
                 ),
               ),
               const SizedBox(height: 12),
@@ -572,10 +582,10 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
                 controller: apiKeyCtrl,
                 obscureText: true,
                 decoration: InputDecoration(
-                  labelText: 'API Key (leave blank to keep current)',
+                    labelText: _tr('API Key (leave blank to keep current)', 'API Key (để trống để giữ key hiện tại)'),
                   helperText: appSettings['datingAiApiKeyMasked'] != null
-                      ? 'Current key: ${appSettings['datingAiApiKeyMasked']}'
-                      : 'No API key configured yet',
+                      ? '${_tr('Current key', 'Key hiện tại')}: ${appSettings['datingAiApiKeyMasked']}'
+                      : _tr('No API key configured yet', 'Chưa cấu hình API key'),
                 ),
               ),
             ],
@@ -583,7 +593,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Cancel'),
+              child: Text(l10n.cancel),
             ),
             FilledButton(
               onPressed: () {
@@ -593,7 +603,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
                   'datingAiApiKey': apiKeyCtrl.text.trim(),
                 });
               },
-              child: const Text('Save'),
+              child: Text(l10n.save),
             ),
           ],
         );
@@ -610,7 +620,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
 
     if ((values['datingAiProvider'] ?? '').isEmpty ||
         (values['datingAiModel'] ?? '').isEmpty) {
-      _showMessage('Provider and model are required');
+      _showMessage(_tr('Provider and model are required', 'Cần nhập nhà cung cấp và mô hình'));
       return;
     }
 
@@ -623,6 +633,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
   }
 
   Future<void> _editBonusCoinSettings(Map<String, dynamic> appSettings) async {
+    final l10n = AppLocalizations.of(context);
     final postBonusController = TextEditingController(
       text: '${_appSettingInt(appSettings, 'freeCommunityPostBonusCoins')}',
     );
@@ -634,25 +645,25 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: const Text('Free Content Bonus Coins'),
+          title: Text(l10n.freeContentBonusCoins),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               TextField(
                 controller: postBonusController,
                 keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                  labelText: 'Free post media bonus',
-                  helperText: 'Coins awarded for free posts with images/videos',
+                decoration: InputDecoration(
+                  labelText: _tr('Free post media bonus', 'Thưởng bài đăng media miễn phí'),
+                  helperText: _tr('Coins awarded for free posts with images/videos', 'Số xu thưởng cho bài đăng miễn phí có ảnh/video'),
                 ),
               ),
               const SizedBox(height: 16),
               TextField(
                 controller: videoBonusController,
                 keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                  labelText: 'Free video upload bonus',
-                  helperText: 'Coins awarded for free public video uploads',
+                decoration: InputDecoration(
+                  labelText: _tr('Free video upload bonus', 'Thưởng tải video miễn phí'),
+                  helperText: _tr('Coins awarded for free public video uploads', 'Số xu thưởng cho video công khai miễn phí'),
                 ),
               ),
             ],
@@ -660,14 +671,14 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Cancel'),
+              child: Text(l10n.cancel),
             ),
             FilledButton(
               onPressed: () {
                 final postBonus = int.tryParse(postBonusController.text.trim());
                 final videoBonus = int.tryParse(videoBonusController.text.trim());
                 if (postBonus == null || postBonus < 0 || videoBonus == null || videoBonus < 0) {
-                  _showMessage('Enter non-negative whole numbers for both bonus values');
+                  _showMessage(_tr('Enter non-negative whole numbers for both bonus values', 'Nhập số nguyên không âm cho cả hai mức thưởng'));
                   return;
                 }
 
@@ -676,7 +687,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
                   'freeVideoBonusCoins': videoBonus,
                 });
               },
-              child: const Text('Save'),
+              child: Text(l10n.save),
             ),
           ],
         );
@@ -721,16 +732,16 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
         }
 
         if (response['success'] == true) {
-          _showMessage(response['message'] ?? 'Forum created');
+          _showMessage(response['message'] ?? _tr('Forum created', 'Đã tạo diễn đàn'));
           await _loadAll();
         } else {
-          _showMessage(response['message'] ?? 'Failed to create forum');
+          _showMessage(response['message'] ?? _tr('Failed to create forum', 'Tạo diễn đàn thất bại'));
         }
       } catch (error) {
         if (!mounted) {
           return;
         }
-        _showMessage('Failed to create forum: $error');
+        _showMessage('${_tr('Failed to create forum', 'Tạo diễn đàn thất bại')}: $error');
       }
     });
   }
@@ -762,26 +773,26 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
         }
 
         if (response['success'] == true) {
-          _showMessage(response['message'] ?? 'Forum updated');
+          _showMessage(response['message'] ?? _tr('Forum updated', 'Đã cập nhật diễn đàn'));
           await _loadAll();
         } else {
-          _showMessage(response['message'] ?? 'Failed to update forum');
+          _showMessage(response['message'] ?? _tr('Failed to update forum', 'Cập nhật diễn đàn thất bại'));
         }
       } catch (error) {
         if (!mounted) {
           return;
         }
-        _showMessage('Failed to update forum: $error');
+        _showMessage('${_tr('Failed to update forum', 'Cập nhật diễn đàn thất bại')}: $error');
       }
     });
   }
 
   Future<void> _deleteForum(Map<String, dynamic> forum) async {
     final confirmed = await _confirmAction(
-      title: 'Delete forum?',
+      title: _tr('Delete forum?', 'Xóa diễn đàn?'),
       message:
-          'Delete "${forum['title'] ?? 'this forum'}" permanently? Posts will remain but lose their forum assignment.',
-      confirmLabel: 'Delete',
+          '${_tr('Delete', 'Xóa')} "${forum['title'] ?? _tr('this forum', 'diễn đàn này')}" ${_tr('permanently? Posts will remain but lose their forum assignment.', 'vĩnh viễn? Bài viết sẽ còn nhưng mất gắn kết với diễn đàn.')}',
+      confirmLabel: _tr('Delete', 'Xóa'),
       destructive: true,
     );
 
@@ -799,16 +810,16 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
         }
 
         if (response['success'] == true) {
-          _showMessage(response['message'] ?? 'Forum deleted');
+          _showMessage(response['message'] ?? _tr('Forum deleted', 'Đã xóa diễn đàn'));
           await _loadAll();
         } else {
-          _showMessage(response['message'] ?? 'Failed to delete forum');
+          _showMessage(response['message'] ?? _tr('Failed to delete forum', 'Xóa diễn đàn thất bại'));
         }
       } catch (error) {
         if (!mounted) {
           return;
         }
-        _showMessage('Failed to delete forum: $error');
+        _showMessage('${_tr('Failed to delete forum', 'Xóa diễn đàn thất bại')}: $error');
       }
     });
   }
@@ -834,26 +845,26 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
         }
 
         if (response['success'] == true) {
-          _showMessage(response['message'] ?? 'Category updated');
+          _showMessage(response['message'] ?? _tr('Category updated', 'Đã cập nhật danh mục'));
           await _loadAll();
         } else {
-          _showMessage(response['message'] ?? 'Failed to update category');
+          _showMessage(response['message'] ?? _tr('Failed to update category', 'Cập nhật danh mục thất bại'));
         }
       } catch (error) {
         if (!mounted) {
           return;
         }
-        _showMessage('Failed to update category: $error');
+        _showMessage('${_tr('Failed to update category', 'Cập nhật danh mục thất bại')}: $error');
       }
     });
   }
 
   Future<void> _deleteCategory(Map<String, dynamic> category) async {
     final confirmed = await _confirmAction(
-      title: 'Delete category?',
+      title: _tr('Delete category?', 'Xóa danh mục?'),
       message:
-          'Delete "${category['categoryName'] ?? 'this category'}" permanently? Categories with subcategories or videos cannot be deleted.',
-      confirmLabel: 'Delete',
+          '${_tr('Delete', 'Xóa')} "${category['categoryName'] ?? _tr('this category', 'danh mục này')}" ${_tr('permanently? Categories with subcategories or videos cannot be deleted.', 'vĩnh viễn? Danh mục có danh mục con hoặc video không thể xóa.')}',
+      confirmLabel: _tr('Delete', 'Xóa'),
       destructive: true,
     );
 
@@ -872,16 +883,16 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
         }
 
         if (response['success'] == true) {
-          _showMessage(response['message'] ?? 'Category deleted');
+          _showMessage(response['message'] ?? _tr('Category deleted', 'Đã xóa danh mục'));
           await _loadAll();
         } else {
-          _showMessage(response['message'] ?? 'Failed to delete category');
+          _showMessage(response['message'] ?? _tr('Failed to delete category', 'Xóa danh mục thất bại'));
         }
       } catch (error) {
         if (!mounted) {
           return;
         }
-        _showMessage('Failed to delete category: $error');
+        _showMessage('${_tr('Failed to delete category', 'Xóa danh mục thất bại')}: $error');
       }
     });
   }
@@ -916,16 +927,16 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
         }
 
         if (response['success'] == true) {
-          _showMessage(response['message'] ?? 'Category created');
+          _showMessage(response['message'] ?? _tr('Category created', 'Đã tạo danh mục'));
           await _loadAll();
         } else {
-          _showMessage(response['message'] ?? 'Failed to create category');
+          _showMessage(response['message'] ?? _tr('Failed to create category', 'Tạo danh mục thất bại'));
         }
       } catch (error) {
         if (!mounted) {
           return;
         }
-        _showMessage('Failed to create category: $error');
+        _showMessage('${_tr('Failed to create category', 'Tạo danh mục thất bại')}: $error');
       }
     });
   }
@@ -954,16 +965,16 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
         }
 
         if (response['success'] == true) {
-          _showMessage(response['message'] ?? 'User created');
+          _showMessage(response['message'] ?? _tr('User created', 'Đã tạo người dùng'));
           await _loadAll();
         } else {
-          _showMessage(response['message'] ?? 'Failed to create user');
+          _showMessage(response['message'] ?? _tr('Failed to create user', 'Tạo người dùng thất bại'));
         }
       } catch (error) {
         if (!mounted) {
           return;
         }
-        _showMessage('Failed to create user: $error');
+        _showMessage('${_tr('Failed to create user', 'Tạo người dùng thất bại')}: $error');
       }
     });
   }
@@ -992,16 +1003,16 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
         }
 
         if (response['success'] == true) {
-          _showMessage(response['message'] ?? 'User updated');
+          _showMessage(response['message'] ?? _tr('User updated', 'Đã cập nhật người dùng'));
           await _loadAll();
         } else {
-          _showMessage(response['message'] ?? 'Failed to update user');
+          _showMessage(response['message'] ?? _tr('Failed to update user', 'Cập nhật người dùng thất bại'));
         }
       } catch (error) {
         if (!mounted) {
           return;
         }
-        _showMessage('Failed to update user: $error');
+        _showMessage('${_tr('Failed to update user', 'Cập nhật người dùng thất bại')}: $error');
       }
     });
   }
@@ -1009,11 +1020,15 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
   Future<void> _toggleUserStatus(Map<String, dynamic> user) async {
     final isActive = user['isActive'] != false;
     final confirmed = await _confirmAction(
-      title: isActive ? 'Deactivate user?' : 'Activate user?',
+      title: isActive
+        ? _tr('Deactivate user?', 'Vô hiệu hóa người dùng?')
+        : _tr('Activate user?', 'Kích hoạt người dùng?'),
       message: isActive
-          ? 'This account will lose access until you reactivate it.'
-          : 'This account will be able to sign in again.',
-      confirmLabel: isActive ? 'Deactivate' : 'Activate',
+        ? _tr('This account will lose access until you reactivate it.', 'Tài khoản này sẽ mất quyền truy cập cho đến khi được kích hoạt lại.')
+        : _tr('This account will be able to sign in again.', 'Tài khoản này sẽ có thể đăng nhập trở lại.'),
+      confirmLabel: isActive
+        ? _tr('Deactivate', 'Vô hiệu hóa')
+        : _tr('Activate', 'Kích hoạt'),
       destructive: isActive,
     );
 
@@ -1034,26 +1049,26 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
         }
 
         if (response['success'] == true) {
-          _showMessage(response['message'] ?? 'User updated');
+          _showMessage(response['message'] ?? _tr('User updated', 'Đã cập nhật người dùng'));
           await _loadAll();
         } else {
-          _showMessage(response['message'] ?? 'Failed to update user');
+          _showMessage(response['message'] ?? _tr('Failed to update user', 'Cập nhật người dùng thất bại'));
         }
       } catch (error) {
         if (!mounted) {
           return;
         }
-        _showMessage('Failed to update user: $error');
+        _showMessage('${_tr('Failed to update user', 'Cập nhật người dùng thất bại')}: $error');
       }
     });
   }
 
   Future<void> _deleteUser(Map<String, dynamic> user) async {
     final confirmed = await _confirmAction(
-      title: 'Delete user?',
+      title: _tr('Delete user?', 'Xóa người dùng?'),
       message:
-          'Delete @${user['username'] ?? 'this user'} permanently? This action cannot be undone.',
-      confirmLabel: 'Delete',
+          '${_tr('Delete', 'Xóa')} @${user['username'] ?? _tr('this user', 'người dùng này')} ${_tr('permanently? This action cannot be undone.', 'vĩnh viễn? Hành động này không thể hoàn tác.')}',
+      confirmLabel: _tr('Delete', 'Xóa'),
       destructive: true,
     );
 
@@ -1071,16 +1086,16 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
         }
 
         if (response['success'] == true) {
-          _showMessage(response['message'] ?? 'User deleted');
+          _showMessage(response['message'] ?? _tr('User deleted', 'Đã xóa người dùng'));
           await _loadAll();
         } else {
-          _showMessage(response['message'] ?? 'Failed to delete user');
+          _showMessage(response['message'] ?? _tr('Failed to delete user', 'Xóa người dùng thất bại'));
         }
       } catch (error) {
         if (!mounted) {
           return;
         }
-        _showMessage('Failed to delete user: $error');
+        _showMessage('${_tr('Failed to delete user', 'Xóa người dùng thất bại')}: $error');
       }
     });
   }
@@ -1088,6 +1103,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
   Future<Map<String, dynamic>?> _showVideoEditor(
     Map<String, dynamic> video,
   ) async {
+    final l10n = AppLocalizations.of(context);
     final titleController = TextEditingController(
       text: '${video['title'] ?? ''}',
     );
@@ -1111,16 +1127,16 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
       context: context,
       builder: (dialogContext) => StatefulBuilder(
         builder: (dialogContext, setDialogState) => AlertDialog(
-          title: const Text('Edit video'),
+          title: Text('${l10n.edit} ${_tr('Video', 'Video')}'),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 TextField(
                   controller: titleController,
-                  decoration: const InputDecoration(
-                    labelText: 'Title',
-                    border: OutlineInputBorder(),
+                  decoration: InputDecoration(
+                    labelText: _tr('Title', 'Tiêu đề'),
+                    border: const OutlineInputBorder(),
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -1128,28 +1144,28 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
                   controller: descriptionController,
                   minLines: 3,
                   maxLines: 5,
-                  decoration: const InputDecoration(
-                    labelText: 'Description',
-                    border: OutlineInputBorder(),
+                  decoration: InputDecoration(
+                    labelText: l10n.description,
+                    border: const OutlineInputBorder(),
                   ),
                 ),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
                   value: selectedStatus,
-                  decoration: const InputDecoration(
-                    labelText: 'Status',
-                    border: OutlineInputBorder(),
+                  decoration: InputDecoration(
+                    labelText: _tr('Status', 'Trạng thái'),
+                    border: const OutlineInputBorder(),
                   ),
-                  items: const [
-                    DropdownMenuItem(value: 'PUBLIC', child: Text('Public')),
-                    DropdownMenuItem(value: 'VIP', child: Text('VIP')),
+                  items: [
+                    DropdownMenuItem(value: 'PUBLIC', child: Text(_tr('Public', 'Công khai'))),
+                    const DropdownMenuItem(value: 'VIP', child: Text('VIP')),
                     DropdownMenuItem(
                       value: 'PRIVATE',
-                      child: Text('Private'),
+                      child: Text(_tr('Private', 'Riêng tư')),
                     ),
                     DropdownMenuItem(
                       value: 'UNLISTED',
-                      child: Text('Unlisted'),
+                      child: Text(_tr('Unlisted', 'Không liệt kê')),
                     ),
                   ],
                   onChanged: (value) {
@@ -1164,14 +1180,14 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
                   value: selectedCategoryId,
-                  decoration: const InputDecoration(
-                    labelText: 'Category',
-                    border: OutlineInputBorder(),
+                  decoration: InputDecoration(
+                    labelText: l10n.category,
+                    border: const OutlineInputBorder(),
                   ),
                   items: [
-                    const DropdownMenuItem(
+                    DropdownMenuItem(
                       value: '',
-                      child: Text('No category'),
+                      child: Text(_tr('No category', 'Không có danh mục')),
                     ),
                     ..._flatCategories.map(
                       (category) => DropdownMenuItem(
@@ -1192,7 +1208,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(dialogContext),
-              child: const Text('Cancel'),
+              child: Text(l10n.cancel),
             ),
             FilledButton(
               onPressed: () => Navigator.pop(dialogContext, {
@@ -1202,7 +1218,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
                 'categoryId':
                     selectedCategoryId.isEmpty ? null : selectedCategoryId,
               }),
-              child: const Text('Save changes'),
+              child: Text(l10n.saveChanges),
             ),
           ],
         ),
@@ -1245,28 +1261,33 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
     var isHot = forum?['isHot'] == true;
     String? validationMessage;
     final isEditing = forum != null;
+    final l10n = AppLocalizations.of(context);
 
     final result = await showDialog<Map<String, dynamic>>(
       context: context,
       builder: (dialogContext) => StatefulBuilder(
         builder: (dialogContext, setDialogState) => AlertDialog(
-          title: Text(isEditing ? 'Edit forum' : 'Create forum'),
+          title: Text(
+            isEditing
+                ? _tr('Edit forum', 'Chỉnh sửa diễn đàn')
+                : _tr('Create forum', 'Tạo diễn đàn'),
+          ),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 TextField(
                   controller: titleController,
-                  decoration: const InputDecoration(
-                    labelText: 'Forum title',
+                  decoration: InputDecoration(
+                    labelText: _tr('Forum title', 'Tiêu đề diễn đàn'),
                     border: OutlineInputBorder(),
                   ),
                 ),
                 const SizedBox(height: 12),
                 TextField(
                   controller: subtitleController,
-                  decoration: const InputDecoration(
-                    labelText: 'Subtitle',
+                  decoration: InputDecoration(
+                    labelText: _tr('Subtitle', 'Phụ đề'),
                     border: OutlineInputBorder(),
                   ),
                 ),
@@ -1275,26 +1296,26 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
                   controller: descriptionController,
                   minLines: 2,
                   maxLines: 4,
-                  decoration: const InputDecoration(
-                    labelText: 'Description',
+                  decoration: InputDecoration(
+                    labelText: _tr('Description', 'Mô tả'),
                     border: OutlineInputBorder(),
                   ),
                 ),
                 const SizedBox(height: 12),
                 TextField(
                   controller: slugController,
-                  decoration: const InputDecoration(
-                    labelText: 'Slug',
-                    helperText: 'Optional. Leave blank to derive from the title.',
+                  decoration: InputDecoration(
+                    labelText: _tr('Slug', 'Đường dẫn'),
+                    helperText: _tr('Optional. Leave blank to derive from the title.', 'Tùy chọn. Để trống để tạo từ tiêu đề.'),
                     border: OutlineInputBorder(),
                   ),
                 ),
                 const SizedBox(height: 12),
                 TextField(
                   controller: keywordsController,
-                  decoration: const InputDecoration(
-                    labelText: 'Keywords',
-                    helperText: 'Separate keywords with commas.',
+                  decoration: InputDecoration(
+                    labelText: _tr('Keywords', 'Từ khóa'),
+                    helperText: _tr('Separate keywords with commas.', 'Phân tách từ khóa bằng dấu phẩy.'),
                     border: OutlineInputBorder(),
                   ),
                 ),
@@ -1302,26 +1323,26 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
                 TextField(
                   controller: orderController,
                   keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
-                    labelText: 'Sort order',
+                  decoration: InputDecoration(
+                    labelText: _tr('Sort order', 'Thứ tự sắp xếp'),
                     border: OutlineInputBorder(),
                   ),
                 ),
                 const SizedBox(height: 12),
                 TextField(
                   controller: accentStartController,
-                  decoration: const InputDecoration(
-                    labelText: 'Accent start',
-                    helperText: 'Hex color like #4F7DFF',
+                  decoration: InputDecoration(
+                    labelText: _tr('Accent start', 'Màu bắt đầu'),
+                    helperText: _tr('Hex color like #4F7DFF', 'Màu hex như #4F7DFF'),
                     border: OutlineInputBorder(),
                   ),
                 ),
                 const SizedBox(height: 12),
                 TextField(
                   controller: accentEndController,
-                  decoration: const InputDecoration(
-                    labelText: 'Accent end',
-                    helperText: 'Hex color like #5FD4FF',
+                  decoration: InputDecoration(
+                    labelText: _tr('Accent end', 'Màu kết thúc'),
+                    helperText: _tr('Hex color like #5FD4FF', 'Màu hex như #5FD4FF'),
                     border: OutlineInputBorder(),
                   ),
                 ),
@@ -1329,7 +1350,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
                 SwitchListTile.adaptive(
                   value: isHot,
                   contentPadding: EdgeInsets.zero,
-                  title: const Text('Show in Hot Forums'),
+                  title: Text(_tr('Show in Hot Forums', 'Hiển thị ở Diễn đàn nổi bật')),
                   onChanged: (value) {
                     setDialogState(() {
                       isHot = value;
@@ -1353,7 +1374,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(dialogContext),
-              child: const Text('Cancel'),
+              child: Text(l10n.cancel),
             ),
             FilledButton(
               onPressed: () {
@@ -1361,7 +1382,10 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
                 final subtitle = subtitleController.text.trim();
                 if (title.isEmpty || subtitle.isEmpty) {
                   setDialogState(() {
-                    validationMessage = 'Title and subtitle are required.';
+                    validationMessage = _tr(
+                      'Title and subtitle are required.',
+                      'Cần nhập tiêu đề và phụ đề.',
+                    );
                   });
                   return;
                 }
@@ -1384,7 +1408,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
                   'isHot': isHot,
                 });
               },
-              child: Text(isEditing ? 'Save changes' : 'Create'),
+              child: Text(isEditing ? l10n.saveChanges : l10n.create),
             ),
           ],
         ),
@@ -1405,6 +1429,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
   Future<Map<String, dynamic>?> _showCategoryEditor(
     Map<String, dynamic> category,
   ) async {
+    final l10n = AppLocalizations.of(context);
     final nameController = TextEditingController(
       text: '${category['categoryName'] ?? ''}',
     );
@@ -1418,15 +1443,15 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
     final result = await showDialog<Map<String, dynamic>>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Edit category'),
+        title: Text('${l10n.edit} ${l10n.category.toLowerCase()}'),
         content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               TextField(
                 controller: nameController,
-                decoration: const InputDecoration(
-                  labelText: 'Category name',
+                decoration: InputDecoration(
+                  labelText: _tr('Category name', 'Tên danh mục'),
                   border: OutlineInputBorder(),
                 ),
               ),
@@ -1435,17 +1460,17 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
                 controller: descriptionController,
                 minLines: 2,
                 maxLines: 4,
-                decoration: const InputDecoration(
-                  labelText: 'Description',
-                  border: OutlineInputBorder(),
+                decoration: InputDecoration(
+                  labelText: l10n.description,
+                  border: const OutlineInputBorder(),
                 ),
               ),
               const SizedBox(height: 12),
               TextField(
                 controller: orderController,
                 keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                  labelText: 'Sort order',
+                decoration: InputDecoration(
+                  labelText: _tr('Sort order', 'Thứ tự sắp xếp'),
                   border: OutlineInputBorder(),
                 ),
               ),
@@ -1455,7 +1480,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('Cancel'),
+            child: Text(l10n.cancel),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(dialogContext, {
@@ -1463,7 +1488,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
               'categoryDesc': descriptionController.text.trim(),
               'categoryOrder': int.tryParse(orderController.text.trim()) ?? 0,
             }),
-            child: const Text('Save changes'),
+            child: Text(l10n.saveChanges),
           ),
         ],
       ),
@@ -1476,6 +1501,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
   }
 
   Future<Map<String, dynamic>?> _showCreateCategoryDialog() async {
+    final l10n = AppLocalizations.of(context);
     final nameController = TextEditingController();
     final descriptionController = TextEditingController();
     final orderController = TextEditingController(text: '$_nextCategoryOrder');
@@ -1485,15 +1511,15 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
       context: context,
       builder: (dialogContext) => StatefulBuilder(
         builder: (dialogContext, setDialogState) => AlertDialog(
-          title: const Text('Create category'),
+          title: Text('${l10n.create} ${l10n.category.toLowerCase()}'),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 TextField(
                   controller: nameController,
-                  decoration: const InputDecoration(
-                    labelText: 'Category name',
+                  decoration: InputDecoration(
+                    labelText: _tr('Category name', 'Tên danh mục'),
                     border: OutlineInputBorder(),
                   ),
                 ),
@@ -1502,22 +1528,22 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
                   controller: descriptionController,
                   minLines: 2,
                   maxLines: 4,
-                  decoration: const InputDecoration(
-                    labelText: 'Description',
-                    border: OutlineInputBorder(),
+                  decoration: InputDecoration(
+                    labelText: l10n.description,
+                    border: const OutlineInputBorder(),
                   ),
                 ),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
                   value: selectedParentId,
-                  decoration: const InputDecoration(
-                    labelText: 'Parent category',
+                  decoration: InputDecoration(
+                    labelText: _tr('Parent category', 'Danh mục cha'),
                     border: OutlineInputBorder(),
                   ),
                   items: [
-                    const DropdownMenuItem(
+                    DropdownMenuItem(
                       value: '',
-                      child: Text('Top level'),
+                      child: Text(_tr('Top level', 'Cấp cao nhất')),
                     ),
                     ..._flatCategories.map(
                       (category) => DropdownMenuItem(
@@ -1536,8 +1562,8 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
                 TextField(
                   controller: orderController,
                   keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
-                    labelText: 'Sort order',
+                  decoration: InputDecoration(
+                    labelText: _tr('Sort order', 'Thứ tự sắp xếp'),
                     border: OutlineInputBorder(),
                   ),
                 ),
@@ -1547,7 +1573,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(dialogContext),
-              child: const Text('Cancel'),
+              child: Text(l10n.cancel),
             ),
             FilledButton(
               onPressed: () => Navigator.pop(dialogContext, {
@@ -1556,7 +1582,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
                 'parentId': selectedParentId.isEmpty ? null : selectedParentId,
                 'categoryOrder': int.tryParse(orderController.text.trim()) ?? 0,
               }),
-              child: const Text('Create'),
+              child: Text(l10n.create),
             ),
           ],
         ),
@@ -1572,6 +1598,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
   Future<Map<String, dynamic>?> _showUserEditor(
     Map<String, dynamic> user,
   ) async {
+    final l10n = AppLocalizations.of(context);
     final usernameController = TextEditingController(
       text: '${user['username'] ?? ''}',
     );
@@ -1589,50 +1616,50 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
       context: context,
       builder: (dialogContext) => StatefulBuilder(
         builder: (dialogContext, setDialogState) => AlertDialog(
-          title: const Text('Edit user'),
+          title: Text('${l10n.edit} ${_tr('User', 'Người dùng')}'),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '${user['email'] ?? 'No email'}',
+                  '${user['email'] ?? _tr('No email', 'Không có email')}',
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
                 const SizedBox(height: 12),
                 TextField(
                   controller: usernameController,
-                  decoration: const InputDecoration(
-                    labelText: 'Username',
+                  decoration: InputDecoration(
+                    labelText: _tr('Username', 'Tên đăng nhập'),
                     border: OutlineInputBorder(),
                   ),
                 ),
                 const SizedBox(height: 12),
                 TextField(
                   controller: firstNameController,
-                  decoration: const InputDecoration(
-                    labelText: 'First name',
+                  decoration: InputDecoration(
+                    labelText: _tr('First name', 'Tên'),
                     border: OutlineInputBorder(),
                   ),
                 ),
                 const SizedBox(height: 12),
                 TextField(
                   controller: lastNameController,
-                  decoration: const InputDecoration(
-                    labelText: 'Last name',
+                  decoration: InputDecoration(
+                    labelText: _tr('Last name', 'Họ'),
                     border: OutlineInputBorder(),
                   ),
                 ),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
                   value: role,
-                  decoration: const InputDecoration(
-                    labelText: 'Role',
+                  decoration: InputDecoration(
+                    labelText: _tr('Role', 'Vai trò'),
                     border: OutlineInputBorder(),
                   ),
-                  items: const [
-                    DropdownMenuItem(value: 'USER', child: Text('User')),
-                    DropdownMenuItem(value: 'ADMIN', child: Text('Admin')),
+                  items: [
+                    DropdownMenuItem(value: 'USER', child: Text(_tr('User', 'Người dùng'))),
+                    DropdownMenuItem(value: 'ADMIN', child: Text(_tr('Admin', 'Quản trị'))),
                   ],
                   onChanged: (value) {
                     if (value == null) {
@@ -1646,7 +1673,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
                 const SizedBox(height: 12),
                 SwitchListTile.adaptive(
                   contentPadding: EdgeInsets.zero,
-                  title: const Text('Verified account'),
+                  title: Text(_tr('Verified account', 'Tài khoản đã xác minh')),
                   value: isVerified,
                   onChanged: (value) {
                     setDialogState(() {
@@ -1656,7 +1683,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
                 ),
                 SwitchListTile.adaptive(
                   contentPadding: EdgeInsets.zero,
-                  title: const Text('Account active'),
+                  title: Text(_tr('Account active', 'Tài khoản đang hoạt động')),
                   value: isActive,
                   onChanged: (value) {
                     setDialogState(() {
@@ -1670,7 +1697,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(dialogContext),
-              child: const Text('Cancel'),
+              child: Text(l10n.cancel),
             ),
             FilledButton(
               onPressed: () => Navigator.pop(dialogContext, {
@@ -1681,7 +1708,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
                 'isActive': isActive,
                 'role': role,
               }),
-              child: const Text('Save changes'),
+              child: Text(l10n.saveChanges),
             ),
           ],
         ),
@@ -1695,6 +1722,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
   }
 
   Future<Map<String, dynamic>?> _showCreateUserDialog() async {
+    final l10n = AppLocalizations.of(context);
     final usernameController = TextEditingController();
     final emailController = TextEditingController();
     final passwordController = TextEditingController();
@@ -1708,15 +1736,15 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
       context: context,
       builder: (dialogContext) => StatefulBuilder(
         builder: (dialogContext, setDialogState) => AlertDialog(
-          title: const Text('Create user'),
+          title: Text('${l10n.create} ${_tr('User', 'Người dùng')}'),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 TextField(
                   controller: usernameController,
-                  decoration: const InputDecoration(
-                    labelText: 'Username',
+                  decoration: InputDecoration(
+                    labelText: _tr('Username', 'Tên đăng nhập'),
                     border: OutlineInputBorder(),
                   ),
                 ),
@@ -1724,8 +1752,8 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
                 TextField(
                   controller: emailController,
                   keyboardType: TextInputType.emailAddress,
-                  decoration: const InputDecoration(
-                    labelText: 'Email',
+                  decoration: InputDecoration(
+                    labelText: _tr('Email', 'Email'),
                     border: OutlineInputBorder(),
                   ),
                 ),
@@ -1733,37 +1761,37 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
                 TextField(
                   controller: passwordController,
                   obscureText: true,
-                  decoration: const InputDecoration(
-                    labelText: 'Temporary password',
+                  decoration: InputDecoration(
+                    labelText: _tr('Temporary password', 'Mật khẩu tạm thời'),
                     border: OutlineInputBorder(),
                   ),
                 ),
                 const SizedBox(height: 12),
                 TextField(
                   controller: firstNameController,
-                  decoration: const InputDecoration(
-                    labelText: 'First name',
+                  decoration: InputDecoration(
+                    labelText: _tr('First name', 'Tên'),
                     border: OutlineInputBorder(),
                   ),
                 ),
                 const SizedBox(height: 12),
                 TextField(
                   controller: lastNameController,
-                  decoration: const InputDecoration(
-                    labelText: 'Last name',
+                  decoration: InputDecoration(
+                    labelText: _tr('Last name', 'Họ'),
                     border: OutlineInputBorder(),
                   ),
                 ),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
                   value: role,
-                  decoration: const InputDecoration(
-                    labelText: 'Role',
+                  decoration: InputDecoration(
+                    labelText: _tr('Role', 'Vai trò'),
                     border: OutlineInputBorder(),
                   ),
-                  items: const [
-                    DropdownMenuItem(value: 'USER', child: Text('User')),
-                    DropdownMenuItem(value: 'ADMIN', child: Text('Admin')),
+                  items: [
+                    DropdownMenuItem(value: 'USER', child: Text(_tr('User', 'Người dùng'))),
+                    DropdownMenuItem(value: 'ADMIN', child: Text(_tr('Admin', 'Quản trị'))),
                   ],
                   onChanged: (value) {
                     if (value == null) {
@@ -1777,7 +1805,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
                 const SizedBox(height: 12),
                 SwitchListTile.adaptive(
                   contentPadding: EdgeInsets.zero,
-                  title: const Text('Verified account'),
+                  title: Text(_tr('Verified account', 'Tài khoản đã xác minh')),
                   value: isVerified,
                   onChanged: (value) {
                     setDialogState(() {
@@ -1787,7 +1815,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
                 ),
                 SwitchListTile.adaptive(
                   contentPadding: EdgeInsets.zero,
-                  title: const Text('Account active'),
+                  title: Text(_tr('Account active', 'Tài khoản đang hoạt động')),
                   value: isActive,
                   onChanged: (value) {
                     setDialogState(() {
@@ -1801,7 +1829,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(dialogContext),
-              child: const Text('Cancel'),
+              child: Text(l10n.cancel),
             ),
             FilledButton(
               onPressed: () => Navigator.pop(dialogContext, {
@@ -1814,7 +1842,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
                 'isVerified': isVerified,
                 'isActive': isActive,
               }),
-              child: const Text('Create'),
+              child: Text(l10n.create),
             ),
           ],
         ),
@@ -1843,7 +1871,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('Cancel'),
+            child: Text(AppLocalizations.of(dialogContext).cancel),
           ),
           FilledButton(
             style: destructive
@@ -1885,7 +1913,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('Cancel'),
+            child: Text(AppLocalizations.of(dialogContext).cancel),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(dialogContext, controller.text),
@@ -1914,7 +1942,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
 
   String _categoryDisplayName(Map<String, dynamic> category) {
     final depth = category['depth'] as int? ?? 0;
-    final name = '${category['categoryName'] ?? 'Unnamed category'}';
+    final name = '${category['categoryName'] ?? _tr('Unnamed category', 'Danh mục chưa đặt tên')}';
     final parentName = '${category['parentName'] ?? ''}'.trim();
 
     if (depth == 0 || parentName.isEmpty) {
@@ -1930,12 +1958,13 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
       '${user['lastName'] ?? ''}'.trim(),
     ].where((part) => part.isNotEmpty).toList();
 
-    return parts.isEmpty ? 'No display name set' : parts.join(' ');
+    return parts.isEmpty ? _tr('No display name set', 'Chưa đặt tên hiển thị') : parts.join(' ');
   }
 
   @override
   Widget build(BuildContext context) {
     final authService = ref.watch(authServiceProvider);
+    final l10n = AppLocalizations.of(context);
     final colorScheme = Theme.of(context).colorScheme;
     final isAdmin = authService.isAdmin;
 
@@ -1946,7 +1975,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
         appBar: AppBar(
           backgroundColor: colorScheme.primary,
           foregroundColor: colorScheme.onPrimary,
-          title: const Text('Management Dashboard'),
+          title: Text(l10n.managementDashboard),
           actions: [
             IconButton(
               onPressed: _loadAll,
@@ -1960,14 +1989,14 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
             indicatorColor: colorScheme.onPrimary,
             dividerColor: Colors.transparent,
             labelStyle: const TextStyle(fontWeight: FontWeight.w700),
-            tabs: const [
-              Tab(text: 'Overview'),
-              Tab(text: 'Videos'),
-              Tab(text: 'Forums'),
-              Tab(text: 'Categories'),
-              Tab(text: 'Users'),
-              Tab(text: 'Reports'),
-              Tab(text: 'Feedback'),
+            tabs: [
+              Tab(text: l10n.overview),
+              Tab(text: l10n.videos),
+              Tab(text: l10n.communityHotForums),
+              Tab(text: l10n.categories),
+              Tab(text: l10n.communityUsers),
+              Tab(text: l10n.reportsMenu),
+              Tab(text: l10n.feedbackInbox),
             ],
           ),
         ),
@@ -1993,21 +2022,22 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
   }
 
   Widget _buildRestrictedView() {
-    return const Center(
+    final l10n = AppLocalizations.of(context);
+    return Center(
       child: Padding(
-        padding: EdgeInsets.all(24),
+        padding: const EdgeInsets.all(24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.admin_panel_settings_outlined, size: 56),
-            SizedBox(height: 16),
+            const Icon(Icons.admin_panel_settings_outlined, size: 56),
+            const SizedBox(height: 16),
             Text(
-              'Admin access required',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+              l10n.adminAccessRequired,
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
             ),
-            SizedBox(height: 8),
+            const SizedBox(height: 8),
             Text(
-              'This screen is only available to administrator accounts.',
+              l10n.adminAccessOnly,
               textAlign: TextAlign.center,
             ),
           ],
@@ -2017,6 +2047,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
   }
 
   Widget _buildErrorView() {
+    final l10n = AppLocalizations.of(context);
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24),
@@ -2026,13 +2057,13 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
             const Icon(Icons.error_outline, size: 56, color: Colors.red),
             const SizedBox(height: 16),
             Text(
-              _error ?? 'Unable to load admin data',
+              _error ?? l10n.adminUnableLoadData,
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 16),
             FilledButton(
               onPressed: _loadAll,
-              child: const Text('Retry'),
+              child: Text(l10n.retry),
             ),
           ],
         ),
@@ -2041,6 +2072,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
   }
 
   Widget _buildOverviewTab() {
+    final l10n = AppLocalizations.of(context);
     final statistics = Map<String, dynamic>.from(
       _dashboard['statistics'] as Map? ?? const {},
     );
@@ -2059,43 +2091,43 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
     );
     final metrics = <_DashboardMetric>[
       _DashboardMetric(
-        label: 'Users',
+        label: _tr('Users', 'Người dùng'),
         value: statistics['totalUsers'] ?? 0,
         icon: Icons.people_outline,
         color: Colors.blue,
       ),
       _DashboardMetric(
-        label: 'Videos',
+        label: _tr('Videos', 'Video'),
         value: statistics['totalVideos'] ?? 0,
         icon: Icons.play_circle_outline,
         color: Colors.red,
       ),
       _DashboardMetric(
-        label: 'Categories',
+        label: _tr('Categories', 'Danh mục'),
         value: statistics['totalCategories'] ?? 0,
         icon: Icons.category_outlined,
         color: Colors.green,
       ),
       _DashboardMetric(
-        label: 'Forums',
+        label: _tr('Forums', 'Diễn đàn'),
         value: statistics['totalForums'] ?? 0,
         icon: Icons.forum_outlined,
         color: Colors.indigo,
       ),
       _DashboardMetric(
-        label: 'Posts',
+        label: _tr('Posts', 'Bài viết'),
         value: statistics['totalPosts'] ?? 0,
         icon: Icons.forum_outlined,
         color: Colors.orange,
       ),
       _DashboardMetric(
-        label: 'Pending Reports',
+        label: _tr('Pending Reports', 'Báo cáo chờ duyệt'),
         value: moderation['pendingReports'] ?? 0,
         icon: Icons.flag_outlined,
         color: Colors.deepOrange,
       ),
       _DashboardMetric(
-        label: 'Pending Feedback',
+        label: _tr('Pending Feedback', 'Phản hồi chờ duyệt'),
         value: moderation['pendingFeedback'] ?? 0,
         icon: Icons.feedback_outlined,
         color: Colors.teal,
@@ -2143,10 +2175,8 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
                   : const Icon(Icons.shield_outlined),
-              title: const Text('Screen capture protection'),
-              subtitle: const Text(
-                'Blocks screenshots and recording on Android and applies best-effort masking on iOS for protected content.',
-              ),
+              title: Text(l10n.screenCaptureProtection),
+              subtitle: Text(l10n.screenCaptureProtectionSubtitle),
               value: appSettings['contentProtectionEnabled'] == true,
               onChanged: _isBusy('app-settings')
                   ? null
@@ -2165,10 +2195,8 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
                       : const Icon(Icons.favorite_outline),
-                  title: const Text('Dating Feature'),
-                  subtitle: const Text(
-                    'Enable or disable the Dating tab for all users in the app.',
-                  ),
+                  title: Text(l10n.datingFeature),
+                  subtitle: Text(l10n.datingFeatureSubtitle),
                   value: appSettings['datingEnabled'] == true,
                   onChanged: _isBusy('app-settings') ? null : _updateDatingSetting,
                 ),
@@ -2177,7 +2205,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
                     const Divider(height: 1),
                     ListTile(
                       leading: const Icon(Icons.my_location_outlined),
-                      title: const Text('Search radius'),
+                      title: Text(l10n.searchRadius),
                       subtitle: Text(
                         '${appSettings['datingSearchRadiusKm'] ?? 50} km',
                       ),
@@ -2185,7 +2213,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
                         onPressed: _isBusy('app-settings')
                             ? null
                             : () => _editDatingRadiusSettings(appSettings),
-                        child: const Text('Edit'),
+                        child: Text(l10n.edit),
                       ),
                     ),
                   ],
@@ -2196,17 +2224,17 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
           Card(
             child: ListTile(
               leading: const Icon(Icons.auto_awesome_outlined),
-              title: const Text('AI Matching Provider'),
+              title: Text(l10n.aiMatchingProvider),
               subtitle: Text(
-                'Provider: ${appSettings['datingAiProvider'] ?? 'openai'}\n'
-                'Model: ${appSettings['datingAiModel'] ?? 'gpt-4o-mini'}\n'
-                'API Key: ${appSettings['datingAiApiKeyConfigured'] == true ? 'Configured' : 'Not configured'}',
+                '${_tr('Provider', 'Nhà cung cấp')}: ${appSettings['datingAiProvider'] ?? 'openai'}\n'
+                '${_tr('Model', 'Mô hình')}: ${appSettings['datingAiModel'] ?? 'gpt-4o-mini'}\n'
+                'API Key: ${appSettings['datingAiApiKeyConfigured'] == true ? _tr('Configured', 'Đã cấu hình') : _tr('Not configured', 'Chưa cấu hình')}',
               ),
               trailing: FilledButton.tonal(
                 onPressed: _isBusy('app-settings')
                     ? null
                     : () => _editAiMatchingSettings(appSettings),
-                child: const Text('Edit'),
+                child: Text(l10n.edit),
               ),
             ),
           ),
@@ -2221,17 +2249,17 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
                     children: [
                       const Icon(Icons.monetization_on_outlined),
                       const SizedBox(width: 12),
-                      const Expanded(
+                      Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'Free Content Bonus Coins',
+                              l10n.freeContentBonusCoins,
                               style: TextStyle(fontWeight: FontWeight.w700),
                             ),
                             SizedBox(height: 4),
                             Text(
-                              'Configure the coin reward for free media posts and free public video uploads.',
+                              l10n.freeContentBonusCoinsSubtitle,
                               style: TextStyle(color: Color(0xFF64748B)),
                             ),
                           ],
@@ -2241,7 +2269,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
                         onPressed: _isBusy('app-settings')
                             ? null
                             : () => _editBonusCoinSettings(appSettings),
-                        child: const Text('Edit'),
+                        child: Text(l10n.edit),
                       ),
                     ],
                   ),
@@ -2258,8 +2286,8 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text(
-                                'Free media post',
+                              Text(
+                                l10n.freeMediaPost,
                                 style: TextStyle(color: Color(0xFF64748B)),
                               ),
                               const SizedBox(height: 6),
@@ -2285,8 +2313,8 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text(
-                                'Free video upload',
+                              Text(
+                                l10n.freeVideoUpload,
                                 style: TextStyle(color: Color(0xFF64748B)),
                               ),
                               const SizedBox(height: 6),
@@ -2309,17 +2337,17 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
           ),
           const SizedBox(height: 24),
           Text(
-            'Recent feedback',
+            l10n.recentFeedback,
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.w700,
                 ),
           ),
           const SizedBox(height: 12),
           if (recentFeedback.isEmpty)
-            const Card(
+            Card(
               child: Padding(
-                padding: EdgeInsets.all(16),
-                child: Text('No feedback has been submitted yet.'),
+                padding: const EdgeInsets.all(16),
+                child: Text(l10n.noFeedbackSubmittedYet),
               ),
             )
           else
@@ -2377,9 +2405,9 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
         leading: const CircleAvatar(
           child: Icon(Icons.feedback_outlined),
         ),
-        title: Text('${entry['subject'] ?? 'General feedback'}'),
+        title: Text('${entry['subject'] ?? _tr('General feedback', 'Phản hồi chung')}'),
         subtitle: Text(
-          '${user['username'] ?? 'Unknown'}\n${entry['message'] ?? ''}',
+          '${user['username'] ?? _tr('Unknown', 'Không rõ')}\n${entry['message'] ?? ''}',
           maxLines: 3,
           overflow: TextOverflow.ellipsis,
         ),
@@ -2389,6 +2417,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
   }
 
   Widget _buildVideosTab() {
+    final l10n = AppLocalizations.of(context);
     return RefreshIndicator(
       onRefresh: _loadAll,
       child: ListView(
@@ -2396,14 +2425,16 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
         padding: const EdgeInsets.all(16),
         children: [
           _buildTabActionBar(
-            title: 'Videos',
-            createLabel: 'Create video',
+            title: l10n.videos,
+            createLabel: '${l10n.create} ${_tr('Video', 'Video')}',
             createIcon: Icons.add_circle_outline,
             onCreate: _createVideo,
           ),
           const SizedBox(height: 12),
           if (_videos.isEmpty)
-            _buildInlineEmptyCard('No videos available')
+            _buildInlineEmptyCard(
+              _tr('No videos available', 'Không có video nào'),
+            )
           else
             ..._videos.map((video) {
               final user = Map<String, dynamic>.from(
@@ -2436,7 +2467,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    '${video['title'] ?? 'Untitled video'}',
+                                    '${video['title'] ?? _tr('Untitled video', 'Video chưa đặt tên')}',
                                     style: Theme.of(context)
                                         .textTheme
                                         .titleMedium
@@ -2451,7 +2482,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
                                         '${video['status'] ?? 'PUBLIC'}',
                                       ),
                                       _buildStatusChip(
-                                        isVisible ? 'ACTIVE' : 'HIDDEN',
+                                        isVisible ? _tr('ACTIVE', 'ĐANG HIỂN') : _tr('HIDDEN', 'ĐÃ ẨN'),
                                       ),
                                       if ('${category['categoryName'] ?? ''}'
                                           .isNotEmpty)
@@ -2467,10 +2498,10 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
                           ],
                         ),
                         const SizedBox(height: 12),
-                        Text('Creator: ${user['username'] ?? 'Unknown'}'),
+                        Text('${_tr('Creator', 'Người tạo')}: ${user['username'] ?? _tr('Unknown', 'Không rõ')}'),
                         const SizedBox(height: 4),
                         Text(
-                          'Views ${video['views'] ?? 0} • Likes ${video['likes'] ?? 0} • Shares ${video['shares'] ?? 0}',
+                          '${_tr('Views', 'Lượt xem')} ${video['views'] ?? 0} • ${_tr('Likes', 'Lượt thích')} ${video['likes'] ?? 0} • ${_tr('Shares', 'Lượt chia sẻ')} ${video['shares'] ?? 0}',
                         ),
                         if (description.isNotEmpty) ...[
                           const SizedBox(height: 8),
@@ -2487,14 +2518,14 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
                               onPressed: _isBusy(busyKey)
                                   ? null
                                   : () => _editVideo(video),
-                              child: const Text('Edit'),
+                              child: Text(l10n.edit),
                             ),
                             FilledButton.tonal(
                               onPressed: _isBusy(busyKey)
                                   ? null
                                   : () => _toggleVideoVisibility(video),
                               child: Text(
-                                isVisible ? 'Deactivate' : 'Activate',
+                                isVisible ? _tr('Deactivate', 'Ẩn') : _tr('Activate', 'Hiện'),
                               ),
                             ),
                             OutlinedButton(
@@ -2505,7 +2536,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
                                 foregroundColor:
                                     Theme.of(context).colorScheme.error,
                               ),
-                              child: const Text('Delete'),
+                              child: Text(l10n.delete),
                             ),
                           ],
                         ),
@@ -2521,6 +2552,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
   }
 
   Widget _buildForumsTab() {
+    final l10n = AppLocalizations.of(context);
     return RefreshIndicator(
       onRefresh: _loadAll,
       child: ListView(
@@ -2528,14 +2560,14 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
         padding: const EdgeInsets.all(16),
         children: [
           _buildTabActionBar(
-            title: 'Forums',
-            createLabel: 'Create forum',
+            title: l10n.communityHotForums,
+            createLabel: '${l10n.create} ${l10n.communityHotForums.toLowerCase()}',
             createIcon: Icons.forum_outlined,
             onCreate: _createForum,
           ),
           const SizedBox(height: 12),
           if (_forums.isEmpty)
-            _buildInlineEmptyCard('No forums available')
+            _buildInlineEmptyCard(_tr('No forums available', 'Không có diễn đàn nào'))
           else
             ..._forums.map((forum) {
               final busyKey = 'forum:${forum['id']}';
@@ -2564,7 +2596,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    '${forum['title'] ?? 'Untitled forum'}',
+                                    '${forum['title'] ?? _tr('Untitled forum', 'Diễn đàn chưa đặt tên')}',
                                     style: Theme.of(context)
                                         .textTheme
                                         .titleMedium
@@ -2585,19 +2617,19 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
                                     runSpacing: 8,
                                     children: [
                                       _buildInfoChip(
-                                        '${forum['postCount'] ?? 0} posts',
+                                        '${forum['postCount'] ?? 0} ${_tr('posts', 'bài viết')}',
                                         Icons.article_outlined,
                                       ),
                                       _buildInfoChip(
-                                        '${forum['followerCount'] ?? 0} followers',
+                                        '${forum['followerCount'] ?? 0} ${_tr('followers', 'người theo dõi')}',
                                         Icons.people_outline,
                                       ),
                                       _buildInfoChip(
-                                        'Order ${forum['sortOrder'] ?? 0}',
+                                        '${_tr('Order', 'Thứ tự')} ${forum['sortOrder'] ?? 0}',
                                         Icons.sort,
                                       ),
                                       if (forum['isHot'] == true)
-                                        _buildStatusChip('HOT'),
+                                        _buildStatusChip(_tr('HOT', 'NỔI BẬT')),
                                     ],
                                   ),
                                 ],
@@ -2606,7 +2638,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
                           ],
                         ),
                         const SizedBox(height: 12),
-                        Text('Slug: ${forum['slug'] ?? '-'}'),
+                        Text('${_tr('Slug', 'Đường dẫn')}: ${forum['slug'] ?? '-'}'),
                         if (description.isNotEmpty) ...[
                           const SizedBox(height: 8),
                           Text(description),
@@ -2633,7 +2665,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
                               onPressed: _isBusy(busyKey)
                                   ? null
                                   : () => _editForum(forum),
-                              child: const Text('Edit'),
+                              child: Text(l10n.edit),
                             ),
                             OutlinedButton(
                               onPressed: _isBusy(busyKey)
@@ -2643,7 +2675,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
                                 foregroundColor:
                                     Theme.of(context).colorScheme.error,
                               ),
-                              child: const Text('Delete'),
+                              child: Text(l10n.delete),
                             ),
                           ],
                         ),
@@ -2659,6 +2691,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
   }
 
   Widget _buildCategoriesTab() {
+    final l10n = AppLocalizations.of(context);
     final categories = _flatCategories;
 
     return RefreshIndicator(
@@ -2668,14 +2701,14 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
         padding: const EdgeInsets.all(16),
         children: [
           _buildTabActionBar(
-            title: 'Categories',
-            createLabel: 'Create category',
+            title: l10n.categories,
+            createLabel: '${l10n.create} ${l10n.category.toLowerCase()}',
             createIcon: Icons.create_new_folder_outlined,
             onCreate: _createCategory,
           ),
           const SizedBox(height: 12),
           if (categories.isEmpty)
-            _buildInlineEmptyCard('No categories available')
+            _buildInlineEmptyCard(_tr('No categories available', 'Không có danh mục nào'))
           else
             ...categories.map((category) {
               final busyKey = 'category:${category['id']}';
@@ -2720,19 +2753,19 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
                                     runSpacing: 8,
                                     children: [
                                       _buildInfoChip(
-                                        '$videoCount videos',
+                                        '$videoCount ${_tr('videos', 'video')}',
                                         Icons.play_arrow_outlined,
                                       ),
                                       _buildInfoChip(
-                                        '$childCount subcategories',
+                                        '$childCount ${_tr('subcategories', 'danh mục con')}',
                                         Icons.account_tree_outlined,
                                       ),
                                       _buildInfoChip(
-                                        'Order ${category['categoryOrder'] ?? 0}',
+                                        '${_tr('Order', 'Thứ tự')} ${category['categoryOrder'] ?? 0}',
                                         Icons.sort,
                                       ),
                                       if (isDefault)
-                                        _buildStatusChip('DEFAULT'),
+                                        _buildStatusChip(_tr('DEFAULT', 'MẶC ĐỊNH')),
                                     ],
                                   ),
                                 ],
@@ -2751,7 +2784,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
                               onPressed: _isBusy(busyKey)
                                   ? null
                                   : () => _editCategory(category),
-                              child: const Text('Edit'),
+                              child: Text(l10n.edit),
                             ),
                             OutlinedButton(
                               onPressed: _isBusy(busyKey)
@@ -2761,7 +2794,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
                                 foregroundColor:
                                     Theme.of(context).colorScheme.error,
                               ),
-                              child: const Text('Delete'),
+                              child: Text(l10n.delete),
                             ),
                           ],
                         ),
@@ -2777,6 +2810,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
   }
 
   Widget _buildUsersTab() {
+    final l10n = AppLocalizations.of(context);
     return RefreshIndicator(
       onRefresh: _loadAll,
       child: ListView(
@@ -2784,14 +2818,16 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
         padding: const EdgeInsets.all(16),
         children: [
           _buildTabActionBar(
-            title: 'Users',
-            createLabel: 'Create user',
+            title: _tr('Users', 'Người dùng'),
+            createLabel: '${l10n.create} ${_tr('User', 'Người dùng')}',
             createIcon: Icons.person_add_alt_1,
             onCreate: _createUser,
           ),
           const SizedBox(height: 12),
           if (_users.isEmpty)
-            _buildInlineEmptyCard('No users available')
+            _buildInlineEmptyCard(
+              _tr('No users available', 'Không có người dùng nào'),
+            )
           else
             ..._users.map((user) {
               final busyKey = 'user:${user['id']}';
@@ -2822,7 +2858,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    '@${user['username'] ?? 'unknown'}',
+                                    '@${user['username'] ?? _tr('unknown', 'không-rõ')}',
                                     style: Theme.of(context)
                                         .textTheme
                                         .titleMedium
@@ -2839,10 +2875,10 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
                                         '${user['role'] ?? 'USER'}',
                                       ),
                                       _buildStatusChip(
-                                        isActive ? 'ACTIVE' : 'INACTIVE',
+                                        isActive ? _tr('ACTIVE', 'HOẠT ĐỘNG') : _tr('INACTIVE', 'KHÔNG HOẠT ĐỘNG'),
                                       ),
                                       if (user['isVerified'] == true)
-                                        _buildStatusChip('VERIFIED'),
+                                        _buildStatusChip(_tr('VERIFIED', 'ĐÃ XÁC MINH')),
                                     ],
                                   ),
                                 ],
@@ -2851,10 +2887,10 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
                           ],
                         ),
                         const SizedBox(height: 12),
-                        Text('${user['email'] ?? 'No email'}'),
+                        Text('${user['email'] ?? _tr('No email', 'Không có email')}'),
                         const SizedBox(height: 4),
                         Text(
-                          '${user['videoCount'] ?? 0} videos • ${user['postCount'] ?? 0} posts',
+                          '${user['videoCount'] ?? 0} ${_tr('videos', 'video')} • ${user['postCount'] ?? 0} ${_tr('posts', 'bài viết')}',
                         ),
                         const SizedBox(height: 16),
                         _buildResponsiveActions(
@@ -2863,14 +2899,16 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
                               onPressed: _isBusy(busyKey)
                                   ? null
                                   : () => _editUser(user),
-                              child: const Text('Edit'),
+                              child: Text(l10n.edit),
                             ),
                             FilledButton.tonal(
                               onPressed: _isBusy(busyKey)
                                   ? null
                                   : () => _toggleUserStatus(user),
                               child: Text(
-                                isActive ? 'Deactivate' : 'Activate',
+                                isActive
+                                    ? _tr('Deactivate', 'Vô hiệu hóa')
+                                    : _tr('Activate', 'Kích hoạt'),
                               ),
                             ),
                             OutlinedButton(
@@ -2881,7 +2919,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
                                 foregroundColor:
                                     Theme.of(context).colorScheme.error,
                               ),
-                              child: const Text('Delete'),
+                              child: Text(l10n.delete),
                             ),
                           ],
                         ),
@@ -2897,10 +2935,11 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
   }
 
   Widget _buildReportsTab() {
+    final l10n = AppLocalizations.of(context);
     return RefreshIndicator(
       onRefresh: _loadAll,
       child: _reports.isEmpty
-          ? _buildEmptyList('No reports to review')
+          ? _buildEmptyList(_tr('No reports to review', 'Không có báo cáo để duyệt'))
           : ListView.separated(
               physics: const AlwaysScrollableScrollPhysics(),
               padding: const EdgeInsets.all(16),
@@ -2916,8 +2955,8 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
                 );
                 final busyKey = 'report:${report['id']}';
                 final targetTitle = report['type'] == 'user'
-                    ? '${target['username'] ?? 'Unknown user'}'
-                    : '${target['title'] ?? 'Untitled'}';
+                  ? '${target['username'] ?? _tr('Unknown user', 'Người dùng không rõ')}'
+                  : '${target['title'] ?? _tr('Untitled', 'Chưa đặt tên')}';
 
                 return Card(
                   child: Padding(
@@ -2943,18 +2982,18 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
                                   ),
                         ),
                         const SizedBox(height: 8),
-                        Text('Reporter: ${reporter['username'] ?? 'Unknown'}'),
+                        Text('${_tr('Reporter', 'Người báo cáo')}: ${reporter['username'] ?? _tr('Unknown', 'Không rõ')}'),
                         const SizedBox(height: 4),
-                        Text('Reason: ${report['reason'] ?? 'Unspecified'}'),
+                        Text('${_tr('Reason', 'Lý do')}: ${report['reason'] ?? _tr('Unspecified', 'Không xác định')}'),
                         if ((report['description'] ?? '').toString().isNotEmpty)
                           Padding(
                             padding: const EdgeInsets.only(top: 4),
-                            child: Text('Details: ${report['description']}'),
+                            child: Text('${_tr('Details', 'Chi tiết')}: ${report['description']}'),
                           ),
                         if ((report['adminReply'] ?? '').toString().isNotEmpty)
                           Padding(
                             padding: const EdgeInsets.only(top: 4),
-                            child: Text('Admin note: ${report['adminReply']}'),
+                            child: Text('${_tr('Admin note', 'Ghi chú admin')}: ${report['adminReply']}'),
                           ),
                         const SizedBox(height: 16),
                         _buildResponsiveActions(
@@ -2963,19 +3002,19 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
                               onPressed: _isBusy(busyKey)
                                   ? null
                                   : () => _updateReport(report, 'approve'),
-                              child: const Text('Approve'),
+                              child: Text(_tr('Approve', 'Duyệt')),
                             ),
                             FilledButton.tonal(
                               onPressed: _isBusy(busyKey)
                                   ? null
                                   : () => _updateReport(report, 'deny'),
-                              child: const Text('Deny'),
+                              child: Text(_tr('Deny', 'Từ chối')),
                             ),
                             OutlinedButton(
                               onPressed: _isBusy(busyKey)
                                   ? null
                                   : () => _replyToReport(report),
-                              child: const Text('Reply'),
+                              child: Text(l10n.reply),
                             ),
                           ],
                         ),
@@ -2989,10 +3028,11 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
   }
 
   Widget _buildFeedbackTab() {
+    final l10n = AppLocalizations.of(context);
     return RefreshIndicator(
       onRefresh: _loadAll,
       child: _feedbackEntries.isEmpty
-          ? _buildEmptyList('No feedback entries yet')
+          ? _buildEmptyList(_tr('No feedback entries yet', 'Chưa có mục phản hồi nào'))
           : ListView.separated(
               physics: const AlwaysScrollableScrollPhysics(),
               padding: const EdgeInsets.all(16),
@@ -3015,7 +3055,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
                           children: [
                             Expanded(
                               child: Text(
-                                '${entry['subject'] ?? 'General feedback'}',
+                                '${entry['subject'] ?? _tr('General feedback', 'Phản hồi chung')}',
                                 style: Theme.of(context)
                                     .textTheme
                                     .titleMedium
@@ -3026,14 +3066,14 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
                           ],
                         ),
                         const SizedBox(height: 8),
-                        Text('From: ${user['username'] ?? 'Unknown'}'),
+                        Text('${_tr('From', 'Tu')}: ${user['username'] ?? _tr('Unknown', 'Không rõ')}'),
                         const SizedBox(height: 8),
                         Text('${entry['message'] ?? ''}'),
                         if ((entry['adminReply'] ?? '').toString().isNotEmpty)
                           Padding(
                             padding: const EdgeInsets.only(top: 12),
                             child: Text(
-                              'Reply: ${entry['adminReply']}',
+                              '${_tr('Reply', 'Trả lời')}: ${entry['adminReply']}',
                               style: TextStyle(
                                 color: Theme.of(context)
                                     .colorScheme
@@ -3048,7 +3088,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
                               onPressed: _isBusy(busyKey)
                                   ? null
                                   : () => _replyToFeedback(entry),
-                              child: const Text('Reply'),
+                              child: Text(l10n.reply),
                             ),
                             OutlinedButton(
                               onPressed: _isBusy(busyKey)
@@ -3057,7 +3097,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
                                         entry,
                                         status: 'DISMISSED',
                                       ),
-                              child: const Text('Close'),
+                              child: Text(l10n.close),
                             ),
                           ],
                         ),
@@ -3218,3 +3258,6 @@ class _DashboardMetric {
     required this.color,
   });
 }
+
+
+

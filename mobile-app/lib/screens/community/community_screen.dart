@@ -342,8 +342,8 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
           else if (hubState.forums.isEmpty)
             _buildMessagePanel(
               icon: Icons.forum_outlined,
-              title: 'No forums available yet',
-              subtitle: 'Pull to refresh after the community hub finishes loading.',
+              title: l10n.communityNoForumsYet,
+              subtitle: l10n.communityRefreshHint,
             )
           else
             SizedBox(
@@ -415,8 +415,8 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
           else if (posts.isEmpty)
             _buildMessagePanel(
               icon: Icons.forum_outlined,
-              title: 'No original posts yet',
-              subtitle: 'Create the first community post or pull to refresh.',
+              title: l10n.communityNoOriginalPostsYet,
+              subtitle: l10n.communityCreateFirstPostHint,
             )
           else
             ...posts.map((post) {
@@ -456,6 +456,7 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
     CommunityServiceState communityState,
     AuthService authState,
   ) {
+    final l10n = AppLocalizations.of(context);
     final followedForums = hubState.followedForums;
     final followedCreators = hubState.followedCreators;
     final followedPosts =
@@ -468,7 +469,7 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
         padding: const EdgeInsets.fromLTRB(12, 8, 12, 120),
         children: [
           _buildCreatorStrip(
-            title: 'Upload Masters',
+            title: l10n.communityUploadMasters,
             creators: followedCreators.isEmpty
                 ? hubState.creators.take(3).toList()
                 : followedCreators.take(3).toList(),
@@ -477,7 +478,7 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
           Row(
             children: [
               _buildSelectorChip(
-                label: 'Topics',
+                label: l10n.communityTopics,
                 selected: _selectedFollowingSection == _FollowingSection.topics,
                 onTap: () {
                   setState(() {
@@ -486,7 +487,7 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
                 },
               ),
               _buildSelectorChip(
-                label: 'Users',
+                label: l10n.communityUsers,
                 selected: _selectedFollowingSection == _FollowingSection.users,
                 onTap: () {
                   setState(() {
@@ -501,9 +502,8 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
             if (followedForums.isEmpty)
               _buildMessagePanel(
                 icon: Icons.favorite_outline_rounded,
-                title: 'Nothing here, click to retry',
-                subtitle:
-                    'Follow a forum from the Original tab to keep its updates here.',
+                title: l10n.communityNothingHereRetry,
+                subtitle: l10n.communityFollowForumHint,
               )
             else
               ...followedForums.map((forum) {
@@ -529,9 +529,8 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
             if (followedPosts.isEmpty)
               _buildMessagePanel(
                 icon: Icons.people_outline_rounded,
-                title: 'Nothing here, click to retry',
-                subtitle:
-                    'Follow a user to see their latest posts and uploads.',
+                title: l10n.communityNothingHereRetry,
+                subtitle: l10n.communityFollowUserHint,
               )
             else
               ...followedPosts.map((post) {
@@ -558,6 +557,7 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
   }
 
   Widget _buildRequestTab(CommunityHubState hubState) {
+    final l10n = AppLocalizations.of(context);
     final filteredRequests = _filteredRequests(hubState);
     final rankingEntries = _requestRankingEntries(hubState);
 
@@ -570,7 +570,7 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
           Row(
             children: [
               _buildSelectorChip(
-                label: 'Latest',
+                label: l10n.communityRequestLatest,
                 selected: _selectedRequestSection == _RequestSection.latest,
                 onTap: () {
                   setState(() {
@@ -588,7 +588,7 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
                 },
               ),
               _buildSelectorChip(
-                label: 'Ranking',
+                label: l10n.communityRequestRanking,
                 selected: _selectedRequestSection == _RequestSection.ranking,
                 onTap: () {
                   setState(() {
@@ -605,8 +605,8 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
               color: Colors.white,
               borderRadius: BorderRadius.circular(20),
             ),
-            child: const Text(
-              'Ask for a specific clip, set the coin bounty, then let other users upload files or attach search links. Linked search results are free for the contributor.',
+            child: Text(
+              l10n.communityRequestGuide,
               style: TextStyle(
                 height: 1.45,
                 color: Color(0xFF556274),
@@ -628,7 +628,7 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
                       borderRadius: BorderRadius.circular(18),
                     ),
                     child: Text(
-                      'Searching requests for "$_requestQuery"',
+                      '${l10n.communitySearchingRequests} "$_requestQuery"',
                       style: const TextStyle(
                         color: AppTheme.primaryColor,
                         fontWeight: FontWeight.w700,
@@ -658,9 +658,8 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
             if (rankingEntries.isEmpty)
               _buildMessagePanel(
                 icon: Icons.emoji_events_outlined,
-                title: 'No ranking data yet',
-                subtitle:
-                    'Accepted request matches will start filling this board.',
+                title: l10n.communityNoRankingYet,
+                subtitle: l10n.communityRankingHint,
               )
             else
               ...List.generate(rankingEntries.length, (index) {
@@ -672,9 +671,8 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
           else if (filteredRequests.isEmpty)
             _buildMessagePanel(
               icon: Icons.search_off_rounded,
-              title: 'No requests matched this search',
-              subtitle:
-                  'Try a different keyword or create a new bounty request.',
+              title: l10n.communityNoRequestsFound,
+              subtitle: l10n.communityTryAnotherKeyword,
             )
           else
             ...filteredRequests.map((request) {

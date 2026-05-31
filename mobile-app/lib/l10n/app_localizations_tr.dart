@@ -445,6 +445,9 @@ class AppLocalizationsTr extends AppLocalizationsEn {
   @override
   String get viewProfile => 'Profili goruntule';
 
+    @override
+    String get overview => 'Genel bakis';
+
   @override
   String get public => 'Herkese acik';
 
@@ -460,6 +463,12 @@ class AppLocalizationsTr extends AppLocalizationsEn {
 
   @override
   String get datingMeet => 'Esles';
+
+    @override
+    String get datingSmart => 'Tumu';
+
+    @override
+    String get datingTrendingInYourArea => 'Bolgende trend olanlar';
 
   @override
   String get datingSearchProfiles => 'Profil ara';
@@ -894,6 +903,579 @@ class AppLocalizationsTr extends AppLocalizationsEn {
 
   @override
   String get paymentViewRechargeRecord => 'Yukleme Gecmisini Gor';
+
+    @override
+    String get changePassword => 'Sifreyi Degistir';
+
+    @override
+    String get changePasswordSubtitle => 'Bu hesap icin sifreyi guncelle';
+
+    @override
+    String get adminSection => 'Yonetim';
+
+    @override
+    String get managementDashboard => 'Yonetim Paneli';
+
+    @override
+    String get managementDashboardSubtitle => 'Istatistikler, videolar, kategoriler ve kullanicilar';
+
+    @override
+    String get reportsMenu => 'Raporlar';
+
+    @override
+    String get reportsMenuSubtitle => 'Raporlari incele ve yonet';
+
+    @override
+    String get feedbackInbox => 'Geri Bildirim Kutusu';
+
+    @override
+    String get feedbackInboxSubtitle => 'Kullanici geri bildirimlerine yanit ver';
+
+    @override
+    String get changePasswordHelp => 'Bu hesaba giris yapmak icin kullandiginiz sifreyi guncelleyin.';
+
+    @override
+    String get currentPasswordLabel => 'Mevcut sifre';
+
+    @override
+    String get newPasswordLabel => 'Yeni sifre';
+
+    @override
+    String get confirmNewPasswordLabel => 'Yeni sifreyi onayla';
+
+    @override
+    String get currentPasswordRequired => 'Mevcut sifrenizi girin';
+
+    @override
+    String get newPasswordRequired => 'Yeni bir sifre girin';
+
+    @override
+    String get newPasswordMinLength => 'Sifre en az 6 karakter olmali';
+
+    @override
+    String get newPasswordMustDiffer => 'Yeni sifre farkli olmali';
+
+    @override
+    String get confirmNewPasswordRequired => 'Yeni sifrenizi onaylayin';
+
+    @override
+    String get changePasswordSuccess => 'Sifre basariyla degistirildi';
+
+    @override
+    String get changePasswordFailed => 'Sifre degistirilemedi';
+
+    @override
+    String get groupName => 'Grup adi';
+
+    @override
+    String get groupNameRequired => 'Grup adi gerekli';
+
+    @override
+    String get addAtLeastOneMember => 'En az bir uye ekleyin';
+
+    @override
+    String get selectedMembers => 'Secili';
+
+    @override
+    String get noUsersFound => 'Kullanici bulunamadi';
+
+    @override
+    String get errorLoadingUsers => 'Kullanicilar yuklenirken hata olustu';
+
+    @override
+    String get communityUploadMasters => 'Yukleme Ustalari';
+
+    @override
+    String get communityTopics => 'Konular';
+
+    @override
+    String get communityUsers => 'Kullanicilar';
+
+    @override
+    String get communityNothingHereRetry => 'Burada henuz bir sey yok, tekrar denemek icin dokunun';
+
+    @override
+    String get communityFollowForumHint => 'Guncellemeleri burada gormek icin Original sekmesinden bir forum takip edin.';
+
+    @override
+    String get communityFollowUserHint => 'Bir kullaniciyi takip ederek en yeni gonderi ve yuklemelerini burada gorun.';
+
+    @override
+    String get communityNoForumsYet => 'Henuz forum yok';
+
+    @override
+    String get communityRefreshHint => 'Topluluk merkezi yuklendikten sonra yenilemek icin asagi cekin.';
+
+    @override
+    String get communityNoOriginalPostsYet => 'Henuz orijinal gonderi yok';
+
+    @override
+    String get communityCreateFirstPostHint => 'Ilk topluluk gonderisini olusturun veya yenilemek icin asagi cekin.';
+
+    @override
+    String get communityRequestLatest => 'En Yeni';
+
+    @override
+    String get communityRequestRanking => 'Siralama';
+
+    @override
+    String get communityRequestGuide => 'Belirli bir klip isteyin, jeton odulunu belirleyin, sonra diger kullanicilar dosya yuklesin veya arama baglantisi eklesin. Arama sonucu baglantilari katkida bulunanlar icin ucretsizdir.';
+
+    @override
+    String get communitySearchingRequests => 'Istekler aranıyor';
+
+    @override
+    String get communityNoRankingYet => 'Henuz siralama verisi yok';
+
+    @override
+    String get communityRankingHint => 'Kabul edilen eslesmeler bu panoyu doldurmaya baslayacak.';
+
+    @override
+    String get communityNoRequestsFound => 'Bu aramaya uyan istek bulunamadi';
+
+    @override
+    String get communityTryAnotherKeyword => 'Farkli bir anahtar kelime deneyin veya yeni bir odul istegi olusturun.';
+
+    @override
+    String get createPostAddContentOrMedia => 'Lutfen icerik veya medya ekleyin';
+
+    @override
+    String get createPostSuccess => 'Gonderi basariyla olusturuldu!';
+
+    @override
+    String get createPostError => 'Gonderi olusturulurken hata olustu';
+
+    @override
+    String get createPostAddMedia => 'Medya Ekle';
+
+    @override
+    String get createPostSelectedSummary => 'gorsel ve video secildi';
+
+    @override
+    String get createPostProcessingVideos => 'Videolar isleniyor...';
+
+    @override
+    String get createPostAudience => 'Kitle';
+
+    @override
+    String get createPostFreePostHint => '0 = Ucretsiz gonderi';
+
+    @override
+    String get createPostValidCost => 'Gecerli bir ucret girin (0 veya daha fazla)';
+
+    @override
+    String get createPostVipOnly => 'Sadece VIP';
+
+    @override
+    String get createPostVipOnlySubtitle => 'Bu gonderiyi sadece VIP kullanicilar gorebilir';
+
+    @override
+    String get createPostMakePublicSubtitle => 'Bu gonderiyi herkes gorebilir';
+
+    @override
+    String get createPostMakePrivateSubtitle => 'Bu gonderiyi sadece takip ettiginiz kisiler gorebilir';
+
+    @override
+    String get createPostSettings => 'Gonderi Ayarlari';
+
+    @override
+    String get createPostAllowComments => 'Yorumlara Izin Ver';
+
+    @override
+    String get createPostAllowCommentsSubtitle => 'Insanlarin bu gonderiye yorum yapmasina izin ver';
+
+    @override
+    String get createPostAllowLinks => 'Yorumlarda Baglantiya Izin Ver';
+
+    @override
+    String get createPostAllowLinksSubtitle => 'Insanlarin yorumlara baglanti eklemesine izin ver';
+
+    @override
+    String get createPostPinPost => 'Bu Gonderiyi Sabitle';
+
+    @override
+    String get createPostPinPostSubtitle => 'Bu gonderiyi en ustte tut';
+
+    @override
+    String get createPostNsfw => 'NSFW Icerik';
+
+    @override
+    String get createPostNsfwSubtitle => 'Is yeri icin uygun degil olarak isaretle';
+
+    @override
+    String get createPostWhoCanReply => 'Kimler Yanitlayabilir?';
+
+    @override
+    String get createPostFollowers => 'Takipciler';
+
+    @override
+    String get createPostPaidViewers => 'Ucretli Izleyiciler';
+
+    @override
+    String get createPostPeopleYouFollow => 'Takip Ettiginiz Kisiler';
+
+    @override
+    String get createPostVerifiedFollowers => 'Dogrulanmis Takipciler';
+
+    @override
+    String get createPostNoOne => 'Hic Kimse';
+
+    @override
+    String get tagsOptional => 'Etiketler (Istege Bagli)';
+
+    @override
+    String get selectedMedia => 'Secilen Medya';
+
+    @override
+    String get imagesLabel => 'Gorseller';
+
+    @override
+    String get videosLabel => 'Videolar';
+
+    @override
+    String get createRequest => 'Istek Olustur';
+
+    @override
+    String get createRequestBannerTitle => 'Odul belirleyin ve topluluktan eslesmeler toplayin';
+
+    @override
+    String get createRequestBannerSubtitle => 'Digerleri dosya yukleyebilir veya aramadan mevcut bir medya baglantisi ekleyebilir. En iyi eslesmeyi onayladiginizda jetonlar serbest birakilir.';
+
+    @override
+    String get createRequestWhatLookingFor => 'Ne ariyorsunuz?';
+
+    @override
+    String get createRequestDescribeHint => 'Istediginiz tam albumu, videoyu veya dosyalari aciklayin. Sahne detaylari, isimler veya anahtar kelimeler ekleyin.';
+
+    @override
+    String get createRequestDescribeRequired => 'Ihtiyacinizi aciklayin';
+
+    @override
+    String get createRequestHeadlineHint => 'Ilk satir otomatik olarak istek basligina donusur, bu nedenle burada sadece gonderi tarzi bir aciklama yeterlidir.';
+
+    @override
+    String get createRequestKeywords => 'Anahtar kelimeler';
+
+    @override
+    String get createRequestKeywordsHint => 'Anahtar kelimeleri virgul ile ayirin';
+
+    @override
+    String get createRequestReferenceImages => 'Referans gorseller';
+
+    @override
+    String get attach => 'Ekle';
+
+    @override
+    String get createRequestReferenceHint => 'Istege bagli. Katkida bulunanlarin ne istediginizi anlamasi icin ekran goruntuleri veya kapak gorselleri ekleyin.';
+
+    @override
+    String get coinBounty => 'Jeton odulu';
+
+    @override
+    String get coinBountyHint => '0 olabilir. Daha sonra detay ekranindan daha fazla jeton ekleyebilirsiniz.';
+
+    @override
+    String get coinBountyValidation => 'Jetonlar negatif olamaz';
+
+    @override
+    String get availableBalance => 'Kullanilabilir bakiye';
+
+    @override
+    String get publishing => 'Yayinlaniyor...';
+
+    @override
+    String get publishRequest => 'Istegi Yayinla';
+
+    @override
+    String get attachImagesFailed => 'Gorseller eklenemedi';
+
+    @override
+    String get insufficientCoinsBounty => 'Bu odul icin yeterli jetonunuz yok.';
+
+    @override
+    String get addLabel => 'Ekle';
+
+    @override
+    String get failedLoadLibrarySections => 'Kutuphane bolumleri yuklenemedi';
+
+    @override
+    String get noItemsFoundIn => 'Burada oge bulunamadi';
+
+    @override
+    String get ifRecentImportTryRefresh => 'Yakinda icerik ice aktardiysaniz yenilemeyi deneyin.';
+
+    @override
+    String get unableToLoadSection => 'Yuklenemiyor';
+
+    @override
+    String get movieNotFound => 'Film bulunamadi';
+
+    @override
+    String get originalTitlesLabel => 'Orijinal baslik(lar)';
+
+    @override
+    String get releaseLabel => 'Yayin';
+
+    @override
+    String get countryLabel => 'Ulke';
+
+    @override
+    String get adultLabel => 'Yetiskin';
+
+    @override
+    String get filesLabel => 'Dosyalar';
+
+    @override
+    String get importFromUlozTo => 'uloz.to adresinden ice aktar';
+
+    @override
+    String get videoFileLabel => 'Video Dosyasi';
+
+    @override
+    String get noEpisodesYet => 'Henuz bolum yok.';
+
+    @override
+    String get noLikedVideosYet => 'Henuz begenilen video yok';
+
+    @override
+    String get likedVideosWillAppear => 'Begenilen videolar burada gorunecek';
+
+    @override
+    String get refreshLikedVideos => 'Begenilen Videolari Yenile';
+
+    @override
+    String get noPlaylistsYet => 'Henuz oynatma listesi yok';
+
+    @override
+    String get createFirstPlaylist => 'Ilk oynatma listenizi olusturun';
+
+    @override
+    String get refreshPlaylists => 'Oynatma Listelerini Yenile';
+
+    @override
+    String get refreshPosts => 'Gonderileri Yenile';
+
+    @override
+    String get privateLabel => 'Ozel';
+
+    @override
+    String get totalViews => 'Toplam Goruntulenme';
+
+    @override
+    String get totalLikes => 'Toplam Begeni';
+
+    @override
+    String get totalComments => 'Toplam Yorum';
+
+    @override
+    String get engagementRate => 'Etkilesim Orani';
+
+    @override
+    String get likesPerVideo => 'Video Basina Begeni';
+
+    @override
+    String get commentsPerVideo => 'Video Basina Yorum';
+
+    @override
+    String get viewsPerVideo => 'Video Basina Izlenme';
+
+    @override
+    String get uploadingProgress => 'Yukleniyor';
+
+    @override
+    String get selectThumbnailOptional => 'Kucuk Resim Sec (Istege Bagli)';
+
+    @override
+    String get generatingThumbnails => 'Kucuk resimler olusturuluyor...';
+
+    @override
+    String get autoGeneratedThumbnails => 'Otomatik Olusturulan Kucuk Resimler';
+
+    @override
+    String get selectThumbnailOrUpload => 'Bir kucuk resim secin veya kendiniz yukleyin';
+
+    @override
+    String get enterVideoTitle => 'Video basligini girin';
+
+    @override
+    String get enterTitleRequired => 'Lutfen bir baslik girin';
+
+    @override
+    String get enterVideoDescription => 'Video aciklamasini girin';
+
+    @override
+    String get tagExamples => 'tag1, tag2, tag3';
+
+    @override
+    String get validCostMessage => 'Gecerli bir ucret girin (0 veya daha fazla)';
+
+    @override
+    String get uploadFailedWithError => 'Yukleme basarisiz oldu';
+
+    @override
+    String get addMovie => 'Film Ekle';
+
+    @override
+    String get addNewMovie => 'Yeni Film Ekle';
+
+    @override
+    String get manualMovieEntry => 'Manuel Film Girisi';
+
+    @override
+    String get titleOptional => 'Baslik (istege bagli)';
+
+    @override
+    String get provideTitleToSearchHint => 'Mevcut kayitlari aramak icin bir baslik girin. Harici ID kullaniyorsaniz bos birakabilirsiniz.';
+
+    @override
+    String get checking => 'Kontrol ediliyor...';
+
+    @override
+    String get typeLabel => 'Tur';
+
+    @override
+    String get externalIdsOptional => 'Harici IDler (Istege Bagli)';
+
+    @override
+    String get tvSeriesLabel => 'TV Dizisi';
+
+    @override
+    String get noTmdbMatches => 'TMDb uzerinde eslesme bulunamadi.';
+
+    @override
+    String get originalLabel => 'Orijinal';
+
+    @override
+    String get importFromTmdb => 'TMDbden Ice Aktar';
+
+    @override
+    String get enterTitleOrExternalId => 'Devam etmek icin bir baslik veya en az bir harici ID girin.';
+
+    @override
+    String get failedSearchExistingTitles => 'Mevcut basliklar aranirken hata olustu';
+
+    @override
+    String get failedSearchTmdb => 'TMDb aranirken hata olustu';
+
+    @override
+    String get movieImportedSuccessfully => 'Film basariyla ice aktarildi';
+
+    @override
+    String get failedImportMovie => 'Film ice aktarilamadi';
+
+    @override
+    String get noExistingTitlesFound => 'Verilen tanimlayicilarla mevcut baslik bulunamadi.';
+
+    @override
+    String get continueAddNewTitle => 'Asagidaki dugmeyi kullanarak yeni bir baslik eklemeye devam edebilirsiniz.';
+
+    @override
+    String get foundExistingTitles => 'Mevcut basliklar bulundu';
+
+    @override
+    String get noMatchingExistingTitles => 'Saglanan bilgiyle eslesen mevcut bir baslik bulunamadi.';
+
+    @override
+    String get languageLabel => 'Dil';
+
+    @override
+    String get genreLabel => 'Tur';
+
+    @override
+    String get alternativeTitles => 'Alternatif Basliklar';
+
+    @override
+    String get noAlternativeTitlesYet => 'Henuz alternatif baslik eklenmedi.';
+
+    @override
+    String get plotOverview => 'Konu / Ozet';
+
+    @override
+    String get runtimeMinutes => 'Sure (dakika)';
+
+    @override
+    String get genresCommaSeparated => 'Turler (virgulle ayrilmis)';
+
+    @override
+    String get countriesCommaSeparated => 'Ulkeler (virgulle ayrilmis)';
+
+    @override
+    String get languagesCommaSeparated => 'Diller (virgulle ayrilmis)';
+
+    @override
+    String get posterImageUrl => 'Poster Gorseli URL';
+
+    @override
+    String get videoTrailerUrl => 'Video Fragman URL';
+
+    @override
+    String get titleRequired => 'Baslik gerekli';
+
+    @override
+    String get failedCreateMovie => 'Film olusturulamadi';
+
+    @override
+    String get failedLoadPlaylists => 'Oynatma listeleri yuklenemedi';
+
+    @override
+    String get noPlaylistsPromptCreate => 'Henuz oynatma listeniz yok. Simdi bir tane olusturmak ister misiniz?';
+
+    @override
+    String get untitledLabel => 'Basliksiz';
+
+    @override
+    String get saveQrComingSoon => 'QR kaydetme yakinda';
+
+    @override
+    String get scanToViewProfile => 'Profili Gormek Icin Tara';
+
+    @override
+    String get adminAccessRequired => 'Yonetici erisimi gerekli';
+
+    @override
+    String get adminAccessOnly => 'Bu ekran sadece yonetici hesaplari icin kullanilabilir.';
+
+    @override
+    String get adminUnableLoadData => 'Yonetici verileri yuklenemedi';
+
+    @override
+    String get aiMatchingProvider => 'AI Eslestirme Saglayicisi';
+
+    @override
+    String get addToPlaylistFailed => 'Oynatma listesine eklenemedi';
+
+    @override
+    String get freeContentBonusCoins => 'Ucretsiz Icerik Bonus Jetonlari';
+
+    @override
+    String get freeContentBonusCoinsSubtitle => 'Ucretsiz medya gonderileri ve ucretsiz herkese acik video yuklemeleri icin jeton odulunu ayarlayin.';
+
+    @override
+    String get freeMediaPost => 'Ucretsiz medya gonderisi';
+
+    @override
+    String get freeVideoUpload => 'Ucretsiz video yukleme';
+
+    @override
+    String get screenCaptureProtection => 'Ekran yakalama korumasi';
+
+    @override
+    String get screenCaptureProtectionSubtitle => 'Androidde ekran goruntusu ve kaydi engeller, iOSta korumali icerik icin mumkun olan maskeyi uygular.';
+
+    @override
+    String get datingFeature => 'Dating Ozelligi';
+
+    @override
+    String get datingFeatureSubtitle => 'Uygulamadaki tum kullanicilar icin Dating sekmesini acin veya kapatin.';
+
+    @override
+    String get searchRadius => 'Arama yaricapi';
+
+    @override
+    String get recentFeedback => 'Son geri bildirimler';
+
+    @override
+    String get noFeedbackSubmittedYet => 'Henuz hic geri bildirim gonderilmedi.';
 
   @override
   String get paymentMissingOrder => 'Siparis kimligi eksik.';

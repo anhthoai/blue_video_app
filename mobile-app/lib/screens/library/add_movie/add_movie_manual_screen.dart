@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/services/movie_service.dart';
+import '../../../l10n/app_localizations.dart';
 
 class AddMovieManualScreen extends ConsumerStatefulWidget {
   final String? initialType;
@@ -93,6 +94,7 @@ class _AddMovieManualScreenState extends ConsumerState<AddMovieManualScreen> {
   }
 
   Future<void> _addAlternativeTitle() async {
+    final l10n = AppLocalizations.of(context);
     final titleController = TextEditingController();
     final countryController = TextEditingController();
     final languageController = TextEditingController();
@@ -101,7 +103,7 @@ class _AddMovieManualScreenState extends ConsumerState<AddMovieManualScreen> {
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: const Text('Add Alternative Title'),
+          title: Text('${l10n.addLabel} ${l10n.originalTitlesLabel}'),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -111,18 +113,18 @@ class _AddMovieManualScreenState extends ConsumerState<AddMovieManualScreen> {
               ),
               TextField(
                 controller: countryController,
-                decoration: const InputDecoration(labelText: 'Country'),
+                decoration: InputDecoration(labelText: l10n.countryLabel),
               ),
               TextField(
                 controller: languageController,
-                decoration: const InputDecoration(labelText: 'Language'),
+                decoration: InputDecoration(labelText: l10n.languageLabel),
               ),
             ],
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('Cancel'),
+              child: Text(l10n.cancel),
             ),
             ElevatedButton(
               onPressed: () {
@@ -131,7 +133,7 @@ class _AddMovieManualScreenState extends ConsumerState<AddMovieManualScreen> {
                 }
                 Navigator.of(context).pop(true);
               },
-              child: const Text('Add'),
+              child: Text(l10n.addLabel),
             ),
           ],
         );
@@ -201,21 +203,22 @@ class _AddMovieManualScreenState extends ConsumerState<AddMovieManualScreen> {
       if (!mounted) return;
 
       if (response.success && response.movie != null) {
+        final l10n = AppLocalizations.of(context);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-              content:
-                  Text('Created "${response.movie!.title}" successfully.')),
+              content: Text('"${response.movie!.title}" ${l10n.movieImportedSuccessfully}')),
         );
         context.go('/main/library/movie/${response.movie!.id}');
       } else {
+        final l10n = AppLocalizations.of(context);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-              content: Text(response.message ?? 'Failed to create movie.')),
+          SnackBar(content: Text(response.message ?? l10n.failedCreateMovie)),
         );
       }
     } catch (e) {
+      final l10n = AppLocalizations.of(context);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error creating movie: $e')),
+        SnackBar(content: Text('${l10n.failedCreateMovie}: $e')),
       );
     } finally {
       if (mounted) {
@@ -236,9 +239,10 @@ class _AddMovieManualScreenState extends ConsumerState<AddMovieManualScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Manual Movie Entry'),
+        title: Text(l10n.manualMovieEntry),
       ),
       body: SafeArea(
         child: Form(
@@ -252,13 +256,13 @@ class _AddMovieManualScreenState extends ConsumerState<AddMovieManualScreen> {
                 const SizedBox(height: 16),
                 TextFormField(
                   controller: _titleController,
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     labelText: 'Title',
-                    border: OutlineInputBorder(),
+                    border: const OutlineInputBorder(),
                   ),
                   validator: (value) {
                     if (value == null || value.trim().isEmpty) {
-                      return 'Title is required';
+                      return l10n.titleRequired;
                     }
                     return null;
                   },
@@ -273,58 +277,58 @@ class _AddMovieManualScreenState extends ConsumerState<AddMovieManualScreen> {
                 TextFormField(
                   controller: _plotController,
                   maxLines: 4,
-                  decoration: const InputDecoration(
-                    labelText: 'Plot / Overview',
-                    border: OutlineInputBorder(),
+                  decoration: InputDecoration(
+                    labelText: l10n.plotOverview,
+                    border: const OutlineInputBorder(),
                   ),
                 ),
                 const SizedBox(height: 16),
                 TextFormField(
                   controller: _runtimeController,
-                  decoration: const InputDecoration(
-                    labelText: 'Runtime (minutes)',
-                    border: OutlineInputBorder(),
+                  decoration: InputDecoration(
+                    labelText: l10n.runtimeMinutes,
+                    border: const OutlineInputBorder(),
                   ),
                   keyboardType: TextInputType.number,
                 ),
                 const SizedBox(height: 16),
                 TextFormField(
                   controller: _genresController,
-                  decoration: const InputDecoration(
-                    labelText: 'Genres (comma separated)',
-                    border: OutlineInputBorder(),
+                  decoration: InputDecoration(
+                    labelText: l10n.genresCommaSeparated,
+                    border: const OutlineInputBorder(),
                   ),
                 ),
                 const SizedBox(height: 16),
                 TextFormField(
                   controller: _countriesController,
-                  decoration: const InputDecoration(
-                    labelText: 'Countries (comma separated)',
-                    border: OutlineInputBorder(),
+                  decoration: InputDecoration(
+                    labelText: l10n.countriesCommaSeparated,
+                    border: const OutlineInputBorder(),
                   ),
                 ),
                 const SizedBox(height: 16),
                 TextFormField(
                   controller: _languagesController,
-                  decoration: const InputDecoration(
-                    labelText: 'Languages (comma separated)',
-                    border: OutlineInputBorder(),
+                  decoration: InputDecoration(
+                    labelText: l10n.languagesCommaSeparated,
+                    border: const OutlineInputBorder(),
                   ),
                 ),
                 const SizedBox(height: 16),
                 TextFormField(
                   controller: _posterUrlController,
-                  decoration: const InputDecoration(
-                    labelText: 'Poster Image URL',
-                    border: OutlineInputBorder(),
+                  decoration: InputDecoration(
+                    labelText: l10n.posterImageUrl,
+                    border: const OutlineInputBorder(),
                   ),
                 ),
                 const SizedBox(height: 16),
                 TextFormField(
                   controller: _trailerUrlController,
-                  decoration: const InputDecoration(
-                    labelText: 'Video Trailer URL',
-                    border: OutlineInputBorder(),
+                  decoration: InputDecoration(
+                    labelText: l10n.videoTrailerUrl,
+                    border: const OutlineInputBorder(),
                   ),
                 ),
                 const SizedBox(height: 24),
@@ -342,7 +346,7 @@ class _AddMovieManualScreenState extends ConsumerState<AddMovieManualScreen> {
                             ),
                           )
                         : const Icon(Icons.save),
-                    label: Text(_isSaving ? 'Saving...' : 'Add Movie'),
+                    label: Text(_isSaving ? 'Saving...' : l10n.addMovie),
                   ),
                 ),
               ],
@@ -354,12 +358,13 @@ class _AddMovieManualScreenState extends ConsumerState<AddMovieManualScreen> {
   }
 
   Widget _buildTypeSelector() {
+    final l10n = AppLocalizations.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Type',
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        Text(
+          l10n.typeLabel,
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 8),
         ToggleButtons(
@@ -373,14 +378,14 @@ class _AddMovieManualScreenState extends ConsumerState<AddMovieManualScreen> {
               _selectedType = index == 0 ? 'MOVIE' : 'TV_SERIES';
             });
           },
-          children: const [
+          children: [
             Padding(
-              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: Text('Movie'),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Text(l10n.movie),
             ),
             Padding(
-              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: Text('TV Series'),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Text(l10n.tvSeriesLabel),
             ),
           ],
         ),
@@ -389,27 +394,28 @@ class _AddMovieManualScreenState extends ConsumerState<AddMovieManualScreen> {
   }
 
   Widget _buildAlternativeTitlesSection() {
+    final l10n = AppLocalizations.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const Text(
-              'Alternative Titles',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            Text(
+              l10n.alternativeTitles,
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
             ),
             TextButton.icon(
               onPressed: _addAlternativeTitle,
               icon: const Icon(Icons.add),
-              label: const Text('Add'),
+              label: Text(AppLocalizations.of(context).addLabel),
             ),
           ],
         ),
         if (_alternativeTitles.isEmpty)
-          const Text(
-            'No alternative titles added yet.',
-            style: TextStyle(color: Colors.grey),
+          Text(
+            l10n.noAlternativeTitlesYet,
+            style: const TextStyle(color: Colors.grey),
           )
         else
           Wrap(
@@ -436,12 +442,13 @@ class _AddMovieManualScreenState extends ConsumerState<AddMovieManualScreen> {
   }
 
   Widget _buildExternalIdFields() {
+    final l10n = AppLocalizations.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'External IDs',
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        Text(
+          l10n.externalIdsOptional,
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 12),
         Row(
@@ -484,9 +491,9 @@ class _AddMovieManualScreenState extends ConsumerState<AddMovieManualScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'Release Date',
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 8),
         OutlinedButton.icon(

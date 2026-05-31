@@ -16,6 +16,7 @@ import '../../core/services/auth_service.dart';
 import '../../core/services/file_url_service.dart';
 import '../../core/services/library_service.dart';
 import '../../core/services/video_service.dart';
+import '../../l10n/app_localizations.dart';
 import '../../models/video_model.dart';
 import '../../utils/media_kit_low_latency.dart';
 import '../../widgets/common/presigned_image.dart';
@@ -711,6 +712,7 @@ class _ShortVideoFeedViewState extends ConsumerState<ShortVideoFeedView> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final videos = _videos;
 
     if (_isInitialLoading && videos.isEmpty) {
@@ -832,8 +834,8 @@ class _ShortVideoFeedViewState extends ConsumerState<ShortVideoFeedView> {
                         children: [
                           Text(
                             widget.query.scope == ShortVideoFeedScope.forYou
-                                ? 'For You'
-                                : 'Following',
+                                ? l10n.shortForYou
+                                : l10n.shortFollowing,
                             style: const TextStyle(
                               color: Colors.white,
                               fontSize: 16,
@@ -851,9 +853,9 @@ class _ShortVideoFeedViewState extends ConsumerState<ShortVideoFeedView> {
                         ],
                       ),
                     ),
-                    const _TopPillLabel(
+                    _TopPillLabel(
                       icon: Icons.swipe_vertical_rounded,
-                      label: 'Swipe up or down',
+                      label: l10n.shortSwipeUpOrDown,
                     ),
                   ],
                 ),
@@ -866,6 +868,7 @@ class _ShortVideoFeedViewState extends ConsumerState<ShortVideoFeedView> {
 
   Widget _buildEmptyState() {
     final isFollowing = widget.query.scope == ShortVideoFeedScope.following;
+    final l10n = AppLocalizations.of(context);
 
     return SafeArea(
       child: Center(
@@ -882,8 +885,8 @@ class _ShortVideoFeedViewState extends ConsumerState<ShortVideoFeedView> {
               const SizedBox(height: 16),
               Text(
                 isFollowing
-                    ? 'No videos from creators you follow yet.'
-                    : 'No videos available for short mode yet.',
+                    ? l10n.shortNoVideosFromCreatorsYouFollowYet
+                    : l10n.shortNoVideosAvailableYet,
                 textAlign: TextAlign.center,
                 style: const TextStyle(
                   color: Colors.white,
@@ -894,8 +897,8 @@ class _ShortVideoFeedViewState extends ConsumerState<ShortVideoFeedView> {
               const SizedBox(height: 10),
               Text(
                 isFollowing
-                    ? 'Follow more creators or switch to For You.'
-                    : 'Try again later or switch to Explore.',
+                    ? l10n.shortFollowMoreCreatorsOrSwitchToForYou
+                    : l10n.shortTryAgainLaterOrSwitchToExplore,
                 textAlign: TextAlign.center,
                 style: const TextStyle(
                   color: Colors.white70,
@@ -906,7 +909,7 @@ class _ShortVideoFeedViewState extends ConsumerState<ShortVideoFeedView> {
                 const SizedBox(height: 20),
                 FilledButton(
                   onPressed: () => context.pop(),
-                  child: const Text('Back to Home'),
+                  child: Text(l10n.shortBackToHome),
                 ),
               ],
             ],
@@ -1805,14 +1808,15 @@ class _ShortVideoPageState extends ConsumerState<_ShortVideoPage> {
                       icon: _isMuted
                           ? Icons.volume_off_rounded
                           : Icons.volume_up_rounded,
-                      label: _isMuted ? 'Muted' : 'Sound',
+                      label:
+                          _isMuted ? 'Muted' : AppLocalizations.of(context).shortSound,
                       color: Colors.white,
                       onTap: _toggleMute,
                     ),
                     const SizedBox(height: 6),
                     _ActionBubble(
                       icon: Icons.open_in_new_rounded,
-                      label: 'Open',
+                      label: AppLocalizations.of(context).shortOpen,
                       color: Colors.white,
                       onTap: _openFullPlayer,
                     ),

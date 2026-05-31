@@ -147,10 +147,10 @@ class AppLocalizationsVi extends AppLocalizationsEn {
   String get english => 'English (Tiếng Anh)';
 
   @override
-  String get chinese => '中文 (Tieng Trung)';
+  String get chinese => '中文 (Tiếng Trung)';
 
   @override
-  String get japanese => '日本語 (Tieng Nhat)';
+  String get japanese => '日本語 (Tiếng Nhật)';
 
   @override
   String get systemDefault => 'Mặc định hệ thống';
@@ -382,6 +382,14 @@ class AppLocalizationsVi extends AppLocalizationsEn {
 
   @override
   String get createAccount => 'Tạo tài khoản';
+    @override
+    String get create => 'Tạo';
+    @override
+    String get topRated => 'Đánh giá cao nhất';
+    @override
+    String get mostViewed => 'Xem nhiều nhất';
+    @override
+    String get random => 'Ngẫu nhiên';
 
   @override
   String get enableBiometricLoginOnDevice =>
@@ -585,10 +593,19 @@ class AppLocalizationsVi extends AppLocalizationsEn {
 
   @override
   String get datingLocationPermissionDenied =>
-      'Quyen truy cap vi tri bi tu choi. Vui long bat trong cai dat.';
+    'Quyền truy cập vị trí bị từ chối. Vui lòng bật trong cài đặt.';
 
   @override
   String get datingLocationError => 'Không thể lấy vị trí';
+    @override
+    String get datingPlanFreeUnlocked => 'Gói miễn phí';
+    @override
+    String get datingSmart => 'Tất cả';
+
+    @override
+    String get datingTrendingInYourArea => 'Đang thịnh hành trong khu vực của bạn';
+    @override
+    String get datingNewFace => 'Mới';
 
   @override
   String get datingUpdateLocation => 'Cập nhật vị trí';
@@ -1292,5 +1309,701 @@ class AppLocalizationsVi extends AppLocalizationsEn {
   @override
   String get couldNotOpenBrowserForPayment =>
       'Khong the mo trinh duyet de thanh toan.';
+
+  @override
+  String get changePassword => 'Đổi mật khẩu';
+
+  @override
+  String get changePasswordSubtitle => 'Cập nhật mật khẩu cho tài khoản này';
+
+  @override
+  String get adminSection => 'Quản trị';
+
+  @override
+  String get managementDashboard => 'Bảng điều khiển quản trị';
+
+  @override
+  String get managementDashboardSubtitle =>
+      'Thống kê, video, danh mục, người dùng';
+
+  @override
+  String get reportsMenu => 'Báo cáo';
+
+  @override
+  String get reportsMenuSubtitle => 'Kiểm duyệt báo cáo nội dung';
+
+  @override
+  String get feedbackInbox => 'Hộp thư phản hồi';
+
+  @override
+  String get feedbackInboxSubtitle => 'Xử lý phản hồi từ người dùng';
+
+  @override
+  String get changePasswordHelp =>
+      'Cập nhật mật khẩu bạn dùng để đăng nhập tài khoản này.';
+
+  @override
+  String get currentPasswordLabel => 'Mật khẩu hiện tại';
+
+  @override
+  String get newPasswordLabel => 'Mật khẩu mới';
+
+  @override
+  String get confirmNewPasswordLabel => 'Xác nhận mật khẩu mới';
+
+  @override
+  String get currentPasswordRequired => 'Vui lòng nhập mật khẩu hiện tại';
+
+  @override
+  String get newPasswordRequired => 'Vui lòng nhập mật khẩu mới';
+
+  @override
+  String get newPasswordMinLength => 'Mật khẩu phải có ít nhất 6 ký tự';
+
+  @override
+  String get newPasswordMustDiffer => 'Mật khẩu mới phải khác mật khẩu cũ';
+
+  @override
+  String get confirmNewPasswordRequired => 'Vui lòng xác nhận mật khẩu mới';
+
+  @override
+  String get changePasswordSuccess => 'Đổi mật khẩu thành công';
+
+  @override
+  String get changePasswordFailed => 'Đổi mật khẩu thất bại';
+
+  @override
+  String get groupName => 'Tên nhóm';
+
+  @override
+  String get groupNameRequired => 'Tên nhóm là bắt buộc';
+
+  @override
+  String get addAtLeastOneMember => 'Thêm ít nhất một thành viên';
+
+  @override
+  String get selectedMembers => 'Đã chọn';
+
+  @override
+  String get noUsersFound => 'Không tìm thấy người dùng';
+
+  @override
+  String get errorLoadingUsers => 'Lỗi tải danh sách người dùng';
+
+  @override
+  String get communityUploadMasters => 'Bậc thầy tải lên';
+
+  @override
+  String get communityTopics => 'Chủ đề';
+
+  @override
+  String get communityUsers => 'Người dùng';
+
+  @override
+  String get communityNothingHereRetry =>
+      'Chưa có nội dung, nhấn để thử lại';
+
+  @override
+  String get communityFollowForumHint =>
+      'Theo dõi diễn đàn từ tab Nguyên bản để xem cập nhật tại đây.';
+
+  @override
+  String get communityFollowUserHint =>
+      'Theo dõi người dùng để xem bài viết và video mới nhất của họ.';
+
+  @override
+  String get communityNoForumsYet => 'Chưa có diễn đàn nào';
+
+  @override
+  String get communityRefreshHint =>
+      'Kéo để làm mới sau khi trung tâm cộng đồng tải xong.';
+
+  @override
+  String get communityNoOriginalPostsYet => 'Chưa có bài viết nguyên bản';
+
+  @override
+  String get communityCreateFirstPostHint =>
+      'Hãy tạo bài viết cộng đồng đầu tiên hoặc kéo để làm mới.';
+
+  @override
+  String get communityRequestLatest => 'Mới nhất';
+
+  @override
+  String get communityRequestRanking => 'Xếp hạng';
+
+  @override
+  String get communityRequestGuide =>
+      'Đăng yêu cầu nội dung cụ thể, đặt thưởng xu, sau đó người khác có thể tải tệp lên hoặc đính kèm liên kết tìm kiếm. Liên kết kết quả tìm kiếm không bị tính phí cho người đóng góp.';
+
+  @override
+  String get communitySearchingRequests => 'Đang tìm yêu cầu cho';
+
+  @override
+  String get communityNoRankingYet => 'Chưa có dữ liệu xếp hạng';
+
+  @override
+  String get communityRankingHint =>
+      'Các yêu cầu được chấp nhận sẽ hiển thị ở bảng này.';
+
+  @override
+  String get communityNoRequestsFound =>
+      'Không có yêu cầu phù hợp với từ khóa này';
+
+  @override
+  String get communityTryAnotherKeyword =>
+      'Hãy thử từ khóa khác hoặc tạo yêu cầu thưởng mới.';
+
+  @override
+  String get createPostAddContentOrMedia => 'Vui lòng thêm nội dung hoặc media';
+
+  @override
+  String get createPostSuccess => 'Tạo bài viết thành công!';
+
+  @override
+  String get createPostError => 'Lỗi tạo bài viết';
+
+  @override
+  String get createPostAddMedia => 'Thêm media';
+
+  @override
+  String get createPostSelectedSummary => 'ảnh, video đã chọn';
+
+  @override
+  String get createPostProcessingVideos => 'Đang xử lý video...';
+
+  @override
+  String get createPostAudience => 'Đối tượng';
+
+  @override
+  String get createPostFreePostHint => '0 = Bài viết miễn phí';
+
+  @override
+  String get createPostValidCost => 'Vui lòng nhập chi phí hợp lệ (0 trở lên)';
+
+  @override
+  String get createPostVipOnly => 'Chỉ VIP';
+
+  @override
+  String get createPostVipOnlySubtitle =>
+      'Chỉ người dùng VIP có thể xem bài viết này';
+
+  @override
+  String get createPostMakePublicSubtitle =>
+      'Mọi người đều có thể xem bài viết này';
+
+  @override
+  String get createPostMakePrivateSubtitle =>
+      'Chỉ người bạn theo dõi mới có thể xem';
+
+  @override
+  String get createPostSettings => 'Cài đặt bài viết';
+
+  @override
+  String get createPostAllowComments => 'Cho phép bình luận';
+
+  @override
+  String get createPostAllowCommentsSubtitle =>
+      'Cho phép mọi người bình luận vào bài viết';
+
+  @override
+  String get createPostAllowLinks => 'Cho phép liên kết trong bình luận';
+
+  @override
+  String get createPostAllowLinksSubtitle =>
+      'Cho phép mọi người đăng liên kết trong bình luận';
+
+  @override
+  String get createPostPinPost => 'Ghim bài viết';
+
+  @override
+  String get createPostPinPostSubtitle => 'Giữ bài viết này ở đầu danh sách';
+
+  @override
+  String get createPostNsfw => 'Nội dung NSFW';
+
+  @override
+  String get createPostNsfwSubtitle => 'Đánh dấu nội dung không phù hợp nơi làm việc';
+
+  @override
+  String get createPostWhoCanReply => 'Ai có thể trả lời?';
+
+  @override
+  String get createPostFollowers => 'Người theo dõi';
+
+  @override
+  String get createPostPaidViewers => 'Người xem trả phí';
+
+  @override
+  String get createPostPeopleYouFollow => 'Người bạn theo dõi';
+
+  @override
+  String get createPostVerifiedFollowers => 'Người theo dõi đã xác minh';
+
+  @override
+  String get createPostNoOne => 'Không ai';
+
+  @override
+  String get tagsOptional => 'Thẻ (tùy chọn)';
+
+  @override
+  String get selectedMedia => 'Media đã chọn';
+
+  @override
+  String get imagesLabel => 'Ảnh';
+
+  @override
+  String get videosLabel => 'Video';
+
+  @override
+  String get createRequest => 'Tạo yêu cầu';
+
+  @override
+  String get createRequestBannerTitle =>
+      'Đặt thưởng và nhận kết quả từ cộng đồng';
+
+  @override
+  String get createRequestBannerSubtitle =>
+      'Người khác có thể tải tệp lên hoặc đính kèm liên kết media có sẵn từ tìm kiếm. Bạn duyệt kết quả tốt nhất rồi mở thưởng xu.';
+
+  @override
+  String get createRequestWhatLookingFor => 'Bạn đang tìm gì?';
+
+  @override
+  String get createRequestDescribeHint =>
+      'Mô tả album đầy đủ, video hoặc tệp bạn cần. Thêm chi tiết cảnh, tên hoặc từ khóa để người khác tìm nhanh hơn.';
+
+  @override
+  String get createRequestDescribeRequired => 'Vui lòng mô tả yêu cầu';
+
+  @override
+  String get createRequestHeadlineHint =>
+      'Dòng đầu tiên sẽ tự động thành tiêu đề yêu cầu, vì vậy bạn chỉ cần một đoạn mô tả kiểu bài viết ở đây.';
+
+  @override
+  String get createRequestKeywords => 'Từ khóa';
+
+  @override
+  String get createRequestKeywordsHint => 'Phân tách từ khóa bằng dấu phẩy';
+
+  @override
+  String get createRequestReferenceImages => 'Ảnh tham chiếu';
+
+  @override
+  String get attach => 'Đính kèm';
+
+  @override
+  String get createRequestReferenceHint =>
+      'Tùy chọn. Thêm ảnh chụp màn hình hoặc ảnh bìa để người đóng góp biết chính xác bạn cần album, video hay bộ nội dung nào.';
+
+  @override
+  String get coinBounty => 'Thưởng xu';
+
+  @override
+  String get coinBountyHint =>
+      'Có thể để 0. Bạn có thể thêm xu sau trong màn hình chi tiết.';
+
+  @override
+  String get coinBountyValidation => 'Số xu không được âm';
+
+  @override
+  String get availableBalance => 'Số dư khả dụng';
+
+  @override
+  String get publishing => 'Đang đăng...';
+
+  @override
+  String get publishRequest => 'Đăng yêu cầu';
+
+  @override
+  String get attachImagesFailed => 'Đính kèm ảnh thất bại';
+
+  @override
+  String get insufficientCoinsBounty =>
+      'Bạn không có đủ xu cho mức thưởng này.';
+
+  @override
+  String get addLabel => 'Thêm';
+
+  @override
+  String get failedLoadLibrarySections => 'Tải mục thư viện thất bại';
+
+  @override
+  String get noItemsFoundIn => 'Không tìm thấy mục nào trong';
+
+  @override
+  String get ifRecentImportTryRefresh =>
+      'Nếu bạn vừa import nội dung, hãy thử làm mới.';
+
+  @override
+  String get unableToLoadSection => 'Không thể tải';
+
+  @override
+  String get movieNotFound => 'Không tìm thấy phim';
+
+  @override
+  String get originalTitlesLabel => 'Tên gốc';
+
+  @override
+  String get releaseLabel => 'Phát hành';
+
+  @override
+  String get countryLabel => 'Quốc gia';
+
+  @override
+  String get adultLabel => 'Nội dung người lớn';
+
+  @override
+  String get filesLabel => 'Tệp';
+
+  @override
+  String get importFromUlozTo => 'Nhập từ uloz.to';
+
+  @override
+  String get videoFileLabel => 'Tệp video';
+
+  @override
+  String get noEpisodesYet => 'Chưa có tập nào.';
+
+  @override
+  String get noLikedVideosYet => 'Chưa có video đã thích';
+
+  @override
+  String get likedVideosWillAppear => 'Những video bạn thích sẽ hiện ở đây';
+
+  @override
+  String get refreshLikedVideos => 'Làm mới video đã thích';
+
+  @override
+  String get noPlaylistsYet => 'Chưa có danh sách phát';
+
+  @override
+  String get createFirstPlaylist => 'Tạo danh sách phát đầu tiên của bạn';
+
+  @override
+  String get refreshPlaylists => 'Làm mới danh sách phát';
+
+  @override
+  String get refreshPosts => 'Làm mới bài viết';
+
+  @override
+  String get privateLabel => 'Riêng tư';
+
+  @override
+  String get totalViews => 'Tổng lượt xem';
+
+  @override
+  String get totalLikes => 'Tổng lượt thích';
+
+  @override
+  String get totalComments => 'Tổng bình luận';
+
+  @override
+  String get engagementRate => 'Tỷ lệ tương tác';
+
+  @override
+  String get likesPerVideo => 'Lượt thích mỗi video';
+
+  @override
+  String get commentsPerVideo => 'Bình luận mỗi video';
+
+  @override
+  String get viewsPerVideo => 'Lượt xem mỗi video';
+
+  @override
+  String get uploadingProgress => 'Đang tải lên';
+
+  @override
+  String get selectThumbnailOptional => 'Chọn ảnh đại diện (tùy chọn)';
+
+  @override
+  String get generatingThumbnails => 'Đang tạo ảnh đại diện...';
+
+  @override
+  String get autoGeneratedThumbnails => 'Ảnh đại diện tự tạo';
+
+  @override
+  String get selectThumbnailOrUpload =>
+      'Chọn ảnh đại diện hoặc tải ảnh của bạn';
+
+  @override
+  String get enterVideoTitle => 'Nhập tiêu đề video';
+
+  @override
+  String get enterTitleRequired => 'Vui lòng nhập tiêu đề';
+
+  @override
+  String get enterVideoDescription => 'Nhập mô tả video';
+
+  @override
+  String get tagExamples => 'the1, the2, the3';
+
+  @override
+  String get validCostMessage => 'Vui lòng nhập chi phí hợp lệ (0 trở lên)';
+
+  @override
+  String get uploadFailedWithError => 'Tải lên thất bại';
+
+  @override
+  String get addMovie => 'Thêm phim';
+
+  @override
+  String get addNewMovie => 'Thêm phim mới';
+
+  @override
+  String get manualMovieEntry => 'Nhập phim thủ công';
+
+  @override
+  String get titleOptional => 'Tiêu đề (tùy chọn)';
+
+  @override
+  String get provideTitleToSearchHint =>
+      'Nhập tiêu đề để tìm bản ghi đã có. Bạn có thể để trống nếu dùng ID bên ngoài.';
+
+  @override
+  String get checking => 'Đang kiểm tra...';
+
+  @override
+  String get typeLabel => 'Loại';
+
+  @override
+  String get externalIdsOptional => 'ID bên ngoài (tùy chọn)';
+
+  @override
+  String get tvSeriesLabel => 'Phim bộ';
+
+  @override
+  String get noTmdbMatches => 'Không tìm thấy kết quả trên TMDb.';
+
+  @override
+  String get originalLabel => 'Tên gốc';
+
+  @override
+  String get importFromTmdb => 'Nhập từ TMDb';
+
+  @override
+  String get enterTitleOrExternalId =>
+      'Vui lòng nhập tiêu đề hoặc ít nhất một ID bên ngoài để tiếp tục.';
+
+  @override
+  String get failedSearchExistingTitles => 'Tìm tiêu đề hiện có thất bại';
+
+  @override
+  String get failedSearchTmdb => 'Tìm kiếm TMDb thất bại';
+
+  @override
+  String get movieImportedSuccessfully => 'Nhập phim thành công';
+
+  @override
+  String get failedImportMovie => 'Nhập phim thất bại';
+
+  @override
+  String get noExistingTitlesFound =>
+      'Không tìm thấy tiêu đề hiện có theo các định danh đã nhập.';
+
+  @override
+  String get continueAddNewTitle =>
+      'Bạn có thể tiếp tục thêm tiêu đề mới bằng nút bên dưới.';
+
+  @override
+  String get foundExistingTitles => 'Đã tìm thấy tiêu đề hiện có';
+
+  @override
+  String get noMatchingExistingTitles =>
+      'Không có tiêu đề hiện có nào khớp với thông tin đã cung cấp.';
+
+  @override
+  String get languageLabel => 'Ngôn ngữ';
+
+  @override
+  String get genreLabel => 'Thể loại';
+
+  @override
+  String get alternativeTitles => 'Tên thay thế';
+
+  @override
+  String get noAlternativeTitlesYet => 'Chưa có tên thay thế nào.';
+
+  @override
+  String get plotOverview => 'Nội dung / Tóm tắt';
+
+  @override
+  String get runtimeMinutes => 'Thời lượng (phút)';
+
+  @override
+  String get genresCommaSeparated => 'Thể loại (phân tách bằng dấu phẩy)';
+
+  @override
+  String get countriesCommaSeparated => 'Quốc gia (phân tách bằng dấu phẩy)';
+
+  @override
+  String get languagesCommaSeparated => 'Ngôn ngữ (phân tách bằng dấu phẩy)';
+
+  @override
+  String get posterImageUrl => 'URL ảnh poster';
+
+  @override
+  String get videoTrailerUrl => 'URL trailer video';
+
+  @override
+  String get titleRequired => 'Tiêu đề là bắt buộc';
+
+  @override
+  String get failedCreateMovie => 'Tạo phim thất bại';
+
+  @override
+  String get noPostsYet => 'Chưa có bài viết';
+    @override
+    String get noVideosYet => 'Chưa có video';
+    @override
+    String get createPlaylist => 'Tạo danh sách phát';
+    @override
+    String get analytics => 'Phân tích';
+
+    @override
+    String get overview => 'Tổng quan';
+    @override
+    String get categories => 'Danh mục';
+    @override
+    String get library => 'Thư viện';
+
+  @override
+  String get failedLoadPlaylists => 'Tải danh sách phát thất bại';
+
+  @override
+  String get noPlaylistsPromptCreate =>
+      'Bạn chưa có danh sách phát nào. Bạn có muốn tạo mới không?';
+
+  @override
+  String get untitledLabel => 'Chưa đặt tên';
+
+  @override
+  String get saveQrComingSoon => 'Tính năng lưu QR sắp ra mắt';
+
+  @override
+  String get scanToViewProfile => 'Quét để xem hồ sơ';
+
+  @override
+  String get adminAccessRequired => 'Yêu cầu quyền quản trị';
+
+  @override
+  String get adminAccessOnly =>
+      'Màn hình này chỉ dành cho tài khoản quản trị viên.';
+
+  @override
+  String get adminUnableLoadData => 'Không thể tải dữ liệu quản trị';
+
+    @override
+    String get aiMatchingProvider => 'Nhà cung cấp ghép đôi AI';
+
+    @override
+    String get addToPlaylistFailed => 'Thêm vào danh sách phát thất bại';
+
+    @override
+    String get freeContentBonusCoins => 'Xu thưởng nội dung miễn phí';
+
+    @override
+    String get freeContentBonusCoinsSubtitle =>
+            'Cấu hình xu thưởng cho bài đăng media miễn phí và video công khai miễn phí.';
+
+    @override
+    String get freeMediaPost => 'Bài đăng media miễn phí';
+
+    @override
+    String get freeVideoUpload => 'Tải video miễn phí';
+
+  @override
+  String get screenCaptureProtection => 'Bảo vệ chụp màn hình';
+
+  @override
+  String get screenCaptureProtectionSubtitle =>
+      'Chặn chụp ảnh màn hình và ghi hình trên Android, đồng thời áp dụng che nội dung mức tốt nhất trên iOS cho nội dung được bảo vệ.';
+
+  @override
+  String get datingFeature => 'Tính năng Dating';
+
+  @override
+  String get datingFeatureSubtitle =>
+      'Bật hoặc tắt tab Dating cho tất cả người dùng trong ứng dụng.';
+
+  @override
+  String get searchRadius => 'Bán kính tìm kiếm';
+
+  @override
+  String get recentFeedback => 'Phản hồi gần đây';
+
+  @override
+  String get noFeedbackSubmittedYet => 'Chưa có phản hồi nào được gửi.';
+
+  @override
+  String get welcomeBack => 'Chào mừng trở lại';
+
+  @override
+  String get signInToAccount => 'Đăng nhập vào tài khoản của bạn';
+
+  @override
+  String get costCoins => 'Chi phí (Xu)';
+
+  @override
+  String get makeVideoPublic => 'Đặt video ở chế độ công khai';
+
+  @override
+  String get tapToSelectVideoFile => 'Nhấn để chọn tệp video';
+
+  @override
+  String get tapToSelectThumbnailImage => 'Nhấn để chọn ảnh thu nhỏ';
+
+  @override
+  String get separateTagsWithCommas => 'Phân tách thẻ bằng dấu phẩy';
+
+  @override
+  String get freeVideo => '0 = Video miễn phí';
+
+  @override
+  String get anyoneCanWatchThisVideo => 'Bất kỳ ai cũng có thể xem video này';
+
+  @override
+  String get privacyPolicy => 'Chính sách quyền riêng tư';
+
+  @override
+  String get privacyPolicySubtitle => 'Đọc cách OnlyBL xử lý dữ liệu của bạn';
+
+  @override
+  String get searchCommunity => 'Tìm kiếm cộng đồng';
+
+  @override
+  String get newGroupChat => 'Tạo nhóm chat mới';
+
+  @override
+  String get shortForYou => 'Dành cho bạn';
+
+  @override
+  String get shortFollowing => 'Đang theo dõi';
+
+  @override
+  String get shortSwipeUpOrDown => 'Vuốt lên hoặc xuống';
+
+  @override
+  String get shortNoVideosFromCreatorsYouFollowYet =>
+      'Chưa có video từ nhà sáng tạo bạn đang theo dõi.';
+
+  @override
+  String get shortFollowMoreCreatorsOrSwitchToForYou =>
+      'Hãy theo dõi thêm nhà sáng tạo hoặc chuyển sang Dành cho bạn.';
+
+  @override
+  String get shortNoVideosAvailableYet => 'Chưa có video cho chế độ ngắn.';
+
+  @override
+  String get shortTryAgainLaterOrSwitchToExplore =>
+      'Hãy thử lại sau hoặc chuyển sang Khám phá.';
+
+  @override
+  String get shortBackToHome => 'Về trang chủ';
+
+  @override
+  String get shortSound => 'Âm thanh';
+
+  @override
+  String get shortOpen => 'Mở';
 }
 

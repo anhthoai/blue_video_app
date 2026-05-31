@@ -1,7 +1,7 @@
-import 'app_localizations_base.dart';
+import 'app_localizations_en.dart';
 
 /// Chinese (Simplified) translations
-class AppLocalizationsZh extends AppLocalizations {
+class AppLocalizationsZh extends AppLocalizationsEn {
   @override
   String get appName => '蓝色视频';
 
@@ -1300,7 +1300,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get datingUpdateLocation => '更新位置';
 
   @override
-  String get datingSmart => '智能';
+  String get datingSmart => '全部';
+
+  @override
+  String get datingTrendingInYourArea => '你所在地区的热门内容';
 
   @override
   String get datingNewFace => '新用户';
@@ -1930,4 +1933,577 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get contentCreatorWindowMonth => '月';
+
+  @override
+  String get changePassword => '修改密码';
+
+  @override
+  String get changePasswordSubtitle => '更新此账户的密码';
+
+  @override
+  String get adminSection => '管理';
+
+  @override
+  String get managementDashboard => '管理后台';
+
+  @override
+  String get managementDashboardSubtitle => '统计、视频、分类和用户';
+
+  @override
+  String get reportsMenu => '举报';
+
+  @override
+  String get reportsMenuSubtitle => '审核并处理举报';
+
+  @override
+  String get feedbackInbox => '反馈收件箱';
+
+  @override
+  String get feedbackInboxSubtitle => '回复用户反馈';
+
+  @override
+  String get changePasswordHelp => '更新你用于登录此账户的密码。';
+
+  @override
+  String get currentPasswordLabel => '当前密码';
+
+  @override
+  String get newPasswordLabel => '新密码';
+
+  @override
+  String get confirmNewPasswordLabel => '确认新密码';
+
+  @override
+  String get currentPasswordRequired => '请输入当前密码';
+
+  @override
+  String get newPasswordRequired => '请输入新密码';
+
+  @override
+  String get newPasswordMinLength => '密码至少需要 6 个字符';
+
+  @override
+  String get newPasswordMustDiffer => '新密码不能与旧密码相同';
+
+  @override
+  String get confirmNewPasswordRequired => '请确认新密码';
+
+  @override
+  String get changePasswordSuccess => '密码修改成功';
+
+  @override
+  String get changePasswordFailed => '密码修改失败';
+
+  @override
+  String get groupName => '群组名称';
+
+  @override
+  String get groupNameRequired => '群组名称为必填';
+
+  @override
+  String get addAtLeastOneMember => '至少添加一名成员';
+
+  @override
+  String get selectedMembers => '已选择';
+
+  @override
+  String get noUsersFound => '未找到用户';
+
+  @override
+  String get errorLoadingUsers => '加载用户时出错';
+
+  @override
+  String get communityUploadMasters => '上传达人';
+
+  @override
+  String get communityTopics => '主题';
+
+  @override
+  String get communityUsers => '用户';
+
+  @override
+  String get communityNothingHereRetry => '这里还没有内容，点击重试';
+
+  @override
+  String get communityFollowForumHint => '在 Original 标签中关注论坛，即可在这里看到更新。';
+
+  @override
+  String get communityFollowUserHint => '关注用户后即可看到他们最新的帖子和上传内容。';
+
+  @override
+  String get communityNoForumsYet => '暂无论坛';
+
+  @override
+  String get communityRefreshHint => '社区中心加载完成后，下拉即可刷新。';
+
+  @override
+  String get communityNoOriginalPostsYet => '暂无原创帖子';
+
+  @override
+  String get communityCreateFirstPostHint => '创建第一篇社区帖子，或下拉刷新。';
+
+  @override
+  String get communityRequestLatest => '最新';
+
+  @override
+  String get communityRequestRanking => '排行';
+
+  @override
+  String get communityRequestGuide => '发布具体片段需求并设置金币赏金，然后让其他用户上传文件或附上搜索链接。搜索结果链接对贡献者免费。';
+
+  @override
+  String get communitySearchingRequests => '正在搜索请求';
+
+  @override
+  String get communityNoRankingYet => '暂无排行数据';
+
+  @override
+  String get communityRankingHint => '已接受的匹配请求会开始出现在这里。';
+
+  @override
+  String get communityNoRequestsFound => '没有符合此搜索的请求';
+
+  @override
+  String get communityTryAnotherKeyword => '请尝试其他关键词，或创建新的赏金请求。';
+
+  @override
+  String get createPostAddContentOrMedia => '请添加一些内容或媒体';
+
+  @override
+  String get createPostSuccess => '帖子创建成功！';
+
+  @override
+  String get createPostError => '创建帖子时出错';
+
+  @override
+  String get createPostAddMedia => '添加媒体';
+
+  @override
+  String get createPostSelectedSummary => '张图片、个视频已选择';
+
+  @override
+  String get createPostProcessingVideos => '正在处理视频...';
+
+  @override
+  String get createPostAudience => '受众';
+
+  @override
+  String get createPostFreePostHint => '0 = 免费帖子';
+
+  @override
+  String get createPostValidCost => '请输入有效费用（0 或更大）';
+
+  @override
+  String get createPostVipOnly => '仅限 VIP';
+
+  @override
+  String get createPostVipOnlySubtitle => '只有 VIP 用户可以查看此帖子';
+
+  @override
+  String get createPostMakePublicSubtitle => '任何人都可以查看此帖子';
+
+  @override
+  String get createPostMakePrivateSubtitle => '只有你关注的人可以查看此帖子';
+
+  @override
+  String get createPostSettings => '帖子设置';
+
+  @override
+  String get createPostAllowComments => '允许评论';
+
+  @override
+  String get createPostAllowCommentsSubtitle => '允许其他人评论此帖子';
+
+  @override
+  String get createPostAllowLinks => '允许评论中包含链接';
+
+  @override
+  String get createPostAllowLinksSubtitle => '允许其他人在评论中发布链接';
+
+  @override
+  String get createPostPinPost => '置顶此帖子';
+
+  @override
+  String get createPostPinPostSubtitle => '让此帖子保持在顶部';
+
+  @override
+  String get createPostNsfw => 'NSFW 内容';
+
+  @override
+  String get createPostNsfwSubtitle => '标记为不适合工作场景';
+
+  @override
+  String get createPostWhoCanReply => '谁可以回复？';
+
+  @override
+  String get createPostFollowers => '粉丝';
+
+  @override
+  String get createPostPaidViewers => '付费查看者';
+
+  @override
+  String get createPostPeopleYouFollow => '你关注的人';
+
+  @override
+  String get createPostVerifiedFollowers => '已验证粉丝';
+
+  @override
+  String get createPostNoOne => '无人';
+
+  @override
+  String get tagsOptional => '标签（可选）';
+
+  @override
+  String get selectedMedia => '已选媒体';
+
+  @override
+  String get imagesLabel => '图片';
+
+  @override
+  String get videosLabel => '视频';
+
+  @override
+  String get createRequest => '创建请求';
+
+  @override
+  String get createRequestBannerTitle => '设置赏金并从社区收集匹配内容';
+
+  @override
+  String get createRequestBannerSubtitle => '其他人可以上传文件，或附上搜索中已有的媒体链接。你审核最佳匹配后发放金币。';
+
+  @override
+  String get createRequestWhatLookingFor => '你在寻找什么？';
+
+  @override
+  String get createRequestDescribeHint => '描述你需要的完整相册、视频或文件。添加场景细节、名称或关键词，帮助其他人搜索。';
+
+  @override
+  String get createRequestDescribeRequired => '请描述你的需求';
+
+  @override
+  String get createRequestHeadlineHint => '第一行会自动成为请求标题，所以这里只需填写一段帖子风格的描述。';
+
+  @override
+  String get createRequestKeywords => '关键词';
+
+  @override
+  String get createRequestKeywordsHint => '用逗号分隔关键词';
+
+  @override
+  String get createRequestReferenceImages => '参考图片';
+
+  @override
+  String get attach => '附加';
+
+  @override
+  String get createRequestReferenceHint => '可选。添加截图或封面图，让贡献者清楚你想要的是哪套相册、视频或内容集。';
+
+  @override
+  String get coinBounty => '金币赏金';
+
+  @override
+  String get coinBountyHint => '允许为 0。你也可以稍后在详情页继续增加金币。';
+
+  @override
+  String get coinBountyValidation => '金币不能为负数';
+
+  @override
+  String get availableBalance => '可用余额';
+
+  @override
+  String get publishing => '发布中...';
+
+  @override
+  String get publishRequest => '发布请求';
+
+  @override
+  String get attachImagesFailed => '附加图片失败';
+
+  @override
+  String get insufficientCoinsBounty => '你的金币不足以设置此赏金。';
+
+  @override
+  String get addLabel => '添加';
+
+  @override
+  String get failedLoadLibrarySections => '加载媒体库分区失败';
+
+  @override
+  String get noItemsFoundIn => '未在此处找到任何内容';
+
+  @override
+  String get ifRecentImportTryRefresh => '如果你刚刚导入内容，请尝试刷新。';
+
+  @override
+  String get unableToLoadSection => '无法加载';
+
+  @override
+  String get movieNotFound => '未找到影片';
+
+  @override
+  String get originalTitlesLabel => '原始标题';
+
+  @override
+  String get releaseLabel => '上映';
+
+  @override
+  String get countryLabel => '国家';
+
+  @override
+  String get adultLabel => '成人';
+
+  @override
+  String get filesLabel => '文件';
+
+  @override
+  String get importFromUlozTo => '从 uloz.to 导入';
+
+  @override
+  String get videoFileLabel => '视频文件';
+
+  @override
+  String get noEpisodesYet => '暂无剧集。';
+
+  @override
+  String get noLikedVideosYet => '还没有点赞的视频';
+
+  @override
+  String get likedVideosWillAppear => '你点赞的视频会显示在这里';
+
+  @override
+  String get refreshLikedVideos => '刷新点赞视频';
+
+  @override
+  String get noPlaylistsYet => '还没有播放列表';
+
+  @override
+  String get createFirstPlaylist => '创建你的第一个播放列表';
+
+  @override
+  String get refreshPlaylists => '刷新播放列表';
+
+  @override
+  String get refreshPosts => '刷新帖子';
+
+  @override
+  String get privateLabel => '私密';
+
+  @override
+  String get totalViews => '总观看量';
+
+  @override
+  String get totalLikes => '总点赞数';
+
+  @override
+  String get totalComments => '总评论数';
+
+  @override
+  String get engagementRate => '互动率';
+
+  @override
+  String get likesPerVideo => '每个视频点赞数';
+
+  @override
+  String get commentsPerVideo => '每个视频评论数';
+
+  @override
+  String get viewsPerVideo => '每个视频观看量';
+
+  @override
+  String get uploadingProgress => '上传中';
+
+  @override
+  String get selectThumbnailOptional => '选择缩略图（可选）';
+
+  @override
+  String get generatingThumbnails => '正在生成缩略图...';
+
+  @override
+  String get autoGeneratedThumbnails => '自动生成的缩略图';
+
+  @override
+  String get selectThumbnailOrUpload => '选择一个缩略图或上传你自己的';
+
+  @override
+  String get enterVideoTitle => '输入视频标题';
+
+  @override
+  String get enterTitleRequired => '请输入标题';
+
+  @override
+  String get enterVideoDescription => '输入视频描述';
+
+  @override
+  String get tagExamples => '标签1, 标签2, 标签3';
+
+  @override
+  String get validCostMessage => '请输入有效费用（0 或更大）';
+
+  @override
+  String get uploadFailedWithError => '上传失败';
+
+  @override
+  String get addMovie => '添加影片';
+
+  @override
+  String get addNewMovie => '添加新影片';
+
+  @override
+  String get manualMovieEntry => '手动录入影片';
+
+  @override
+  String get titleOptional => '标题（可选）';
+
+  @override
+  String get provideTitleToSearchHint => '输入标题以搜索现有条目。如果使用外部 ID，也可以留空。';
+
+  @override
+  String get checking => '检查中...';
+
+  @override
+  String get typeLabel => '类型';
+
+  @override
+  String get externalIdsOptional => '外部 ID（可选）';
+
+  @override
+  String get tvSeriesLabel => '电视剧';
+
+  @override
+  String get noTmdbMatches => '在 TMDb 上未找到匹配项。';
+
+  @override
+  String get originalLabel => '原始';
+
+  @override
+  String get importFromTmdb => '从 TMDb 导入';
+
+  @override
+  String get enterTitleOrExternalId => '请输入标题，或至少填写一个外部 ID 后继续。';
+
+  @override
+  String get failedSearchExistingTitles => '搜索现有标题失败';
+
+  @override
+  String get failedSearchTmdb => '搜索 TMDb 失败';
+
+  @override
+  String get movieImportedSuccessfully => '影片导入成功';
+
+  @override
+  String get failedImportMovie => '导入影片失败';
+
+  @override
+  String get noExistingTitlesFound => '未使用提供的标识符找到现有标题。';
+
+  @override
+  String get continueAddNewTitle => '你可以使用下方按钮继续添加新标题。';
+
+  @override
+  String get foundExistingTitles => '已找到现有标题';
+
+  @override
+  String get noMatchingExistingTitles => '没有找到与所提供信息匹配的现有标题。';
+
+  @override
+  String get languageLabel => '语言';
+
+  @override
+  String get genreLabel => '类型';
+
+  @override
+  String get alternativeTitles => '别名';
+
+  @override
+  String get noAlternativeTitlesYet => '还没有添加别名。';
+
+  @override
+  String get plotOverview => '剧情 / 简介';
+
+  @override
+  String get runtimeMinutes => '时长（分钟）';
+
+  @override
+  String get genresCommaSeparated => '类型（用逗号分隔）';
+
+  @override
+  String get countriesCommaSeparated => '国家（用逗号分隔）';
+
+  @override
+  String get languagesCommaSeparated => '语言（用逗号分隔）';
+
+  @override
+  String get posterImageUrl => '海报图片 URL';
+
+  @override
+  String get videoTrailerUrl => '预告片视频 URL';
+
+  @override
+  String get titleRequired => '标题为必填';
+
+  @override
+  String get failedCreateMovie => '创建影片失败';
+
+  @override
+  String get failedLoadPlaylists => '加载播放列表失败';
+
+  @override
+  String get noPlaylistsPromptCreate => '你还没有任何播放列表。现在要创建一个吗？';
+
+  @override
+  String get untitledLabel => '未命名';
+
+  @override
+  String get saveQrComingSoon => '保存 QR 即将推出';
+
+  @override
+  String get scanToViewProfile => '扫码查看个人资料';
+
+  @override
+  String get adminAccessRequired => '需要管理员权限';
+
+  @override
+  String get adminAccessOnly => '此页面仅管理员账户可用。';
+
+  @override
+  String get adminUnableLoadData => '无法加载管理数据';
+
+  @override
+  String get aiMatchingProvider => 'AI 匹配提供商';
+
+  @override
+  String get addToPlaylistFailed => '添加到播放列表失败';
+
+  @override
+  String get freeContentBonusCoins => '免费内容奖励金币';
+
+  @override
+  String get freeContentBonusCoinsSubtitle => '配置免费媒体帖子和免费公开视频上传的金币奖励。';
+
+  @override
+  String get freeMediaPost => '免费媒体帖子';
+
+  @override
+  String get freeVideoUpload => '免费视频上传';
+
+  @override
+  String get screenCaptureProtection => '截屏保护';
+
+  @override
+  String get screenCaptureProtectionSubtitle => '在 Android 上阻止截图和录屏，并在 iOS 上为受保护内容尽力进行遮罩。';
+
+  @override
+  String get datingFeature => 'Dating 功能';
+
+  @override
+  String get datingFeatureSubtitle => '为应用内所有用户启用或禁用 Dating 标签。';
+
+  @override
+  String get searchRadius => '搜索半径';
+
+  @override
+  String get recentFeedback => '最近反馈';
+
+  @override
+  String get noFeedbackSubmittedYet => '目前还没有提交任何反馈。';
 }

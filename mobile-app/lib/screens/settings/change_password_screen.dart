@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/services/auth_service.dart';
+import '../../l10n/app_localizations.dart';
 
 class ChangePasswordScreen extends ConsumerStatefulWidget {
   const ChangePasswordScreen({super.key});
@@ -29,6 +30,7 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
   }
 
   Future<void> _submit() async {
+    final l10n = AppLocalizations.of(context);
     if (!_formKey.currentState!.validate()) {
       return;
     }
@@ -50,16 +52,16 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
 
       if (success) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Password changed successfully'),
+          SnackBar(
+            content: Text(l10n.changePasswordSuccess),
             backgroundColor: Colors.green,
           ),
         );
         context.pop();
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Failed to change password'),
+          SnackBar(
+            content: Text(l10n.changePasswordFailed),
             backgroundColor: Colors.red,
           ),
         );
@@ -71,7 +73,7 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Error: $error'),
+          content: Text('${l10n.error}: $error'),
           backgroundColor: Colors.red,
         ),
       );
@@ -86,9 +88,10 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Change Password'),
+        title: Text(l10n.changePassword),
       ),
       body: SafeArea(
         child: SingleChildScrollView(
@@ -99,7 +102,7 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Text(
-                  'Update the password you use to sign in to this account.',
+                  l10n.changePasswordHelp,
                   style: Theme.of(context).textTheme.bodyMedium,
                 ),
                 const SizedBox(height: 24),
@@ -107,13 +110,13 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
                   controller: _currentPasswordController,
                   obscureText: true,
                   textInputAction: TextInputAction.next,
-                  decoration: const InputDecoration(
-                    labelText: 'Current password',
+                  decoration: InputDecoration(
+                    labelText: l10n.currentPasswordLabel,
                     border: OutlineInputBorder(),
                   ),
                   validator: (value) {
                     if (value == null || value.isEmpty) {
-                      return 'Enter your current password';
+                      return l10n.currentPasswordRequired;
                     }
                     return null;
                   },
@@ -123,19 +126,19 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
                   controller: _newPasswordController,
                   obscureText: true,
                   textInputAction: TextInputAction.next,
-                  decoration: const InputDecoration(
-                    labelText: 'New password',
+                  decoration: InputDecoration(
+                    labelText: l10n.newPasswordLabel,
                     border: OutlineInputBorder(),
                   ),
                   validator: (value) {
                     if (value == null || value.isEmpty) {
-                      return 'Enter a new password';
+                      return l10n.newPasswordRequired;
                     }
                     if (value.length < 6) {
-                      return 'Password must be at least 6 characters';
+                      return l10n.newPasswordMinLength;
                     }
                     if (value == _currentPasswordController.text) {
-                      return 'New password must be different';
+                      return l10n.newPasswordMustDiffer;
                     }
                     return null;
                   },
@@ -146,16 +149,16 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
                   obscureText: true,
                   textInputAction: TextInputAction.done,
                   onFieldSubmitted: (_) => _isSubmitting ? null : _submit(),
-                  decoration: const InputDecoration(
-                    labelText: 'Confirm new password',
+                  decoration: InputDecoration(
+                    labelText: l10n.confirmNewPasswordLabel,
                     border: OutlineInputBorder(),
                   ),
                   validator: (value) {
                     if (value == null || value.isEmpty) {
-                      return 'Confirm your new password';
+                      return l10n.confirmNewPasswordRequired;
                     }
                     if (value != _newPasswordController.text) {
-                      return 'Passwords do not match';
+                      return l10n.passwordsDoNotMatch;
                     }
                     return null;
                   },
@@ -169,7 +172,7 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
                           height: 20,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
-                      : const Text('Change Password'),
+                          : Text(l10n.changePassword),
                 ),
               ],
             ),

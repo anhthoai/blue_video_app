@@ -5,6 +5,7 @@ import 'package:share_plus/share_plus.dart';
 
 import '../../core/services/video_service.dart';
 import '../../core/services/api_service.dart';
+import '../../l10n/app_localizations.dart';
 import '../../models/video_model.dart';
 import '../../widgets/common/presigned_image.dart';
 
@@ -450,6 +451,7 @@ class _OtherUserProfileScreenState extends ConsumerState<OtherUserProfileScreen>
   }
 
   Widget _buildVideosTab() {
+    final l10n = AppLocalizations.of(context);
     if (_isLoadingVideos) {
       return const Center(child: CircularProgressIndicator());
     }
@@ -465,7 +467,7 @@ class _OtherUserProfileScreenState extends ConsumerState<OtherUserProfileScreen>
                 size: 64, color: Colors.grey[400]),
             const SizedBox(height: 16),
             Text(
-              'No videos yet',
+              l10n.noVideosYet,
               style: TextStyle(color: Colors.grey[600]),
             ),
           ],

@@ -916,6 +916,7 @@ class _GroupChatCreationDialogState extends State<_GroupChatCreationDialog> {
   }
 
   Future<void> _loadUsers({String query = ''}) async {
+    final l10n = AppLocalizations.of(context);
     setState(() {
       _isLoading = true;
       _errorText = null;
@@ -943,7 +944,7 @@ class _GroupChatCreationDialogState extends State<_GroupChatCreationDialog> {
       }
 
       setState(() {
-        _errorText = 'Error loading users';
+        _errorText = l10n.errorLoadingUsers;
       });
     } finally {
       if (mounted) {
@@ -973,18 +974,19 @@ class _GroupChatCreationDialogState extends State<_GroupChatCreationDialog> {
   }
 
   void _submit() {
+    final l10n = AppLocalizations.of(context);
     final trimmedName = _nameController.text.trim();
 
     if (trimmedName.isEmpty) {
       setState(() {
-        _errorText = 'Group name is required';
+        _errorText = l10n.groupNameRequired;
       });
       return;
     }
 
     if (_selectedUserIds.isEmpty) {
       setState(() {
-        _errorText = 'Add at least one member';
+        _errorText = l10n.addAtLeastOneMember;
       });
       return;
     }
@@ -999,6 +1001,7 @@ class _GroupChatCreationDialogState extends State<_GroupChatCreationDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return AlertDialog(
       title: Text(widget.title),
       content: SizedBox(
@@ -1010,9 +1013,9 @@ class _GroupChatCreationDialogState extends State<_GroupChatCreationDialog> {
             TextField(
               controller: _nameController,
               decoration: InputDecoration(
-                labelText: 'Group name',
+                labelText: l10n.groupName,
                 border: const OutlineInputBorder(),
-                errorText: _errorText == 'Group name is required'
+                errorText: _errorText == l10n.groupNameRequired
                     ? widget.fieldRequiredMessage
                     : null,
               ),
@@ -1036,10 +1039,10 @@ class _GroupChatCreationDialogState extends State<_GroupChatCreationDialog> {
             ),
             const SizedBox(height: 12),
             Text(
-              'Selected: ${_selectedUserIds.length}',
+              '${l10n.selectedMembers}: ${_selectedUserIds.length}',
               style: Theme.of(context).textTheme.bodySmall,
             ),
-            if (_errorText != null && _errorText != 'Group name is required') ...[
+            if (_errorText != null && _errorText != l10n.groupNameRequired) ...[
               const SizedBox(height: 8),
               Text(
                 _errorText!,
@@ -1054,7 +1057,7 @@ class _GroupChatCreationDialogState extends State<_GroupChatCreationDialog> {
               child: _isLoading
                   ? const Center(child: CircularProgressIndicator())
                   : _users.isEmpty
-                      ? const Center(child: Text('No users found'))
+                    ? Center(child: Text(l10n.noUsersFound))
                       : ListView.builder(
                           itemCount: _users.length,
                           itemBuilder: (context, index) {

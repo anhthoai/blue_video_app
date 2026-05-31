@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/services/movie_service.dart';
+import '../../../l10n/app_localizations.dart';
 import '../../../models/movie_model.dart';
 
 class AddMovieStartScreen extends ConsumerStatefulWidget {
@@ -57,6 +58,7 @@ class _AddMovieStartScreenState extends ConsumerState<AddMovieStartScreen> {
   }
 
   Widget _buildTmdbSuggestionSection() {
+    final l10n = AppLocalizations.of(context);
     if (_isSearchingTmdb) {
       return const Center(
         child: Padding(
@@ -81,11 +83,11 @@ class _AddMovieStartScreenState extends ConsumerState<AddMovieStartScreen> {
     }
 
     if (_tmdbSearched) {
-      return const Padding(
-        padding: EdgeInsets.only(bottom: 12),
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 12),
         child: Text(
-          'No matches found on TMDb.',
-          style: TextStyle(fontSize: 14, color: Colors.grey),
+          l10n.noTmdbMatches,
+          style: const TextStyle(fontSize: 14, color: Colors.grey),
         ),
       );
     }
@@ -94,6 +96,7 @@ class _AddMovieStartScreenState extends ConsumerState<AddMovieStartScreen> {
   }
 
   Widget _buildTmdbSuggestionCard(TmdbSearchResult suggestion) {
+    final l10n = AppLocalizations.of(context);
     return Card(
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
@@ -143,7 +146,7 @@ class _AddMovieStartScreenState extends ConsumerState<AddMovieStartScreen> {
                     Padding(
                       padding: const EdgeInsets.only(top: 4),
                       child: Text(
-                        'Original: ${suggestion.originalTitle}',
+                        '${l10n.originalLabel}: ${suggestion.originalTitle}',
                         style: TextStyle(
                           color: Colors.grey[600],
                           fontSize: 13,
@@ -155,7 +158,7 @@ class _AddMovieStartScreenState extends ConsumerState<AddMovieStartScreen> {
                     Padding(
                       padding: const EdgeInsets.only(top: 4),
                       child: Text(
-                        'Release: ${suggestion.releaseDate}',
+                        'Release Date: ${suggestion.releaseDate}',
                         style: TextStyle(
                           color: Colors.grey[600],
                           fontSize: 13,
@@ -206,7 +209,7 @@ class _AddMovieStartScreenState extends ConsumerState<AddMovieStartScreen> {
                       label: Text(
                         _isImportingSuggestion
                             ? 'Importing...'
-                            : 'Import from TMDb',
+                            : l10n.importFromTmdb,
                       ),
                     ),
                   ),
@@ -245,11 +248,11 @@ class _AddMovieStartScreenState extends ConsumerState<AddMovieStartScreen> {
       final hasTvdb = _tvdbController.text.trim().isNotEmpty;
 
       if (!hasTitle && !hasImdb && !hasTmdb && !hasTvdb) {
+        final l10n = AppLocalizations.of(context);
         setState(() {
           _isChecking = false;
           _hasChecked = false;
-          _errorMessage =
-              'Please enter a title or at least one external ID to search.';
+          _errorMessage = l10n.enterTitleOrExternalId;
         });
         return;
       }
@@ -290,8 +293,9 @@ class _AddMovieStartScreenState extends ConsumerState<AddMovieStartScreen> {
         }
       }
     } catch (e) {
+      final l10n = AppLocalizations.of(context);
       setState(() {
-        _errorMessage = 'Failed to search existing titles: $e';
+        _errorMessage = '${l10n.failedSearchExistingTitles}: $e';
       });
     } finally {
       if (mounted) {
@@ -303,6 +307,7 @@ class _AddMovieStartScreenState extends ConsumerState<AddMovieStartScreen> {
   }
 
   void _openMethodSelection() {
+    final l10n = AppLocalizations.of(context);
     if (!_formKey.currentState!.validate()) {
       return;
     }
@@ -316,9 +321,8 @@ class _AddMovieStartScreenState extends ConsumerState<AddMovieStartScreen> {
         _tmdbController.text.trim().isEmpty &&
         _tvdbController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-              'Please enter a title or at least one external ID to continue.'),
+        SnackBar(
+          content: Text(l10n.enterTitleOrExternalId),
         ),
       );
       return;
@@ -364,9 +368,10 @@ class _AddMovieStartScreenState extends ConsumerState<AddMovieStartScreen> {
         _tmdbSearched = true;
       });
     } catch (e) {
+      final l10n = AppLocalizations.of(context);
       if (!mounted) return;
       setState(() {
-        _tmdbError = 'Failed to search TMDb: $e';
+        _tmdbError = '${l10n.failedSearchTmdb}: $e';
         _tmdbSearched = true;
       });
     } finally {
@@ -379,6 +384,7 @@ class _AddMovieStartScreenState extends ConsumerState<AddMovieStartScreen> {
   }
 
   Future<void> _importTmdbSuggestion() async {
+    final l10n = AppLocalizations.of(context);
     final suggestion = _tmdbSuggestion;
     if (suggestion == null || suggestion.tmdbId == null) return;
 
@@ -406,7 +412,7 @@ class _AddMovieStartScreenState extends ConsumerState<AddMovieStartScreen> {
 
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(result.message ?? 'Movie imported successfully'),
+            content: Text(result.message ?? l10n.movieImportedSuccessfully),
           ),
         );
 
@@ -419,7 +425,7 @@ class _AddMovieStartScreenState extends ConsumerState<AddMovieStartScreen> {
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(result.message ?? 'Failed to import movie'),
+            content: Text(result.message ?? l10n.failedImportMovie),
           ),
         );
       }
@@ -427,7 +433,7 @@ class _AddMovieStartScreenState extends ConsumerState<AddMovieStartScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to import movie: $e'),
+            content: Text('${l10n.failedImportMovie}: $e'),
           ),
         );
       }
@@ -442,9 +448,10 @@ class _AddMovieStartScreenState extends ConsumerState<AddMovieStartScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Add Movie'),
+        title: Text(l10n.addMovie),
       ),
       body: SafeArea(
         child: Form(
@@ -459,11 +466,10 @@ class _AddMovieStartScreenState extends ConsumerState<AddMovieStartScreen> {
                   const SizedBox(height: 16),
                   TextFormField(
                     controller: _titleController,
-                    decoration: const InputDecoration(
-                      labelText: 'Title (optional)',
-                      helperText:
-                          'Provide a title to search existing entries. You can leave this blank if using external IDs.',
-                      border: OutlineInputBorder(),
+                    decoration: InputDecoration(
+                      labelText: l10n.titleOptional,
+                      helperText: l10n.provideTitleToSearchHint,
+                      border: const OutlineInputBorder(),
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -483,7 +489,7 @@ class _AddMovieStartScreenState extends ConsumerState<AddMovieStartScreen> {
                               ),
                             )
                           : const Icon(Icons.search),
-                      label: Text(_isChecking ? 'Checking...' : 'Next'),
+                      label: Text(_isChecking ? l10n.checking : l10n.next),
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -506,12 +512,13 @@ class _AddMovieStartScreenState extends ConsumerState<AddMovieStartScreen> {
   }
 
   Widget _buildTypeSelector() {
+    final l10n = AppLocalizations.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Type',
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        Text(
+          l10n.typeLabel,
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 8),
         ToggleButtons(
@@ -525,14 +532,14 @@ class _AddMovieStartScreenState extends ConsumerState<AddMovieStartScreen> {
               _selectedType = index == 0 ? 'MOVIE' : 'TV_SERIES';
             });
           },
-          children: const [
+          children: [
             Padding(
-              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: Text('Movie'),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Text(l10n.movie),
             ),
             Padding(
-              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: Text('TV Series'),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Text(l10n.tvSeriesLabel),
             ),
           ],
         ),
@@ -541,12 +548,13 @@ class _AddMovieStartScreenState extends ConsumerState<AddMovieStartScreen> {
   }
 
   Widget _buildExternalIdFields() {
+    final l10n = AppLocalizations.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'External IDs (Optional)',
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        Text(
+          l10n.externalIdsOptional,
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 12),
         Row(
@@ -588,6 +596,7 @@ class _AddMovieStartScreenState extends ConsumerState<AddMovieStartScreen> {
   }
 
   Widget _buildResultsSection() {
+    final l10n = AppLocalizations.of(context);
     final title = _titleController.text.trim();
     final hasResults = _existingTitles.isNotEmpty;
 
@@ -596,14 +605,14 @@ class _AddMovieStartScreenState extends ConsumerState<AddMovieStartScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'No existing titles were found using the provided identifiers.',
+            l10n.noExistingTitlesFound,
             style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 12),
           _buildTmdbSuggestionSection(),
           const SizedBox(height: 12),
           Text(
-            'You may continue to add a new title using the button below.',
+            l10n.continueAddNewTitle,
             style: TextStyle(fontSize: 14, color: Colors.grey),
           ),
           const SizedBox(height: 12),
@@ -612,7 +621,7 @@ class _AddMovieStartScreenState extends ConsumerState<AddMovieStartScreen> {
             child: OutlinedButton.icon(
               onPressed: _openMethodSelection,
               icon: const Icon(Icons.add_box_outlined),
-              label: const Text('Add New Movie'),
+              label: Text('${l10n.addLabel} ${l10n.movie}'),
             ),
           ),
         ],
@@ -624,8 +633,8 @@ class _AddMovieStartScreenState extends ConsumerState<AddMovieStartScreen> {
       children: [
         Text(
           hasResults
-              ? 'Found ${_existingTitles.length} existing title(s).'
-              : 'No existing titles were found that match the provided information.',
+              ? '${l10n.foundExistingTitles}: ${_existingTitles.length}'
+              : l10n.noMatchingExistingTitles,
           style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 12),
@@ -637,11 +646,11 @@ class _AddMovieStartScreenState extends ConsumerState<AddMovieStartScreen> {
             child: SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               child: DataTable(
-                columns: const [
-                  DataColumn(label: Text('Title')),
-                  DataColumn(label: Text('Language')),
-                  DataColumn(label: Text('Country')),
-                  DataColumn(label: Text('Genre')),
+                columns: [
+                  const DataColumn(label: Text('Title')),
+                  DataColumn(label: Text(l10n.languageLabel)),
+                  DataColumn(label: Text(l10n.countryLabel)),
+                  DataColumn(label: Text(l10n.genreLabel)),
                   DataColumn(label: Text('IMDb')),
                   DataColumn(label: Text('TMDb')),
                 ],
@@ -690,7 +699,7 @@ class _AddMovieStartScreenState extends ConsumerState<AddMovieStartScreen> {
           child: OutlinedButton.icon(
             onPressed: _openMethodSelection,
             icon: const Icon(Icons.add_box_outlined),
-            label: const Text('Add New Movie'),
+            label: Text('${l10n.addLabel} ${l10n.movie}'),
           ),
         ),
       ],

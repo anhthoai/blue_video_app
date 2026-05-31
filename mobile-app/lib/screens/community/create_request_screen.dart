@@ -8,6 +8,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../core/providers/community_hub_provider.dart';
 import '../../core/services/auth_service.dart';
 import '../../core/theme/app_theme.dart';
+import '../../l10n/app_localizations.dart';
 
 class CreateRequestScreen extends ConsumerStatefulWidget {
   const CreateRequestScreen({super.key});
@@ -36,6 +37,7 @@ class _CreateRequestScreenState extends ConsumerState<CreateRequestScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final keywords = _parseKeywords(_keywordsController.text);
     final currentUser = ref.watch(authServiceProvider).currentUser;
     final currentBalance = currentUser?.coinBalance ?? 0;
@@ -43,7 +45,7 @@ class _CreateRequestScreenState extends ConsumerState<CreateRequestScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF4F7FF),
       appBar: AppBar(
-        title: const Text('Request'),
+        title: Text(l10n.createRequest),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(18, 18, 18, 28),
@@ -61,11 +63,11 @@ class _CreateRequestScreenState extends ConsumerState<CreateRequestScreen> {
                   end: Alignment.bottomRight,
                 ),
               ),
-              child: const Column(
+              child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Set a bounty and collect matches from the community',
+                    l10n.createRequestBannerTitle,
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 22,
@@ -74,7 +76,7 @@ class _CreateRequestScreenState extends ConsumerState<CreateRequestScreen> {
                   ),
                   SizedBox(height: 10),
                   Text(
-                    'Others can upload files or attach an existing media link from search. You approve the best match and release the coins.',
+                    l10n.createRequestBannerSubtitle,
                     style: TextStyle(
                       color: Colors.white70,
                       height: 1.4,
@@ -106,21 +108,20 @@ class _CreateRequestScreenState extends ConsumerState<CreateRequestScreen> {
                       controller: _descriptionController,
                       minLines: 4,
                       maxLines: 7,
-                      decoration: const InputDecoration(
-                        labelText: 'What are you looking for?',
-                        hintText:
-                            'Describe the full album, video, or files you want. Add scene details, names, or keywords to help others search.',
+                      decoration: InputDecoration(
+                        labelText: l10n.createRequestWhatLookingFor,
+                        hintText: l10n.createRequestDescribeHint,
                       ),
                       validator: (value) {
                         if (value == null || value.trim().isEmpty) {
-                          return 'Describe what you need';
+                          return l10n.createRequestDescribeRequired;
                         }
                         return null;
                       },
                     ),
                     const SizedBox(height: 8),
-                    const Text(
-                      'The first line becomes the request headline automatically, so you only need one post-style description here.',
+                    Text(
+                      l10n.createRequestHeadlineHint,
                       style: TextStyle(
                         color: Color(0xFF6B7280),
                         height: 1.35,
@@ -129,9 +130,9 @@ class _CreateRequestScreenState extends ConsumerState<CreateRequestScreen> {
                     const SizedBox(height: 16),
                     TextFormField(
                       controller: _keywordsController,
-                      decoration: const InputDecoration(
-                        labelText: 'Keywords',
-                        hintText: 'Separate keywords with commas',
+                      decoration: InputDecoration(
+                        labelText: l10n.createRequestKeywords,
+                        hintText: l10n.createRequestKeywordsHint,
                       ),
                       onChanged: (_) => setState(() {}),
                     ),
@@ -167,22 +168,22 @@ class _CreateRequestScreenState extends ConsumerState<CreateRequestScreen> {
                     TextFormField(
                       controller: _coinsController,
                       keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(
-                        labelText: 'Coin bounty',
+                      decoration: InputDecoration(
+                        labelText: l10n.coinBounty,
                         prefixIcon: Icon(Icons.monetization_on_outlined),
-                        helperText: '0 is allowed. You can add more coins later from the detail screen.',
+                        helperText: l10n.coinBountyHint,
                       ),
                       validator: (value) {
                         final coins = int.tryParse(value ?? '');
                         if (coins == null || coins < 0) {
-                          return 'Coins cannot be negative';
+                          return l10n.coinBountyValidation;
                         }
                         return null;
                       },
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'Available balance: $currentBalance coins',
+                      '${l10n.availableBalance}: $currentBalance ${l10n.coins}',
                       style: const TextStyle(
                         color: Color(0xFF6B7280),
                         fontWeight: FontWeight.w500,
@@ -204,7 +205,9 @@ class _CreateRequestScreenState extends ConsumerState<CreateRequestScreen> {
                               )
                             : const Icon(Icons.campaign_outlined),
                         label: Text(
-                          _isSubmitting ? 'Publishing...' : 'Publish Request',
+                          _isSubmitting
+                              ? l10n.publishing
+                              : l10n.publishRequest,
                         ),
                         style: FilledButton.styleFrom(
                           backgroundColor: AppTheme.primaryColor,
@@ -270,14 +273,15 @@ class _CreateRequestScreenState extends ConsumerState<CreateRequestScreen> {
   }
 
   Widget _buildAttachmentSection() {
+    final l10n = AppLocalizations.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           children: [
-            const Expanded(
+            Expanded(
               child: Text(
-                'Reference images',
+                l10n.createRequestReferenceImages,
                 style: TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.w700,
@@ -287,13 +291,13 @@ class _CreateRequestScreenState extends ConsumerState<CreateRequestScreen> {
             TextButton.icon(
               onPressed: _isSubmitting ? null : _pickImages,
               icon: const Icon(Icons.add_photo_alternate_outlined),
-              label: const Text('Attach'),
+              label: Text(l10n.attach),
             ),
           ],
         ),
         const SizedBox(height: 6),
-        const Text(
-          'Optional. Add screenshots or cover images so contributors know what full album, video, or set you want.',
+        Text(
+          l10n.createRequestReferenceHint,
           style: TextStyle(
             color: Color(0xFF6B7280),
             height: 1.35,
@@ -352,6 +356,7 @@ class _CreateRequestScreenState extends ConsumerState<CreateRequestScreen> {
   }
 
   Future<void> _pickImages() async {
+    final l10n = AppLocalizations.of(context);
     try {
       final images = await _imagePicker.pickMultiImage(imageQuality: 85);
       if (images.isEmpty || !mounted) {
@@ -369,7 +374,7 @@ class _CreateRequestScreenState extends ConsumerState<CreateRequestScreen> {
         return;
       }
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to attach images: $error')),
+        SnackBar(content: Text('${l10n.attachImagesFailed}: $error')),
       );
     }
   }
@@ -405,9 +410,10 @@ class _CreateRequestScreenState extends ConsumerState<CreateRequestScreen> {
   }
 
   String _friendlyError(Object error) {
+    final l10n = AppLocalizations.of(context);
     final message = error.toString();
     if (message.toLowerCase().contains('insufficient')) {
-      return 'You do not have enough coins for this bounty.';
+      return l10n.insufficientCoinsBounty;
     }
     return message;
   }

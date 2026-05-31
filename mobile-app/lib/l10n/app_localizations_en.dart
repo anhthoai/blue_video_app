@@ -1168,6 +1168,39 @@ class AppLocalizationsEn extends AppLocalizations {
   String get onlyVipUsersCanWatchThisVideo =>
       'Only VIP users can watch this video';
 
+  @override
+  String get shortForYou => 'For You';
+
+  @override
+  String get shortFollowing => 'Following';
+
+  @override
+  String get shortSwipeUpOrDown => 'Swipe up or down';
+
+  @override
+  String get shortNoVideosFromCreatorsYouFollowYet =>
+      'No videos from creators you follow yet.';
+
+  @override
+  String get shortFollowMoreCreatorsOrSwitchToForYou =>
+      'Follow more creators or switch to For You.';
+
+  @override
+  String get shortNoVideosAvailableYet => 'No videos available for short mode yet.';
+
+  @override
+  String get shortTryAgainLaterOrSwitchToExplore =>
+      'Try again later or switch to Explore.';
+
+  @override
+  String get shortBackToHome => 'Back to Home';
+
+  @override
+  String get shortSound => 'Sound';
+
+  @override
+  String get shortOpen => 'Open';
+
   // Theme settings
   @override
   String get lightMode => 'Light Mode';
@@ -1322,7 +1355,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get datingUpdateLocation => 'Update location';
 
   @override
-  String get datingSmart => 'Smart';
+    String get datingSmart => 'All';
+
+    @override
+    String get datingTrendingInYourArea => 'Trending in your area';
 
   @override
   String get datingNewFace => 'New';
@@ -1979,4 +2015,608 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get contentCreatorWindowMonth => 'Month';
+
+  @override
+  String get changePassword => 'Change Password';
+
+  @override
+  String get changePasswordSubtitle => 'Update the password for this account';
+
+  @override
+  String get adminSection => 'Admin';
+
+  @override
+  String get managementDashboard => 'Management Dashboard';
+
+  @override
+  String get managementDashboardSubtitle =>
+      'Statistics, videos, categories, users';
+
+  @override
+  String get reportsMenu => 'Reports';
+
+  @override
+  String get reportsMenuSubtitle => 'Review and moderate reports';
+
+  @override
+  String get feedbackInbox => 'Feedback Inbox';
+
+  @override
+  String get feedbackInboxSubtitle => 'Reply to user feedback';
+
+  @override
+  String get changePasswordHelp =>
+      'Update the password you use to sign in to this account.';
+
+  @override
+  String get currentPasswordLabel => 'Current password';
+
+  @override
+  String get newPasswordLabel => 'New password';
+
+  @override
+  String get confirmNewPasswordLabel => 'Confirm new password';
+
+  @override
+  String get currentPasswordRequired => 'Enter your current password';
+
+  @override
+  String get newPasswordRequired => 'Enter a new password';
+
+  @override
+  String get newPasswordMinLength => 'Password must be at least 6 characters';
+
+  @override
+  String get newPasswordMustDiffer => 'New password must be different';
+
+  @override
+  String get confirmNewPasswordRequired => 'Confirm your new password';
+
+  @override
+  String get changePasswordSuccess => 'Password changed successfully';
+
+  @override
+  String get changePasswordFailed => 'Failed to change password';
+
+  @override
+  String get groupName => 'Group name';
+
+  @override
+  String get groupNameRequired => 'Group name is required';
+
+  @override
+  String get addAtLeastOneMember => 'Add at least one member';
+
+  @override
+  String get selectedMembers => 'Selected';
+
+  @override
+  String get noUsersFound => 'No users found';
+
+  @override
+  String get errorLoadingUsers => 'Error loading users';
+
+  @override
+  String get communityUploadMasters => 'Upload Masters';
+
+  @override
+  String get communityTopics => 'Topics';
+
+  @override
+  String get communityUsers => 'Users';
+
+  @override
+  String get communityNothingHereRetry => 'Nothing here, click to retry';
+
+  @override
+  String get communityFollowForumHint =>
+      'Follow a forum from the Original tab to keep its updates here.';
+
+  @override
+  String get communityFollowUserHint =>
+      'Follow a user to see their latest posts and uploads.';
+
+  @override
+  String get communityNoForumsYet => 'No forums available yet';
+
+  @override
+  String get communityRefreshHint =>
+      'Pull to refresh after the community hub finishes loading.';
+
+  @override
+  String get communityNoOriginalPostsYet => 'No original posts yet';
+
+  @override
+  String get communityCreateFirstPostHint =>
+      'Create the first community post or pull to refresh.';
+
+  @override
+  String get communityRequestLatest => 'Latest';
+
+  @override
+  String get communityRequestRanking => 'Ranking';
+
+  @override
+  String get communityRequestGuide =>
+      'Ask for a specific clip, set the coin bounty, then let other users upload files or attach search links. Linked search results are free for the contributor.';
+
+  @override
+  String get communitySearchingRequests => 'Searching requests for';
+
+  @override
+  String get communityNoRankingYet => 'No ranking data yet';
+
+  @override
+  String get communityRankingHint =>
+      'Accepted request matches will start filling this board.';
+
+  @override
+  String get communityNoRequestsFound => 'No requests matched this search';
+
+  @override
+  String get communityTryAnotherKeyword =>
+      'Try a different keyword or create a new bounty request.';
+
+  @override
+  String get createPostAddContentOrMedia => 'Please add some content or media';
+
+  @override
+  String get createPostSuccess => 'Post created successfully!';
+
+  @override
+  String get createPostError => 'Error creating post';
+
+  @override
+  String get createPostAddMedia => 'Add Media';
+
+  @override
+  String get createPostSelectedSummary => 'images, videos selected';
+
+  @override
+  String get createPostProcessingVideos => 'Processing videos...';
+
+  @override
+  String get createPostAudience => 'Audience';
+
+  @override
+  String get createPostFreePostHint => '0 = Free post';
+
+  @override
+  String get createPostValidCost => 'Please enter a valid cost (0 or greater)';
+
+  @override
+  String get createPostVipOnly => 'VIP Only';
+
+  @override
+  String get createPostVipOnlySubtitle =>
+      'Only VIP users can view this post';
+
+  @override
+  String get createPostMakePublicSubtitle => 'Anyone can see this post';
+
+  @override
+  String get createPostMakePrivateSubtitle =>
+      'Only people you follow can see this post';
+
+  @override
+  String get createPostSettings => 'Post Settings';
+
+  @override
+  String get createPostAllowComments => 'Allow Comments';
+
+  @override
+  String get createPostAllowCommentsSubtitle =>
+      'Let people comment on this post';
+
+  @override
+  String get createPostAllowLinks => 'Allow Links in Comments';
+
+  @override
+  String get createPostAllowLinksSubtitle =>
+      'Let people post links in comments';
+
+  @override
+  String get createPostPinPost => 'Pin This Post';
+
+  @override
+  String get createPostPinPostSubtitle => 'Keep this post at the top';
+
+  @override
+  String get createPostNsfw => 'NSFW Content';
+
+  @override
+  String get createPostNsfwSubtitle => 'Mark as not safe for work';
+
+  @override
+  String get createPostWhoCanReply => 'Who Can Reply?';
+
+  @override
+  String get createPostFollowers => 'Followers';
+
+  @override
+  String get createPostPaidViewers => 'Paid Viewers';
+
+  @override
+  String get createPostPeopleYouFollow => 'People You Follow';
+
+  @override
+  String get createPostVerifiedFollowers => 'Verified Followers';
+
+  @override
+  String get createPostNoOne => 'No One';
+
+  @override
+  String get tagsOptional => 'Tags (Optional)';
+
+  @override
+  String get selectedMedia => 'Selected Media';
+
+  @override
+  String get imagesLabel => 'Images';
+
+  @override
+  String get videosLabel => 'Videos';
+
+  @override
+  String get createRequest => 'Create Request';
+
+  @override
+  String get createRequestBannerTitle =>
+      'Set a bounty and collect matches from the community';
+
+  @override
+  String get createRequestBannerSubtitle =>
+      'Others can upload files or attach an existing media link from search. You approve the best match and release the coins.';
+
+  @override
+  String get createRequestWhatLookingFor => 'What are you looking for?';
+
+  @override
+  String get createRequestDescribeHint =>
+      'Describe the full album, video, or files you want. Add scene details, names, or keywords to help others search.';
+
+  @override
+  String get createRequestDescribeRequired => 'Describe what you need';
+
+  @override
+  String get createRequestHeadlineHint =>
+      'The first line becomes the request headline automatically, so you only need one post-style description here.';
+
+  @override
+  String get createRequestKeywords => 'Keywords';
+
+  @override
+  String get createRequestKeywordsHint => 'Separate keywords with commas';
+
+  @override
+  String get createRequestReferenceImages => 'Reference images';
+
+  @override
+  String get attach => 'Attach';
+
+  @override
+  String get createRequestReferenceHint =>
+      'Optional. Add screenshots or cover images so contributors know what full album, video, or set you want.';
+
+  @override
+  String get coinBounty => 'Coin bounty';
+
+  @override
+  String get coinBountyHint =>
+      '0 is allowed. You can add more coins later from the detail screen.';
+
+  @override
+  String get coinBountyValidation => 'Coins cannot be negative';
+
+  @override
+  String get availableBalance => 'Available balance';
+
+  @override
+  String get publishing => 'Publishing...';
+
+  @override
+  String get publishRequest => 'Publish Request';
+
+  @override
+  String get attachImagesFailed => 'Failed to attach images';
+
+  @override
+  String get insufficientCoinsBounty =>
+      'You do not have enough coins for this bounty.';
+
+  @override
+  String get addLabel => 'Add';
+
+  @override
+  String get failedLoadLibrarySections => 'Failed to load library sections';
+
+  @override
+  String get noItemsFoundIn => 'No items found in';
+
+  @override
+  String get ifRecentImportTryRefresh =>
+      'If you recently imported content, try refreshing.';
+
+  @override
+  String get unableToLoadSection => 'Unable to load';
+
+  @override
+  String get movieNotFound => 'Movie not found';
+
+  @override
+  String get originalTitlesLabel => 'Original title(s)';
+
+  @override
+  String get releaseLabel => 'Release';
+
+  @override
+  String get countryLabel => 'Country';
+
+  @override
+  String get adultLabel => 'Adult';
+
+  @override
+  String get filesLabel => 'Files';
+
+  @override
+  String get importFromUlozTo => 'Import from uloz.to';
+
+  @override
+  String get videoFileLabel => 'Video File';
+
+  @override
+  String get noEpisodesYet => 'No episodes available yet.';
+
+  @override
+  String get noLikedVideosYet => 'No liked videos yet';
+
+  @override
+  String get likedVideosWillAppear => 'Videos you like will appear here';
+
+  @override
+  String get refreshLikedVideos => 'Refresh Liked Videos';
+
+  @override
+  String get noPlaylistsYet => 'No playlists yet';
+
+  @override
+  String get createFirstPlaylist => 'Create your first playlist';
+
+  @override
+  String get refreshPlaylists => 'Refresh Playlists';
+
+  @override
+  String get refreshPosts => 'Refresh Posts';
+
+  @override
+  String get privateLabel => 'Private';
+
+  @override
+  String get totalViews => 'Total Views';
+
+  @override
+  String get totalLikes => 'Total Likes';
+
+  @override
+  String get totalComments => 'Total Comments';
+
+  @override
+  String get engagementRate => 'Engagement Rate';
+
+  @override
+  String get likesPerVideo => 'Likes per Video';
+
+  @override
+  String get commentsPerVideo => 'Comments per Video';
+
+  @override
+  String get viewsPerVideo => 'Views per Video';
+
+  @override
+  String get uploadingProgress => 'Uploading';
+
+  @override
+  String get selectThumbnailOptional => 'Select Thumbnail (Optional)';
+
+  @override
+  String get generatingThumbnails => 'Generating thumbnails...';
+
+  @override
+  String get autoGeneratedThumbnails => 'Auto-Generated Thumbnails';
+
+  @override
+  String get selectThumbnailOrUpload => 'Select a thumbnail or upload your own';
+
+  @override
+  String get enterVideoTitle => 'Enter video title';
+
+  @override
+  String get enterTitleRequired => 'Please enter a title';
+
+  @override
+  String get enterVideoDescription => 'Enter video description';
+
+  @override
+  String get tagExamples => 'tag1, tag2, tag3';
+
+  @override
+  String get validCostMessage => 'Please enter a valid cost (0 or greater)';
+
+  @override
+  String get uploadFailedWithError => 'Upload failed';
+
+  @override
+  String get addMovie => 'Add Movie';
+
+  @override
+  String get addNewMovie => 'Add New Movie';
+
+  @override
+  String get manualMovieEntry => 'Manual Movie Entry';
+
+  @override
+  String get titleOptional => 'Title (optional)';
+
+  @override
+  String get provideTitleToSearchHint =>
+      'Provide a title to search existing entries. You can leave this blank if using external IDs.';
+
+  @override
+  String get checking => 'Checking...';
+
+  @override
+  String get typeLabel => 'Type';
+
+  @override
+  String get externalIdsOptional => 'External IDs (Optional)';
+
+  @override
+  String get tvSeriesLabel => 'TV Series';
+
+  @override
+  String get noTmdbMatches => 'No matches found on TMDb.';
+
+  @override
+  String get originalLabel => 'Original';
+
+  @override
+  String get importFromTmdb => 'Import from TMDb';
+
+  @override
+  String get enterTitleOrExternalId =>
+      'Please enter a title or at least one external ID to continue.';
+
+  @override
+  String get failedSearchExistingTitles => 'Failed to search existing titles';
+
+  @override
+  String get failedSearchTmdb => 'Failed to search TMDb';
+
+  @override
+  String get movieImportedSuccessfully => 'Movie imported successfully';
+
+  @override
+  String get failedImportMovie => 'Failed to import movie';
+
+  @override
+  String get noExistingTitlesFound =>
+      'No existing titles were found using the provided identifiers.';
+
+  @override
+  String get continueAddNewTitle =>
+      'You may continue to add a new title using the button below.';
+
+  @override
+  String get foundExistingTitles => 'Found existing title(s)';
+
+  @override
+  String get noMatchingExistingTitles =>
+      'No existing titles were found that match the provided information.';
+
+  @override
+  String get languageLabel => 'Language';
+
+  @override
+  String get genreLabel => 'Genre';
+
+  @override
+  String get alternativeTitles => 'Alternative Titles';
+
+  @override
+  String get noAlternativeTitlesYet => 'No alternative titles added yet.';
+
+  @override
+  String get plotOverview => 'Plot / Overview';
+
+  @override
+  String get runtimeMinutes => 'Runtime (minutes)';
+
+  @override
+  String get genresCommaSeparated => 'Genres (comma separated)';
+
+  @override
+  String get countriesCommaSeparated => 'Countries (comma separated)';
+
+  @override
+  String get languagesCommaSeparated => 'Languages (comma separated)';
+
+  @override
+  String get posterImageUrl => 'Poster Image URL';
+
+  @override
+  String get videoTrailerUrl => 'Video Trailer URL';
+
+  @override
+  String get titleRequired => 'Title is required';
+
+  @override
+  String get failedCreateMovie => 'Failed to create movie';
+
+  @override
+  String get failedLoadPlaylists => 'Failed to load playlists';
+
+  @override
+  String get noPlaylistsPromptCreate =>
+      'You don\'t have any playlists yet. Would you like to create one?';
+
+  @override
+  String get untitledLabel => 'Untitled';
+
+  @override
+  String get saveQrComingSoon => 'Save QR coming soon';
+
+  @override
+  String get scanToViewProfile => 'Scan to View Profile';
+
+  @override
+  String get adminAccessRequired => 'Admin access required';
+
+  @override
+  String get adminAccessOnly =>
+      'This screen is only available to administrator accounts.';
+
+  @override
+  String get adminUnableLoadData => 'Unable to load admin data';
+
+    @override
+    String get aiMatchingProvider => 'AI Matching Provider';
+
+    @override
+    String get addToPlaylistFailed => 'Failed to add to playlist';
+
+    @override
+    String get freeContentBonusCoins => 'Free Content Bonus Coins';
+
+    @override
+    String get freeContentBonusCoinsSubtitle =>
+            'Configure the coin reward for free media posts and free public video uploads.';
+
+    @override
+    String get freeMediaPost => 'Free media post';
+
+    @override
+    String get freeVideoUpload => 'Free video upload';
+
+  @override
+  String get screenCaptureProtection => 'Screen capture protection';
+
+  @override
+  String get screenCaptureProtectionSubtitle =>
+      'Blocks screenshots and recording on Android and applies best-effort masking on iOS for protected content.';
+
+  @override
+  String get datingFeature => 'Dating Feature';
+
+  @override
+  String get datingFeatureSubtitle =>
+      'Enable or disable the Dating tab for all users in the app.';
+
+  @override
+  String get searchRadius => 'Search radius';
+
+  @override
+  String get recentFeedback => 'Recent feedback';
+
+  @override
+  String get noFeedbackSubmittedYet => 'No feedback has been submitted yet.';
 }
