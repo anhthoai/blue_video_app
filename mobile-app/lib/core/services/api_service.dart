@@ -1558,6 +1558,7 @@ class ApiService {
     String? fileDirectory,
     int? fileSize,
     String? mimeType,
+    Map<String, dynamic>? metadata,
   }) async {
     final response = await http.post(
       Uri.parse('$baseUrl/chat/rooms/$roomId/messages'),
@@ -1570,10 +1571,66 @@ class ApiService {
         'fileDirectory': fileDirectory,
         'fileSize': fileSize,
         'mimeType': mimeType,
+        'metadata': metadata,
       }),
     );
 
     return await _handleResponse(response);
+  }
+
+  Future<Map<String, dynamic>> editChatMessage({
+    required String messageId,
+    required String content,
+    String? roomId,
+  }) async {
+    try {
+      final response = await http.put(
+        Uri.parse('$baseUrl/chat/messages/$messageId'),
+        headers: await _getHeaders(),
+        body: json.encode({
+          'content': content,
+        }),
+      );
+
+      return await _handleResponse(response);
+    } catch (e) {
+      if (roomId != null && roomId.isNotEmpty && '$e'.contains('404')) {
+        final fallbackResponse = await http.put(
+          Uri.parse('$baseUrl/chat/rooms/$roomId/messages/$messageId'),
+          headers: await _getHeaders(),
+          body: json.encode({
+            'content': content,
+          }),
+        );
+
+        return await _handleResponse(fallbackResponse);
+      }
+      rethrow;
+    }
+  }
+
+  Future<Map<String, dynamic>> deleteChatMessage({
+    required String messageId,
+    String? roomId,
+  }) async {
+    try {
+      final response = await http.delete(
+        Uri.parse('$baseUrl/chat/messages/$messageId'),
+        headers: await _getHeaders(),
+      );
+
+      return await _handleResponse(response);
+    } catch (e) {
+      if (roomId != null && roomId.isNotEmpty && '$e'.contains('404')) {
+        final fallbackResponse = await http.delete(
+          Uri.parse('$baseUrl/chat/rooms/$roomId/messages/$messageId'),
+          headers: await _getHeaders(),
+        );
+
+        return await _handleResponse(fallbackResponse);
+      }
+      rethrow;
+    }
   }
 
   Future<Map<String, dynamic>> registerPushToken({

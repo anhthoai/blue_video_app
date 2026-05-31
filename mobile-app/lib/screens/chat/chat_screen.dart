@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
@@ -41,6 +42,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   bool _isSendingTyping = false;
   bool? _isChatMutedOverride;
   Timer? _typingTimer;
+  ChatMessage? _replyingToMessage;
+  ChatMessage? _editingMessage;
   DatingProfile? _otherDatingProfile;
   DatingProfile? _myDatingProfile;
   String? _loadedProfileUserId;
@@ -125,16 +128,64 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   }
 
   Future<void> _sendMessage() async {
+    final l10n = AppLocalizations.of(context);
     final content = _messageController.text.trim();
     if (content.isEmpty) {
       return;
     }
 
+    final editingMessage = _editingMessage;
+    final replyingToMessage = _replyingToMessage;
+
+    final originalText = _messageController.text;
+
     _messageController.clear();
-    await _chatNotifier.sendMessage(widget.chatId, content);
+    if (editingMessage != null) {
+      final success = await _chatNotifier.editMessage(widget.chatId, editingMessage.id, content);
+      if (!success) {
+        if (!mounted) {
+          return;
+        }
+        setState(() {
+          _editingMessage = editingMessage;
+        });
+        _messageController.text = originalText;
+        _messageController.selection = TextSelection.fromPosition(
+          TextPosition(offset: _messageController.text.length),
+        );
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(l10n.errorTryAgain)),
+        );
+        return;
+      }
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(l10n.savedSuccessfully)),
+        );
+      }
+    } else {
+      await _chatNotifier.sendMessage(
+        widget.chatId,
+        content,
+        metadata: replyingToMessage == null
+            ? null
+            : {
+                'replyToMessageId': replyingToMessage.id,
+                'replyToContent': replyingToMessage.content,
+                'replyToSenderName': replyingToMessage.username,
+              },
+      );
+    }
+
     if (!mounted) {
       return;
     }
+
+    setState(() {
+      _editingMessage = null;
+      _replyingToMessage = null;
+    });
 
     _sendTypingIndicator(false);
     setState(() {
@@ -583,6 +634,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     final messages = [
       ...(chatState.messages[widget.chatId] ?? const <ChatMessage>[])
     ]..sort((left, right) => left.createdAt.compareTo(right.createdAt));
+    final messageById = {for (final item in messages) item.id: item};
     final currentUser = ref.watch(currentUserProvider);
     final isRemoteTyping = chatState.typingUsers[widget.chatId] ?? false;
     final currentRoom = _findCurrentRoom(chatState.rooms);
@@ -696,9 +748,29 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                         isMe: message.senderId == currentUser?.id,
                         senderAvatarUrl:
                             _getSenderAvatar(message, currentRoom, currentUser?.id),
-                        onReply: () {
-                          // Handle reply
-                        },
+                        replyPreviewText: message.replyToMessageId == null
+                            ? null
+                            : _shorten(
+                                _replyDisplayContent(
+                                  messageById[message.replyToMessageId] ??
+                                      ChatMessage(
+                                        id: '',
+                                        roomId: message.roomId,
+                                        userId: '',
+                                        content:
+                                            (message.metadata?['replyToContent'] as String?) ?? '',
+                                        createdAt: DateTime.now(),
+                                        updatedAt: DateTime.now(),
+                                        messageType: MessageType.text,
+                                        username: '',
+                                      ),
+                                ),
+                              ),
+                        replyPreviewSender: message.replyToMessageId == null
+                            ? null
+                            : (messageById[message.replyToMessageId]?.username ??
+                                message.metadata?['replyToSenderName'] as String?),
+                        onReply: () => _startReply(message),
                         onLongPress: () {
                           _showMessageOptions(message);
                         },
@@ -859,6 +931,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
   Widget _buildMessageInput() {
     final l10n = AppLocalizations.of(context);
+    final isEditing = _editingMessage != null;
+    final previewMessage = _editingMessage ?? _replyingToMessage;
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -870,43 +945,101 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           ),
         ),
       ),
-      child: Row(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          IconButton(
-            icon: const Icon(Icons.attach_file),
-            onPressed: () {
-              _showAttachmentOptions();
-            },
-          ),
-          Expanded(
-            child: TextField(
-              controller: _messageController,
-              onChanged: _onTextChanged,
-              decoration: InputDecoration(
-                hintText: '${l10n.typeMessage}...',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(24),
-                  borderSide: BorderSide.none,
-                ),
-                filled: true,
-                fillColor: Colors.grey[100],
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 12,
+          if (previewMessage != null) ...[
+            Container(
+              width: double.infinity,
+              margin: const EdgeInsets.only(bottom: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.grey[100],
+                borderRadius: BorderRadius.circular(10),
+                border: Border(
+                  left: BorderSide(
+                    color: Theme.of(context).colorScheme.primary,
+                    width: 3,
+                  ),
                 ),
               ),
-              maxLines: null,
-              textCapitalization: TextCapitalization.sentences,
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          isEditing ? l10n.edit : l10n.reply,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w700,
+                            fontSize: 12,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          _shorten(_replyDisplayContent(previewMessage)),
+                          style: TextStyle(color: Colors.grey[700], fontSize: 12),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close, size: 18),
+                    onPressed: () {
+                      setState(() {
+                        _replyingToMessage = null;
+                        _editingMessage = null;
+                      });
+                    },
+                  ),
+                ],
+              ),
             ),
-          ),
-          const SizedBox(width: 8),
-          IconButton(
-            icon: const Icon(Icons.send),
-            onPressed: _sendMessage,
-            style: IconButton.styleFrom(
-              backgroundColor: Theme.of(context).colorScheme.primary,
-              foregroundColor: Colors.white,
-            ),
+          ],
+          Row(
+            children: [
+              IconButton(
+                icon: const Icon(Icons.attach_file),
+                onPressed: isEditing
+                    ? null
+                    : () {
+                        _showAttachmentOptions();
+                      },
+              ),
+              Expanded(
+                child: TextField(
+                  controller: _messageController,
+                  onChanged: _onTextChanged,
+                  decoration: InputDecoration(
+                    hintText: '${l10n.typeMessage}...',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(24),
+                      borderSide: BorderSide.none,
+                    ),
+                    filled: true,
+                    fillColor: Colors.grey[100],
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
+                  ),
+                  maxLines: null,
+                  textCapitalization: TextCapitalization.sentences,
+                ),
+              ),
+              const SizedBox(width: 8),
+              IconButton(
+                icon: Icon(isEditing ? Icons.check : Icons.send),
+                onPressed: _sendMessage,
+                style: IconButton.styleFrom(
+                  backgroundColor: Theme.of(context).colorScheme.primary,
+                  foregroundColor: Colors.white,
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -1134,6 +1267,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
   void _showMessageOptions(ChatMessage message) {
     final l10n = AppLocalizations.of(context);
+    final currentUserId = ref.read(currentUserProvider)?.id;
+    final isMine = message.senderId == currentUserId;
     showModalBottomSheet(
       context: context,
       builder: (context) => Container(
@@ -1146,7 +1281,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               title: Text(l10n.reply),
               onTap: () {
                 Navigator.pop(context);
-                // Handle reply
+                _startReply(message);
               },
             ),
             ListTile(
@@ -1154,29 +1289,153 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               title: Text(l10n.copy),
               onTap: () {
                 Navigator.pop(context);
-                // Handle copy
+                _copyMessage(message);
               },
             ),
-            ListTile(
-              leading: const Icon(Icons.edit),
-              title: Text(l10n.edit),
-              onTap: () {
-                Navigator.pop(context);
-                // Handle edit
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.delete),
-              title: Text(l10n.delete),
-              onTap: () {
-                Navigator.pop(context);
-                // Handle delete
-              },
-            ),
+            if (isMine)
+              ListTile(
+                leading: const Icon(Icons.edit),
+                title: Text(l10n.edit),
+                onTap: () {
+                  Navigator.pop(context);
+                  _startEdit(message);
+                },
+              ),
+            if (isMine)
+              ListTile(
+                leading: const Icon(Icons.delete),
+                title: Text(l10n.delete),
+                onTap: () {
+                  Navigator.pop(context);
+                  _deleteMessage(message);
+                },
+              ),
           ],
         ),
       ),
     );
+  }
+
+  void _startReply(ChatMessage message) {
+    setState(() {
+      _replyingToMessage = message;
+      _editingMessage = null;
+    });
+  }
+
+  void _startEdit(ChatMessage message) {
+    setState(() {
+      _editingMessage = message;
+      _replyingToMessage = null;
+      _messageController.text = message.content;
+      _messageController.selection = TextSelection.fromPosition(
+        TextPosition(offset: _messageController.text.length),
+      );
+    });
+  }
+
+  Future<void> _copyMessage(ChatMessage message) async {
+    final l10n = AppLocalizations.of(context);
+    final content = message.content.trim().isNotEmpty
+        ? message.content.trim()
+        : (message.fileName?.trim().isNotEmpty == true
+            ? message.fileName!.trim()
+            : '');
+
+    if (content.isEmpty) {
+      return;
+    }
+
+    await Clipboard.setData(ClipboardData(text: content));
+    if (!mounted) {
+      return;
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(l10n.copiedToClipboard)),
+    );
+  }
+
+  Future<void> _deleteMessage(ChatMessage message) async {
+    final l10n = AppLocalizations.of(context);
+    final shouldDelete = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(l10n.delete),
+        content: Text(l10n.deleteConfirmation),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: Text(l10n.cancel),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: Text(l10n.delete),
+          ),
+        ],
+      ),
+    );
+
+    if (shouldDelete != true) {
+      return;
+    }
+
+    final success = await _chatNotifier.deleteMessage(widget.chatId, message.id);
+    if (!mounted) {
+      return;
+    }
+
+    if (success) {
+      if (_editingMessage?.id == message.id || _replyingToMessage?.id == message.id) {
+        setState(() {
+          _editingMessage = null;
+          _replyingToMessage = null;
+        });
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(l10n.success)),
+      );
+      return;
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(l10n.errorTryAgain)),
+    );
+  }
+
+  String _replyDisplayContent(ChatMessage message) {
+    if (message.content.trim().isNotEmpty) {
+      return message.content.trim();
+    }
+
+    if (message.fileName != null && message.fileName!.trim().isNotEmpty) {
+      return message.fileName!.trim();
+    }
+
+    switch (message.messageType) {
+      case MessageType.image:
+        return 'Image';
+      case MessageType.video:
+        return 'Video';
+      case MessageType.audio:
+        return 'Audio';
+      case MessageType.file:
+        return 'File';
+      case MessageType.location:
+        return 'Location';
+      case MessageType.sticker:
+        return 'Sticker';
+      case MessageType.system:
+      case MessageType.text:
+        return message.content;
+    }
+  }
+
+  String _shorten(String value, {int max = 70}) {
+    if (value.length <= max) {
+      return value;
+    }
+    return '${value.substring(0, max)}...';
   }
 
   void _startVideoCall() {

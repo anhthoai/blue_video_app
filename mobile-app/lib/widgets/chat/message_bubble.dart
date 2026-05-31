@@ -20,6 +20,8 @@ class MessageBubble extends StatefulWidget {
   final ChatMessage message;
   final bool isMe;
   final String? senderAvatarUrl;
+  final String? replyPreviewText;
+  final String? replyPreviewSender;
   final VoidCallback? onReply;
   final VoidCallback? onLongPress;
 
@@ -28,6 +30,8 @@ class MessageBubble extends StatefulWidget {
     required this.message,
     required this.isMe,
     this.senderAvatarUrl,
+    this.replyPreviewText,
+    this.replyPreviewSender,
     this.onReply,
     this.onLongPress,
   });
@@ -268,6 +272,13 @@ class _MessageBubbleState extends State<MessageBubble> {
 
   Widget _buildReplyPreview(BuildContext context) {
     final isMe = widget.isMe;
+    final l10n = AppLocalizations.of(context);
+    final sender = widget.replyPreviewSender?.trim();
+    final text = widget.replyPreviewText?.trim();
+    final previewContent = (text == null || text.isEmpty)
+        ? l10n.chatNoMessagesYet
+        : text;
+
     return Container(
       padding: const EdgeInsets.all(8),
       margin: const EdgeInsets.only(bottom: 8),
@@ -281,12 +292,31 @@ class _MessageBubbleState extends State<MessageBubble> {
           ),
         ),
       ),
-      child: const Text(
-        'Replying to: This is a sample reply message',
-        style: TextStyle(
-          fontSize: 12,
-          fontStyle: FontStyle.italic,
-        ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            sender == null || sender.isEmpty
+                ? l10n.reply
+                : '${l10n.reply} • $sender',
+            style: TextStyle(
+              fontSize: 11,
+              color: isMe ? Colors.white70 : Colors.grey[700],
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            previewContent,
+            style: TextStyle(
+              fontSize: 12,
+              fontStyle: FontStyle.italic,
+              color: isMe ? Colors.white : Colors.black87,
+            ),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
       ),
     );
   }

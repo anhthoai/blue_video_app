@@ -10822,6 +10822,174 @@ app.post('/api/v1/chat/rooms/:roomId/messages', async (req, res) => {
   }
 });
 
+// Edit a chat message
+app.put('/api/v1/chat/messages/:messageId', async (req, res) => {
+  try {
+    const currentUserId = await getCurrentUserId(req);
+
+    if (!currentUserId) {
+      res.status(401).json({
+        success: false,
+        message: 'Authentication required - please sign in again',
+      });
+      return;
+    }
+
+    const { messageId } = req.params;
+    const { content } = req.body as { content?: string };
+
+    if (!content || !content.trim()) {
+      res.status(400).json({
+        success: false,
+        message: 'Message content is required',
+      });
+      return;
+    }
+
+    const existing = await prisma.chatMessage.findUnique({
+      where: { id: messageId },
+      include: {
+        room: {
+          include: {
+            participants: {
+              select: { userId: true },
+            },
+          },
+        },
+      },
+    });
+
+    if (!existing) {
+      res.status(404).json({
+        success: false,
+        message: 'Message not found',
+      });
+      return;
+    }
+
+    if (existing.userId !== currentUserId) {
+      res.status(403).json({
+        success: false,
+        message: 'You do not have permission to edit this message',
+      });
+      return;
+    }
+
+    const updatedMessage = await prisma.chatMessage.update({
+      where: { id: messageId },
+      data: {
+        content: content.trim(),
+        isEdited: true,
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            username: true,
+            firstName: true,
+            lastName: true,
+            avatarUrl: true,
+            avatar: true,
+            fileDirectory: true,
+            s3StorageId: true,
+            isVerified: true,
+          },
+        },
+      },
+    });
+
+    const serializedMessage = serializeChatMessage(updatedMessage);
+    const participantIds = await getChatRoomParticipantIds(updatedMessage.roomId);
+
+    io.to(`chat-${updatedMessage.roomId}`).emit('message-updated', serializedMessage);
+    participantIds.forEach(participantId => {
+      io.to(`user-${participantId}`).emit('message-updated', serializedMessage);
+    });
+    await emitChatRoomUpdate(updatedMessage.roomId, participantIds);
+
+    res.json({
+      success: true,
+      data: serializedMessage,
+    });
+  } catch (error) {
+    console.error('Error editing message:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to edit message',
+    });
+  }
+});
+
+// Delete a chat message
+app.delete('/api/v1/chat/messages/:messageId', async (req, res) => {
+  try {
+    const currentUserId = await getCurrentUserId(req);
+
+    if (!currentUserId) {
+      res.status(401).json({
+        success: false,
+        message: 'Authentication required - please sign in again',
+      });
+      return;
+    }
+
+    const { messageId } = req.params;
+
+    const existing = await prisma.chatMessage.findUnique({
+      where: { id: messageId },
+      select: {
+        id: true,
+        roomId: true,
+        userId: true,
+      },
+    });
+
+    if (!existing) {
+      res.status(404).json({
+        success: false,
+        message: 'Message not found',
+      });
+      return;
+    }
+
+    if (existing.userId !== currentUserId) {
+      res.status(403).json({
+        success: false,
+        message: 'You do not have permission to delete this message',
+      });
+      return;
+    }
+
+    await prisma.chatMessage.delete({
+      where: { id: messageId },
+    });
+
+    const participantIds = await getChatRoomParticipantIds(existing.roomId);
+    io.to(`chat-${existing.roomId}`).emit('message-deleted', {
+      roomId: existing.roomId,
+      messageId,
+    });
+    participantIds.forEach(participantId => {
+      io.to(`user-${participantId}`).emit('message-deleted', {
+        roomId: existing.roomId,
+        messageId,
+      });
+    });
+    await emitChatRoomUpdate(existing.roomId, participantIds);
+
+    res.json({
+      success: true,
+      message: 'Message deleted successfully',
+    });
+  } catch (error) {
+    console.error('Error deleting message:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to delete message',
+    });
+  }
+});
+
 // ── Private Album Chat Endpoints ─────────────────────────────────────────────
 
 // POST /api/v1/dating/private-album/request-chat/:userId

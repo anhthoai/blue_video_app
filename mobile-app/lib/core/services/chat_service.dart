@@ -255,6 +255,7 @@ class ChatService {
     String? fileDirectory,
     int? fileSize,
     String? mimeType,
+    Map<String, dynamic>? metadata,
   }) async {
     try {
       final response = await _apiService.sendMessage(
@@ -266,6 +267,7 @@ class ChatService {
         fileDirectory: fileDirectory,
         fileSize: fileSize,
         mimeType: mimeType,
+        metadata: metadata,
       );
 
       if (response['success'] == true && response['data'] != null) {
@@ -275,6 +277,44 @@ class ChatService {
     } catch (e) {
       debugPrint('Error sending message: $e');
       return null;
+    }
+  }
+
+  Future<ChatMessage?> editMessage({
+    required String messageId,
+    required String content,
+    String? roomId,
+  }) async {
+    try {
+      final response = await _apiService.editChatMessage(
+        messageId: messageId,
+        content: content,
+        roomId: roomId,
+      );
+
+      if (response['success'] == true && response['data'] != null) {
+        return ChatMessage.fromJson(response['data']);
+      }
+      return null;
+    } catch (e) {
+      debugPrint('Error editing message: $e');
+      return null;
+    }
+  }
+
+  Future<bool> deleteMessage({
+    required String messageId,
+    String? roomId,
+  }) async {
+    try {
+      final response = await _apiService.deleteChatMessage(
+        messageId: messageId,
+        roomId: roomId,
+      );
+      return response['success'] == true;
+    } catch (e) {
+      debugPrint('Error deleting message: $e');
+      return false;
     }
   }
 
@@ -650,6 +690,7 @@ class ChatServiceNotifier extends StateNotifier<ChatServiceState> {
     String? fileDirectory,
     int? fileSize,
     String? mimeType,
+    Map<String, dynamic>? metadata,
   }) async {
     try {
       await _chatService.connect();
@@ -662,6 +703,7 @@ class ChatServiceNotifier extends StateNotifier<ChatServiceState> {
         fileDirectory: fileDirectory,
         fileSize: fileSize,
         mimeType: mimeType,
+        metadata: metadata,
       );
 
       if (message != null) {
@@ -680,6 +722,67 @@ class ChatServiceNotifier extends StateNotifier<ChatServiceState> {
       }
     } catch (e) {
       state = state.copyWith(error: e.toString());
+    }
+  }
+
+  Future<bool> editMessage(
+    String roomId,
+    String messageId,
+    String content,
+  ) async {
+    try {
+      await _chatService.connect();
+      final updatedMessage = await _chatService.editMessage(
+        messageId: messageId,
+        content: content,
+        roomId: roomId,
+      );
+
+      if (updatedMessage == null) {
+        return false;
+      }
+
+      final currentMessages = Map<String, List<ChatMessage>>.from(state.messages);
+      final roomMessages = [...(currentMessages[roomId] ?? const <ChatMessage>[])];
+      final index = roomMessages.indexWhere((message) => message.id == messageId);
+
+      if (index >= 0) {
+        roomMessages[index] = updatedMessage;
+        currentMessages[roomId] = roomMessages;
+        state = state.copyWith(messages: currentMessages);
+      }
+
+      await loadMessages(roomId);
+
+      return true;
+    } catch (e) {
+      state = state.copyWith(error: e.toString());
+      return false;
+    }
+  }
+
+  Future<bool> deleteMessage(String roomId, String messageId) async {
+    try {
+      await _chatService.connect();
+      final deleted = await _chatService.deleteMessage(
+        messageId: messageId,
+        roomId: roomId,
+      );
+      if (!deleted) {
+        return false;
+      }
+
+      final currentMessages = Map<String, List<ChatMessage>>.from(state.messages);
+      final roomMessages = [...(currentMessages[roomId] ?? const <ChatMessage>[])];
+      roomMessages.removeWhere((message) => message.id == messageId);
+      currentMessages[roomId] = roomMessages;
+
+      state = state.copyWith(messages: currentMessages);
+      await loadChatRooms();
+      return true;
+    } catch (e) {
+      state = state.copyWith(error: e.toString());
+      return false;
     }
   }
 

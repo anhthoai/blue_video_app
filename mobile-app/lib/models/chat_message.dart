@@ -128,37 +128,44 @@ class ChatMessage {
   }
 
   factory ChatMessage.fromJson(Map<String, dynamic> json) {
+    final metadata = json['metadata'] as Map<String, dynamic>?;
     return ChatMessage(
       id: json['id'] as String? ?? '',
-      roomId: json['roomId'] as String? ?? '',
-      userId: json['userId'] as String? ?? '',
+      roomId: (json['roomId'] ?? json['room_id']) as String? ?? '',
+      userId: (json['userId'] ?? json['user_id']) as String? ?? '',
       content: json['content'] as String? ?? '',
-      createdAt: json['createdAt'] != null
-          ? DateTime.parse(json['createdAt'] as String)
+      createdAt: (json['createdAt'] ?? json['created_at']) != null
+          ? DateTime.parse((json['createdAt'] ?? json['created_at']) as String)
           : DateTime.now(),
-      updatedAt: json['updatedAt'] != null
-          ? DateTime.parse(json['updatedAt'] as String)
+      updatedAt: (json['updatedAt'] ?? json['updated_at']) != null
+          ? DateTime.parse((json['updatedAt'] ?? json['updated_at']) as String)
           : DateTime.now(),
       messageType: MessageType.values.firstWhere(
         (e) =>
             e.name.toLowerCase() ==
-            (((json['type'] ?? json['messageType']) as String?) ?? 'text')
+            (((json['type'] ??
+                        json['messageType'] ??
+                        json['message_type'])
+                    as String?) ??
+                'text')
                 .toLowerCase(),
         orElse: () => MessageType.text,
       ),
-      fileUrl: json['fileUrl'] as String?,
-      fileName: json['fileName'] as String?,
-      fileDirectory: json['fileDirectory'] as String?,
-      fileSize: json['fileSize'] as int?,
-      mimeType: json['mimeType'] as String?,
-      username: json['username'] as String? ?? '',
-      userAvatar: json['userAvatar'] as String?,
-      isEdited: json['isEdited'] as bool? ?? false,
-      isDeleted: json['isDeleted'] as bool? ?? false,
-      isRead: json['isRead'] as bool? ?? false,
-      replyToMessageId: json['replyToMessageId'] as String?,
+      fileUrl: (json['fileUrl'] ?? json['file_url']) as String?,
+      fileName: (json['fileName'] ?? json['file_name']) as String?,
+      fileDirectory: (json['fileDirectory'] ?? json['file_directory']) as String?,
+      fileSize: (json['fileSize'] ?? json['file_size']) as int?,
+      mimeType: (json['mimeType'] ?? json['mime_type']) as String?,
+      username: (json['username'] ?? json['userName']) as String? ?? '',
+      userAvatar: (json['userAvatar'] ?? json['avatar_url']) as String?,
+      isEdited: (json['isEdited'] ?? json['is_edited']) as bool? ?? false,
+      isDeleted: (json['isDeleted'] ?? json['is_deleted']) as bool? ?? false,
+      isRead: (json['isRead'] ?? json['is_read']) as bool? ?? false,
+      replyToMessageId: (json['replyToMessageId'] ??
+          json['reply_to_message_id'] ??
+          metadata?['replyToMessageId']) as String?,
       attachments: (json['attachments'] as List<dynamic>?)?.cast<String>(),
-      metadata: json['metadata'] as Map<String, dynamic>?,
+      metadata: metadata,
     );
   }
 
