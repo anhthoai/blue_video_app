@@ -380,6 +380,25 @@ class AppLocalizationsEs extends AppLocalizationsEn {
       'Verifica tu correo antes de iniciar sesion. Revisa el enlace de verificacion en tu bandeja de entrada.';
 
   @override
+  String get verificationEmailSent =>
+      'Correo de verificacion enviado. Revisa tu bandeja de entrada y spam.';
+
+  @override
+  String get verificationExpiredHelp =>
+      'Si tu enlace de verificacion expiro, solicita un nuevo correo desde la pantalla de inicio de sesion.';
+
+  @override
+  String get resendVerificationEmail => 'Reenviar correo de verificacion';
+
+  @override
+  String get enterEmailToResendVerification =>
+      'Primero ingresa tu correo para reenviar la verificacion.';
+
+  @override
+  String get resendVerificationFailed =>
+      'No se pudo reenviar el correo de verificacion. Intentalo de nuevo.';
+
+  @override
   String get welcomeBack => 'Bienvenido de nuevo';
 
   @override

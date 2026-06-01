@@ -1179,6 +1179,21 @@ class AppLocalizationsZh extends AppLocalizationsEn {
   @override
   String get tryAgain => '重试';
 
+  @override
+  String get verificationEmailSent => '验证邮件已发送。请检查收件箱和垃圾邮件文件夹。';
+
+  @override
+  String get verificationExpiredHelp => '如果验证链接已过期，请在登录页面请求重新发送验证邮件。';
+
+  @override
+  String get resendVerificationEmail => '重新发送验证邮件';
+
+  @override
+  String get enterEmailToResendVerification => '请先输入您的邮箱，我们才能重新发送验证邮件。';
+
+  @override
+  String get resendVerificationFailed => '无法重新发送验证邮件。请重试。';
+
   // App updates
   @override
   String get updateAvailable => '有可用更新';

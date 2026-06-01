@@ -17,6 +17,8 @@ A comprehensive video streaming and social platform built with Flutter.
 ### 👤 User Management
 - User registration and login
 - Mandatory email verification before sign-in
+- In-app resend verification email support from login screen
+- Clear expired verification link guidance with recovery path
 - Biometric login (Face ID/Fingerprint/Device credential)
 - Phone number verification
 - Password reset functionality

@@ -375,6 +375,25 @@ class AppLocalizationsTr extends AppLocalizationsEn {
       'Giris yapmadan once e-postanizi dogrulayin. Dogrulama baglantisi icin gelen kutunuzu kontrol edin.';
 
   @override
+  String get verificationEmailSent =>
+      'Dogrulama e-postasi gonderildi. Gelen kutunuzu ve spam klasorunu kontrol edin.';
+
+  @override
+  String get verificationExpiredHelp =>
+      'Dogrulama baglantinizin suresi dolduysa, giris ekranindan yeni bir e-posta isteyin.';
+
+  @override
+  String get resendVerificationEmail => 'Dogrulama e-postasini yeniden gonder';
+
+  @override
+  String get enterEmailToResendVerification =>
+      'Dogrulamayi yeniden gonderebilmemiz icin once e-postanizi girin.';
+
+  @override
+  String get resendVerificationFailed =>
+      'Dogrulama e-postasi yeniden gonderilemedi. Lutfen tekrar deneyin.';
+
+  @override
   String get welcomeBack => 'Tekrar hos geldiniz';
 
   @override

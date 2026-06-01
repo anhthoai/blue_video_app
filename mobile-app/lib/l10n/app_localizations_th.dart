@@ -374,6 +374,25 @@ class AppLocalizationsTh extends AppLocalizationsEn {
       'โปรดยืนยันอีเมลก่อนเข้าสู่ระบบ กรุณาตรวจสอบลิงก์ยืนยันในกล่องจดหมายของคุณ';
 
   @override
+  String get verificationEmailSent =>
+      'ส่งอีเมลยืนยันแล้ว กรุณาตรวจสอบกล่องจดหมายและโฟลเดอร์สแปม';
+
+  @override
+  String get verificationExpiredHelp =>
+      'หากลิงก์ยืนยันหมดอายุ ให้ขอส่งอีเมลยืนยันใหม่จากหน้าล็อกอิน';
+
+  @override
+  String get resendVerificationEmail => 'ส่งอีเมลยืนยันอีกครั้ง';
+
+  @override
+  String get enterEmailToResendVerification =>
+      'กรุณากรอกอีเมลก่อน เพื่อให้เราส่งอีเมลยืนยันอีกครั้ง';
+
+  @override
+  String get resendVerificationFailed =>
+      'ไม่สามารถส่งอีเมลยืนยันอีกครั้งได้ กรุณาลองใหม่';
+
+  @override
   String get welcomeBack => 'ยินดีต้อนรับกลับ';
 
   @override

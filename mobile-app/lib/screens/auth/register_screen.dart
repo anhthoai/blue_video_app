@@ -329,37 +329,14 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
 
       if (user != null) {
         if (mounted) {
-          setState(() {
-            _isLoading = false;
-          });
-
           if (user.isVerified) {
             context.go('/main');
           } else {
-            context.go('/auth/login');
+            final email = Uri.encodeComponent(_emailController.text.trim());
+            context.go('/auth/login?email=$email&verify=pending');
           }
-
-          // Show success message after navigation
-          Future.delayed(const Duration(milliseconds: 500), () {
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(
-                    user.isVerified
-                        ? 'Registration successful! Welcome ${user.username}!'
-                        : 'Registration successful! Please check your email for verification link.',
-                  ),
-                  duration: const Duration(seconds: 3),
-                  backgroundColor: Colors.green,
-                ),
-              );
-            }
-          });
         }
       } else if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Registration failed. Please try again.'),
@@ -369,15 +346,18 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
       }
     } catch (e) {
       if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Registration failed: $e'),
             backgroundColor: Colors.red,
           ),
         );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
       }
     }
   }

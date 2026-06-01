@@ -370,6 +370,23 @@ class AppLocalizationsKo extends AppLocalizationsEn {
       '로그인하기 전에 이메일 인증을 완료해 주세요. 받은편지함에서 인증 링크를 확인하세요.';
 
   @override
+  String get verificationEmailSent => '인증 이메일을 보냈습니다. 받은편지함과 스팸함을 확인해 주세요.';
+
+  @override
+  String get verificationExpiredHelp =>
+      '인증 링크가 만료되었다면 로그인 화면에서 인증 이메일 재전송을 요청하세요.';
+
+  @override
+  String get resendVerificationEmail => '인증 이메일 다시 보내기';
+
+  @override
+  String get enterEmailToResendVerification =>
+      '인증 이메일을 다시 보내려면 먼저 이메일을 입력해 주세요.';
+
+  @override
+  String get resendVerificationFailed => '인증 이메일 재전송에 실패했습니다. 다시 시도해 주세요.';
+
+  @override
   String get welcomeBack => '다시 오신 것을 환영합니다';
 
   @override

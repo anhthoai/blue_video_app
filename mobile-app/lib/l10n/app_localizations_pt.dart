@@ -374,6 +374,25 @@ class AppLocalizationsPt extends AppLocalizationsEn {
       'Verifique seu email antes de entrar. Confira o link de verificacao na sua caixa de entrada.';
 
   @override
+  String get verificationEmailSent =>
+      'Email de verificacao enviado. Verifique sua caixa de entrada e spam.';
+
+  @override
+  String get verificationExpiredHelp =>
+      'Se o link de verificacao expirou, solicite um novo email na tela de login.';
+
+  @override
+  String get resendVerificationEmail => 'Reenviar email de verificacao';
+
+  @override
+  String get enterEmailToResendVerification =>
+      'Digite seu email primeiro para reenviar a verificacao.';
+
+  @override
+  String get resendVerificationFailed =>
+      'Nao foi possivel reenviar o email de verificacao. Tente novamente.';
+
+  @override
   String get welcomeBack => 'Bem-vindo de volta';
 
   @override

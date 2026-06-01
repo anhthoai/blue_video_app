@@ -2,13 +2,21 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/services/api_service.dart';
 import '../../core/services/auth_service.dart';
 import '../../core/services/locale_service.dart';
 import '../../l10n/app_localizations.dart';
 import '../../widgets/common/app_logo.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
-  const LoginScreen({super.key});
+  final String? initialEmail;
+  final bool showVerifyNotice;
+
+  const LoginScreen({
+    super.key,
+    this.initialEmail,
+    this.showVerifyNotice = false,
+  });
 
   @override
   ConsumerState<LoginScreen> createState() => _LoginScreenState();
@@ -23,10 +31,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   bool _obscurePassword = true;
   bool _rememberMe = false;
   bool _isBiometricEnabled = false;
+  bool _showVerificationNotice = false;
+  bool _isResendingVerification = false;
 
   @override
   void initState() {
     super.initState();
+    if ((widget.initialEmail ?? '').isNotEmpty) {
+      _emailController.text = widget.initialEmail!;
+    }
+    _showVerificationNotice = widget.showVerifyNotice;
     _loadBiometricState();
   }
 
@@ -142,6 +156,52 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 ),
 
                 const SizedBox(height: 32),
+
+                if (_showVerificationNotice) ...[
+                  Card(
+                    color: Theme.of(context)
+                        .colorScheme
+                        .primaryContainer
+                        .withValues(alpha: 0.35),
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            l10n.verifyEmailBeforeSignIn,
+                            style: Theme.of(context).textTheme.bodyMedium,
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            l10n.verificationExpiredHelp,
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                          const SizedBox(height: 8),
+                          Align(
+                            alignment: Alignment.centerLeft,
+                            child: TextButton.icon(
+                              onPressed: _isResendingVerification
+                                  ? null
+                                  : _handleResendVerification,
+                              icon: _isResendingVerification
+                                  ? const SizedBox(
+                                      height: 14,
+                                      width: 14,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
+                                    )
+                                  : const Icon(Icons.mark_email_read_outlined),
+                              label: Text(l10n.resendVerificationEmail),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                ],
 
                 // Email Field
                 TextFormField(
@@ -407,6 +467,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       } else {
         // Login failed - show error message
         if (mounted) {
+          final l10n = AppLocalizations.of(context);
           final failureReason = authService.lastSignInFailureReason;
           final message = failureReason == SignInFailureReason.emailNotVerified
               ? l10n.verifyEmailBeforeSignIn
@@ -416,8 +477,20 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             SnackBar(
               content: Text(message),
               backgroundColor: Colors.red,
+              action: failureReason == SignInFailureReason.emailNotVerified
+                  ? SnackBarAction(
+                      label: l10n.resendVerificationEmail,
+                      onPressed: _handleResendVerification,
+                    )
+                  : null,
             ),
           );
+
+          if (failureReason == SignInFailureReason.emailNotVerified) {
+            setState(() {
+              _showVerificationNotice = true;
+            });
+          }
         }
       }
     } catch (e) {
@@ -438,6 +511,65 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           _isLoading = false;
         });
         await _loadBiometricState();
+      }
+    }
+  }
+
+  Future<void> _handleResendVerification() async {
+    final l10n = AppLocalizations.of(context);
+    final email = _emailController.text.trim();
+    if (email.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(l10n.enterEmailToResendVerification),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    setState(() {
+      _isResendingVerification = true;
+    });
+
+    try {
+      final response = await ApiService().resendVerificationEmail(email);
+      if (!mounted) return;
+
+      final isSuccess = response['success'] == true;
+      final responseMessage = response['message']?.toString().trim();
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            (responseMessage != null && responseMessage.isNotEmpty)
+                ? responseMessage
+                : (isSuccess
+                    ? l10n.verificationEmailSent
+                    : l10n.resendVerificationFailed),
+          ),
+          backgroundColor: isSuccess ? Colors.green : Colors.red,
+        ),
+      );
+
+      if (isSuccess) {
+        setState(() {
+          _showVerificationNotice = true;
+        });
+      }
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(l10n.resendVerificationFailed),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isResendingVerification = false;
+        });
       }
     }
   }

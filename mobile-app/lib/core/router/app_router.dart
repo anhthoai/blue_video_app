@@ -101,7 +101,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       // Auth Routes
       GoRoute(
         path: '/auth/login',
-        builder: (context, state) => const LoginScreen(),
+        builder: (context, state) => LoginScreen(
+          initialEmail: state.uri.queryParameters['email'],
+          showVerifyNotice: state.uri.queryParameters['verify'] == 'pending',
+        ),
       ),
       GoRoute(
         path: '/auth/register',

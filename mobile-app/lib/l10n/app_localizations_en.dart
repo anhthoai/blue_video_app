@@ -1232,6 +1232,25 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get tryAgain => 'Try Again';
 
+  @override
+  String get verificationEmailSent =>
+      'Verification email sent. Please check your inbox and spam folder.';
+
+  @override
+  String get verificationExpiredHelp =>
+      'If your verification link is expired, request a new email from the login screen.';
+
+  @override
+  String get resendVerificationEmail => 'Resend verification email';
+
+  @override
+  String get enterEmailToResendVerification =>
+      'Enter your email first so we can resend verification.';
+
+  @override
+  String get resendVerificationFailed =>
+      'Could not resend verification email. Please try again.';
+
   // App updates
   @override
   String get updateAvailable => 'Update Available';

@@ -470,6 +470,11 @@ abstract class AppLocalizations {
   String get verificationFailed;
   String get goToLogin;
   String get tryAgain;
+  String get verificationEmailSent;
+  String get verificationExpiredHelp;
+  String get resendVerificationEmail;
+  String get enterEmailToResendVerification;
+  String get resendVerificationFailed;
 
   // App updates
   String get updateAvailable;

@@ -166,12 +166,57 @@ class ApiService {
   }
 
   Future<Map<String, dynamic>> verifyEmail(String token) async {
+    final uri = Uri.parse('$baseUrl/auth/verify-email').replace(
+      queryParameters: {
+        'token': token,
+        'app': '1',
+      },
+    );
+
     final response = await http.get(
-      Uri.parse('$baseUrl/auth/verify-email?token=$token'),
+      uri,
       headers: await _getHeaders(),
     );
 
-    return await _handleResponse(response);
+    final body = response.body;
+    if (body.isNotEmpty) {
+      try {
+        return json.decode(body) as Map<String, dynamic>;
+      } catch (_) {
+        // Fall through to generic response below when backend returns non-JSON.
+      }
+    }
+
+    return {
+      'success': response.statusCode >= 200 && response.statusCode < 300,
+      'message': response.statusCode >= 200 && response.statusCode < 300
+          ? 'Verification complete'
+          : 'Verification failed',
+    };
+  }
+
+  Future<Map<String, dynamic>> resendVerificationEmail(String email) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/auth/resend-verification-email'),
+      headers: await _getHeaders(),
+      body: json.encode({'email': email}),
+    );
+
+    final body = response.body;
+    if (body.isNotEmpty) {
+      try {
+        return json.decode(body) as Map<String, dynamic>;
+      } catch (_) {
+        // Continue to generic mapping below.
+      }
+    }
+
+    return {
+      'success': response.statusCode >= 200 && response.statusCode < 300,
+      'message': response.statusCode >= 200 && response.statusCode < 300
+          ? 'Verification email sent'
+          : 'Failed to resend verification email',
+    };
   }
 
   String get rootUrl => baseUrl.replaceFirst(RegExp(r'/api/v\d+/?$'), '');
@@ -380,233 +425,236 @@ class ApiService {
     return await _handleResponse(response);
   }
 
-      Future<Map<String, dynamic>> getCommunityHubOverview() async {
-        final response = await http.get(
-          Uri.parse('$baseUrl/community/hub/overview'),
-          headers: await _getHeaders(),
-        );
+  Future<Map<String, dynamic>> getCommunityHubOverview() async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/community/hub/overview'),
+      headers: await _getHeaders(),
+    );
 
-        return await _handleResponse(response);
-      }
+    return await _handleResponse(response);
+  }
 
-      Future<Map<String, dynamic>> getCommunityForums({
-        String scope = 'all',
-      }) async {
-        final uri = Uri.parse('$baseUrl/community/forums').replace(
-          queryParameters: <String, String>{
-            if (scope.isNotEmpty) 'scope': scope,
-          },
-        );
+  Future<Map<String, dynamic>> getCommunityForums({
+    String scope = 'all',
+  }) async {
+    final uri = Uri.parse('$baseUrl/community/forums').replace(
+      queryParameters: <String, String>{
+        if (scope.isNotEmpty) 'scope': scope,
+      },
+    );
 
-        final response = await http.get(
-          uri,
-          headers: await _getHeaders(),
-        );
+    final response = await http.get(
+      uri,
+      headers: await _getHeaders(),
+    );
 
-        return await _handleResponse(response);
-      }
+    return await _handleResponse(response);
+  }
 
-      Future<Map<String, dynamic>> toggleCommunityForumFollow(String forumId) async {
-        final response = await http.post(
-          Uri.parse('$baseUrl/community/forums/$forumId/follow'),
-          headers: await _getHeaders(),
-        );
+  Future<Map<String, dynamic>> toggleCommunityForumFollow(
+      String forumId) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/community/forums/$forumId/follow'),
+      headers: await _getHeaders(),
+    );
 
-        return await _handleResponse(response);
-      }
+    return await _handleResponse(response);
+  }
 
-      Future<Map<String, dynamic>> getCommunityForumDetail(
-        String forumId, {
-        String feed = 'recommended',
-        int page = 1,
-        int limit = 20,
-      }) async {
-        final uri = Uri.parse('$baseUrl/community/forums/$forumId').replace(
-          queryParameters: <String, String>{
-            'feed': feed,
-            'page': page.toString(),
-            'limit': limit.toString(),
-          },
-        );
+  Future<Map<String, dynamic>> getCommunityForumDetail(
+    String forumId, {
+    String feed = 'recommended',
+    int page = 1,
+    int limit = 20,
+  }) async {
+    final uri = Uri.parse('$baseUrl/community/forums/$forumId').replace(
+      queryParameters: <String, String>{
+        'feed': feed,
+        'page': page.toString(),
+        'limit': limit.toString(),
+      },
+    );
 
-        final response = await http.get(
-          uri,
-          headers: await _getHeaders(),
-        );
+    final response = await http.get(
+      uri,
+      headers: await _getHeaders(),
+    );
 
-        return await _handleResponse(response);
-      }
+    return await _handleResponse(response);
+  }
 
-      Future<Map<String, dynamic>> getCommunityCreatorRanking() async {
-        final response = await http.get(
-          Uri.parse('$baseUrl/community/creators/ranking'),
-          headers: await _getHeaders(),
-        );
+  Future<Map<String, dynamic>> getCommunityCreatorRanking() async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/community/creators/ranking'),
+      headers: await _getHeaders(),
+    );
 
-        return await _handleResponse(response);
-      }
+    return await _handleResponse(response);
+  }
 
-      Future<Map<String, dynamic>> getCommunityRequests() async {
-        final response = await http.get(
-          Uri.parse('$baseUrl/community/requests'),
-          headers: await _getHeaders(),
-        );
+  Future<Map<String, dynamic>> getCommunityRequests() async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/community/requests'),
+      headers: await _getHeaders(),
+    );
 
-        return await _handleResponse(response);
-      }
+    return await _handleResponse(response);
+  }
 
-      Future<Map<String, dynamic>> createCommunityRequest({
-        required String title,
-        required String description,
-        required int coins,
-        required List<String> keywords,
-        String boardLabel = 'Latest',
-        List<String>? previewHints,
-        List<File>? imageFiles,
-      }) async {
-        final request = http.MultipartRequest(
-          'POST',
-          Uri.parse('$baseUrl/community/requests'),
-        );
-        final headers = await _getHeaders();
-        headers.remove('Content-Type');
-        request.headers.addAll(headers);
+  Future<Map<String, dynamic>> createCommunityRequest({
+    required String title,
+    required String description,
+    required int coins,
+    required List<String> keywords,
+    String boardLabel = 'Latest',
+    List<String>? previewHints,
+    List<File>? imageFiles,
+  }) async {
+    final request = http.MultipartRequest(
+      'POST',
+      Uri.parse('$baseUrl/community/requests'),
+    );
+    final headers = await _getHeaders();
+    headers.remove('Content-Type');
+    request.headers.addAll(headers);
 
-        request.fields['title'] = title;
-        request.fields['description'] = description;
-        request.fields['coins'] = coins.toString();
-        request.fields['keywords'] = json.encode(keywords);
-        request.fields['boardLabel'] = boardLabel;
-        if (previewHints != null) {
-          request.fields['previewHints'] = json.encode(previewHints);
-        }
+    request.fields['title'] = title;
+    request.fields['description'] = description;
+    request.fields['coins'] = coins.toString();
+    request.fields['keywords'] = json.encode(keywords);
+    request.fields['boardLabel'] = boardLabel;
+    if (previewHints != null) {
+      request.fields['previewHints'] = json.encode(previewHints);
+    }
 
-        if (imageFiles != null) {
-          for (final file in imageFiles) {
-            final mimeType = lookupMimeType(file.path) ?? 'application/octet-stream';
-            request.files.add(
-              await http.MultipartFile.fromPath(
-                'images',
-                file.path,
-                contentType: MediaType.parse(mimeType),
-              ),
-            );
-          }
-        }
-
-        final streamedResponse = await request.send();
-        final response = await http.Response.fromStream(streamedResponse);
-        return await _handleResponse(response);
-      }
-
-      Future<Map<String, dynamic>> getCommunityRequestDetail(String requestId) async {
-        final response = await http.get(
-          Uri.parse('$baseUrl/community/requests/$requestId'),
-          headers: await _getHeaders(),
-        );
-
-        return await _handleResponse(response);
-      }
-
-      Future<Map<String, dynamic>> toggleCommunityRequestWant(
-        String requestId,
-      ) async {
-        final response = await http.post(
-          Uri.parse('$baseUrl/community/requests/$requestId/want'),
-          headers: await _getHeaders(),
-        );
-
-        return await _handleResponse(response);
-      }
-
-      Future<Map<String, dynamic>> supportCommunityRequest(
-        String requestId, {
-        required int coins,
-      }) async {
-        final response = await http.post(
-          Uri.parse('$baseUrl/community/requests/$requestId/support'),
-          headers: await _getHeaders(),
-          body: json.encode(<String, dynamic>{
-            'coins': coins,
-          }),
-        );
-
-        return await _handleResponse(response);
-      }
-
-      Future<Map<String, dynamic>> submitCommunityRequest({
-        required String requestId,
-        required String title,
-        required String description,
-        required String type,
-        String? linkedVideoUrl,
-        CommunityLinkedMedia? linkedMedia,
-        String? searchKeyword,
-        File? file,
-        File? thumbnailFile,
-      }) async {
-        final request = http.MultipartRequest(
-          'POST',
-          Uri.parse('$baseUrl/community/requests/$requestId/submissions'),
-        );
-        final headers = await _getHeaders();
-        headers.remove('Content-Type');
-        request.headers.addAll(headers);
-
-        request.fields['title'] = title;
-        request.fields['description'] = description;
-        request.fields['type'] = type;
-        if (linkedVideoUrl != null && linkedVideoUrl.trim().isNotEmpty) {
-          request.fields['linkedVideoUrl'] = linkedVideoUrl.trim();
-        }
-        if (linkedMedia != null) {
-          request.fields['linkedMedia'] = json.encode(linkedMedia.toJson());
-        }
-        if (searchKeyword != null && searchKeyword.trim().isNotEmpty) {
-          request.fields['searchKeyword'] = searchKeyword.trim();
-        }
-
-        if (file != null) {
-          final mimeType = lookupMimeType(file.path) ?? 'application/octet-stream';
-          request.files.add(
-            await http.MultipartFile.fromPath(
-              'file',
-              file.path,
-              contentType: MediaType.parse(mimeType),
-            ),
-          );
-        }
-
-        if (thumbnailFile != null) {
-          final thumbnailMimeType =
-              lookupMimeType(thumbnailFile.path) ?? 'image/jpeg';
-          request.files.add(
-            await http.MultipartFile.fromPath(
-              'thumbnail',
-              thumbnailFile.path,
-              contentType: MediaType.parse(thumbnailMimeType),
-            ),
-          );
-        }
-
-        final streamedResponse = await request.send();
-        final response = await http.Response.fromStream(streamedResponse);
-        return await _handleResponse(response);
-      }
-
-      Future<Map<String, dynamic>> approveCommunityRequestSubmission(
-        String requestId,
-        String submissionId,
-      ) async {
-        final response = await http.post(
-          Uri.parse(
-            '$baseUrl/community/requests/$requestId/submissions/$submissionId/approve',
+    if (imageFiles != null) {
+      for (final file in imageFiles) {
+        final mimeType =
+            lookupMimeType(file.path) ?? 'application/octet-stream';
+        request.files.add(
+          await http.MultipartFile.fromPath(
+            'images',
+            file.path,
+            contentType: MediaType.parse(mimeType),
           ),
-          headers: await _getHeaders(),
         );
-
-        return await _handleResponse(response);
       }
+    }
+
+    final streamedResponse = await request.send();
+    final response = await http.Response.fromStream(streamedResponse);
+    return await _handleResponse(response);
+  }
+
+  Future<Map<String, dynamic>> getCommunityRequestDetail(
+      String requestId) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/community/requests/$requestId'),
+      headers: await _getHeaders(),
+    );
+
+    return await _handleResponse(response);
+  }
+
+  Future<Map<String, dynamic>> toggleCommunityRequestWant(
+    String requestId,
+  ) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/community/requests/$requestId/want'),
+      headers: await _getHeaders(),
+    );
+
+    return await _handleResponse(response);
+  }
+
+  Future<Map<String, dynamic>> supportCommunityRequest(
+    String requestId, {
+    required int coins,
+  }) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/community/requests/$requestId/support'),
+      headers: await _getHeaders(),
+      body: json.encode(<String, dynamic>{
+        'coins': coins,
+      }),
+    );
+
+    return await _handleResponse(response);
+  }
+
+  Future<Map<String, dynamic>> submitCommunityRequest({
+    required String requestId,
+    required String title,
+    required String description,
+    required String type,
+    String? linkedVideoUrl,
+    CommunityLinkedMedia? linkedMedia,
+    String? searchKeyword,
+    File? file,
+    File? thumbnailFile,
+  }) async {
+    final request = http.MultipartRequest(
+      'POST',
+      Uri.parse('$baseUrl/community/requests/$requestId/submissions'),
+    );
+    final headers = await _getHeaders();
+    headers.remove('Content-Type');
+    request.headers.addAll(headers);
+
+    request.fields['title'] = title;
+    request.fields['description'] = description;
+    request.fields['type'] = type;
+    if (linkedVideoUrl != null && linkedVideoUrl.trim().isNotEmpty) {
+      request.fields['linkedVideoUrl'] = linkedVideoUrl.trim();
+    }
+    if (linkedMedia != null) {
+      request.fields['linkedMedia'] = json.encode(linkedMedia.toJson());
+    }
+    if (searchKeyword != null && searchKeyword.trim().isNotEmpty) {
+      request.fields['searchKeyword'] = searchKeyword.trim();
+    }
+
+    if (file != null) {
+      final mimeType = lookupMimeType(file.path) ?? 'application/octet-stream';
+      request.files.add(
+        await http.MultipartFile.fromPath(
+          'file',
+          file.path,
+          contentType: MediaType.parse(mimeType),
+        ),
+      );
+    }
+
+    if (thumbnailFile != null) {
+      final thumbnailMimeType =
+          lookupMimeType(thumbnailFile.path) ?? 'image/jpeg';
+      request.files.add(
+        await http.MultipartFile.fromPath(
+          'thumbnail',
+          thumbnailFile.path,
+          contentType: MediaType.parse(thumbnailMimeType),
+        ),
+      );
+    }
+
+    final streamedResponse = await request.send();
+    final response = await http.Response.fromStream(streamedResponse);
+    return await _handleResponse(response);
+  }
+
+  Future<Map<String, dynamic>> approveCommunityRequestSubmission(
+    String requestId,
+    String submissionId,
+  ) async {
+    final response = await http.post(
+      Uri.parse(
+        '$baseUrl/community/requests/$requestId/submissions/$submissionId/approve',
+      ),
+      headers: await _getHeaders(),
+    );
+
+    return await _handleResponse(response);
+  }
 
   // Get user's liked videos
   Future<Map<String, dynamic>> getUserLikedVideos({

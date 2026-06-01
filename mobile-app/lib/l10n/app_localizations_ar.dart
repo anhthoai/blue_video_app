@@ -372,6 +372,25 @@ class AppLocalizationsAr extends AppLocalizationsEn {
       'يرجى التحقق من بريدك الإلكتروني قبل تسجيل الدخول. تحقق من رابط التحقق في صندوق الوارد.';
 
   @override
+  String get verificationEmailSent =>
+      'تم إرسال بريد التحقق. يرجى التحقق من صندوق الوارد ومجلد الرسائل غير المرغوب فيها.';
+
+  @override
+  String get verificationExpiredHelp =>
+      'إذا انتهت صلاحية رابط التحقق، اطلب رسالة تحقق جديدة من شاشة تسجيل الدخول.';
+
+  @override
+  String get resendVerificationEmail => 'إعادة إرسال بريد التحقق';
+
+  @override
+  String get enterEmailToResendVerification =>
+      'يرجى إدخال بريدك الإلكتروني أولاً حتى نتمكن من إعادة إرسال التحقق.';
+
+  @override
+  String get resendVerificationFailed =>
+      'تعذر إعادة إرسال بريد التحقق. يرجى المحاولة مرة أخرى.';
+
+  @override
   String get welcomeBack => 'مرحبًا بعودتك';
 
   @override

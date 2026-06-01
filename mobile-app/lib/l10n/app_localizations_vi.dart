@@ -427,6 +427,25 @@ class AppLocalizationsVi extends AppLocalizationsEn {
       'Vui lòng xác minh email trước khi đăng nhập. Hãy kiểm tra hộp thư đến để mở liên kết xác minh.';
 
   @override
+  String get verificationEmailSent =>
+      'Đã gửi email xác minh. Vui lòng kiểm tra hộp thư đến và thư rác.';
+
+  @override
+  String get verificationExpiredHelp =>
+      'Nếu liên kết xác minh đã hết hạn, hãy yêu cầu gửi lại email xác minh từ màn hình đăng nhập.';
+
+  @override
+  String get resendVerificationEmail => 'Gửi lại email xác minh';
+
+  @override
+  String get enterEmailToResendVerification =>
+      'Vui lòng nhập email trước để chúng tôi gửi lại xác minh.';
+
+  @override
+  String get resendVerificationFailed =>
+      'Không thể gửi lại email xác minh. Vui lòng thử lại.';
+
+  @override
   String get createPost => 'Tạo bài viết';
 
   @override

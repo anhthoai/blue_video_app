@@ -20,6 +20,7 @@ class _VerifyEmailScreenState extends ConsumerState<VerifyEmailScreen> {
   bool _isVerifying = true;
   bool _isSuccess = false;
   String _message = '';
+  bool _isExpiredOrInvalid = false;
 
   @override
   void initState() {
@@ -33,10 +34,18 @@ class _VerifyEmailScreenState extends ConsumerState<VerifyEmailScreen> {
       final response = await apiService.verifyEmail(widget.token);
 
       if (mounted) {
+        final message =
+            response['message']?.toString() ?? 'Verification complete';
+        final messageLower = message.toLowerCase();
+        final expiredOrInvalid = messageLower.contains('expired') ||
+            messageLower.contains('invalid') ||
+            messageLower.contains('used');
+
         setState(() {
           _isVerifying = false;
           _isSuccess = response['success'] == true;
-          _message = response['message'] ?? 'Verification complete';
+          _message = message;
+          _isExpiredOrInvalid = expiredOrInvalid;
         });
       }
     } catch (e) {
@@ -45,6 +54,7 @@ class _VerifyEmailScreenState extends ConsumerState<VerifyEmailScreen> {
           _isVerifying = false;
           _isSuccess = false;
           _message = 'Verification failed: $e';
+          _isExpiredOrInvalid = true;
         });
       }
     }
@@ -92,22 +102,47 @@ class _VerifyEmailScreenState extends ConsumerState<VerifyEmailScreen> {
                   style: const TextStyle(fontSize: 16),
                   textAlign: TextAlign.center,
                 ),
+                if (!_isSuccess && _isExpiredOrInvalid) ...[
+                  const SizedBox(height: 12),
+                  Text(
+                    l10n.verificationExpiredHelp,
+                    style: const TextStyle(fontSize: 14),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
                 const SizedBox(height: 32),
-                ElevatedButton(
-                  onPressed: () {
-                    context.go('/auth/login');
-                  },
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 48,
-                      vertical: 16,
+                if (_isSuccess)
+                  ElevatedButton(
+                    onPressed: () {
+                      context.go('/auth/login');
+                    },
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 48,
+                        vertical: 16,
+                      ),
+                    ),
+                    child: Text(
+                      l10n.goToLogin,
+                      style: const TextStyle(fontSize: 16),
+                    ),
+                  )
+                else
+                  ElevatedButton(
+                    onPressed: () {
+                      context.go('/auth/login?verify=pending');
+                    },
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 48,
+                        vertical: 16,
+                      ),
+                    ),
+                    child: Text(
+                      l10n.resendVerificationEmail,
+                      style: const TextStyle(fontSize: 16),
                     ),
                   ),
-                  child: Text(
-                    _isSuccess ? l10n.goToLogin : l10n.tryAgain,
-                    style: const TextStyle(fontSize: 16),
-                  ),
-                ),
               ],
             ],
           ),

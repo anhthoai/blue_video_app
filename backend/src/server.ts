@@ -2168,14 +2168,34 @@ const generateVerificationHTML = (success: boolean, title: string, message: stri
 app.get('/api/v1/auth/verify-email', async (req, res) => {
   try {
     const { token } = req.query;
+    const isAppRequest = req.query['app'] === '1' ||
+        (req.headers['accept']?.includes('application/json') ?? false);
+
+    const sendVerificationError = (
+      statusCode: number,
+      title: string,
+      message: string,
+      username?: string,
+      email?: string
+    ) => {
+      if (isAppRequest) {
+        return res.status(statusCode).json({
+          success: false,
+          title,
+          message,
+        });
+      }
+
+      return res.status(statusCode).send(
+        generateVerificationHTML(false, title, message, username, email)
+      );
+    };
 
     if (!token || typeof token !== 'string') {
-      res.status(400).send(
-        generateVerificationHTML(
-          false,
-          'Verification Failed',
-          'Verification token is required. Please check your email and click the verification link again.'
-        )
+      sendVerificationError(
+        400,
+        'Verification Failed',
+        'Verification token is required. Please check your email and click the verification link again.'
       );
       return;
     }
@@ -2188,23 +2208,19 @@ app.get('/api/v1/auth/verify-email', async (req, res) => {
         type: string;
       };
     } catch (error) {
-      res.status(400).send(
-        generateVerificationHTML(
-          false,
-          'Verification Failed',
-          'Invalid or expired verification token. The link may have expired or been used already.'
-        )
+      sendVerificationError(
+        400,
+        'Verification Failed',
+        'Invalid or expired verification token. The link may have expired or been used already.'
       );
       return;
     }
 
     if (decoded.type !== 'email_verification') {
-      res.status(400).send(
-        generateVerificationHTML(
-          false,
-          'Verification Failed',
-          'Invalid token type. Please use the verification link from your email.'
-        )
+      sendVerificationError(
+        400,
+        'Verification Failed',
+        'Invalid token type. Please use the verification link from your email.'
       );
       return;
     }
@@ -2218,26 +2234,22 @@ app.get('/api/v1/auth/verify-email', async (req, res) => {
     });
 
     if (!user) {
-      res.status(404).send(
-        generateVerificationHTML(
-          false,
-          'Verification Failed',
-          'User not found or this verification link has already been used. If you already verified your email, you can log in to the app.'
-        )
+      sendVerificationError(
+        404,
+        'Verification Failed',
+        'User not found or this verification link has already been used. If you already verified your email, you can log in to the app.'
       );
       return;
     }
 
     // Check if token has expired
     if (user.verificationTokenExpiry && user.verificationTokenExpiry < new Date()) {
-      res.status(400).send(
-        generateVerificationHTML(
-          false,
-          'Link Expired',
-          'This verification link has expired. Please contact support to request a new verification email.',
-          user.username,
-          user.email
-        )
+      sendVerificationError(
+        400,
+        'Link Expired',
+        'This verification link has expired. Please open the app login screen and tap "Resend verification email".',
+        user.username,
+        user.email
       );
       return;
     }
@@ -2254,6 +2266,14 @@ app.get('/api/v1/auth/verify-email', async (req, res) => {
 
     console.log(`✅ Email verified for user: ${user.email}`);
 
+    if (isAppRequest) {
+      res.json({
+        success: true,
+        message: 'Your email address has been verified. You can now log in to your account.',
+      });
+      return;
+    }
+
     // Return beautiful HTML success page
     res.send(
       generateVerificationHTML(
@@ -2266,13 +2286,97 @@ app.get('/api/v1/auth/verify-email', async (req, res) => {
     );
   } catch (error) {
     console.error('Email verification error:', error);
+    const isAppRequest = req.query['app'] === '1' ||
+        (req.headers['accept']?.includes('application/json') ?? false);
+    if (isAppRequest) {
+      res.status(500).json({
+        success: false,
+        message: 'An error occurred while verifying your email. Please try again or request a new verification email.',
+      });
+      return;
+    }
+
     res.status(500).send(
       generateVerificationHTML(
         false,
         'Verification Error',
-        'An error occurred while verifying your email. Please try again or contact support.'
+        'An error occurred while verifying your email. Please try again or request a new verification email from the app login screen.'
       )
     );
+  }
+});
+
+app.post('/api/v1/auth/resend-verification-email', async (req, res) => {
+  try {
+    const { email } = req.body ?? {};
+
+    if (!email || typeof email !== 'string') {
+      res.status(400).json({
+        success: false,
+        message: 'Email is required',
+      });
+      return;
+    }
+
+    const normalizedEmail = email.trim().toLowerCase();
+    const user = await prisma.user.findUnique({
+      where: { email: normalizedEmail },
+    });
+
+    if (!user) {
+      // Do not leak account existence.
+      res.json({
+        success: true,
+        message: 'If an account exists, a verification email has been sent.',
+      });
+      return;
+    }
+
+    if (user.isVerified) {
+      res.json({
+        success: true,
+        message: 'Your email is already verified. You can sign in now.',
+      });
+      return;
+    }
+
+    const verificationToken = jwt.sign(
+      { email: user.email, type: 'email_verification' },
+      process.env['JWT_SECRET'] || 'your-secret-key',
+      { expiresIn: '24h' }
+    );
+    const verificationTokenExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        verificationToken,
+        verificationTokenExpiry,
+      },
+    });
+
+    const verificationUrl = buildVerificationUrl(verificationToken);
+    console.log(`📧 Resending verification email to ${user.email}`);
+    console.log(verificationUrl);
+
+    const emailSent = await emailService.sendVerificationEmail(
+      user.email,
+      user.username,
+      verificationToken
+    );
+
+    res.json({
+      success: true,
+      message: emailSent
+          ? 'Verification email sent. Please check your inbox and spam folder.'
+          : 'Verification email generated. Please try again in a few moments if it does not arrive.',
+    });
+  } catch (error) {
+    console.error('Resend verification email error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to resend verification email',
+    });
   }
 });
 

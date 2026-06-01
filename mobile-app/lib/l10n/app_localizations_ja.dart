@@ -1183,6 +1183,23 @@ class AppLocalizationsJa extends AppLocalizationsEn {
   @override
   String get tryAgain => '再試行';
 
+  @override
+  String get verificationEmailSent => '認証メールを送信しました。受信トレイと迷惑メールフォルダを確認してください。';
+
+  @override
+  String get verificationExpiredHelp =>
+      '認証リンクの有効期限が切れている場合は、ログイン画面から認証メールを再送してください。';
+
+  @override
+  String get resendVerificationEmail => '認証メールを再送する';
+
+  @override
+  String get enterEmailToResendVerification =>
+      '認証メールを再送するため、先にメールアドレスを入力してください。';
+
+  @override
+  String get resendVerificationFailed => '認証メールを再送できませんでした。もう一度お試しください。';
+
   // App updates
   @override
   String get updateAvailable => 'アップデート可能';

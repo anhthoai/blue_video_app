@@ -373,6 +373,25 @@ class AppLocalizationsId extends AppLocalizationsEn {
       'Harap verifikasi email Anda sebelum masuk. Periksa kotak masuk Anda untuk tautan verifikasi.';
 
   @override
+  String get verificationEmailSent =>
+      'Email verifikasi telah dikirim. Periksa kotak masuk dan folder spam Anda.';
+
+  @override
+  String get verificationExpiredHelp =>
+      'Jika tautan verifikasi Anda kedaluwarsa, minta email verifikasi baru dari layar masuk.';
+
+  @override
+  String get resendVerificationEmail => 'Kirim ulang email verifikasi';
+
+  @override
+  String get enterEmailToResendVerification =>
+      'Masukkan email Anda terlebih dahulu agar kami dapat mengirim ulang verifikasi.';
+
+  @override
+  String get resendVerificationFailed =>
+      'Tidak dapat mengirim ulang email verifikasi. Silakan coba lagi.';
+
+  @override
   String get welcomeBack => 'Selamat datang kembali';
 
   @override
