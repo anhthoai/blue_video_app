@@ -110,10 +110,12 @@ class _DatingMeetScreenState extends ConsumerState<DatingMeetScreen> {
           ),
           data: (suggestionResult) {
             final visibleSuggestions = suggestionResult.suggestions
-                .where((item) => !_hiddenSuggestionUserIds.contains(item.user.userId))
+                .where((item) =>
+                    !_hiddenSuggestionUserIds.contains(item.user.userId))
                 .toList();
             if (visibleMatches.isEmpty && visibleSuggestions.isEmpty) {
-              return _buildEmpty(context, suggestionResult.meta, upgradeAsync.value);
+              return _buildEmpty(
+                  context, suggestionResult.meta, upgradeAsync.value);
             }
 
             return _buildMeetList(
@@ -163,7 +165,7 @@ class _DatingMeetScreenState extends ConsumerState<DatingMeetScreen> {
             const SizedBox(height: 24),
             Text(
               l10n.datingNoMatchesYet,
-              style: TextStyle(
+              style: const TextStyle(
                 fontSize: 22,
                 fontWeight: FontWeight.bold,
               ),
@@ -190,7 +192,8 @@ class _DatingMeetScreenState extends ConsumerState<DatingMeetScreen> {
                 height: 1.5,
               ),
             ),
-            if (meta?.aiEnabled != true && (upgrade?.tier == 'FREE' || upgrade == null)) ...[
+            if (meta?.aiEnabled != true &&
+                (upgrade?.tier == 'FREE' || upgrade == null)) ...[
               const SizedBox(height: 16),
               ElevatedButton(
                 onPressed: () async {
@@ -213,8 +216,7 @@ class _DatingMeetScreenState extends ConsumerState<DatingMeetScreen> {
   Widget _buildMeetList(
     BuildContext context,
     WidgetRef ref,
-    List<DatingMatchUser> matches,
-    {
+    List<DatingMatchUser> matches, {
     required List<DatingSuggestedMatch> suggestions,
     required DatingSuggestionMeta suggestionsMeta,
     DatingUpgradeStatus? upgradeStatus,
@@ -259,7 +261,8 @@ class _DatingMeetScreenState extends ConsumerState<DatingMeetScreen> {
               suggestion: suggestion,
               rejecting: _rejectingUserIds.contains(suggestion.user.userId),
               onReject: () => _rejectUser(suggestion.user.userId),
-              swipeProfileIds: suggestions.map((item) => item.user.userId).toList(),
+              swipeProfileIds:
+                  suggestions.map((item) => item.user.userId).toList(),
               swipeProfileIndex: suggestions.indexOf(suggestion),
             ),
           ),
@@ -271,7 +274,7 @@ class _DatingMeetScreenState extends ConsumerState<DatingMeetScreen> {
       children.add(const SizedBox(height: 12));
       children.add(
         Padding(
-          padding: EdgeInsets.symmetric(horizontal: 16),
+          padding: const EdgeInsets.symmetric(horizontal: 16),
           child: Text(
             l10n.datingMutualMatches,
             style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
@@ -321,7 +324,8 @@ class _SuggestionHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    final showUpgradeCta = meta.aiEnabled == false && (upgradeStatus?.tier ?? 'FREE') == 'FREE';
+    final showUpgradeCta =
+        meta.aiEnabled == false && (upgradeStatus?.tier ?? 'FREE') == 'FREE';
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Container(
@@ -333,7 +337,9 @@ class _SuggestionHeader extends StatelessWidget {
               ? const Color(0xFFE8F6FF)
               : const Color(0xFFFFF4E5),
           border: Border.all(
-            color: meta.aiEnabled ? const Color(0xFF90CAF9) : const Color(0xFFFFCC80),
+            color: meta.aiEnabled
+                ? const Color(0xFF90CAF9)
+                : const Color(0xFFFFCC80),
           ),
         ),
         child: Column(
@@ -346,7 +352,9 @@ class _SuggestionHeader extends StatelessWidget {
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w700,
-                color: meta.aiEnabled ? const Color(0xFF1565C0) : const Color(0xFFE65100),
+                color: meta.aiEnabled
+                    ? const Color(0xFF1565C0)
+                    : const Color(0xFFE65100),
               ),
             ),
             const SizedBox(height: 4),
@@ -369,7 +377,8 @@ class _SuggestionHeader extends StatelessWidget {
                 },
                 style: ElevatedButton.styleFrom(
                   minimumSize: const Size(0, 42),
-                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
                 ),
                 child: Text(l10n.datingUpgradeVipForAiMatch),
               ),
@@ -401,90 +410,290 @@ class _SuggestionCard extends StatelessWidget {
     final l10n = AppLocalizations.of(context);
     final user = suggestion.user;
     final avatarUrl = appendCacheBuster(user.avatarUrl, user.updatedAt);
+    final roleLabel = user.role != null
+        ? DatingConstants.roleLabels[user.role] ?? user.role!
+        : null;
+    final distanceLabel = user.distanceKm != null
+        ? user.distanceKm == 0
+            ? '0m'
+            : '${user.distanceKm}km'
+        : null;
+    final ageLabel = user.age != null ? '${user.age} y/o' : null;
+    final scoreGradient = suggestion.score >= 80
+        ? const [Color(0xFF4C6FFF), Color(0xFF2AA9FF)]
+        : const [Color(0xFF8E44FF), Color(0xFFD94FD5)];
 
-    return Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(14),
-        color: const Color(0xFFF8FBFF),
-        border: Border.all(color: const Color(0xFFBBDEFB)),
-      ),
-      child: Column(
-        children: [
-          ListTile(
-            leading: ClipRRect(
-              borderRadius: BorderRadius.circular(8),
-              child: SizedBox(
-                width: 52,
-                height: 52,
-                child: avatarUrl != null
-                    ? PresignedImage(
-                        imageUrl: avatarUrl,
-                        fit: BoxFit.cover,
-                        errorWidget: _placeholder(),
-                      )
-                    : _placeholder(),
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(22),
+        onTap: () => _openProfile(context, user.userId),
+        child: Ink(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(22),
+            gradient: const LinearGradient(
+              colors: [Color(0xFFFFFFFF), Color(0xFFF4F9FF)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            border: Border.all(color: const Color(0xFFD7EAFE), width: 1.4),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF90CAF9).withValues(alpha: 0.16),
+                blurRadius: 18,
+                offset: const Offset(0, 8),
               ),
-            ),
-            title: Text(user.displayName),
-            subtitle: Text(
-              [
-                if (user.distanceKm != null)
-                  user.distanceKm == 0 ? '0m' : '${user.distanceKm}km',
-                if (user.age != null) '${user.age} y/o',
-                if (user.role != null) DatingConstants.roleLabels[user.role] ?? user.role!,
-                '${l10n.datingAiScore} ${suggestion.score}%',
-              ].join(' · '),
-            ),
-            trailing: user.isOnline == true
-                ? const Icon(Icons.circle, size: 10, color: Color(0xFF4CAF50))
-                : null,
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => DatingProfileScreen(
-                  userId: user.userId,
-                  swipeProfileIds: swipeProfileIds,
-                  swipeProfileIndex: swipeProfileIndex,
-                ),
-              ),
-            ),
+            ],
           ),
-          if (suggestion.reasons.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
-              child: Wrap(
-                spacing: 6,
-                runSpacing: 6,
-                children: suggestion.reasons
-                    .map((reason) => Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(color: const Color(0xFFCFD8DC)),
-                          ),
-                          child: Text(
-                            _localizedReason(context, reason),
-                            style: const TextStyle(fontSize: 11),
-                          ),
-                        ))
-                    .toList(),
-              ),
-            ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.end,
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                OutlinedButton.icon(
-                  onPressed: rejecting ? null : onReject,
-                  icon: const Icon(Icons.person_off_outlined, size: 16),
-                  label: Text(l10n.datingReject),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(18),
+                      child: SizedBox(
+                        width: 76,
+                        height: 96,
+                        child: avatarUrl != null
+                            ? PresignedImage(
+                                imageUrl: avatarUrl,
+                                fit: BoxFit.cover,
+                                errorWidget: _placeholder(),
+                              )
+                            : _placeholder(),
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  user.displayName,
+                                  style: const TextStyle(
+                                    fontSize: 17,
+                                    fontWeight: FontWeight.w700,
+                                    height: 1.1,
+                                  ),
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 6,
+                                ),
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(16),
+                                  gradient:
+                                      LinearGradient(colors: scoreGradient),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: scoreGradient.last
+                                          .withValues(alpha: 0.24),
+                                      blurRadius: 10,
+                                      offset: const Offset(0, 4),
+                                    ),
+                                  ],
+                                ),
+                                child: Text(
+                                  '${l10n.datingAiScore} ${suggestion.score}%',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Wrap(
+                            spacing: 6,
+                            runSpacing: 6,
+                            children: [
+                              if (distanceLabel != null)
+                                _buildMetaChip(
+                                    Icons.place_outlined, distanceLabel),
+                              if (ageLabel != null)
+                                _buildMetaChip(Icons.cake_outlined, ageLabel),
+                              if (roleLabel != null)
+                                _buildMetaChip(Icons.person_outline, roleLabel),
+                            ],
+                          ),
+                          if (user.isOnline != null) ...[
+                            const SizedBox(height: 10),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 5,
+                              ),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF6FBFF),
+                                borderRadius: BorderRadius.circular(20),
+                                border:
+                                    Border.all(color: const Color(0xFFD7EAFE)),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Container(
+                                    width: 8,
+                                    height: 8,
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      color: user.isOnline == true
+                                          ? const Color(0xFF4CAF50)
+                                          : Colors.grey,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    user.isOnline == true
+                                        ? 'Online now'
+                                        : 'Offline',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.grey.shade700,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                if (suggestion.reasons.isNotEmpty) ...[
+                  const SizedBox(height: 14),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: suggestion.reasons
+                        .map((reason) => _buildReasonChip(
+                              _localizedReason(context, reason),
+                            ))
+                        .toList(),
+                  ),
+                ],
+                const SizedBox(height: 14),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: rejecting ? null : onReject,
+                        icon: const Icon(Icons.person_off_outlined, size: 16),
+                        label: Text(l10n.datingReject),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: const Color(0xFF1E88E5),
+                          side: const BorderSide(color: Color(0xFFB3D7FF)),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          textStyle:
+                              const TextStyle(fontWeight: FontWeight.w700),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(16),
+                        gradient: LinearGradient(colors: scoreGradient),
+                        boxShadow: [
+                          BoxShadow(
+                            color: scoreGradient.last.withValues(alpha: 0.20),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: const Icon(
+                        Icons.chevron_right,
+                        color: Colors.white,
+                        size: 24,
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+
+  void _openProfile(BuildContext context, String userId) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => DatingProfileScreen(
+          userId: userId,
+          swipeProfileIds: swipeProfileIds,
+          swipeProfileIndex: swipeProfileIndex,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMetaChip(IconData icon, String text) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFFDCEBFB)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: const Color(0xFF5A7FB9)),
+          const SizedBox(width: 5),
+          Text(
+            text,
+            style: const TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFF355070),
+            ),
+          ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildReasonChip(String text) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF7FAFF),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFFD7EAFE)),
+      ),
+      child: Text(
+        text,
+        style: const TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+          color: Color(0xFF4B5B73),
+        ),
       ),
     );
   }
@@ -539,58 +748,58 @@ class _MatchCard extends StatelessWidget {
       ),
       child: Container(
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(18),
           color: Theme.of(context).colorScheme.surface,
+          border: Border.all(
+            color: const Color(0xFFE91E63).withValues(alpha: 0.35),
+            width: 1.5,
+          ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.08),
-              blurRadius: 12,
-              offset: const Offset(0, 4),
+              color: const Color(0xFFE91E63).withValues(alpha: 0.10),
+              blurRadius: 16,
+              offset: const Offset(0, 6),
             ),
           ],
         ),
         child: Row(
           children: [
-            // Avatar
-            ClipRRect(
-              borderRadius: const BorderRadius.horizontal(left: Radius.circular(16)),
-              child: SizedBox(
-                width: 90,
-                height: 100,
-                child: avatarUrl != null
-                  ? PresignedImage(
-                      imageUrl: avatarUrl,
-                      fit: BoxFit.cover,
-                      errorWidget: _placeholder(),
-                    )
-                    : _placeholder(),
-              ),
-            ),
-
-            // Info
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            user.displayName,
-                            style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        if (user.isOnline != null)
+            // Avatar — taller, full left side
+            Stack(
+              children: [
+                ClipRRect(
+                  borderRadius: const BorderRadius.horizontal(
+                    left: Radius.circular(16),
+                  ),
+                  child: SizedBox(
+                    width: 100,
+                    height: 120,
+                    child: avatarUrl != null
+                        ? PresignedImage(
+                            imageUrl: avatarUrl,
+                            fit: BoxFit.cover,
+                            errorWidget: _placeholder(),
+                          )
+                        : _placeholder(),
+                  ),
+                ),
+                if (user.isOnline != null)
+                  Positioned(
+                    bottom: 8,
+                    left: 8,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.55),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
                           Container(
-                            width: 8,
-                            height: 8,
+                            width: 6,
+                            height: 6,
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
                               color: user.isOnline == true
@@ -598,64 +807,97 @@ class _MatchCard extends StatelessWidget {
                                   : Colors.grey,
                             ),
                           ),
-                      ],
-                    ),
-                      if (user.distanceKm != null)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 2),
-                          child: Text(
-                            user.distanceKm == 0 ? '0m' : '${user.distanceKm}km',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.grey.shade500,
+                          const SizedBox(width: 4),
+                          Text(
+                            user.isOnline == true ? 'Online' : 'Offline',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 9,
+                              fontWeight: FontWeight.w500,
                             ),
                           ),
-                        ),
-                    const SizedBox(height: 4),
+                        ],
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+
+            // Info
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(14, 14, 10, 14),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      user.displayName,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: -0.2,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 3),
                     Text(
                       [
                         if (user.age != null) '${user.age} y/o',
                         if (user.role != null)
                           DatingConstants.roleLabels[user.role] ?? user.role!,
+                        if (user.distanceKm != null)
+                          user.distanceKm == 0 ? '0m' : '${user.distanceKm}km',
                       ].join(' · '),
                       style: TextStyle(
-                        fontSize: 13,
+                        fontSize: 12,
                         color: Colors.grey.shade500,
                       ),
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 10),
+                    // Mutual Match badge — prominent gradient pill
                     Container(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 4),
+                          horizontal: 12, vertical: 5),
                       decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(20),
+                        borderRadius: BorderRadius.circular(24),
                         gradient: const LinearGradient(
-                          colors: [Color(0xFF8E44FF), Color(0xFFE91E63)],
+                          colors: [Color(0xFF8E24AA), Color(0xFFE91E63)],
+                          begin: Alignment.centerLeft,
+                          end: Alignment.centerRight,
                         ),
+                        boxShadow: [
+                          BoxShadow(
+                            color:
+                                const Color(0xFFE91E63).withValues(alpha: 0.30),
+                            blurRadius: 8,
+                            offset: const Offset(0, 3),
+                          ),
+                        ],
                       ),
                       child: Text(
                         '❤️ ${l10n.datingMutualMatch}',
                         style: const TextStyle(
                           color: Colors.white,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.2,
                         ),
                       ),
                     ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        OutlinedButton.icon(
-                          onPressed: rejecting ? null : onReject,
-                          icon: const Icon(Icons.person_off_outlined, size: 16),
-                          label: Text(l10n.datingReject),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: Colors.red[700],
-                            side: BorderSide(color: Colors.red[300]!),
-                            visualDensity: VisualDensity.compact,
-                          ),
-                        ),
-                      ],
+                    const SizedBox(height: 10),
+                    OutlinedButton.icon(
+                      onPressed: rejecting ? null : onReject,
+                      icon: const Icon(Icons.person_off_outlined, size: 15),
+                      label: Text(l10n.datingReject),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.red[700],
+                        side: BorderSide(color: Colors.red[300]!),
+                        visualDensity: VisualDensity.compact,
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 4),
+                        textStyle: const TextStyle(fontSize: 12),
+                      ),
                     ),
                   ],
                 ),
@@ -664,8 +906,9 @@ class _MatchCard extends StatelessWidget {
 
             // Arrow
             const Padding(
-              padding: EdgeInsets.only(right: 12),
-              child: Icon(Icons.chevron_right, color: Colors.grey),
+              padding: EdgeInsets.only(right: 10),
+              child:
+                  Icon(Icons.chevron_right, color: Color(0xFFE91E63), size: 22),
             ),
           ],
         ),

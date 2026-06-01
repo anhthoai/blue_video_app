@@ -86,9 +86,9 @@ class _MainScreenState extends ConsumerState<MainScreen> {
       const HomeScreen(),
       const LibraryScreen(),
       const CommunityScreen(),
-      const CurrentUserProfileScreen(),
       if (datingEnabled) const DatingScreen(),
       const ChatListScreen(),
+      const CurrentUserProfileScreen(),
     ];
 
     // Clamp index
@@ -110,11 +110,6 @@ class _MainScreenState extends ConsumerState<MainScreen> {
         activeIcon: const Icon(Icons.people),
         label: l10n.community,
       ),
-      BottomNavigationBarItem(
-        icon: const Icon(Icons.person_outlined),
-        activeIcon: const Icon(Icons.person),
-        label: l10n.profile,
-      ),
       if (datingEnabled)
         const BottomNavigationBarItem(
           icon: Icon(Icons.favorite_outline),
@@ -125,6 +120,11 @@ class _MainScreenState extends ConsumerState<MainScreen> {
         icon: const Icon(Icons.chat_outlined),
         activeIcon: const Icon(Icons.chat),
         label: l10n.chat,
+      ),
+      BottomNavigationBarItem(
+        icon: const Icon(Icons.person_outlined),
+        activeIcon: const Icon(Icons.person),
+        label: l10n.profile,
       ),
     ];
 
