@@ -376,6 +376,10 @@ class AppLocalizationsEs extends AppLocalizationsEn {
       'Autenticate para iniciar sesion en Blue Video';
 
   @override
+  String get verifyEmailBeforeSignIn =>
+      'Verifica tu correo antes de iniciar sesion. Revisa el enlace de verificacion en tu bandeja de entrada.';
+
+  @override
   String get welcomeBack => 'Bienvenido de nuevo';
 
   @override

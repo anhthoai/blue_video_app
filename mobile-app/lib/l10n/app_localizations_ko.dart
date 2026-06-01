@@ -366,6 +366,10 @@ class AppLocalizationsKo extends AppLocalizationsEn {
   String get authenticateToLogin => 'Blue Video 로그인 인증을 진행해 주세요';
 
   @override
+  String get verifyEmailBeforeSignIn =>
+      '로그인하기 전에 이메일 인증을 완료해 주세요. 받은편지함에서 인증 링크를 확인하세요.';
+
+  @override
   String get welcomeBack => '다시 오신 것을 환영합니다';
 
   @override

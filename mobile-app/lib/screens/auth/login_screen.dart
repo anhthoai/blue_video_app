@@ -383,6 +383,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 
   Future<void> _handleLogin() async {
+    final l10n = AppLocalizations.of(context);
     if (!_formKey.currentState!.validate()) return;
 
     setState(() {
@@ -406,9 +407,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       } else {
         // Login failed - show error message
         if (mounted) {
+          final failureReason = authService.lastSignInFailureReason;
+          final message = failureReason == SignInFailureReason.emailNotVerified
+              ? l10n.verifyEmailBeforeSignIn
+              : 'Login failed: Invalid credentials';
+
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Login failed: Invalid credentials'),
+            SnackBar(
+              content: Text(message),
               backgroundColor: Colors.red,
             ),
           );
@@ -465,9 +471,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       if (user != null) {
         context.go('/main');
       } else {
+        final failureReason = authService.lastSignInFailureReason;
+        final message = failureReason == SignInFailureReason.emailNotVerified
+            ? l10n.verifyEmailBeforeSignIn
+            : l10n.biometricLoginFailed;
+
         messenger?.showSnackBar(
           SnackBar(
-            content: Text(l10n.biometricLoginFailed),
+            content: Text(message),
             backgroundColor: Colors.red,
           ),
         );

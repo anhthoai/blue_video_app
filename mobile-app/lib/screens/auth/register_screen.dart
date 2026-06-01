@@ -333,8 +333,11 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
             _isLoading = false;
           });
 
-          // Navigate to main screen immediately
-          context.go('/main');
+          if (user.isVerified) {
+            context.go('/main');
+          } else {
+            context.go('/auth/login');
+          }
 
           // Show success message after navigation
           Future.delayed(const Duration(milliseconds: 500), () {

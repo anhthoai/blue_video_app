@@ -371,6 +371,10 @@ class AppLocalizationsTr extends AppLocalizationsEn {
       'Blue Video\'ya giris yapmak icin kimlik dogrulayin';
 
   @override
+  String get verifyEmailBeforeSignIn =>
+      'Giris yapmadan once e-postanizi dogrulayin. Dogrulama baglantisi icin gelen kutunuzu kontrol edin.';
+
+  @override
   String get welcomeBack => 'Tekrar hos geldiniz';
 
   @override

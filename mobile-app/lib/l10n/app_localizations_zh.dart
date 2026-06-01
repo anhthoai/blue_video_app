@@ -519,6 +519,9 @@ class AppLocalizationsZh extends AppLocalizationsEn {
   @override
   String get biometricSetupRequired => '请先使用邮箱和密码登录一次以完成生物识别设置。';
 
+  @override
+  String get verifyEmailBeforeSignIn => '请先验证您的邮箱后再登录。请检查收件箱中的验证链接。';
+
   // Post/Community
   @override
   String get createPost => '创建帖子';
@@ -2049,7 +2052,8 @@ class AppLocalizationsZh extends AppLocalizationsEn {
   String get communityRequestRanking => '排行';
 
   @override
-  String get communityRequestGuide => '发布具体片段需求并设置金币赏金，然后让其他用户上传文件或附上搜索链接。搜索结果链接对贡献者免费。';
+  String get communityRequestGuide =>
+      '发布具体片段需求并设置金币赏金，然后让其他用户上传文件或附上搜索链接。搜索结果链接对贡献者免费。';
 
   @override
   String get communitySearchingRequests => '正在搜索请求';
@@ -2169,13 +2173,15 @@ class AppLocalizationsZh extends AppLocalizationsEn {
   String get createRequestBannerTitle => '设置赏金并从社区收集匹配内容';
 
   @override
-  String get createRequestBannerSubtitle => '其他人可以上传文件，或附上搜索中已有的媒体链接。你审核最佳匹配后发放金币。';
+  String get createRequestBannerSubtitle =>
+      '其他人可以上传文件，或附上搜索中已有的媒体链接。你审核最佳匹配后发放金币。';
 
   @override
   String get createRequestWhatLookingFor => '你在寻找什么？';
 
   @override
-  String get createRequestDescribeHint => '描述你需要的完整相册、视频或文件。添加场景细节、名称或关键词，帮助其他人搜索。';
+  String get createRequestDescribeHint =>
+      '描述你需要的完整相册、视频或文件。添加场景细节、名称或关键词，帮助其他人搜索。';
 
   @override
   String get createRequestDescribeRequired => '请描述你的需求';
@@ -2196,7 +2202,8 @@ class AppLocalizationsZh extends AppLocalizationsEn {
   String get attach => '附加';
 
   @override
-  String get createRequestReferenceHint => '可选。添加截图或封面图，让贡献者清楚你想要的是哪套相册、视频或内容集。';
+  String get createRequestReferenceHint =>
+      '可选。添加截图或封面图，让贡献者清楚你想要的是哪套相册、视频或内容集。';
 
   @override
   String get coinBounty => '金币赏金';
@@ -2490,7 +2497,8 @@ class AppLocalizationsZh extends AppLocalizationsEn {
   String get screenCaptureProtection => '截屏保护';
 
   @override
-  String get screenCaptureProtectionSubtitle => '在 Android 上阻止截图和录屏，并在 iOS 上为受保护内容尽力进行遮罩。';
+  String get screenCaptureProtectionSubtitle =>
+      '在 Android 上阻止截图和录屏，并在 iOS 上为受保护内容尽力进行遮罩。';
 
   @override
   String get datingFeature => 'Dating 功能';

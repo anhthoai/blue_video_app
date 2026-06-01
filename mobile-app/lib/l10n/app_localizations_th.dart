@@ -370,6 +370,10 @@ class AppLocalizationsTh extends AppLocalizationsEn {
   String get authenticateToLogin => 'ยืนยันตัวตนเพื่อเข้าสู่ระบบ Blue Video';
 
   @override
+  String get verifyEmailBeforeSignIn =>
+      'โปรดยืนยันอีเมลก่อนเข้าสู่ระบบ กรุณาตรวจสอบลิงก์ยืนยันในกล่องจดหมายของคุณ';
+
+  @override
   String get welcomeBack => 'ยินดีต้อนรับกลับ';
 
   @override

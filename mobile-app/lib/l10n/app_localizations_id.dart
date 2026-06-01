@@ -369,6 +369,10 @@ class AppLocalizationsId extends AppLocalizationsEn {
   String get authenticateToLogin => 'Autentikasi untuk masuk ke Blue Video';
 
   @override
+  String get verifyEmailBeforeSignIn =>
+      'Harap verifikasi email Anda sebelum masuk. Periksa kotak masuk Anda untuk tautan verifikasi.';
+
+  @override
   String get welcomeBack => 'Selamat datang kembali';
 
   @override

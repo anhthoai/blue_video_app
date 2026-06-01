@@ -168,7 +168,7 @@ class AppLocalizationsVi extends AppLocalizationsEn {
   String get unblock => 'Bỏ chặn';
 
   @override
-    String get follow => 'Theo dõi';
+  String get follow => 'Theo dõi';
 
   @override
   String get unfollow => 'Bỏ theo dõi';
@@ -261,10 +261,10 @@ class AppLocalizationsVi extends AppLocalizationsEn {
   String get videoDescription => 'Mô tả video';
 
   @override
-    String get followers => 'Người theo dõi';
+  String get followers => 'Người theo dõi';
 
   @override
-    String get following => 'Đang theo dõi';
+  String get following => 'Đang theo dõi';
 
   @override
   String get posts => 'Bài viết';
@@ -382,14 +382,14 @@ class AppLocalizationsVi extends AppLocalizationsEn {
 
   @override
   String get createAccount => 'Tạo tài khoản';
-    @override
-    String get create => 'Tạo';
-    @override
-    String get topRated => 'Đánh giá cao nhất';
-    @override
-    String get mostViewed => 'Xem nhiều nhất';
-    @override
-    String get random => 'Ngẫu nhiên';
+  @override
+  String get create => 'Tạo';
+  @override
+  String get topRated => 'Đánh giá cao nhất';
+  @override
+  String get mostViewed => 'Xem nhiều nhất';
+  @override
+  String get random => 'Ngẫu nhiên';
 
   @override
   String get enableBiometricLoginOnDevice =>
@@ -423,6 +423,10 @@ class AppLocalizationsVi extends AppLocalizationsEn {
   String get authenticateToLogin => 'Xác thực để đăng nhập Blue Video';
 
   @override
+  String get verifyEmailBeforeSignIn =>
+      'Vui lòng xác minh email trước khi đăng nhập. Hãy kiểm tra hộp thư đến để mở liên kết xác minh.';
+
+  @override
   String get createPost => 'Tạo bài viết';
 
   @override
@@ -438,13 +442,13 @@ class AppLocalizationsVi extends AppLocalizationsEn {
   String get addVideos => 'Thêm video';
 
   @override
-    String get publish => 'Đăng';
+  String get publish => 'Đăng';
 
   @override
   String get draft => 'Bản nháp';
 
   @override
-    String get newest => 'Mới nhất';
+  String get newest => 'Mới nhất';
 
   @override
   String get oldest => 'Cũ nhất';
@@ -593,19 +597,20 @@ class AppLocalizationsVi extends AppLocalizationsEn {
 
   @override
   String get datingLocationPermissionDenied =>
-    'Quyền truy cập vị trí bị từ chối. Vui lòng bật trong cài đặt.';
+      'Quyền truy cập vị trí bị từ chối. Vui lòng bật trong cài đặt.';
 
   @override
   String get datingLocationError => 'Không thể lấy vị trí';
-    @override
-    String get datingPlanFreeUnlocked => 'Gói miễn phí';
-    @override
-    String get datingSmart => 'Tất cả';
+  @override
+  String get datingPlanFreeUnlocked => 'Gói miễn phí';
+  @override
+  String get datingSmart => 'Tất cả';
 
-    @override
-    String get datingTrendingInYourArea => 'Đang thịnh hành trong khu vực của bạn';
-    @override
-    String get datingNewFace => 'Mới';
+  @override
+  String get datingTrendingInYourArea =>
+      'Đang thịnh hành trong khu vực của bạn';
+  @override
+  String get datingNewFace => 'Mới';
 
   @override
   String get datingUpdateLocation => 'Cập nhật vị trí';
@@ -718,8 +723,7 @@ class AppLocalizationsVi extends AppLocalizationsEn {
   String get datingTribes => 'Nhóm';
 
   @override
-  String get datingSwipeHint =>
-      'Vuot len/xuong de duyet anh va album rieng tu';
+  String get datingSwipeHint => 'Vuot len/xuong de duyet anh va album rieng tu';
 
   @override
   String get datingFilters => 'Bộ lọc';
@@ -815,8 +819,7 @@ class AppLocalizationsVi extends AppLocalizationsEn {
   String get datingDenied => 'Đã từ chối';
 
   @override
-  String get datingWantsToSeePrivateAlbum =>
-      'muon xem album rieng tu cua ban';
+  String get datingWantsToSeePrivateAlbum => 'muon xem album rieng tu cua ban';
 
   @override
   String get datingNotEnoughCoins => 'Không đủ xu. Vui lòng nạp thêm.';
@@ -1157,10 +1160,10 @@ class AppLocalizationsVi extends AppLocalizationsEn {
   String get chatAttachmentDocument => 'Tài liệu';
 
   @override
-    String get chatAttachmentDocumentSubtitle => 'Gửi PDF, DOC, v.v.';
+  String get chatAttachmentDocumentSubtitle => 'Gửi PDF, DOC, v.v.';
 
   @override
-    String get chatAttachmentAudio => 'Âm thanh';
+  String get chatAttachmentAudio => 'Âm thanh';
 
   @override
   String get chatAttachmentAudioSubtitle => 'Gửi tệp âm thanh';
@@ -1178,7 +1181,8 @@ class AppLocalizationsVi extends AppLocalizationsEn {
   String get chatUnableToLoadDetails => 'Không thể tải chi tiết chat lúc này.';
 
   @override
-  String get chatNotificationsMuted => 'Đã tắt thông báo cho cuộc trò chuyện này.';
+  String get chatNotificationsMuted =>
+      'Đã tắt thông báo cho cuộc trò chuyện này.';
 
   @override
   String get chatNotificationsUnmuted =>
@@ -1266,46 +1270,47 @@ class AppLocalizationsVi extends AppLocalizationsEn {
 
   @override
   String get contentCreatorWindowMonth => 'Tháng';
-  
+
   @override
-  String get paymentCheckingResultTitle => 'Dang xac nhan ket qua thanh toan...';
-  
+  String get paymentCheckingResultTitle =>
+      'Dang xac nhan ket qua thanh toan...';
+
   @override
   String get paymentSuccessSyncingTitle =>
       'Thanh toan thanh cong, dang dong bo vao tai khoan...';
-  
+
   @override
   String get paymentSyncPendingHelp =>
       'Ban co the roi khoi trang nay hoac dong ung dung trong qua trinh xu ly. Neu sau 30 phut van chua nhan duoc, vui long lien he ho tro va gui anh chup thanh toan de xac minh.';
-  
+
   @override
   String get paymentOpenHome => 'Ve Trang Chu';
-  
+
   @override
   String get paymentViewRechargeRecord => 'Xem Lich Su Nap';
-  
+
   @override
   String get paymentMissingOrder => 'Thieu ma don hang.';
-  
+
   @override
   String get paymentNotCompletedRetry =>
       'Thanh toan chua hoan tat. Vui long thu lai sau.';
-  
+
   @override
   String get paymentConfirmedCoinsAdded =>
       'Da xac nhan thanh toan. Coin da duoc cong thanh cong!';
-  
+
   @override
   String get paymentOpenedInBrowserReturnToApp =>
       'Trang thanh toan da mo tren trinh duyet. Hoan tat thanh toan va quay lai ung dung.';
-  
+
   @override
   String get creditCardComingSoon => 'Thanh toan bang the se duoc ho tro som.';
-  
+
   @override
   String get failedToOpenPaymentGateway =>
       'Khong the mo cong thanh toan. Vui long thu lai.';
-  
+
   @override
   String get couldNotOpenBrowserForPayment =>
       'Khong the mo trinh duyet de thanh toan.';
@@ -1400,8 +1405,7 @@ class AppLocalizationsVi extends AppLocalizationsEn {
   String get communityUsers => 'Người dùng';
 
   @override
-  String get communityNothingHereRetry =>
-      'Chưa có nội dung, nhấn để thử lại';
+  String get communityNothingHereRetry => 'Chưa có nội dung, nhấn để thử lại';
 
   @override
   String get communityFollowForumHint =>
@@ -1522,7 +1526,8 @@ class AppLocalizationsVi extends AppLocalizationsEn {
   String get createPostNsfw => 'Nội dung NSFW';
 
   @override
-  String get createPostNsfwSubtitle => 'Đánh dấu nội dung không phù hợp nơi làm việc';
+  String get createPostNsfwSubtitle =>
+      'Đánh dấu nội dung không phù hợp nơi làm việc';
 
   @override
   String get createPostWhoCanReply => 'Ai có thể trả lời?';
@@ -1852,19 +1857,19 @@ class AppLocalizationsVi extends AppLocalizationsEn {
 
   @override
   String get noPostsYet => 'Chưa có bài viết';
-    @override
-    String get noVideosYet => 'Chưa có video';
-    @override
-    String get createPlaylist => 'Tạo danh sách phát';
-    @override
-    String get analytics => 'Phân tích';
+  @override
+  String get noVideosYet => 'Chưa có video';
+  @override
+  String get createPlaylist => 'Tạo danh sách phát';
+  @override
+  String get analytics => 'Phân tích';
 
-    @override
-    String get overview => 'Tổng quan';
-    @override
-    String get categories => 'Danh mục';
-    @override
-    String get library => 'Thư viện';
+  @override
+  String get overview => 'Tổng quan';
+  @override
+  String get categories => 'Danh mục';
+  @override
+  String get library => 'Thư viện';
 
   @override
   String get failedLoadPlaylists => 'Tải danh sách phát thất bại';
@@ -1892,24 +1897,24 @@ class AppLocalizationsVi extends AppLocalizationsEn {
   @override
   String get adminUnableLoadData => 'Không thể tải dữ liệu quản trị';
 
-    @override
-    String get aiMatchingProvider => 'Nhà cung cấp ghép đôi AI';
+  @override
+  String get aiMatchingProvider => 'Nhà cung cấp ghép đôi AI';
 
-    @override
-    String get addToPlaylistFailed => 'Thêm vào danh sách phát thất bại';
+  @override
+  String get addToPlaylistFailed => 'Thêm vào danh sách phát thất bại';
 
-    @override
-    String get freeContentBonusCoins => 'Xu thưởng nội dung miễn phí';
+  @override
+  String get freeContentBonusCoins => 'Xu thưởng nội dung miễn phí';
 
-    @override
-    String get freeContentBonusCoinsSubtitle =>
-            'Cấu hình xu thưởng cho bài đăng media miễn phí và video công khai miễn phí.';
+  @override
+  String get freeContentBonusCoinsSubtitle =>
+      'Cấu hình xu thưởng cho bài đăng media miễn phí và video công khai miễn phí.';
 
-    @override
-    String get freeMediaPost => 'Bài đăng media miễn phí';
+  @override
+  String get freeMediaPost => 'Bài đăng media miễn phí';
 
-    @override
-    String get freeVideoUpload => 'Tải video miễn phí';
+  @override
+  String get freeVideoUpload => 'Tải video miễn phí';
 
   @override
   String get screenCaptureProtection => 'Bảo vệ chụp màn hình';
@@ -2006,4 +2011,3 @@ class AppLocalizationsVi extends AppLocalizationsEn {
   @override
   String get shortOpen => 'Mở';
 }
-

@@ -10,6 +10,12 @@ import '../../models/user_model.dart';
 import 'api_service.dart';
 import 'notification_service.dart';
 
+enum SignInFailureReason {
+  invalidCredentials,
+  emailNotVerified,
+  unknown,
+}
+
 class AuthService {
   final SharedPreferences _prefs;
   final ApiService _apiService = ApiService();
@@ -24,6 +30,7 @@ class AuthService {
   final List<VoidCallback> _listeners = [];
   DateTime? _lastNotificationTime;
   bool _isNotifying = false;
+  SignInFailureReason? _lastSignInFailureReason;
 
   AuthService(this._prefs) {
     // Load saved user if "Remember me" was checked
@@ -34,6 +41,7 @@ class AuthService {
 
   UserModel? get currentUser => _currentUser;
   bool get isAdmin => _currentUser?.role == 'ADMIN';
+  SignInFailureReason? get lastSignInFailureReason => _lastSignInFailureReason;
 
   // Add listener for user changes
   void addListener(VoidCallback listener) {
@@ -178,6 +186,7 @@ class AuthService {
     bool? enableBiometricLogin,
   }) async {
     try {
+      _lastSignInFailureReason = null;
       print('🔐 AuthService: Starting login for $email');
       final response =
           await _apiService.login(email, password, rememberMe: rememberMe);
@@ -205,6 +214,13 @@ class AuthService {
               userData['createdAt'] ?? DateTime.now().toIso8601String()),
         );
 
+        if (!(_currentUser?.isVerified ?? false)) {
+          await _apiService.clearTokens();
+          await _clearStoredUser();
+          _lastSignInFailureReason = SignInFailureReason.emailNotVerified;
+          return null;
+        }
+
         // Save tokens
         await _prefs.setString('access_token', tokens['accessToken'] ?? '');
         await _prefs.setString('refresh_token', tokens['refreshToken'] ?? '');
@@ -231,10 +247,12 @@ class AuthService {
         return _currentUser;
       } else {
         print('🔐 AuthService: Login failed - invalid response: $response');
+        _lastSignInFailureReason = SignInFailureReason.invalidCredentials;
         return null;
       }
     } catch (e) {
       print('🔐 AuthService: Login error: $e');
+      _lastSignInFailureReason = SignInFailureReason.unknown;
       return null;
     }
   }
@@ -256,7 +274,7 @@ class AuthService {
         final userData = response['data']['user'];
         final tokens = response['data'];
 
-        _currentUser = UserModel(
+        final registeredUser = UserModel(
           id: userData['id'] ?? 'unknown',
           email: userData['email'] ?? email,
           username: userData['username'] ?? username,
@@ -269,6 +287,14 @@ class AuthService {
           createdAt: DateTime.parse(
               userData['createdAt'] ?? DateTime.now().toIso8601String()),
         );
+
+        if (!registeredUser.isVerified) {
+          await _apiService.clearTokens();
+          await _clearStoredUser();
+          return registeredUser;
+        }
+
+        _currentUser = registeredUser;
 
         // Save tokens
         await _prefs.setString('access_token', tokens['accessToken'] ?? '');

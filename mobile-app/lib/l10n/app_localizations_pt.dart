@@ -370,6 +370,10 @@ class AppLocalizationsPt extends AppLocalizationsEn {
   String get authenticateToLogin => 'Autentique-se para entrar no Blue Video';
 
   @override
+  String get verifyEmailBeforeSignIn =>
+      'Verifique seu email antes de entrar. Confira o link de verificacao na sua caixa de entrada.';
+
+  @override
   String get welcomeBack => 'Bem-vindo de volta';
 
   @override

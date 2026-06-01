@@ -525,6 +525,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get biometricSetupRequired =>
       'Please sign in with email and password once to finish biometric setup.';
 
+  @override
+  String get verifyEmailBeforeSignIn =>
+      'Please verify your email before signing in. Check your inbox for the verification link.';
+
   // Post/Community
   @override
   String get createPost => 'Create Post';
@@ -1186,7 +1190,8 @@ class AppLocalizationsEn extends AppLocalizations {
       'Follow more creators or switch to For You.';
 
   @override
-  String get shortNoVideosAvailableYet => 'No videos available for short mode yet.';
+  String get shortNoVideosAvailableYet =>
+      'No videos available for short mode yet.';
 
   @override
   String get shortTryAgainLaterOrSwitchToExplore =>
@@ -1355,10 +1360,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get datingUpdateLocation => 'Update location';
 
   @override
-    String get datingSmart => 'All';
+  String get datingSmart => 'All';
 
-    @override
-    String get datingTrendingInYourArea => 'Trending in your area';
+  @override
+  String get datingTrendingInYourArea => 'Trending in your area';
 
   @override
   String get datingNewFace => 'New';
@@ -2188,8 +2193,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get createPostVipOnly => 'VIP Only';
 
   @override
-  String get createPostVipOnlySubtitle =>
-      'Only VIP users can view this post';
+  String get createPostVipOnlySubtitle => 'Only VIP users can view this post';
 
   @override
   String get createPostMakePublicSubtitle => 'Anyone can see this post';
@@ -2578,24 +2582,24 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get adminUnableLoadData => 'Unable to load admin data';
 
-    @override
-    String get aiMatchingProvider => 'AI Matching Provider';
+  @override
+  String get aiMatchingProvider => 'AI Matching Provider';
 
-    @override
-    String get addToPlaylistFailed => 'Failed to add to playlist';
+  @override
+  String get addToPlaylistFailed => 'Failed to add to playlist';
 
-    @override
-    String get freeContentBonusCoins => 'Free Content Bonus Coins';
+  @override
+  String get freeContentBonusCoins => 'Free Content Bonus Coins';
 
-    @override
-    String get freeContentBonusCoinsSubtitle =>
-            'Configure the coin reward for free media posts and free public video uploads.';
+  @override
+  String get freeContentBonusCoinsSubtitle =>
+      'Configure the coin reward for free media posts and free public video uploads.';
 
-    @override
-    String get freeMediaPost => 'Free media post';
+  @override
+  String get freeMediaPost => 'Free media post';
 
-    @override
-    String get freeVideoUpload => 'Free video upload';
+  @override
+  String get freeVideoUpload => 'Free video upload';
 
   @override
   String get screenCaptureProtection => 'Screen capture protection';

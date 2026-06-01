@@ -207,6 +207,7 @@ abstract class AppLocalizations {
   String get authenticateToLogin;
   String get biometricLoginEnabled;
   String get biometricSetupRequired;
+  String get verifyEmailBeforeSignIn;
 
   // Post/Community
   String get createPost;

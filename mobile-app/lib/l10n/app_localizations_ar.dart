@@ -368,6 +368,10 @@ class AppLocalizationsAr extends AppLocalizationsEn {
   String get authenticateToLogin => 'يرجى التحقق لتسجيل الدخول إلى Blue Video';
 
   @override
+  String get verifyEmailBeforeSignIn =>
+      'يرجى التحقق من بريدك الإلكتروني قبل تسجيل الدخول. تحقق من رابط التحقق في صندوق الوارد.';
+
+  @override
   String get welcomeBack => 'مرحبًا بعودتك';
 
   @override
