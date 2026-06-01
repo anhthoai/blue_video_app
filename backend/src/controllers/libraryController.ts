@@ -754,6 +754,8 @@ export async function listLibraryItems(req: Request, res: Response) {
       }
     }
 
+    const search = (req.query['search'] as string) || null;
+
     // Auto-heal for stale/partial historical sync states:
     // If section root has no available rows but the section still has available
     // nested rows, force an immediate root sync (ttl=0) so users don't see
@@ -820,7 +822,6 @@ export async function listLibraryItems(req: Request, res: Response) {
     const skip = (page - 1) * limit;
     const includeStreams =
       (req.query['includeStreams'] as string | undefined)?.toLowerCase() === 'true';
-    const search = (req.query['search'] as string) || null;
 
     // On-demand real-time file fetch: when the user scrolls to a page the
     // background sync hasn't populated yet, fetch those uloz.to pages now so
