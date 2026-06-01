@@ -347,17 +347,18 @@
           <a
             class="button button-secondary"
             id="ios-install-link"
-            href="itms-services://?action=download-manifest&url=https://onlybl.com/manifest.plist"
+            href="../install.mobileconfig"
             data-ios-install-url=""
             data-manifest-path="../manifest.plist"
             data-fallback-url="https://cdn.onlybl.com/downloads/blue-video-latest.ipa"
+            data-mobileconfig-path="../install.mobileconfig"`n            data-mobileconfig-path="../install.mobileconfig"
           >
             iPhone にインストール
           </a>
         </div>
 
         <p class="button-note" id="ios-install-status">
-          Android はブラウザからのインストール許可が必要な場合があります。iPhone ユーザーは必ず Safari でこのページを開いてください。
+          Open this page in <strong>Safari</strong> on your iPhone, then tap the button above to download the installation profile.
         </p>
 
         <div class="micro-links">
@@ -368,7 +369,7 @@
         </div>
 
         <div class="callout">
-          <strong>iPhone 初回インストールについて：</strong>Safari でこのページを開き「iPhone にインストール」をタップしてください。iOS のインストールプロンプトが表示されたら確認してください。アイコンが表示された後も「信頼されていない」と表示される場合は、<strong>設定 &gt; 一般 &gt; VPN とデバイス管理</strong>で信頼設定を行ってください。
+          <strong>Must use Safari.</strong> Tap the button above &mdash; Safari will ask to allow a configuration profile download &mdash; tap <strong>Allow</strong>. Then open <strong>Settings &rarr; General &rarr; VPN &amp; Device Management</strong>, tap the downloaded profile and tap <strong>Install</strong>. Return to the Home Screen and tap the <strong>Blue Video</strong> icon to complete installation.
         </div>
 
         <div class="highlights">
@@ -398,13 +399,16 @@
         </div>
 
         <div class="install-card">
-          <h2>iPhone インストール手順</h2>
-          <p>App Store 経由でない場合がありますが、手順は数ステップで完了します。</p>
+          <h2>How to install on iPhone</h2>
+          <p>No App Store needed. Follow these steps in Safari &mdash; other browsers will not work.</p>
           <ol>
-            <li>iPhone の Safari でこのページを開き、<strong>「iPhone にインストール」</strong>をタップします。</li>
-            <li>iOS のインストールプロンプトが表示されたら確認し、アイコンが表示されるまで待ちます。</li>
-            <li>アイコンが表示されても信頼プロンプトが出る場合は、<strong>設定 &gt; 一般 &gt; VPN とデバイス管理</strong>で信頼設定を完了してください。</li>
-            <li>ホーム画面に戻り、Blue Video を開きます。</li>
+            <li>Open this page in <strong>Safari</strong> and tap <strong>Install on iPhone</strong>.</li>
+            <li>Safari asks &ldquo;This website is trying to download a configuration profile. Allow?&rdquo; &mdash; tap <strong>Allow</strong>.</li>
+            <li>&ldquo;Profile Downloaded&rdquo; appears at the top &mdash; tap <strong>Close</strong>.</li>
+            <li>Go to <strong>Settings &rarr; General &rarr; VPN &amp; Device Management</strong>.</li>
+            <li>Tap the downloaded profile, then tap <strong>Install</strong> in the top-right corner.</li>
+            <li>Enter your passcode and confirm. If it says &ldquo;Unsigned Profile&rdquo; that is normal &mdash; tap <strong>Install</strong> again.</li>
+            <li>Return to the Home Screen and tap the <strong>Blue Video</strong> icon to complete installation.</li>
           </ol>
         </div>
       </div>
@@ -448,26 +452,28 @@
     </div>
   </main>
   <script>
-    (function () {
+            (function () {
       var iosLink = document.getElementById("ios-install-link");
       var manifestLink = document.getElementById("manifest-preview-link");
       var status = document.getElementById("ios-install-status");
       if (!iosLink) return;
+      var mcPath = iosLink.getAttribute("data-mobileconfig-path");
       var manifestPath = iosLink.getAttribute("data-manifest-path");
-      var fallbackUrl  = iosLink.getAttribute("data-fallback-url");
-      var iosInstallUrl = iosLink.getAttribute("data-ios-install-url");
-      var manifestUrl  = manifestPath ? new URL(manifestPath, window.location.href).href : "";
+      var fallbackUrl = iosLink.getAttribute("data-fallback-url");
+      var manifestUrl = manifestPath ? new URL(manifestPath, window.location.href).href : "";
+      var mcUrl = mcPath ? new URL(mcPath, window.location.href).href : "";
       var isHttps = window.location.protocol === "https:";
+      var isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent) && !window.MSStream;
       if (manifestLink && manifestUrl) manifestLink.href = manifestUrl;
-      if (iosInstallUrl && iosInstallUrl.trim().length > 0) {
-        iosLink.href = iosInstallUrl;
+      if (isIOS && mcUrl) {
+        iosLink.href = mcUrl;
       } else if (isHttps && manifestUrl) {
         iosLink.href = "itms-services://?action=download-manifest&url=" + manifestUrl;
       } else if (fallbackUrl) {
         iosLink.href = fallbackUrl;
       }
-      if (status && !isHttps) {
-        status.textContent = "Android はブラウザからのインストール許可が必要な場合があります。iPhone ユーザーは必ず Safari でこのページを開いてください。テスト用 manifest インストールは HTTPS 経由でのみ動作します。ローカルプレビューでは IPA リンクにフォールバックします。";
+      if (status && isIOS) {
+        status.textContent = "Safari will ask to allow a configuration profile. Tap Allow, then go to Settings > General > VPN & Device Management > tap the downloaded profile > Install.";
       }
     })();
   </script>

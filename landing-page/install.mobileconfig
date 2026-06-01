@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Blue Video iOS Installation Profile
+  ====================================
+  This profile is downloaded by Safari when the user taps "Install on iPhone".
+  iOS will ask: "This website is trying to download a configuration profile. Allow?"
+  After the user allows and the profile is downloaded, they go to:
+    Settings → General → VPN & Device Management → [Downloaded Profile] → Install
+
+  HOW IT WORKS:
+  - This profile embeds a trust certificate (PayloadType: com.apple.security.root).
+  - The IPA at cdn.onlybl.com/downloads/blue-video-latest.ipa MUST be signed with
+    the private key matching the certificate embedded below.
+  - Once the profile is installed, iOS trusts that certificate, and the app can install.
+
+  TO COMPLETE SETUP (ACTION REQUIRED):
+  1. Obtain a valid iOS distribution certificate (p12) — either from:
+       • Apple Developer Enterprise Program (developer.apple.com/programs/enterprise)
+       • A "super signature" / re-signing service
+  2. Re-sign the IPA with that certificate using Xcode or a signing tool.
+  3. Export the certificate as DER-encoded (.cer) format.
+  4. Base64-encode the .cer file:
+       openssl base64 -in certificate.cer -out certificate.b64
+  5. Replace the PLACEHOLDER block below with your Base64-encoded certificate data.
+  6. (Optional) Sign this .mobileconfig file with Apple's Configurator or security tool:
+       security cms -S -N "Your Certificate Name" -i install.mobileconfig -o install.signed.mobileconfig
+     Signing the profile removes the "Unsigned Profile" warning on install — but is optional.
+     The reference site at d1f4.vkcaskame.cc also uses an unsigned profile (签名者: 未签名).
+-->
+<plist version="1.0">
+<dict>
+	<key>PayloadContent</key>
+	<array>
+		<!--
+		  CERTIFICATE TRUST PAYLOAD
+		  Replace PayloadContent data below with your Base64-encoded DER certificate.
+		  Remove this entire <dict> block if you have no certificate to embed (profile
+		  will still download and guide users, but app signing must be enterprise-level).
+		-->
+		<!--
+		<dict>
+			<key>PayloadType</key>
+			<string>com.apple.security.root</string>
+			<key>PayloadVersion</key>
+			<integer>1</integer>
+			<key>PayloadIdentifier</key>
+			<string>com.onlybl.app.cert.root</string>
+			<key>PayloadUUID</key>
+			<string>C1D2E3F4-A5B6-7C8D-9E0F-1A2B3C4D5E6F</string>
+			<key>PayloadDisplayName</key>
+			<string>Blue Video Certificate</string>
+			<key>PayloadContent</key>
+			<data>
+			YOUR_BASE64_DER_CERT_HERE
+			</data>
+		</dict>
+		-->
+
+		<!-- WEB CLIP: creates a homescreen shortcut that retriggers install once cert is trusted -->
+		<dict>
+			<key>PayloadType</key>
+			<string>com.apple.webClip</string>
+			<key>PayloadVersion</key>
+			<integer>1</integer>
+			<key>PayloadIdentifier</key>
+			<string>com.onlybl.app.webclip</string>
+			<key>PayloadUUID</key>
+			<string>D2E3F4A5-B6C7-8D9E-0F1A-2B3C4D5E6F7A</string>
+			<key>PayloadDisplayName</key>
+			<string>Blue Video</string>
+			<key>Label</key>
+			<string>Blue Video</string>
+			<key>URL</key>
+			<string>itms-services://?action=download-manifest&url=https://onlybl.com/manifest.plist</string>
+			<key>IsRemovable</key>
+			<true/>
+			<key>FullScreen</key>
+			<false/>
+		</dict>
+	</array>
+
+	<key>PayloadDisplayName</key>
+	<string>Blue Video</string>
+	<key>PayloadDescription</key>
+	<string>Installs the Blue Video app. After installing this profile, tap the Blue Video icon that appears to complete installation.</string>
+	<key>PayloadIdentifier</key>
+	<string>com.onlybl.app.profile.install</string>
+	<key>PayloadOrganization</key>
+	<string>Blue Video — onlybl.com</string>
+	<key>PayloadRemovalDisallowed</key>
+	<false/>
+	<key>PayloadType</key>
+	<string>Configuration</string>
+	<key>PayloadUUID</key>
+	<string>E3F4A5B6-C7D8-9E0F-1A2B-3C4D5E6F7A8B</string>
+	<key>PayloadVersion</key>
+	<integer>1</integer>
+</dict>
+</plist>
