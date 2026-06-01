@@ -754,6 +754,44 @@ export async function listLibraryItems(req: Request, res: Response) {
       }
     }
 
+    // Auto-heal for stale/partial historical sync states:
+    // If section root has no available rows but the section still has available
+    // nested rows, force an immediate root sync (ttl=0) so users don't see
+    // "No items found" for sections that clearly contain data.
+    if (!search?.trim() && parentId === null) {
+      const [rootCount, sectionCount] = await Promise.all([
+        prisma.libraryContent.count({
+          where: { section, isAvailable: true, parentId: null },
+        }),
+        prisma.libraryContent.count({
+          where: { section, isAvailable: true },
+        }),
+      ]);
+
+      if (rootCount === 0 && sectionCount > 0) {
+        const storageConfigs = listUlozStorageConfigs();
+        const pathSegs = [sectionToDisplayName(section)];
+        const repairPromises: Promise<void>[] = [];
+
+        for (const cfg of storageConfigs) {
+          const rootSlug = cfg.libraryFolders[section];
+          if (!rootSlug) continue;
+          repairPromises.push(
+            librarySyncService.syncFolderLevelIfNeeded(
+              cfg.id,
+              section,
+              rootSlug,
+              null,
+              pathSegs,
+              0, // force refresh now
+            ),
+          );
+        }
+
+        await Promise.all(repairPromises);
+      }
+    }
+
     // Determine if a background sync is still running for this folder/section.
     // Used by the client to show a loading indicator and poll for new items.
     let syncInProgress = false;

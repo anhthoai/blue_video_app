@@ -105,6 +105,10 @@ export interface SyncStatusEntry {
 export class LibrarySyncService {
   /** Keys of folder syncs currently running, keyed by `${storageId}:${folderSlug}`. */
   private readonly activeSyncs = new Set<string>();
+  private readonly recursiveSyncConcurrency = Math.max(
+    1,
+    Number(process.env['LIBRARY_RECURSIVE_SYNC_CONCURRENCY'] || 3),
+  );
 
   // -----------------------------------------------------------------------
   // Thumbnail CDN URL
@@ -310,6 +314,7 @@ export class LibrarySyncService {
       const FILE_PER_PAGE = 100;
       let totalIndexed = 0;
       let filePage = 1;
+      let hadPageFetchError = false;
       const childFoldersToSync: Array<{
         slug: string;
         parentId: string;
@@ -326,11 +331,12 @@ export class LibrarySyncService {
         try {
           page = await uloz.getFolderContentsPage(folderUrl, filePage, FILE_PER_PAGE);
         } catch (err: any) {
+          hadPageFetchError = true;
           console.warn(
             `[LibrarySync] Cannot fetch page ${filePage} of "${folderSlug}": ${err?.message}`,
           );
           signalFirstPage(); // unblock caller even when no data could be fetched
-          break;
+          throw err;
         }
 
         // Separate folders (sequential, few items) from files (batched, many items)
@@ -447,25 +453,29 @@ export class LibrarySyncService {
           .catch(() => { /* non-critical */ });
       }
 
-      // Prune direct children that were removed from this folder since the last sync
-      const pruned = await prisma.libraryContent.updateMany({
-        where: {
-          section,
-          source: ContentSource.ULOZ,
-          ulozStorageId: storageId,
-          parentId, // scope to direct children only
-          OR: [
-            { syncGeneration: null },
-            { syncGeneration: { not: syncGeneration } },
-          ],
-        },
-        data: { isAvailable: false },
-      });
+      // Prune direct children only on fully successful sync. If paging failed,
+      // skipping prune prevents temporary API/network issues from wiping root
+      // rows and causing empty section screens.
+      if (!hadPageFetchError) {
+        const pruned = await prisma.libraryContent.updateMany({
+          where: {
+            section,
+            source: ContentSource.ULOZ,
+            ulozStorageId: storageId,
+            parentId, // scope to direct children only
+            OR: [
+              { syncGeneration: null },
+              { syncGeneration: { not: syncGeneration } },
+            ],
+          },
+          data: { isAvailable: false },
+        });
 
-      if (pruned.count > 0) {
-        console.log(
-          `[LibrarySync] Pruned ${pruned.count} removed items from folder "${folderSlug}"`,
-        );
+        if (pruned.count > 0) {
+          console.log(
+            `[LibrarySync] Pruned ${pruned.count} removed items from folder "${folderSlug}"`,
+          );
+        }
       }
 
       await prisma.librarySyncState.update({
@@ -488,22 +498,41 @@ export class LibrarySyncService {
       // detached so first-page browse responses remain fast.
       if (childFoldersToSync.length > 0) {
         void (async () => {
-          for (const child of childFoldersToSync) {
-            try {
-              await this.syncFolderLevel(
-                storageId,
-                section,
-                child.slug,
-                child.parentId,
-                child.pathSegments,
-              );
-            } catch (childError: any) {
-              console.error(
-                `[LibrarySync] Child recursive sync failed for "${child.slug}":`,
-                childError?.message ?? childError,
-              );
+          const concurrency = Math.min(
+            this.recursiveSyncConcurrency,
+            childFoldersToSync.length,
+          );
+
+          let nextIndex = 0;
+          const runWorker = async () => {
+            while (true) {
+              const current = nextIndex;
+              nextIndex += 1;
+              if (current >= childFoldersToSync.length) {
+                return;
+              }
+
+              const child = childFoldersToSync[current]!;
+              try {
+                await this.syncFolderLevel(
+                  storageId,
+                  section,
+                  child.slug,
+                  child.parentId,
+                  child.pathSegments,
+                );
+              } catch (childError: any) {
+                console.error(
+                  `[LibrarySync] Child recursive sync failed for "${child.slug}":`,
+                  childError?.message ?? childError,
+                );
+              }
             }
-          }
+          };
+
+          await Promise.all(
+            Array.from({ length: concurrency }, () => runWorker()),
+          );
         })();
       }
     } catch (error: any) {
