@@ -310,6 +310,12 @@ export class LibrarySyncService {
       const FILE_PER_PAGE = 100;
       let totalIndexed = 0;
       let filePage = 1;
+      const childFoldersToSync: Array<{
+        slug: string;
+        parentId: string;
+        pathSegments: string[];
+      }> = [];
+      const enqueuedChildSlugs = new Set<string>();
       // Track all file slugs seen across pages to detect when the API starts
       // repeating items (malformed declared total + capped page size causes loops).
       const allSeenFileSlugs = new Set<string>();
@@ -334,7 +340,7 @@ export class LibrarySyncService {
         // --- Folders: sequential upsert (maintains parentId chain) ---
         for (const entry of folderEntries) {
           const childPathSegments = [...pathSegments, entry.name];
-          await this.upsertFolderItem({
+          const childFolder = await this.upsertFolderItem({
             ulozSlug: entry.slug,
             name: entry.name,
             section,
@@ -345,6 +351,14 @@ export class LibrarySyncService {
             parentFolderSlug: folderSlug,
             syncGeneration,
           });
+          if (!enqueuedChildSlugs.has(entry.slug)) {
+            enqueuedChildSlugs.add(entry.slug);
+            childFoldersToSync.push({
+              slug: entry.slug,
+              parentId: childFolder.id,
+              pathSegments: childPathSegments,
+            });
+          }
           totalIndexed++;
         }
 
@@ -468,6 +482,30 @@ export class LibrarySyncService {
       console.log(
         `[LibrarySync] ✅ section="${section}" slug="${folderSlug}" pages=${filePage} indexed=${totalIndexed}`,
       );
+
+      // Recursive background sync: after this folder level is done, continue
+      // syncing all discovered child folders in the background. Keep this
+      // detached so first-page browse responses remain fast.
+      if (childFoldersToSync.length > 0) {
+        void (async () => {
+          for (const child of childFoldersToSync) {
+            try {
+              await this.syncFolderLevel(
+                storageId,
+                section,
+                child.slug,
+                child.parentId,
+                child.pathSegments,
+              );
+            } catch (childError: any) {
+              console.error(
+                `[LibrarySync] Child recursive sync failed for "${child.slug}":`,
+                childError?.message ?? childError,
+              );
+            }
+          }
+        })();
+      }
     } catch (error: any) {
       signalFirstPage(); // ensure caller is always unblocked even on error
       console.error(
