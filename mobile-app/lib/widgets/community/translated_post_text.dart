@@ -11,6 +11,10 @@ class TranslatedPostText extends ConsumerStatefulWidget {
   final TextStyle? style;
   final int? maxLines;
   final TextOverflow? overflow;
+  final Color? annotationColor;
+  final Color? actionColor;
+  final Color? settingsIconColor;
+  final bool showTranslationSettings;
 
   const TranslatedPostText({
     super.key,
@@ -18,6 +22,10 @@ class TranslatedPostText extends ConsumerStatefulWidget {
     this.style,
     this.maxLines,
     this.overflow,
+    this.annotationColor,
+    this.actionColor,
+    this.settingsIconColor,
+    this.showTranslationSettings = true,
   });
 
   @override
@@ -43,7 +51,8 @@ class _TranslatedPostTextState extends ConsumerState<TranslatedPostText> {
   void didUpdateWidget(covariant TranslatedPostText oldWidget) {
     super.didUpdateWidget(oldWidget);
 
-    final localeCode = _normalizeLanguageCode(ref.read(localeProvider).languageCode);
+    final localeCode =
+        _normalizeLanguageCode(ref.read(localeProvider).languageCode);
     if (oldWidget.originalText != widget.originalText) {
       _showOriginal = false;
       _lastTargetLanguageCode = localeCode;
@@ -70,7 +79,7 @@ class _TranslatedPostTextState extends ConsumerState<TranslatedPostText> {
     }
 
     final targetLanguageCode =
-      _normalizeLanguageCode(ref.read(localeProvider).languageCode);
+        _normalizeLanguageCode(ref.read(localeProvider).languageCode);
 
     setState(() {
       _isLoading = true;
@@ -120,8 +129,9 @@ class _TranslatedPostTextState extends ConsumerState<TranslatedPostText> {
       });
     }
 
-    final hasTranslation =
-        !_isLoading && _translatedText != null && _translatedText != widget.originalText;
+    final hasTranslation = !_isLoading &&
+        _translatedText != null &&
+        _translatedText != widget.originalText;
     final normalizedSourceLanguageCode = _sourceLanguageCode == null
         ? null
         : normalizeCommunityTranslationLanguageCode(_sourceLanguageCode!);
@@ -138,10 +148,14 @@ class _TranslatedPostTextState extends ConsumerState<TranslatedPostText> {
         ? 'original language'
         : _languageName(_sourceLanguageCode!);
     final bannerText = showingTranslated
-      ? 'Translated from $languageLabel'
-      : autoTranslateEnabled
-        ? 'Showing original'
-        : 'Translation available from $languageLabel';
+        ? 'Translated from $languageLabel'
+        : autoTranslateEnabled
+            ? 'Showing original'
+            : 'Translation available from $languageLabel';
+    final annotationColor = widget.annotationColor ?? Colors.grey[700]!;
+    final actionColor =
+        widget.actionColor ?? Theme.of(context).colorScheme.primary;
+    final settingsIconColor = widget.settingsIconColor ?? Colors.grey[700]!;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -153,7 +167,7 @@ class _TranslatedPostTextState extends ConsumerState<TranslatedPostText> {
               Icon(
                 Icons.g_translate_rounded,
                 size: 16,
-                color: Colors.grey[700],
+                color: annotationColor,
               ),
               const SizedBox(width: 6),
               Expanded(
@@ -166,7 +180,7 @@ class _TranslatedPostTextState extends ConsumerState<TranslatedPostText> {
                         bannerText,
                         style: TextStyle(
                           fontSize: 12,
-                          color: Colors.grey[700],
+                          color: annotationColor,
                           fontStyle: FontStyle.italic,
                         ),
                       )
@@ -175,7 +189,7 @@ class _TranslatedPostTextState extends ConsumerState<TranslatedPostText> {
                         bannerText,
                         style: TextStyle(
                           fontSize: 12,
-                          color: Colors.grey[700],
+                          color: annotationColor,
                           fontStyle: FontStyle.italic,
                         ),
                       ),
@@ -186,10 +200,12 @@ class _TranslatedPostTextState extends ConsumerState<TranslatedPostText> {
                         });
                       },
                       child: Text(
-                        showingTranslated ? 'Show original' : 'Show translation',
+                        showingTranslated
+                            ? 'Show original'
+                            : 'Show translation',
                         style: TextStyle(
                           fontSize: 12,
-                          color: Theme.of(context).colorScheme.primary,
+                          color: actionColor,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -197,21 +213,23 @@ class _TranslatedPostTextState extends ConsumerState<TranslatedPostText> {
                   ],
                 ),
               ),
-              IconButton(
-                onPressed: normalizedSourceLanguageCode == null
-                    ? null
-                    : () => _showTranslationOptionsSheet(
-                          context,
-                          sourceLanguageCode: normalizedSourceLanguageCode,
-                          sourceLanguageLabel: languageLabel,
-                          autoTranslateEnabled: autoTranslateEnabled,
-                        ),
-                icon: const Icon(Icons.settings, size: 18),
-                splashRadius: 18,
-                color: Colors.grey[700],
-                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                padding: EdgeInsets.zero,
-              ),
+              if (widget.showTranslationSettings)
+                IconButton(
+                  onPressed: normalizedSourceLanguageCode == null
+                      ? null
+                      : () => _showTranslationOptionsSheet(
+                            context,
+                            sourceLanguageCode: normalizedSourceLanguageCode,
+                            sourceLanguageLabel: languageLabel,
+                            autoTranslateEnabled: autoTranslateEnabled,
+                          ),
+                  icon: const Icon(Icons.settings, size: 18),
+                  splashRadius: 18,
+                  color: settingsIconColor,
+                  constraints:
+                      const BoxConstraints(minWidth: 32, minHeight: 32),
+                  padding: EdgeInsets.zero,
+                ),
             ],
           ),
           const SizedBox(height: 4),
@@ -294,7 +312,8 @@ class _TranslatedPostTextState extends ConsumerState<TranslatedPostText> {
                         localAutoTranslateEnabled = value;
                       });
                       await ref
-                          .read(communityTranslationPreferencesProvider.notifier)
+                          .read(
+                              communityTranslationPreferencesProvider.notifier)
                           .setAutoTranslateEnabled(sourceLanguageCode, value);
                       if (!mounted) {
                         return;

@@ -15,6 +15,7 @@ import '../../l10n/app_localizations.dart';
 import '../common/presigned_image.dart';
 import '../../core/services/dating_service.dart';
 import '../../screens/dating/private_album_screen.dart';
+import '../community/translated_post_text.dart';
 
 class MessageBubble extends StatefulWidget {
   final ChatMessage message;
@@ -68,7 +69,8 @@ class _MessageBubbleState extends State<MessageBubble> {
 
       if (profile.privateAlbumAccessStatus != 'ACCEPTED') {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(AppLocalizations.of(context).chatAccessInvalid)),
+          SnackBar(
+              content: Text(AppLocalizations.of(context).chatAccessInvalid)),
         );
         return;
       }
@@ -275,9 +277,8 @@ class _MessageBubbleState extends State<MessageBubble> {
     final l10n = AppLocalizations.of(context);
     final sender = widget.replyPreviewSender?.trim();
     final text = widget.replyPreviewText?.trim();
-    final previewContent = (text == null || text.isEmpty)
-        ? l10n.chatNoMessagesYet
-        : text;
+    final previewContent =
+        (text == null || text.isEmpty) ? l10n.chatNoMessagesYet : text;
 
     return Container(
       padding: const EdgeInsets.all(8),
@@ -323,16 +324,13 @@ class _MessageBubbleState extends State<MessageBubble> {
 
   Widget _buildMessageContent(BuildContext context) {
     final message = widget.message;
-    final isMe = widget.isMe;
 
     switch (message.messageType) {
       case MessageType.text:
-        return Text(
+        return _buildTranslatedChatText(
+          context,
           message.content,
-          style: TextStyle(
-            color: isMe ? Colors.white : Colors.black87,
-            fontSize: 16,
-          ),
+          fontSize: 16,
         );
       case MessageType.image:
         return _buildImageMessage(context);
@@ -351,13 +349,42 @@ class _MessageBubbleState extends State<MessageBubble> {
     }
   }
 
+  Widget _buildTranslatedChatText(
+    BuildContext context,
+    String text, {
+    required double fontSize,
+    int? maxLines,
+    TextOverflow? overflow,
+  }) {
+    final isMe = widget.isMe;
+    return TranslatedPostText(
+      originalText: text,
+      style: TextStyle(
+        color: isMe ? Colors.white : Colors.black87,
+        fontSize: fontSize,
+      ),
+      maxLines: maxLines,
+      overflow: overflow,
+      annotationColor: isMe ? Colors.white70 : Colors.grey.shade700,
+      actionColor: isMe ? Colors.white : Theme.of(context).colorScheme.primary,
+      settingsIconColor: isMe ? Colors.white70 : Colors.grey.shade700,
+    );
+  }
+
   Widget _buildImageMessage(BuildContext context) {
     final message = widget.message;
     final isMe = widget.isMe;
 
     if (message.fileUrl == null || message.fileUrl!.isEmpty) {
+      if (message.content.isNotEmpty) {
+        return _buildTranslatedChatText(
+          context,
+          message.content,
+          fontSize: 16,
+        );
+      }
       return Text(
-        message.content.isNotEmpty ? message.content : '📷 Image',
+        '📷 Image',
         style: TextStyle(
           color: isMe ? Colors.white : Colors.black87,
           fontSize: 16,
@@ -395,12 +422,10 @@ class _MessageBubbleState extends State<MessageBubble> {
         ),
         if (message.content.isNotEmpty) ...[
           const SizedBox(height: 8),
-          Text(
+          _buildTranslatedChatText(
+            context,
             message.content,
-            style: TextStyle(
-              color: isMe ? Colors.white : Colors.black87,
-              fontSize: 14,
-            ),
+            fontSize: 14,
           ),
         ],
       ],
@@ -462,8 +487,15 @@ class _MessageBubbleState extends State<MessageBubble> {
     final isMe = widget.isMe;
 
     if (message.fileUrl == null || message.fileUrl!.isEmpty) {
+      if (message.content.isNotEmpty) {
+        return _buildTranslatedChatText(
+          context,
+          message.content,
+          fontSize: 16,
+        );
+      }
       return Text(
-        message.content.isNotEmpty ? message.content : '🎥 Video',
+        '🎥 Video',
         style: TextStyle(
           color: isMe ? Colors.white : Colors.black87,
           fontSize: 16,
@@ -523,12 +555,10 @@ class _MessageBubbleState extends State<MessageBubble> {
         ),
         if (message.content.isNotEmpty) ...[
           const SizedBox(height: 8),
-          Text(
+          _buildTranslatedChatText(
+            context,
             message.content,
-            style: TextStyle(
-              color: isMe ? Colors.white : Colors.black87,
-              fontSize: 14,
-            ),
+            fontSize: 14,
           ),
         ],
       ],
@@ -555,8 +585,15 @@ class _MessageBubbleState extends State<MessageBubble> {
     final isMe = widget.isMe;
 
     if (message.fileUrl == null || message.fileUrl!.isEmpty) {
+      if (message.content.isNotEmpty) {
+        return _buildTranslatedChatText(
+          context,
+          message.content,
+          fontSize: 16,
+        );
+      }
       return Text(
-        message.content.isNotEmpty ? message.content : '🎵 Audio',
+        '🎵 Audio',
         style: TextStyle(
           color: isMe ? Colors.white : Colors.black87,
           fontSize: 16,
@@ -631,12 +668,10 @@ class _MessageBubbleState extends State<MessageBubble> {
         ),
         if (message.content.isNotEmpty) ...[
           const SizedBox(height: 8),
-          Text(
+          _buildTranslatedChatText(
+            context,
             message.content,
-            style: TextStyle(
-              color: isMe ? Colors.white : Colors.black87,
-              fontSize: 14,
-            ),
+            fontSize: 14,
           ),
         ],
       ],
@@ -671,8 +706,15 @@ class _MessageBubbleState extends State<MessageBubble> {
     final isMe = widget.isMe;
 
     if (message.fileUrl == null || message.fileUrl!.isEmpty) {
+      if (message.content.isNotEmpty) {
+        return _buildTranslatedChatText(
+          context,
+          message.content,
+          fontSize: 16,
+        );
+      }
       return Text(
-        message.content.isNotEmpty ? message.content : '📄 File',
+        '📄 File',
         style: TextStyle(
           color: isMe ? Colors.white : Colors.black87,
           fontSize: 16,
@@ -750,12 +792,10 @@ class _MessageBubbleState extends State<MessageBubble> {
         ),
         if (message.content.isNotEmpty) ...[
           const SizedBox(height: 8),
-          Text(
+          _buildTranslatedChatText(
+            context,
             message.content,
-            style: TextStyle(
-              color: isMe ? Colors.white : Colors.black87,
-              fontSize: 14,
-            ),
+            fontSize: 14,
           ),
         ],
       ],
@@ -1026,9 +1066,9 @@ class _MessageBubbleState extends State<MessageBubble> {
         (requestId != null && requestId == _agreedRequestId);
     final normalized = content.trim().toLowerCase();
     final displayContent = normalized.isEmpty ||
-        normalized == 'may i check out your private album?'
-      ? l10n.chatPrivateAlbumRequestText
-      : content;
+            normalized == 'may i check out your private album?'
+        ? l10n.chatPrivateAlbumRequestText
+        : content;
 
     return Container(
       padding: const EdgeInsets.all(12),
@@ -1066,7 +1106,8 @@ class _MessageBubbleState extends State<MessageBubble> {
                         _isAgreeingPrivateAlbum = true;
                       });
                       try {
-                        await DatingService().agreePrivateAlbumRequest(requestId);
+                        await DatingService()
+                            .agreePrivateAlbumRequest(requestId);
                         if (!mounted) return;
                         setState(() {
                           _agreedRequestId = requestId;
@@ -1092,7 +1133,8 @@ class _MessageBubbleState extends State<MessageBubble> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.purple[700],
                 foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
                 textStyle: const TextStyle(fontSize: 13),
               ),
             )
@@ -1104,7 +1146,8 @@ class _MessageBubbleState extends State<MessageBubble> {
               style: ElevatedButton.styleFrom(
                 disabledBackgroundColor: Colors.green[100],
                 disabledForegroundColor: Colors.green[700],
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
                 textStyle: const TextStyle(fontSize: 13),
               ),
             ),
@@ -1124,9 +1167,9 @@ class _MessageBubbleState extends State<MessageBubble> {
     final l10n = AppLocalizations.of(context);
     final normalized = content.trim().toLowerCase();
     final displayContent = normalized.isEmpty ||
-        normalized == 'i have unlocked my privacy album to you'
-      ? l10n.chatPrivateAlbumUnlockedText
-      : content;
+            normalized == 'i have unlocked my privacy album to you'
+        ? l10n.chatPrivateAlbumUnlockedText
+        : content;
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -1153,13 +1196,15 @@ class _MessageBubbleState extends State<MessageBubble> {
           const SizedBox(height: 8),
           if (!isMe && ownerId != null)
             ElevatedButton.icon(
-              onPressed: () => _openPrivateAlbumWithAccessCheck(context, ownerId),
+              onPressed: () =>
+                  _openPrivateAlbumWithAccessCheck(context, ownerId),
               icon: const Icon(Icons.photo_library, size: 16),
               label: Text(l10n.chatViewPrivateAlbum),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.green[700],
                 foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
                 textStyle: const TextStyle(fontSize: 13),
               ),
             )
@@ -1184,7 +1229,8 @@ class _MessageBubbleState extends State<MessageBubble> {
               style: OutlinedButton.styleFrom(
                 foregroundColor: Colors.red[700],
                 side: BorderSide(color: Colors.red[300]!),
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
                 textStyle: const TextStyle(fontSize: 13),
               ),
             ),
