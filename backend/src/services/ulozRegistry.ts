@@ -7,6 +7,10 @@ export interface UlozStorageConfig {
   apiKey: string;
   baseUrl: string;
   proxyCdnUrl?: string;
+  /** CDN base URL used exclusively for __ulozthumb__/small/ thumbnail paths.
+   * Defaults to proxyCdnUrl when not explicitly set.
+   * Allows thumbnails to work even when proxyCdnUrl (streaming CDN) is disabled. */
+  thumbCdnUrl?: string;
   libraryFolders: Record<string, string>;
 }
 
@@ -71,7 +75,13 @@ function readEnvUlozConfig(id: number, env: NodeJS.ProcessEnv): UlozStorageConfi
     (id === 1 ? env['ULOZ_PROXY_CDN_URL'] || env['ULOZ_CDN_URL'] : undefined);
   const proxyCdnUrl = proxyCdnUrlRaw ? String(proxyCdnUrlRaw).trim() : undefined;
 
-  const hasAny = Boolean(username || password || apiKey || proxyCdnUrl);
+  const thumbCdnUrlRaw =
+    env[envKey(id, 'THUMB_CDN_URL')] ||
+    (id === 1 ? env['ULOZ_THUMB_CDN_URL'] : undefined) ||
+    proxyCdnUrlRaw;
+  const thumbCdnUrl = thumbCdnUrlRaw ? String(thumbCdnUrlRaw).trim() : undefined;
+
+  const hasAny = Boolean(username || password || apiKey || proxyCdnUrl || thumbCdnUrl);
   if (!hasAny) return null;
 
   return {
@@ -81,6 +91,7 @@ function readEnvUlozConfig(id: number, env: NodeJS.ProcessEnv): UlozStorageConfi
     apiKey: apiKey || '',
     baseUrl,
     ...(proxyCdnUrl ? { proxyCdnUrl } : {}),
+    ...(thumbCdnUrl ? { thumbCdnUrl } : {}),
     libraryFolders: readLibraryFolderMap(id, env),
   };
 }
@@ -121,6 +132,8 @@ export function getUlozStorageConfig(id: number, env: NodeJS.ProcessEnv = proces
     if (id !== 1) return getUlozStorageConfig(1, env);
     const proxyCdnUrlRaw = env['ULOZ_PROXY_CDN_URL'] || env['ULOZ_CDN_URL'];
     const proxyCdnUrl = proxyCdnUrlRaw ? String(proxyCdnUrlRaw).trim() : undefined;
+    const thumbCdnUrlRaw = env['ULOZ_THUMB_CDN_URL'] || proxyCdnUrlRaw;
+    const thumbCdnUrl = thumbCdnUrlRaw ? String(thumbCdnUrlRaw).trim() : undefined;
     const fallback: UlozStorageConfig = {
       id: 1,
       username: env['ULOZ_USERNAME'] || '',
@@ -128,6 +141,7 @@ export function getUlozStorageConfig(id: number, env: NodeJS.ProcessEnv = proces
       apiKey: env['ULOZ_API_KEY'] || '',
       baseUrl: env['ULOZ_BASE_URL'] || 'https://apis.uloz.to',
       ...(proxyCdnUrl ? { proxyCdnUrl } : {}),
+      ...(thumbCdnUrl ? { thumbCdnUrl } : {}),
       libraryFolders: readLibraryFolderMap(1, env),
     };
     ulozConfigCache.set(1, fallback);

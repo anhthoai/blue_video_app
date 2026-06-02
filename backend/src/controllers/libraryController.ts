@@ -522,8 +522,11 @@ async function serializeLibraryItem(
         ? item.ulozStorageId
         : resolveUlozStorageId(req);
     const cfg = getUlozStorageConfig(storageId);
-    if (cfg.proxyCdnUrl) {
-      const stableThumb = `${String(cfg.proxyCdnUrl).replace(/\/+$/g, '')}/__ulozthumb__/small/${encodeURIComponent(String(item.ulozSlug))}`;
+    // Use thumbCdnUrl (thumbnail-only CDN) or fall back to proxyCdnUrl.
+    // This ensures thumbnails work even when proxyCdnUrl (streaming CDN) is disabled.
+    const thumbBase = cfg.thumbCdnUrl || cfg.proxyCdnUrl;
+    if (thumbBase) {
+      const stableThumb = `${String(thumbBase).replace(/\/+$/g, '')}/__ulozthumb__/small/${encodeURIComponent(String(item.ulozSlug))}`;
       thumbnailUrl = stableThumb;
     }
   }

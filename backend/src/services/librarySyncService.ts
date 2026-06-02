@@ -123,11 +123,11 @@ export class LibrarySyncService {
    */
   buildThumbnailUrl(storageId: number, fileSlug: string): string | null {
     const cfg = getUlozStorageConfig(storageId);
-    if (!cfg.proxyCdnUrl) return null;
-    const base = cfg.proxyCdnUrl.endsWith('/')
-      ? cfg.proxyCdnUrl
-      : `${cfg.proxyCdnUrl}/`;
-    return `${base}__ulozthumb__/small/${fileSlug}`;
+    // Prefer dedicated thumbCdnUrl; fall back to proxyCdnUrl.
+    const base = cfg.thumbCdnUrl || cfg.proxyCdnUrl;
+    if (!base) return null;
+    const baseWithSlash = base.endsWith('/') ? base : `${base}/`;
+    return `${baseWithSlash}__ulozthumb__/small/${fileSlug}`;
   }
 
   /**
