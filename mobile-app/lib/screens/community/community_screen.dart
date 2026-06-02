@@ -23,25 +23,44 @@ class CommunityScreen extends ConsumerStatefulWidget {
   ConsumerState<CommunityScreen> createState() => _CommunityScreenState();
 }
 
-class _CommunityScreenState extends ConsumerState<CommunityScreen> {
+class _CommunityScreenState extends ConsumerState<CommunityScreen>
+    with SingleTickerProviderStateMixin {
   final TextEditingController _searchController = TextEditingController();
-  _CommunityTopTab _selectedTopTab = _CommunityTopTab.original;
+  late final TabController _primaryTabController;
   _CommunityFeedTab _selectedFeedTab = _CommunityFeedTab.recommended;
   _FollowingSection _selectedFollowingSection = _FollowingSection.topics;
   _RequestSection _selectedRequestSection = _RequestSection.latest;
   String _requestQuery = '';
 
+  _CommunityTopTab get _selectedTopTab =>
+      _CommunityTopTab.values[_primaryTabController.index];
+
   @override
   void initState() {
     super.initState();
+    _primaryTabController = TabController(
+      length: _CommunityTopTab.values.length,
+      vsync: this,
+      initialIndex: _CommunityTopTab.original.index,
+    )..addListener(_handlePrimaryTabChanged);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(communityHubProvider.notifier).ensureLoaded();
       _clearTagPostsAndLoadPosts();
     });
   }
 
+  void _handlePrimaryTabChanged() {
+    if (!mounted) {
+      return;
+    }
+    setState(() {});
+  }
+
   @override
   void dispose() {
+    _primaryTabController
+      ..removeListener(_handlePrimaryTabChanged)
+      ..dispose();
     _searchController.dispose();
     super.dispose();
   }
@@ -67,7 +86,9 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
 
   Future<void> _loadTrendingPosts() async {
     try {
-      await ref.read(communityServiceStateProvider.notifier).loadTrendingPosts();
+      await ref
+          .read(communityServiceStateProvider.notifier)
+          .loadTrendingPosts();
     } catch (e) {
       debugPrint('Error loading trending posts: $e');
     }
@@ -183,6 +204,7 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
     final communityState = ref.watch(communityServiceStateProvider);
     final authState = ref.watch(authServiceProvider);
     final hubState = ref.watch(communityHubProvider);
+    final selectedTopTab = _selectedTopTab;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF7F8FC),
@@ -203,7 +225,7 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
               ),
             ),
             Expanded(
-              child: _buildTabBody(
+              child: _buildPrimaryTabView(
                 hubState: hubState,
                 communityState: communityState,
                 authState: authState,
@@ -213,14 +235,14 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
         ),
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: _selectedTopTab == _CommunityTopTab.request
+        onPressed: selectedTopTab == _CommunityTopTab.request
             ? _createRequest
             : _createPost,
-        heroTag: 'community_action_${_selectedTopTab.name}',
+        heroTag: 'community_action_${selectedTopTab.name}',
         backgroundColor: AppTheme.primaryColor,
         foregroundColor: Colors.white,
         child: Icon(
-          _selectedTopTab == _CommunityTopTab.request
+          selectedTopTab == _CommunityTopTab.request
               ? Icons.add_comment_rounded
               : Icons.add_rounded,
         ),
@@ -230,88 +252,45 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
 
   Widget _buildPrimaryTabs() {
     final l10n = AppLocalizations.of(context);
-    return Row(
-      children: [
-        Expanded(
-          child: _buildPrimaryTabButton(
-            label: l10n.following,
-            tab: _CommunityTopTab.following,
-          ),
-        ),
-        Expanded(
-          child: _buildPrimaryTabButton(
-            label: l10n.communityOriginal,
-            tab: _CommunityTopTab.original,
-          ),
-        ),
-        Expanded(
-          child: _buildPrimaryTabButton(
-            label: l10n.communityRequest,
-            tab: _CommunityTopTab.request,
-          ),
-        ),
+    return TabBar(
+      controller: _primaryTabController,
+      isScrollable: true,
+      dividerColor: Colors.transparent,
+      indicatorSize: TabBarIndicatorSize.label,
+      indicatorColor: AppTheme.primaryColor,
+      indicatorWeight: 3,
+      labelPadding: const EdgeInsets.symmetric(horizontal: 16),
+      labelColor: AppTheme.primaryColor,
+      unselectedLabelColor: Colors.black,
+      labelStyle: const TextStyle(
+        fontSize: 16,
+        fontWeight: FontWeight.w800,
+      ),
+      unselectedLabelStyle: const TextStyle(
+        fontSize: 16,
+        fontWeight: FontWeight.w800,
+      ),
+      tabs: [
+        Tab(text: l10n.following),
+        Tab(text: l10n.communityOriginal),
+        Tab(text: l10n.communityRequest),
       ],
     );
   }
 
-  Widget _buildPrimaryTabButton({
-    required String label,
-    required _CommunityTopTab tab,
-  }) {
-    final isSelected = _selectedTopTab == tab;
-
-    return InkWell(
-      onTap: () {
-        setState(() {
-          _selectedTopTab = tab;
-        });
-      },
-      borderRadius: BorderRadius.circular(12),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              label,
-              textAlign: TextAlign.center,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w800,
-                color: isSelected ? AppTheme.primaryColor : Colors.black,
-              ),
-            ),
-            const SizedBox(height: 8),
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              width: isSelected ? 30 : 0,
-              height: 3,
-              decoration: BoxDecoration(
-                color: AppTheme.primaryColor,
-                borderRadius: BorderRadius.circular(99),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildTabBody({
+  Widget _buildPrimaryTabView({
     required CommunityHubState hubState,
     required CommunityServiceState communityState,
     required AuthService authState,
   }) {
-    switch (_selectedTopTab) {
-      case _CommunityTopTab.following:
-        return _buildFollowingTab(hubState, communityState, authState);
-      case _CommunityTopTab.original:
-        return _buildOriginalTab(hubState, communityState, authState);
-      case _CommunityTopTab.request:
-        return _buildRequestTab(hubState);
-    }
+    return TabBarView(
+      controller: _primaryTabController,
+      children: [
+        _buildFollowingTab(hubState, communityState, authState),
+        _buildOriginalTab(hubState, communityState, authState),
+        _buildRequestTab(hubState),
+      ],
+    );
   }
 
   Widget _buildOriginalTab(
@@ -760,13 +739,16 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
                 ),
                 FilledButton(
                   onPressed: () {
-                    ref.read(communityHubProvider.notifier).toggleForumFollow(forum.id);
+                    ref
+                        .read(communityHubProvider.notifier)
+                        .toggleForumFollow(forum.id);
                   },
                   style: FilledButton.styleFrom(
                     backgroundColor: forum.isFollowing
                         ? Colors.white
                         : Colors.white.withValues(alpha: 0.18),
-                    foregroundColor: forum.isFollowing ? startColor : Colors.white,
+                    foregroundColor:
+                        forum.isFollowing ? startColor : Colors.white,
                     padding: const EdgeInsets.symmetric(
                       horizontal: 10,
                       vertical: 6,
@@ -981,7 +963,9 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
             ),
             OutlinedButton(
               onPressed: () {
-                ref.read(communityHubProvider.notifier).toggleForumFollow(forum.id);
+                ref
+                    .read(communityHubProvider.notifier)
+                    .toggleForumFollow(forum.id);
               },
               child: const Text('Following'),
             ),
@@ -1111,7 +1095,9 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
                 ),
                 FilledButton.icon(
                   onPressed: () {
-                    ref.read(communityHubProvider.notifier).toggleWantRequest(request.id);
+                    ref
+                        .read(communityHubProvider.notifier)
+                        .toggleWantRequest(request.id);
                   },
                   icon: Icon(
                     request.isWantedByCurrentUser
@@ -1191,7 +1177,8 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
             ],
             if (request.keywords.isNotEmpty)
               Padding(
-                padding: EdgeInsets.only(top: previewHints.isNotEmpty ? 12 : 14),
+                padding:
+                    EdgeInsets.only(top: previewHints.isNotEmpty ? 12 : 14),
                 child: Wrap(
                   spacing: 8,
                   runSpacing: 8,
@@ -1310,7 +1297,9 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
               const SizedBox(height: 8),
               OutlinedButton(
                 onPressed: () {
-                  ref.read(communityHubProvider.notifier).toggleCreatorFollow(entry.creatorId);
+                  ref
+                      .read(communityHubProvider.notifier)
+                      .toggleCreatorFollow(entry.creatorId);
                 },
                 child: Text(entry.isFollowing ? 'Following' : '+ Follow'),
               ),
@@ -1455,7 +1444,8 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
     return requests.where((request) {
       return request.title.toLowerCase().contains(query) ||
           request.description.toLowerCase().contains(query) ||
-          request.keywords.any((keyword) => keyword.toLowerCase().contains(query));
+          request.keywords
+              .any((keyword) => keyword.toLowerCase().contains(query));
     }).toList();
   }
 
@@ -1635,9 +1625,9 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
 
     if (result is String && result.isNotEmpty) {
       setState(() {
-        _selectedTopTab = _CommunityTopTab.request;
         _selectedRequestSection = _RequestSection.latest;
       });
+      _primaryTabController.animateTo(_CommunityTopTab.request.index);
       context.push('/main/request/$result');
     }
   }
