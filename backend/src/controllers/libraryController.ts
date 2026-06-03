@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { ContentSource } from '@prisma/client';
+import { CoinTransactionType, ContentSource } from '@prisma/client';
 import axios from 'axios';
 import { pipeline } from 'stream';
 import http from 'http';
@@ -8,6 +8,7 @@ import prisma from '../lib/prisma';
 import { StorageService } from '../config/storage';
 import { getUlozService, getUlozStorageConfig, resolveUlozStorageId, listUlozStorageConfigs } from '../services/ulozRegistry';
 import { librarySyncService, sectionToDisplayName, SyncStatusEntry } from '../services/librarySyncService';
+import { AppSettingsService } from '../services/appSettingsService';
 
 const MAX_PAGE_SIZE = 200;
 const MAX_VIDEO_FEED_PAGE_SIZE = 120;
@@ -61,6 +62,7 @@ const upstreamHttpsAgent = new https.Agent({
   maxSockets: 50,
   keepAliveMsecs: 15_000,
 });
+const appSettingsService = new AppSettingsService(prisma);
 
 function guessMimeTypeFromExtension(extension: string | null | undefined): string | null {
   const ext = (extension || '').toString().trim().toLowerCase().replace(/^\./, '');
@@ -1137,6 +1139,202 @@ export async function getLibraryItem(req: Request, res: Response) {
       success: false,
       message: 'Failed to load library item',
       error: error.message,
+    });
+  }
+}
+
+export async function authorizeLibraryItemDownload(req: Request, res: Response) {
+  try {
+    const itemId = req.params['id'];
+    const currentUserId = req.user?.id;
+
+    if (!currentUserId) {
+      res.status(401).json({
+        success: false,
+        message: 'Authentication required',
+      });
+      return;
+    }
+
+    if (!itemId) {
+      res.status(400).json({
+        success: false,
+        message: 'Item id is required',
+      });
+      return;
+    }
+
+    const item = await prisma.libraryContent.findUnique({
+      where: { id: itemId },
+      select: {
+        id: true,
+        title: true,
+        section: true,
+        contentType: true,
+        isFolder: true,
+        source: true,
+        filePath: true,
+        fileUrl: true,
+        ulozSlug: true,
+        ulozStorageId: true,
+        mimeType: true,
+        extension: true,
+        metadata: true,
+      },
+    });
+
+    if (!item) {
+      res.status(404).json({
+        success: false,
+        message: 'Library item not found',
+      });
+      return;
+    }
+
+    if (item.isFolder) {
+      res.status(400).json({
+        success: false,
+        message: 'Cannot download a folder',
+      });
+      return;
+    }
+
+    const appSettings = await appSettingsService.getPublicSettings();
+    const requiredCoins = Math.max(
+      0,
+      Number.isFinite(appSettings.libraryItemDownloadCoins)
+        ? appSettings.libraryItemDownloadCoins
+        : 10,
+    );
+
+    const downloadUrl = await resolveFileStreamUrl(
+      {
+        id: item.id,
+        fileUrl: item.fileUrl,
+        filePath: item.filePath,
+        isFolder: item.isFolder,
+        source: item.source,
+        extension: item.extension,
+        mimeType: item.mimeType,
+        contentType: item.contentType,
+        ulozStorageId: item.ulozStorageId,
+        ulozSlug: item.ulozSlug,
+        metadata: item.metadata ?? undefined,
+      },
+      req,
+    );
+
+    if (!downloadUrl) {
+      res.status(404).json({
+        success: false,
+        message: 'Download URL unavailable for this item',
+      });
+      return;
+    }
+
+    const result = await prisma.$transaction(async (tx) => {
+      let remainingCoinBalance: number | null = null;
+
+      if (requiredCoins > 0) {
+        const deduction = await tx.user.updateMany({
+          where: {
+            id: currentUserId,
+            coinBalance: {
+              gte: requiredCoins,
+            },
+          },
+          data: {
+            coinBalance: {
+              decrement: requiredCoins,
+            },
+          },
+        });
+
+        if (deduction.count === 0) {
+          throw new Error('INSUFFICIENT_COINS');
+        }
+
+        const user = await tx.user.findUnique({
+          where: { id: currentUserId },
+          select: { coinBalance: true },
+        });
+        remainingCoinBalance = user?.coinBalance ?? null;
+
+        await tx.coinTransaction.create({
+          data: {
+            userId: currentUserId,
+            type: CoinTransactionType.USED,
+            amount: -requiredCoins,
+            description: `Library download: ${item.title}`,
+            metadata: {
+              libraryItemId: item.id,
+              section: item.section,
+              contentType: item.contentType,
+              title: item.title,
+            },
+          },
+        });
+      }
+
+      const updatedItem = await tx.libraryContent.update({
+        where: { id: item.id },
+        data: {
+          downloads: {
+            increment: 1,
+          },
+        },
+        select: {
+          downloads: true,
+        },
+      });
+
+      return {
+        downloads: updatedItem.downloads,
+        remainingCoinBalance,
+      };
+    });
+
+    res.json({
+      success: true,
+      message:
+        requiredCoins > 0
+          ? `Download authorized. ${requiredCoins} coins deducted.`
+          : 'Download authorized.',
+      data: {
+        itemId: item.id,
+        title: item.title,
+        downloadUrl,
+        requiredCoins,
+        coinsCharged: requiredCoins,
+        remainingCoinBalance: result.remainingCoinBalance,
+        downloads: result.downloads,
+      },
+    });
+  } catch (error: any) {
+    if (error instanceof Error && error.message === 'INSUFFICIENT_COINS') {
+      const currentUserId = req.user?.id;
+      const user = currentUserId
+        ? await prisma.user.findUnique({
+            where: { id: currentUserId },
+            select: { coinBalance: true },
+          })
+        : null;
+
+      res.status(402).json({
+        success: false,
+        message: 'Not enough coins to download this item',
+        data: {
+          currentBalance: user?.coinBalance ?? 0,
+        },
+      });
+      return;
+    }
+
+    console.error('Error authorizing library item download:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to authorize library download',
+      error: error?.message ?? String(error),
     });
   }
 }

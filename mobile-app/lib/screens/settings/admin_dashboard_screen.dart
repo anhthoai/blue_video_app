@@ -429,6 +429,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
     String? datingAiApiKey,
     int? freeCommunityPostBonusCoins,
     int? freeVideoBonusCoins,
+    int? libraryItemDownloadCoins,
   }) async {
     const busyKey = 'app-settings';
 
@@ -443,6 +444,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
           datingAiApiKey: datingAiApiKey,
           freeCommunityPostBonusCoins: freeCommunityPostBonusCoins,
           freeVideoBonusCoins: freeVideoBonusCoins,
+          libraryItemDownloadCoins: libraryItemDownloadCoins,
         );
 
         if (!mounted) {
@@ -471,6 +473,8 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
                     'freeCommunityPostBonusCoins': freeCommunityPostBonusCoins,
                   if (freeVideoBonusCoins != null)
                     'freeVideoBonusCoins': freeVideoBonusCoins,
+                  if (libraryItemDownloadCoins != null)
+                    'libraryItemDownloadCoins': libraryItemDownloadCoins,
                 },
           );
 
@@ -640,6 +644,9 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
     final videoBonusController = TextEditingController(
       text: '${_appSettingInt(appSettings, 'freeVideoBonusCoins')}',
     );
+    final libraryDownloadController = TextEditingController(
+      text: '${_appSettingInt(appSettings, 'libraryItemDownloadCoins')}',
+    );
 
     final values = await showDialog<Map<String, int>>(
       context: context,
@@ -666,6 +673,15 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
                   helperText: _tr('Coins awarded for free public video uploads', 'Số xu thưởng cho video công khai miễn phí'),
                 ),
               ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: libraryDownloadController,
+                keyboardType: TextInputType.number,
+                decoration: InputDecoration(
+                  labelText: _tr('Library download cost', 'Giá tải thư viện'),
+                  helperText: _tr('Coins charged per library file download', 'Số xu tính cho mỗi lượt tải file thư viện'),
+                ),
+              ),
             ],
           ),
           actions: [
@@ -677,14 +693,22 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
               onPressed: () {
                 final postBonus = int.tryParse(postBonusController.text.trim());
                 final videoBonus = int.tryParse(videoBonusController.text.trim());
-                if (postBonus == null || postBonus < 0 || videoBonus == null || videoBonus < 0) {
-                  _showMessage(_tr('Enter non-negative whole numbers for both bonus values', 'Nhập số nguyên không âm cho cả hai mức thưởng'));
+                final libraryDownloadCoins =
+                    int.tryParse(libraryDownloadController.text.trim());
+                if (postBonus == null ||
+                    postBonus < 0 ||
+                    videoBonus == null ||
+                    videoBonus < 0 ||
+                    libraryDownloadCoins == null ||
+                    libraryDownloadCoins < 0) {
+                  _showMessage(_tr('Enter non-negative whole numbers for all coin settings', 'Nhập số nguyên không âm cho tất cả thiết lập xu'));
                   return;
                 }
 
                 Navigator.of(context).pop(<String, int>{
                   'freeCommunityPostBonusCoins': postBonus,
                   'freeVideoBonusCoins': videoBonus,
+                  'libraryItemDownloadCoins': libraryDownloadCoins,
                 });
               },
               child: Text(l10n.save),
@@ -696,6 +720,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
 
     postBonusController.dispose();
     videoBonusController.dispose();
+    libraryDownloadController.dispose();
 
     if (values == null) {
       return;
@@ -704,6 +729,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
     await _updateAppSettings(
       freeCommunityPostBonusCoins: values['freeCommunityPostBonusCoins'],
       freeVideoBonusCoins: values['freeVideoBonusCoins'],
+      libraryItemDownloadCoins: values['libraryItemDownloadCoins'],
     );
   }
 
@@ -2086,6 +2112,8 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
         _appSettingInt(appSettings, 'freeCommunityPostBonusCoins');
     final freeVideoBonusCoins =
         _appSettingInt(appSettings, 'freeVideoBonusCoins');
+    final libraryItemDownloadCoins =
+      _appSettingInt(appSettings, 'libraryItemDownloadCoins');
     final recentFeedback = List<Map<String, dynamic>>.from(
       _dashboard['recentFeedback'] as List? ?? const [],
     );
@@ -2330,6 +2358,32 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
                         ),
                       ),
                     ],
+                  ),
+                  const SizedBox(height: 12),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF8FAFF),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          _tr('Library download cost', 'Giá tải thư viện'),
+                          style: TextStyle(color: Color(0xFF64748B)),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          '$libraryItemDownloadCoins coins',
+                          style: const TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ],
               ),

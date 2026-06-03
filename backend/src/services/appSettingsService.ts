@@ -3,6 +3,7 @@ import { Prisma, PrismaClient } from '@prisma/client';
 const CONTENT_PROTECTION_KEY = 'contentProtectionEnabled';
 const FREE_COMMUNITY_POST_BONUS_COINS_KEY = 'freeCommunityPostBonusCoins';
 const FREE_VIDEO_BONUS_COINS_KEY = 'freeVideoBonusCoins';
+const LIBRARY_ITEM_DOWNLOAD_COINS_KEY = 'libraryItemDownloadCoins';
 const DATING_ENABLED_KEY = 'datingEnabled';
 const DATING_SEARCH_RADIUS_KM_KEY = 'datingSearchRadiusKm';
 const TRUE_VALUES = new Set(['1', 'true', 'yes', 'on']);
@@ -11,6 +12,7 @@ export type PublicAppSettings = {
   contentProtectionEnabled: boolean;
   freeCommunityPostBonusCoins: number;
   freeVideoBonusCoins: number;
+  libraryItemDownloadCoins: number;
   datingEnabled: boolean;
   datingSearchRadiusKm: number;
   updatedAt: string | null;
@@ -20,6 +22,7 @@ export type PublicAppSettingsUpdate = {
   contentProtectionEnabled?: boolean;
   freeCommunityPostBonusCoins?: number;
   freeVideoBonusCoins?: number;
+  libraryItemDownloadCoins?: number;
   datingEnabled?: boolean;
   datingSearchRadiusKm?: number;
 };
@@ -91,6 +94,10 @@ export class AppSettingsService {
     return parseIntegerSetting(process.env['FREE_VIDEO_BONUS_COINS'], 0);
   }
 
+  private get defaultLibraryItemDownloadCoins(): number {
+    return parseIntegerSetting(process.env['LIBRARY_ITEM_DOWNLOAD_COINS'], 10);
+  }
+
   private get defaultDatingEnabled(): boolean {
     return parseBooleanSetting(process.env['DATING_ENABLED'], false);
   }
@@ -104,6 +111,7 @@ export class AppSettingsService {
       contentProtectionEnabled: this.defaultContentProtectionEnabled,
       freeCommunityPostBonusCoins: this.defaultFreeCommunityPostBonusCoins,
       freeVideoBonusCoins: this.defaultFreeVideoBonusCoins,
+      libraryItemDownloadCoins: this.defaultLibraryItemDownloadCoins,
       datingEnabled: this.defaultDatingEnabled,
       datingSearchRadiusKm: this.defaultDatingSearchRadiusKm,
       updatedAt: null,
@@ -119,6 +127,7 @@ export class AppSettingsService {
               CONTENT_PROTECTION_KEY,
               FREE_COMMUNITY_POST_BONUS_COINS_KEY,
               FREE_VIDEO_BONUS_COINS_KEY,
+              LIBRARY_ITEM_DOWNLOAD_COINS_KEY,
               DATING_ENABLED_KEY,
               DATING_SEARCH_RADIUS_KM_KEY,
             ],
@@ -146,6 +155,10 @@ export class AppSettingsService {
         freeVideoBonusCoins: parseIntegerSetting(
           settingsByKey.get(FREE_VIDEO_BONUS_COINS_KEY)?.value,
           this.defaultFreeVideoBonusCoins,
+        ),
+        libraryItemDownloadCoins: parseIntegerSetting(
+          settingsByKey.get(LIBRARY_ITEM_DOWNLOAD_COINS_KEY)?.value,
+          this.defaultLibraryItemDownloadCoins,
         ),
         datingEnabled: parseBooleanSetting(
           settingsByKey.get(DATING_ENABLED_KEY)?.value,
@@ -223,6 +236,21 @@ export class AppSettingsService {
           create: {
             key: FREE_VIDEO_BONUS_COINS_KEY,
             value: String(updates.freeVideoBonusCoins),
+          },
+        }),
+      );
+    }
+
+    if (updates.libraryItemDownloadCoins !== undefined) {
+      operations.push(
+        this.prisma.appSetting.upsert({
+          where: { key: LIBRARY_ITEM_DOWNLOAD_COINS_KEY },
+          update: {
+            value: String(updates.libraryItemDownloadCoins),
+          },
+          create: {
+            key: LIBRARY_ITEM_DOWNLOAD_COINS_KEY,
+            value: String(updates.libraryItemDownloadCoins),
           },
         }),
       );

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/models/library_navigation.dart';
 import '../../core/models/library_item_model.dart';
+import '../../core/services/library_download_service.dart';
 
 class LibraryAudioPlayerScreen extends StatefulWidget {
   const LibraryAudioPlayerScreen({super.key, required this.args});
@@ -172,6 +173,20 @@ class _LibraryAudioPlayerScreenState extends State<LibraryAudioPlayerScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.args.folderTitle ?? 'Audio Player'),
+        actions: [
+          IconButton(
+            tooltip: 'Download',
+            icon: const Icon(Icons.download),
+            onPressed: () {
+              final track = tracks[_currentIndex];
+              LibraryDownloadService.instance.downloadLibraryItem(
+                context,
+                item: track,
+                suggestedName: track.displayTitle,
+              );
+            },
+          ),
+        ],
       ),
       body: Column(
         children: [

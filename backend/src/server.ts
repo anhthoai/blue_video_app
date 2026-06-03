@@ -6409,6 +6409,7 @@ app.patch('/api/v1/admin/app-settings', authenticateToken, requireAdmin, async (
       contentProtectionEnabled,
       freeCommunityPostBonusCoins,
       freeVideoBonusCoins,
+      libraryItemDownloadCoins,
       datingEnabled,
       datingSearchRadiusKm,
       datingAiProvider,
@@ -6419,6 +6420,7 @@ app.patch('/api/v1/admin/app-settings', authenticateToken, requireAdmin, async (
       contentProtectionEnabled?: boolean;
       freeCommunityPostBonusCoins?: number;
       freeVideoBonusCoins?: number;
+      libraryItemDownloadCoins?: number;
       datingEnabled?: boolean;
       datingSearchRadiusKm?: number;
     } = {};
@@ -6458,6 +6460,17 @@ app.patch('/api/v1/admin/app-settings', authenticateToken, requireAdmin, async (
       }
 
       settingsUpdate.freeVideoBonusCoins = freeVideoBonusCoins;
+    }
+
+    if (libraryItemDownloadCoins !== undefined) {
+      if (!Number.isInteger(libraryItemDownloadCoins) || libraryItemDownloadCoins < 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'libraryItemDownloadCoins must be a non-negative integer',
+        });
+      }
+
+      settingsUpdate.libraryItemDownloadCoins = libraryItemDownloadCoins;
     }
 
     if (datingEnabled !== undefined) {

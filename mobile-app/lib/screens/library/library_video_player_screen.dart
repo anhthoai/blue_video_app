@@ -10,6 +10,7 @@ import 'package:media_kit_video/media_kit_video.dart';
 
 import '../../core/models/library_navigation.dart';
 import '../../core/models/library_item_model.dart';
+import '../../core/services/library_download_service.dart';
 import '../../utils/media_kit_low_latency.dart';
 import '../../utils/subtitle_parser.dart';
 import '../../utils/language_labels.dart' as lang;
@@ -1057,6 +1058,22 @@ class _LibraryVideoPlayerScreenState extends State<LibraryVideoPlayerScreen>
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
+              actions: [
+                IconButton(
+                  tooltip: 'Download',
+                  icon: const Icon(Icons.download),
+                  onPressed: _currentVideo == null
+                      ? null
+                      : () {
+                          final video = _currentVideo!;
+                          LibraryDownloadService.instance.downloadLibraryItem(
+                            context,
+                            item: video,
+                            suggestedName: video.displayTitle,
+                          );
+                        },
+                ),
+              ],
             ),
       body: _isFullscreen
           ? _buildVideoPlayer()

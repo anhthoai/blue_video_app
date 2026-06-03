@@ -1028,6 +1028,7 @@ class ApiService {
     String? datingAiApiKey,
     int? freeCommunityPostBonusCoins,
     int? freeVideoBonusCoins,
+    int? libraryItemDownloadCoins,
   }) async {
     final body = <String, dynamic>{};
     if (contentProtectionEnabled != null) {
@@ -1053,6 +1054,9 @@ class ApiService {
     }
     if (freeVideoBonusCoins != null) {
       body['freeVideoBonusCoins'] = freeVideoBonusCoins;
+    }
+    if (libraryItemDownloadCoins != null) {
+      body['libraryItemDownloadCoins'] = libraryItemDownloadCoins;
     }
 
     final response = await http.patch(
@@ -2910,6 +2914,14 @@ class ApiService {
 
     final response = await http.get(
       uri,
+      headers: await _getHeaders(),
+    );
+    return await _handleResponse(response);
+  }
+
+  Future<Map<String, dynamic>> authorizeLibraryItemDownload(String itemId) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/library/item/$itemId/download'),
       headers: await _getHeaders(),
     );
     return await _handleResponse(response);

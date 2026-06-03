@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/models/library_navigation.dart';
 import '../../core/models/library_item_model.dart';
+import '../../core/services/library_download_service.dart';
 
 class LibraryImageViewerScreen extends StatefulWidget {
   const LibraryImageViewerScreen({super.key, required this.args});
@@ -42,6 +43,20 @@ class _LibraryImageViewerScreenState extends State<LibraryImageViewerScreen> {
         title: Text(
           widget.args.folderTitle ?? images[_currentIndex].displayTitle,
         ),
+        actions: [
+          IconButton(
+            tooltip: 'Download',
+            icon: const Icon(Icons.download),
+            onPressed: () {
+              final image = images[_currentIndex];
+              LibraryDownloadService.instance.downloadLibraryItem(
+                context,
+                item: image,
+                suggestedName: image.displayTitle,
+              );
+            },
+          ),
+        ],
       ),
       body: Column(
         children: [

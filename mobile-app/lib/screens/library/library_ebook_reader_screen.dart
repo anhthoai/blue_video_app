@@ -11,6 +11,7 @@ import '../../core/services/api_service.dart';
 import '../../core/models/library_item_model.dart';
 import '../../core/models/library_navigation.dart';
 import '../../core/services/ebook_server.dart';
+import '../../core/services/library_download_service.dart';
 import '../../core/services/txt_to_epub_converter.dart';
 
 class LibraryEbookReaderScreen extends StatefulWidget {
@@ -304,6 +305,17 @@ class _LibraryEbookReaderScreenState extends State<LibraryEbookReaderScreen> {
       appBar: AppBar(
         title: Text(item.displayTitle),
         actions: [
+          IconButton(
+            tooltip: 'Download',
+            icon: const Icon(Icons.download),
+            onPressed: () {
+              LibraryDownloadService.instance.downloadLibraryItem(
+                context,
+                item: item,
+                suggestedName: item.displayTitle,
+              );
+            },
+          ),
           IconButton(
             tooltip: 'Reload',
             icon: const Icon(Icons.refresh),

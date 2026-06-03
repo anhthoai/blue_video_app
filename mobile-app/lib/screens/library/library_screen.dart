@@ -1,18 +1,14 @@
 import 'dart:async';
-import 'dart:io';
 
-import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:open_file/open_file.dart';
-import 'package:path/path.dart' as p;
-import 'package:path_provider/path_provider.dart';
-import 'package:permission_handler/permission_handler.dart';
 
 import '../../core/models/library_item_model.dart';
 import '../../core/models/library_navigation.dart';
 import '../../core/models/library_section_model.dart';
+import '../../core/services/auth_service.dart';
+import '../../core/services/library_download_service.dart';
 import '../../core/services/library_service.dart';
 import '../../l10n/app_localizations.dart';
 import 'movies_screen.dart';
@@ -806,241 +802,13 @@ class _LibraryItemsViewState extends ConsumerState<LibraryItemsView>
     BuildContext context,
     LibraryItemModel item,
   ) async {
-    final downloadUrl = item.streamUrl ?? item.fileUrl;
-    if (downloadUrl == null || downloadUrl.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No download URL available.')),
-      );
-      return;
-    }
-
-    try {
-      final detailed = await _loadItemsWithProgress([item]);
-      if (!mounted) return;
-      final detailedItem = detailed.isNotEmpty ? detailed.first : item;
-      final finalUrl = detailedItem.streamUrl ?? detailedItem.fileUrl;
-
-      if (finalUrl == null || finalUrl.isEmpty) {
-        throw Exception('No download URL available.');
-      }
-
-      final uri = Uri.tryParse(finalUrl);
-      if (uri == null) {
-        throw Exception('Invalid download URL.');
-      }
-
-      if (uri.scheme.startsWith('http')) {
-        await _ensureStoragePermission();
-        await _downloadToDevice(context, uri, item.displayTitle);
-        return;
-      }
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content: Text('Direct download not available for this file.')),
-      );
-    } catch (error) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Download failed: $error')),
-      );
-    }
-  }
-
-  Future<void> _ensureStoragePermission() async {
-    if (!Platform.isAndroid) return;
-
-    final manageStatus = await Permission.manageExternalStorage.status;
-    if (manageStatus.isGranted) {
-      return;
-    }
-
-    if (manageStatus.isPermanentlyDenied) {
-      throw Exception(
-          'Storage permission denied. Please enable access in settings.');
-    }
-
-    var status = await Permission.manageExternalStorage.request();
-    if (status.isGranted) {
-      return;
-    }
-
-    status = await Permission.storage.request();
-    if (!status.isGranted) {
-      throw Exception('Storage permission denied.');
-    }
-  }
-
-  Future<void> _downloadToDevice(
-    BuildContext context,
-    Uri url,
-    String suggestedName,
-  ) async {
-    final messenger = ScaffoldMessenger.of(context);
-    final dio = Dio();
-    final progressNotifier = ValueNotifier<double?>(null);
-    final cancelToken = CancelToken();
-
-    final downloadsDir = await _resolveDownloadDirectory();
-    final sanitized = _sanitizeFileName(suggestedName);
-    final targetPath = await _uniqueFilePath(downloadsDir, sanitized);
-
-    final navigator = Navigator.of(context, rootNavigator: true);
-    showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => _DownloadProgressDialog(
-        progressNotifier: progressNotifier,
-        cancelToken: cancelToken,
-      ),
-    );
-
-    try {
-      await dio.download(
-        url.toString(),
-        targetPath,
-        cancelToken: cancelToken,
-        onReceiveProgress: (received, total) {
-          if (total <= 0) {
-            progressNotifier.value = null;
-          } else {
-            progressNotifier.value = received / total;
-          }
-        },
-      );
-
-      messenger.showSnackBar(
-        SnackBar(
-          content: Text('Saved to ${p.basename(targetPath)}'),
-          action: SnackBarAction(
-            label: 'Open',
-            onPressed: () async {
-              try {
-                final result = await OpenFile.open(targetPath);
-                if (result.type != ResultType.done) {
-                  messenger.showSnackBar(
-                    SnackBar(
-                      content: Text('Failed to open file: ${result.message}'),
-                    ),
-                  );
-                }
-              } catch (error) {
-                messenger.showSnackBar(
-                  SnackBar(
-                    content: Text('Failed to open file: $error'),
-                  ),
-                );
-              }
-            },
-          ),
-          duration: const Duration(seconds: 5),
-        ),
-      );
-    } on DioException catch (error) {
-      if (CancelToken.isCancel(error)) {
-        messenger.showSnackBar(
-          const SnackBar(content: Text('Download cancelled.')),
-        );
-      } else {
-        messenger.showSnackBar(
-          SnackBar(content: Text('Download failed: ${error.message}')),
-        );
-      }
-    } catch (error) {
-      messenger.showSnackBar(
-        SnackBar(content: Text('Download failed: $error')),
-      );
-    } finally {
-      progressNotifier.dispose();
-      if (navigator.mounted && navigator.canPop()) {
-        navigator.pop();
-      }
-    }
-  }
-
-  Future<Directory> _resolveDownloadDirectory() async {
-    if (Platform.isAndroid) {
-      final publicDownloads = Directory('/storage/emulated/0/Download');
-      if (publicDownloads.existsSync()) {
-        return publicDownloads;
-      }
-    }
-
-    final downloadsDir = await getDownloadsDirectory();
-    if (downloadsDir != null) {
-      return downloadsDir;
-    }
-    return await getTemporaryDirectory();
-  }
-
-  Future<String> _uniqueFilePath(Directory directory, String fileName) async {
-    final base = p.basenameWithoutExtension(fileName);
-    final extension = p.extension(fileName);
-    var candidate = p.join(directory.path, fileName);
-    var counter = 1;
-
-    while (File(candidate).existsSync()) {
-      candidate = p.join(directory.path, '$base($counter)$extension');
-      counter += 1;
-    }
-    return candidate;
-  }
-
-  String _sanitizeFileName(String name) {
-    final sanitized = name
-        .replaceAll(RegExp(r'[<>:"/\\|?*]'), '_')
-        .replaceAll(RegExp(r'\s+'), ' ')
-        .trim();
-    if (sanitized.isEmpty) {
-      return 'document';
-    }
-    return sanitized;
-  }
-}
-
-class _DownloadProgressDialog extends StatelessWidget {
-  const _DownloadProgressDialog({
-    required this.progressNotifier,
-    required this.cancelToken,
-  });
-
-  final ValueNotifier<double?> progressNotifier;
-  final CancelToken cancelToken;
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('Downloading'),
-      content: ValueListenableBuilder<double?>(
-        valueListenable: progressNotifier,
-        builder: (context, progress, _) {
-          final percent =
-              progress != null ? (progress * 100).clamp(0, 100) : null;
-          return Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              LinearProgressIndicator(value: progress),
-              const SizedBox(height: 12),
-              Text(
-                percent == null
-                    ? 'Downloading...'
-                    : '${percent.toStringAsFixed(0)}%',
-              ),
-            ],
-          );
-        },
-      ),
-      actions: [
-        TextButton(
-          onPressed: () {
-            if (!cancelToken.isCancelled) {
-              cancelToken.cancel('cancelled');
-            }
-            Navigator.of(context).pop();
-          },
-          child: const Text('Cancel'),
-        ),
-      ],
+    await LibraryDownloadService.instance.downloadLibraryItem(
+      context,
+      item: item,
+      suggestedName: item.displayTitle,
+      onCoinsCharged: () async {
+        await ref.read(authServiceProvider).reloadCurrentUser();
+      },
     );
   }
 }

@@ -2,6 +2,7 @@ import { Router } from 'express';
 
 import * as libraryController from '../controllers/libraryController';
 import * as librarySyncController from '../controllers/librarySyncController';
+import { authenticateToken } from '../middleware/auth';
 
 const router = Router();
 
@@ -12,6 +13,7 @@ router.get('/sync/status', librarySyncController.getSyncStatus);
 router.get('/sections', libraryController.listLibrarySections);
 router.get('/feed/videos', libraryController.listLibraryVideoFeed);
 router.get('/item/:id', libraryController.getLibraryItem);
+router.post('/item/:id/download', authenticateToken, libraryController.authorizeLibraryItemDownload);
 router.get('/item/:id/stream', libraryController.streamLibraryItem);
 router.head('/item/:id/stream', libraryController.streamLibraryItem);
 router.get('/:section', libraryController.listLibraryItems);
