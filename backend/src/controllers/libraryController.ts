@@ -1143,6 +1143,91 @@ export async function getLibraryItem(req: Request, res: Response) {
   }
 }
 
+export async function getLibraryItemDownloadQuote(req: Request, res: Response) {
+  try {
+    const itemId = req.params['id'];
+    const currentUserId = req.user?.id;
+
+    if (!currentUserId) {
+      res.status(401).json({
+        success: false,
+        message: 'Authentication required',
+      });
+      return;
+    }
+
+    if (!itemId) {
+      res.status(400).json({
+        success: false,
+        message: 'Item id is required',
+      });
+      return;
+    }
+
+    const [item, user, appSettings] = await Promise.all([
+      prisma.libraryContent.findUnique({
+        where: { id: itemId },
+        select: {
+          id: true,
+          title: true,
+          isFolder: true,
+        },
+      }),
+      prisma.user.findUnique({
+        where: { id: currentUserId },
+        select: {
+          coinBalance: true,
+        },
+      }),
+      appSettingsService.getPublicSettings(),
+    ]);
+
+    if (!item) {
+      res.status(404).json({
+        success: false,
+        message: 'Library item not found',
+      });
+      return;
+    }
+
+    if (item.isFolder) {
+      res.status(400).json({
+        success: false,
+        message: 'Cannot download a folder',
+      });
+      return;
+    }
+
+    const requiredCoins = Math.max(
+      0,
+      Number.isFinite(appSettings.libraryItemDownloadCoins)
+        ? appSettings.libraryItemDownloadCoins
+        : 10,
+    );
+    const currentBalance = user?.coinBalance ?? 0;
+    const shortfall = Math.max(0, requiredCoins - currentBalance);
+
+    res.json({
+      success: true,
+      data: {
+        itemId: item.id,
+        title: item.title,
+        requiredCoins,
+        currentBalance,
+        canAfford: shortfall === 0,
+        shortfall,
+      },
+    });
+  } catch (error: any) {
+    console.error('Error getting library item download quote:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch download quote',
+      error: error?.message ?? String(error),
+    });
+  }
+}
+
 export async function authorizeLibraryItemDownload(req: Request, res: Response) {
   try {
     const itemId = req.params['id'];

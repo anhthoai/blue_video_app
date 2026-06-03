@@ -2926,4 +2926,12 @@ class ApiService {
     );
     return await _handleResponse(response);
   }
+
+  Future<Map<String, dynamic>> getLibraryItemDownloadQuote(String itemId) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/library/item/$itemId/download/quote'),
+      headers: await _getHeaders(),
+    );
+    return await _handleResponse(response);
+  }
 }

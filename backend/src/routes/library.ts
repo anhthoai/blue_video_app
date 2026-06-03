@@ -13,6 +13,7 @@ router.get('/sync/status', librarySyncController.getSyncStatus);
 router.get('/sections', libraryController.listLibrarySections);
 router.get('/feed/videos', libraryController.listLibraryVideoFeed);
 router.get('/item/:id', libraryController.getLibraryItem);
+router.get('/item/:id/download/quote', authenticateToken, libraryController.getLibraryItemDownloadQuote);
 router.post('/item/:id/download', authenticateToken, libraryController.authorizeLibraryItemDownload);
 router.get('/item/:id/stream', libraryController.streamLibraryItem);
 router.head('/item/:id/stream', libraryController.streamLibraryItem);

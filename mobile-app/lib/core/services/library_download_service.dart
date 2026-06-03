@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:open_file/open_file.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
@@ -25,8 +26,41 @@ class LibraryDownloadService {
     Future<void> Function()? onCoinsCharged,
   }) async {
     final messenger = ScaffoldMessenger.of(context);
+    var requiredCoins = 0;
+    var currentBalance = 0;
 
     try {
+      final quoteResponse = await _apiService.getLibraryItemDownloadQuote(item.id);
+      final quoteData = quoteResponse['data'] as Map<String, dynamic>? ?? const {};
+
+      requiredCoins = _readInt(quoteData['requiredCoins']);
+      currentBalance = _readInt(quoteData['currentBalance']);
+      final shortfall = (requiredCoins - currentBalance).clamp(0, requiredCoins);
+      final canAfford = quoteData['canAfford'] == true || shortfall == 0;
+
+      if (!context.mounted) {
+        return;
+      }
+
+      final action = await _showDownloadConfirmationDialog(
+        context,
+        title: item.displayTitle,
+        requiredCoins: requiredCoins,
+        currentBalance: currentBalance,
+        canAfford: canAfford,
+      );
+
+      if (action == _DownloadAction.recharge) {
+        if (context.mounted) {
+          await context.push('/main/coin-recharge');
+        }
+        return;
+      }
+
+      if (action != _DownloadAction.downloadNow) {
+        return;
+      }
+
       final response = await _apiService.authorizeLibraryItemDownload(item.id);
       final data = response['data'] as Map<String, dynamic>? ?? const {};
 
@@ -42,6 +76,7 @@ class LibraryDownloadService {
 
       final coinsCharged = _readInt(data['coinsCharged']);
       final remainingBalance = _readInt(data['remainingCoinBalance']);
+      final hasRemainingBalance = data['remainingCoinBalance'] != null;
 
       if (coinsCharged > 0 && onCoinsCharged != null) {
         await onCoinsCharged();
@@ -65,7 +100,7 @@ class LibraryDownloadService {
       }
 
       final coinMessage = coinsCharged > 0 ? ' Charged $coinsCharged coins.' : '';
-      final balanceMessage = remainingBalance > 0
+      final balanceMessage = hasRemainingBalance
           ? ' Remaining balance: $remainingBalance coins.'
           : '';
 
@@ -93,9 +128,138 @@ class LibraryDownloadService {
         ),
       );
     } catch (error) {
+      if (context.mounted && _isInsufficientCoinsError(error)) {
+        final parsedBalance = _extractCurrentBalance(error);
+        await _showInsufficientCoinsDialog(
+          context,
+          requiredCoins: requiredCoins,
+          currentBalance: parsedBalance ?? currentBalance,
+        );
+        return;
+      }
+
       messenger.showSnackBar(
         SnackBar(content: Text('Download failed: ${_extractErrorMessage(error)}')),
       );
+    }
+  }
+
+  Future<_DownloadAction?> _showDownloadConfirmationDialog(
+    BuildContext context, {
+    required String title,
+    required int requiredCoins,
+    required int currentBalance,
+    required bool canAfford,
+  }) async {
+    final shortfall = (requiredCoins - currentBalance).clamp(0, requiredCoins);
+    return showDialog<_DownloadAction>(
+      context: context,
+      builder: (dialogContext) {
+        final theme = Theme.of(dialogContext);
+        return AlertDialog(
+          title: const Text('Download file'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.titleSmall,
+              ),
+              const SizedBox(height: 12),
+              _InfoRow(
+                icon: Icons.download,
+                label: 'Download cost',
+                value: requiredCoins == 0 ? 'Free' : '$requiredCoins coins',
+              ),
+              const SizedBox(height: 8),
+              _InfoRow(
+                icon: Icons.account_balance_wallet,
+                label: 'Your balance',
+                value: '$currentBalance coins',
+              ),
+              if (!canAfford) ...[
+                const SizedBox(height: 12),
+                Text(
+                  'Need $shortfall more coins to continue.',
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: theme.colorScheme.error,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(dialogContext).pop(_DownloadAction.cancel);
+              },
+              child: const Text('Cancel'),
+            ),
+            FilledButton.icon(
+              onPressed: () {
+                Navigator.of(dialogContext).pop(
+                  canAfford ? _DownloadAction.downloadNow : _DownloadAction.recharge,
+                );
+              },
+              icon: Icon(canAfford ? Icons.download : Icons.add_circle_outline),
+              label: Text(canAfford ? 'Download now' : 'Buy coins'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _showInsufficientCoinsDialog(
+    BuildContext context, {
+    required int requiredCoins,
+    required int currentBalance,
+  }) async {
+    final effectiveRequiredCoins = requiredCoins > 0 ? requiredCoins : 10;
+    final shortfall =
+        (effectiveRequiredCoins - currentBalance).clamp(0, effectiveRequiredCoins);
+
+    final action = await showDialog<_DownloadAction>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Not enough coins'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('This download costs $effectiveRequiredCoins coins.'),
+              const SizedBox(height: 6),
+              Text('Your balance: $currentBalance coins.'),
+              const SizedBox(height: 6),
+              Text('You need $shortfall more coins.'),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(dialogContext).pop(_DownloadAction.cancel);
+              },
+              child: const Text('Cancel'),
+            ),
+            FilledButton.icon(
+              onPressed: () {
+                Navigator.of(dialogContext).pop(_DownloadAction.recharge);
+              },
+              icon: const Icon(Icons.add_circle_outline),
+              label: const Text('Buy coins'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (action == _DownloadAction.recharge && context.mounted) {
+      await context.push('/main/coin-recharge');
     }
   }
 
@@ -218,6 +382,14 @@ class LibraryDownloadService {
   }
 
   String _extractErrorMessage(Object error) {
+    final payload = _extractApiErrorPayload(error);
+    if (payload != null) {
+      final message = payload['message']?.toString().trim();
+      if (message != null && message.isNotEmpty) {
+        return message;
+      }
+    }
+
     final raw = error.toString();
     final apiError = RegExp(r'API Error: \d+ - (\{.*\})').firstMatch(raw);
 
@@ -239,6 +411,94 @@ class LibraryDownloadService {
     }
 
     return raw.replaceFirst('Exception: ', '').trim();
+  }
+
+  Map<String, dynamic>? _extractApiErrorPayload(Object error) {
+    final raw = error.toString();
+    final match = RegExp(r'API Error: (\d+) - (\{.*\})').firstMatch(raw);
+    if (match == null) {
+      return null;
+    }
+
+    final body = match.group(2);
+    if (body == null) {
+      return null;
+    }
+
+    try {
+      final decoded = json.decode(body);
+      if (decoded is Map<String, dynamic>) {
+        return decoded;
+      }
+    } catch (_) {
+      // Ignore parse failures and return null.
+    }
+
+    return null;
+  }
+
+  bool _isInsufficientCoinsError(Object error) {
+    final raw = error.toString().toLowerCase();
+    final statusMatch = RegExp(r'API Error: (\d+)').firstMatch(error.toString());
+    final statusCode = int.tryParse(statusMatch?.group(1) ?? '');
+    if (statusCode == 402) {
+      return true;
+    }
+    return raw.contains('not enough coins') || raw.contains('insufficient');
+  }
+
+  int? _extractCurrentBalance(Object error) {
+    final payload = _extractApiErrorPayload(error);
+    if (payload == null) {
+      return null;
+    }
+
+    final data = payload['data'];
+    if (data is Map<String, dynamic>) {
+      return _readInt(data['currentBalance']);
+    }
+    return null;
+  }
+}
+
+enum _DownloadAction {
+  cancel,
+  downloadNow,
+  recharge,
+}
+
+class _InfoRow extends StatelessWidget {
+  const _InfoRow({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Row(
+      children: [
+        Icon(icon, size: 18, color: theme.colorScheme.primary),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            label,
+            style: theme.textTheme.bodyMedium,
+          ),
+        ),
+        Text(
+          value,
+          style: theme.textTheme.bodyMedium?.copyWith(
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ],
+    );
   }
 }
 
