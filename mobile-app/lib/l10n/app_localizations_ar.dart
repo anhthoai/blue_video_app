@@ -542,8 +542,32 @@ class AppLocalizationsAr extends AppLocalizationsEn {
   String get datingLikeSomeoneBack => 'أعجب بشخص ما، وعندما يعجب بك سيظهر هنا!';
 
   @override
+  String get datingPlanUnlimitedUnlocked => 'تم فتح Unlimited';
+
+  @override
+  String get datingPlanVipUnlocked => 'تم فتح VIP';
+
+  @override
+  String get datingPlanFreeUnlocked => 'الخطة المجانية';
+
+  @override
+  String get datingUnlockMoreProfilesBanner =>
+      'قم بترقية خطة المواعدة لفتح المزيد من الملفات الشخصية';
+
+  @override
+  String get datingAutoSuggestionsPerDay =>
+      'يحصل المستخدم المجاني على 3 اقتراحات تطابق يوميا';
+
+  @override
   String get datingUpgradeVipForAiMatch =>
-      'قم بالترقية إلى VIP لفتح المطابقة بالذكاء الاصطناعي';
+      'قم بالترقية إلى VIP للحصول على 30 اقتراحا يوميا بالذكاء الاصطناعي أو Unlimited بدون حدود';
+
+  @override
+  String get datingVipAiScoring => '30 اقتراح تطابق بالذكاء الاصطناعي يوميا';
+
+  @override
+  String get datingUpgradeVipAiAccuracy =>
+      'المستخدم المجاني يحصل على 3 اقتراحات يوميا. قم بالترقية إلى VIP أو Unlimited للمزيد.';
 
   @override
   String get datingMutualMatches => 'مطابقات متبادلة';
@@ -571,6 +595,53 @@ class AppLocalizationsAr extends AppLocalizationsEn {
 
   @override
   String get datingFriendRequestSent => 'تم إرسال طلب الصداقة';
+
+  @override
+  String get datingYourFreePreviewReached => 'لقد بلغت حد خطة المواعدة الحالية';
+
+  @override
+  String get datingFreeUsersViewFirst =>
+      'يمكن للمستخدم المجاني فتح أقرب 60 ملفا شخصيا فقط. يمكنك الاستمرار في التمرير، لكن فتح الملفات المقفلة يتطلب الترقية.';
+
+  @override
+  String get datingCurrentPlanCoins => 'الخطة الحالية والعملات';
+
+  @override
+  String get datingViewUpToProfiles => 'حتى 600 مشاهدة للملفات الشخصية';
+
+  @override
+  String get datingUnlimitedProfileViews =>
+      'مشاهدات غير محدودة للملفات الشخصية';
+
+  @override
+  String get datingSeeNearbyProfiles => 'افتح حتى 600 ملف شخصي قريب';
+
+  @override
+  String get datingAiMatchingSuggestions =>
+      '30 اقتراح تطابق بالذكاء الاصطناعي يوميا';
+
+  @override
+  String get datingPriorityDiscovery => 'أولوية الظهور';
+
+  @override
+  String get datingUnlimitedNearbyBrowsing =>
+      'مشاهدة وتصفح غير محدودين للملفات الشخصية';
+
+  @override
+  String get datingBestAiQuality =>
+      'اقتراحات تطابق بالذكاء الاصطناعي غير محدودة';
+
+  @override
+  String get datingHighestPriorityVisibility => 'أعلى أولوية في الظهور';
+
+  @override
+  String get datingAvailableDurations => 'المدد المتاحة';
+
+  @override
+  String get datingPurchaseCoins => 'شراء';
+
+  @override
+  String get datingRechargeCoins => 'شحن العملات';
 
   @override
   String get profileDatingAvatarsMax6 => 'صور المواعدة (بحد أقصى 6)';

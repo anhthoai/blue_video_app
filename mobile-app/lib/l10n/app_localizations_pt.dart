@@ -545,8 +545,79 @@ class AppLocalizationsPt extends AppLocalizationsEn {
       'Curta alguem e, quando a pessoa curtir de volta, voces aparecerao aqui!';
 
   @override
+  String get datingPlanUnlimitedUnlocked => 'Unlimited liberado';
+
+  @override
+  String get datingPlanVipUnlocked => 'VIP liberado';
+
+  @override
+  String get datingPlanFreeUnlocked => 'Plano gratuito';
+
+  @override
+  String get datingUnlockMoreProfilesBanner =>
+      'Faca upgrade do Dating para abrir mais perfis';
+
+  @override
+  String get datingAutoSuggestionsPerDay =>
+      'Usuarios gratuitos recebem 3 sugestoes de match por dia';
+
+  @override
   String get datingUpgradeVipForAiMatch =>
-      'Assine VIP para desbloquear combinacoes por IA';
+      'Faca upgrade para VIP e receba 30 sugestoes diarias com IA ou Unlimited sem limite';
+
+  @override
+  String get datingVipAiScoring => '30 sugestoes de match com IA por dia';
+
+  @override
+  String get datingUpgradeVipAiAccuracy =>
+      'Usuarios gratuitos recebem 3 sugestoes por dia. Faca upgrade para VIP ou Unlimited para ver mais.';
+
+  @override
+  String get datingYourFreePreviewReached =>
+      'Voce atingiu o limite atual do Dating';
+
+  @override
+  String get datingFreeUsersViewFirst =>
+      'Usuarios gratuitos podem abrir os 60 perfis mais proximos. Voce ainda pode rolar mais, mas perfis bloqueados exigem upgrade para abrir.';
+
+  @override
+  String get datingCurrentPlanCoins => 'Plano atual e moedas';
+
+  @override
+  String get datingViewUpToProfiles => 'Ate 600 visualizacoes de perfil';
+
+  @override
+  String get datingUnlimitedProfileViews =>
+      'Visualizacoes de perfil ilimitadas';
+
+  @override
+  String get datingSeeNearbyProfiles => 'Abra ate 600 perfis proximos';
+
+  @override
+  String get datingAiMatchingSuggestions =>
+      '30 sugestoes de match com IA por dia';
+
+  @override
+  String get datingPriorityDiscovery => 'Prioridade na descoberta';
+
+  @override
+  String get datingUnlimitedNearbyBrowsing =>
+      'Visualizacao e navegacao ilimitadas';
+
+  @override
+  String get datingBestAiQuality => 'Sugestoes de match com IA ilimitadas';
+
+  @override
+  String get datingHighestPriorityVisibility => 'Maior prioridade de exibicao';
+
+  @override
+  String get datingAvailableDurations => 'Duracoes disponiveis';
+
+  @override
+  String get datingPurchaseCoins => 'Comprar';
+
+  @override
+  String get datingRechargeCoins => 'Recarregar';
 
   @override
   String get datingMutualMatches => 'Combinacoes mutuas';

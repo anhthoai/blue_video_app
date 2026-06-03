@@ -227,7 +227,7 @@ export class DatingController {
       } = req.query as Record<string, string>;
 
       const pageNum = Math.max(1, parseInt(page, 10));
-      const pageSize = Math.min(60, Math.max(1, parseInt(limit, 10)));
+      const pageSize = Math.min(1000, Math.max(1, parseInt(limit, 10)));
       const requestedOffset = (pageNum - 1) * pageSize;
 
       const requester = await prisma.user.findUnique({
@@ -397,8 +397,7 @@ export class DatingController {
               })
           : filteredWithDistance;
 
-      const capped = planViewLimit == null ? filtered : filtered.slice(0, planViewLimit);
-      const paged = capped.slice(requestedOffset, requestedOffset + pageSize);
+      const paged = filtered.slice(requestedOffset, requestedOffset + pageSize);
 
       const selfUser = await prisma.user.findUnique({
         where: { id: userId },
@@ -439,7 +438,7 @@ export class DatingController {
         page: pageNum,
         planTier: activeTier,
         planViewLimit,
-        totalAvailable: capped.length,
+        totalAvailable: filtered.length,
       });
     } catch (error) {
       console.error('Dating explore error:', error);
@@ -763,7 +762,6 @@ export class DatingController {
   getSuggestedMatches = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const userId = req.user!.id;
-      const maxPerDay = 3;
 
       const requester = await prisma.user.findUnique({
         where: { id: userId },
@@ -788,6 +786,16 @@ export class DatingController {
       const tier = resolveActiveDatingTier(requester?.datingProfile ?? null);
       const isVip = requester?.role === 'ADMIN' || tier === 'VIP' || tier === 'UNLIMITED' || requester?.isVip === true;
       const aiEnabled = isVip;
+  const maxPerDay = requester?.role === 'ADMIN' || tier === 'UNLIMITED'
+    ? 1000000
+    : isVip
+    ? 30
+    : 3;
+  const candidateFetchLimit = requester?.role === 'ADMIN' || tier === 'UNLIMITED'
+    ? 1000
+    : isVip
+    ? 240
+    : 120;
 
       const startToday = startOfTodayUtc();
       const actedToday = await prisma.datingMatch.count({
@@ -842,7 +850,7 @@ export class DatingController {
             },
           },
         },
-        take: 120,
+        take: candidateFetchLimit,
       });
 
       const scored: SuggestionCandidate[] = candidates.map((candidate) => {
@@ -909,6 +917,8 @@ export class DatingController {
       const user = await prisma.user.findUnique({
         where: { id: userId },
         select: {
+          role: true,
+          isVip: true,
           coinBalance: true,
           datingProfile: {
             select: {
@@ -919,7 +929,12 @@ export class DatingController {
         },
       });
 
-      const tier = resolveActiveDatingTier(user?.datingProfile ?? null);
+      const baseTier = resolveActiveDatingTier(user?.datingProfile ?? null);
+      const tier = user?.role === 'ADMIN'
+        ? 'UNLIMITED'
+        : baseTier === 'FREE' && user?.isVip
+            ? 'VIP'
+            : baseTier;
       const viewLimit = tier === 'UNLIMITED' ? null : tier === 'VIP' ? 600 : 60;
 
       res.json({

@@ -547,7 +547,31 @@ class AppLocalizationsKo extends AppLocalizationsEn {
   String get datingLikeSomeoneBack => '좋아요를 보내고 서로 좋아요가 되면 여기에 표시됩니다!';
 
   @override
-  String get datingUpgradeVipForAiMatch => 'AI 매치를 위해 VIP로 업그레이드';
+  String get datingPlanUnlimitedUnlocked => 'Unlimited 이용 가능';
+
+  @override
+  String get datingPlanVipUnlocked => 'VIP 이용 가능';
+
+  @override
+  String get datingPlanFreeUnlocked => '무료 플랜';
+
+  @override
+  String get datingUnlockMoreProfilesBanner =>
+      '더 많은 프로필을 열려면 Dating 플랜을 업그레이드하세요';
+
+  @override
+  String get datingAutoSuggestionsPerDay => '무료 사용자는 하루 3개의 매치 추천을 받습니다';
+
+  @override
+  String get datingUpgradeVipForAiMatch =>
+      'VIP로 업그레이드하면 하루 30개의 AI 추천을 받고 Unlimited는 무제한입니다';
+
+  @override
+  String get datingVipAiScoring => '하루 30개의 AI 매치 추천';
+
+  @override
+  String get datingUpgradeVipAiAccuracy =>
+      '무료 사용자는 하루 3개의 추천을 받습니다. 더 보려면 VIP 또는 Unlimited로 업그레이드하세요.';
 
   @override
   String get datingMutualMatches => '상호 매치';
@@ -572,6 +596,49 @@ class AppLocalizationsKo extends AppLocalizationsEn {
 
   @override
   String get datingFriendRequestSent => '친구 요청을 보냈습니다';
+
+  @override
+  String get datingYourFreePreviewReached => '현재 Dating 플랜 한도에 도달했습니다';
+
+  @override
+  String get datingFreeUsersViewFirst =>
+      '무료 사용자는 가장 가까운 60개 프로필만 열 수 있습니다. 계속 스크롤할 수 있지만 잠긴 프로필을 열려면 업그레이드가 필요합니다.';
+
+  @override
+  String get datingCurrentPlanCoins => '현재 플랜과 코인';
+
+  @override
+  String get datingViewUpToProfiles => '최대 600개 프로필 열람';
+
+  @override
+  String get datingUnlimitedProfileViews => '무제한 프로필 열람';
+
+  @override
+  String get datingSeeNearbyProfiles => '최대 600개의 주변 프로필 열기';
+
+  @override
+  String get datingAiMatchingSuggestions => '하루 30개의 AI 매치 추천';
+
+  @override
+  String get datingPriorityDiscovery => '우선 노출';
+
+  @override
+  String get datingUnlimitedNearbyBrowsing => '무제한 프로필 열람 및 탐색';
+
+  @override
+  String get datingBestAiQuality => '무제한 AI 매치 추천';
+
+  @override
+  String get datingHighestPriorityVisibility => '최상위 노출 우선순위';
+
+  @override
+  String get datingAvailableDurations => '이용 기간';
+
+  @override
+  String get datingPurchaseCoins => '구매';
+
+  @override
+  String get datingRechargeCoins => '코인 충전';
 
   @override
   String get profileDatingAvatarsMax6 => '데이트 아바타 (최대 6장)';

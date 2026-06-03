@@ -1460,10 +1460,11 @@ class AppLocalizationsJa extends AppLocalizationsEn {
   String get datingAiSuggestionsActive => 'AI提案が有効です';
 
   @override
-  String get datingAutoSuggestionsPerDay => '毎日自動でマッチ提案';
+  String get datingAutoSuggestionsPerDay => '無料ユーザーは1日3件のマッチ提案';
 
   @override
-  String get datingUpgradeVipForAiMatch => 'AIマッチを使うにはVIPにアップグレード';
+  String get datingUpgradeVipForAiMatch =>
+      'VIPで1日30件のAI提案、Unlimitedで無制限にアップグレード';
 
   @override
   String get datingAiSuggestions => 'AI提案';
@@ -1481,7 +1482,7 @@ class AppLocalizationsJa extends AppLocalizationsEn {
   String get datingAutoMatchMode => '自動マッチモード';
 
   @override
-  String get datingVipAiScoring => 'VIP AIスコア';
+  String get datingVipAiScoring => '1日30件のAIマッチ提案';
 
   @override
   String get datingUpgradeVipAiAccuracy => 'より高精度なAIマッチのためVIPへアップグレード';
@@ -1541,34 +1542,35 @@ class AppLocalizationsJa extends AppLocalizationsEn {
   String get datingUpgradeTitle => 'Datingをアップグレード';
 
   @override
-  String get datingYourFreePreviewReached => '無料プレビューの上限に達しました';
+  String get datingYourFreePreviewReached => '現在のDatingプランの上限に達しました';
 
   @override
-  String get datingFreeUsersViewFirst => '無料ユーザーは近くの最初の20件のみ閲覧できます。';
+  String get datingFreeUsersViewFirst =>
+      '無料ユーザーは最も近い60件のプロフィールを開けます。さらにスクロールはできますが、ロックされたプロフィールを開くにはアップグレードが必要です。';
 
   @override
   String get datingCurrentPlanCoins => '現在のプランとコイン';
 
   @override
-  String get datingViewUpToProfiles => '1日20件まで閲覧';
+  String get datingViewUpToProfiles => '最大600件のプロフィール閲覧';
 
   @override
   String get datingUnlimitedProfileViews => 'プロフィール閲覧無制限';
 
   @override
-  String get datingSeeNearbyProfiles => '近くのプロフィールを表示';
+  String get datingSeeNearbyProfiles => '近くのプロフィールを最大600件まで開けます';
 
   @override
-  String get datingAiMatchingSuggestions => 'AIマッチ提案';
+  String get datingAiMatchingSuggestions => '1日30件のAIマッチ提案';
 
   @override
   String get datingPriorityDiscovery => '優先表示';
 
   @override
-  String get datingUnlimitedNearbyBrowsing => '近くのユーザーを無制限で閲覧';
+  String get datingUnlimitedNearbyBrowsing => 'プロフィール閲覧とブラウズが無制限';
 
   @override
-  String get datingBestAiQuality => '最高品質のAIマッチ';
+  String get datingBestAiQuality => 'AIマッチ提案が無制限';
 
   @override
   String get datingHighestPriorityVisibility => '最優先で表示';

@@ -16,8 +16,8 @@ import 'dating_upgrade_screen.dart';
 
 // ─── Providers ────────────────────────────────────────────────────────────────
 
-final _exploreFiltersProvider = StateProvider<DatingExploreFilters>((ref) =>
-    const DatingExploreFilters());
+final _exploreFiltersProvider =
+    StateProvider<DatingExploreFilters>((ref) => const DatingExploreFilters());
 
 final _exploreSearchProvider = StateProvider<String>((ref) => '');
 
@@ -31,6 +31,7 @@ final _exploreUsersProvider =
   (ref, query) async {
     return DatingService().getExploreUsers(
       tab: query.tab,
+      limit: query.limit,
       lat: query.lat,
       lon: query.lon,
       radiusKm: query.radiusKm,
@@ -46,6 +47,7 @@ final _exploreUsersProvider =
 
 class _ExploreQuery {
   final String tab;
+  final int limit;
   final double? lat;
   final double? lon;
   final int radiusKm;
@@ -54,6 +56,7 @@ class _ExploreQuery {
 
   const _ExploreQuery({
     required this.tab,
+    this.limit = 180,
     this.lat,
     this.lon,
     this.radiusKm = 3,
@@ -65,6 +68,7 @@ class _ExploreQuery {
   bool operator ==(Object other) =>
       other is _ExploreQuery &&
       other.tab == tab &&
+      other.limit == limit &&
       other.lat == lat &&
       other.lon == lon &&
       other.radiusKm == radiusKm &&
@@ -73,7 +77,7 @@ class _ExploreQuery {
 
   @override
   int get hashCode =>
-      Object.hash(tab, lat, lon, radiusKm, search, filters);
+      Object.hash(tab, limit, lat, lon, radiusKm, search, filters);
 }
 
 // ─── Main Screen ──────────────────────────────────────────────────────────────
@@ -177,7 +181,8 @@ class _DatingScreenState extends ConsumerState<DatingScreen>
                   alignment: Alignment.centerLeft,
                   child: ActionChip(
                     label: Text('${l10n.search}: "${searchText.trim()}"'),
-                    onPressed: () => ref.read(_exploreSearchProvider.notifier).state = '',
+                    onPressed: () =>
+                        ref.read(_exploreSearchProvider.notifier).state = '',
                   ),
                 ),
               ),
@@ -201,7 +206,7 @@ class _DatingScreenState extends ConsumerState<DatingScreen>
           textInputAction: TextInputAction.search,
           decoration: InputDecoration(
             hintText: l10n.datingSearchHint,
-            border: OutlineInputBorder(),
+            border: const OutlineInputBorder(),
           ),
           onSubmitted: (value) => Navigator.pop(ctx, value.trim()),
         ),
@@ -308,7 +313,8 @@ class _ExploreTabState extends ConsumerState<_ExploreTab> {
       }
 
       final position = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
+        locationSettings:
+            const LocationSettings(accuracy: LocationAccuracy.high),
       );
 
       if (!mounted) return;
@@ -335,13 +341,17 @@ class _ExploreTabState extends ConsumerState<_ExploreTab> {
     final tier = upgradeStatus?.tier ?? 'FREE';
     final isVip = tier == 'VIP';
     final isUnlimited = tier == 'UNLIMITED';
-    final visibleLimit = upgradeStatus?.viewLimit ?? (isUnlimited ? 100000 : (isVip ? 600 : 60));
+    final visibleLimit =
+        upgradeStatus?.viewLimit ?? (isUnlimited ? 100000 : (isVip ? 600 : 60));
+    final fetchLimit =
+        isUnlimited ? 1000 : (visibleLimit + 180).clamp(180, 1000);
     final filters = ref.watch(_exploreFiltersProvider);
     final search = ref.watch(_exploreSearchProvider);
     const effectiveRadius = 5000;
     final activeTab = _subtabIndex == 1 ? 'online' : 'nearby';
     final query = _ExploreQuery(
       tab: activeTab,
+      limit: fetchLimit,
       lat: _lat,
       lon: _lon,
       radiusKm: effectiveRadius,
@@ -442,7 +452,9 @@ class _ExploreTabState extends ConsumerState<_ExploreTab> {
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(20),
-          color: isSelected ? AppTheme.primaryColor : Colors.grey.withValues(alpha: 0.15),
+          color: isSelected
+              ? AppTheme.primaryColor
+              : Colors.grey.withValues(alpha: 0.15),
         ),
         child: Text(
           label,
@@ -456,7 +468,8 @@ class _ExploreTabState extends ConsumerState<_ExploreTab> {
     );
   }
 
-  Widget _buildGrid(List<DatingExploreUser> users, {required int visibleLimit}) {
+  Widget _buildGrid(List<DatingExploreUser> users,
+      {required int visibleLimit}) {
     final selfUsers = users.where((u) => u.isSelf).toList();
     final otherUsers = users.where((u) => !u.isSelf).toList();
     final visibleOthers = otherUsers.take(visibleLimit).toList();
@@ -464,8 +477,7 @@ class _ExploreTabState extends ConsumerState<_ExploreTab> {
     final visibleUsers = [...selfUsers, ...visibleOthers];
 
     return RefreshIndicator(
-      onRefresh: () async =>
-          ref.invalidate(_exploreUsersProvider),
+      onRefresh: () async => ref.invalidate(_exploreUsersProvider),
       child: CustomScrollView(
         slivers: [
           SliverPadding(
@@ -480,7 +492,8 @@ class _ExploreTabState extends ConsumerState<_ExploreTab> {
               delegate: SliverChildBuilderDelegate(
                 (context, index) => _UserCard(
                   user: visibleUsers[index],
-                  swipeProfileIds: visibleUsers.map((user) => user.userId).toList(),
+                  swipeProfileIds:
+                      visibleUsers.map((user) => user.userId).toList(),
                   swipeProfileIndex: index,
                 ),
                 childCount: visibleUsers.length,
@@ -494,7 +507,7 @@ class _ExploreTabState extends ConsumerState<_ExploreTab> {
                   final upgraded = await Navigator.push<bool>(
                     context,
                     MaterialPageRoute(
-                      builder: (_) => const DatingUpgradeScreen(freeLimit: 60),
+                      builder: (_) => const DatingUpgradeScreen(),
                     ),
                   );
                   if (upgraded == true) {
@@ -586,13 +599,16 @@ class _UserCard extends StatelessWidget {
     return GestureDetector(
       onTap: locked
           ? () async {
-                await Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const DatingUpgradeScreen(freeLimit: 60),
-                  ),
-                );
-              }
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text(l10n.datingUnlockMoreProfilesBanner)),
+              );
+              await Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const DatingUpgradeScreen(),
+                ),
+              );
+            }
           : () => Navigator.push(
                 context,
                 MaterialPageRoute(
@@ -653,7 +669,9 @@ class _UserCard extends StatelessWidget {
                   height: 10,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: user.isOnline == true ? const Color(0xFF4CAF50) : Colors.grey,
+                    color: user.isOnline == true
+                        ? const Color(0xFF4CAF50)
+                        : Colors.grey,
                   ),
                 ),
               ),
@@ -663,14 +681,18 @@ class _UserCard extends StatelessWidget {
                 top: 6,
                 left: 6,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                   decoration: BoxDecoration(
                     color: Colors.black.withValues(alpha: 0.5),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Text(
                     l10n.datingYou,
-                    style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w700),
+                    style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700),
                   ),
                 ),
               ),
@@ -685,7 +707,9 @@ class _UserCard extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    user.username?.isNotEmpty == true ? user.username! : user.displayName,
+                    user.username?.isNotEmpty == true
+                        ? user.username!
+                        : user.displayName,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
@@ -756,7 +780,8 @@ class _UpgradeBanner extends StatelessWidget {
                   ),
                 ),
               ),
-              const Icon(Icons.arrow_forward_ios, color: Colors.white, size: 16),
+              const Icon(Icons.arrow_forward_ios,
+                  color: Colors.white, size: 16),
             ],
           ),
         ),
@@ -792,8 +817,8 @@ class DatingExploreFilters {
       _listEq(other.lookingFor, lookingFor);
 
   @override
-  int get hashCode =>
-      Object.hash(minAge, maxAge, roles.join(), tribes.join(), lookingFor.join());
+  int get hashCode => Object.hash(
+      minAge, maxAge, roles.join(), tribes.join(), lookingFor.join());
 
   static bool _listEq(List<String> a, List<String> b) {
     if (a.length != b.length) return false;

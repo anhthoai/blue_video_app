@@ -545,8 +545,78 @@ class AppLocalizationsTh extends AppLocalizationsEn {
       'กดถูกใจใครสักคน และเมื่อเขากดถูกใจกลับ คุณจะเห็นแมตช์ที่นี่!';
 
   @override
+  String get datingPlanUnlimitedUnlocked => 'ปลดล็อก Unlimited';
+
+  @override
+  String get datingPlanVipUnlocked => 'ปลดล็อก VIP';
+
+  @override
+  String get datingPlanFreeUnlocked => 'แผนฟรี';
+
+  @override
+  String get datingUnlockMoreProfilesBanner =>
+      'อัปเกรดแพ็ก Dating เพื่อเปิดดูโปรไฟล์ได้มากขึ้น';
+
+  @override
+  String get datingAutoSuggestionsPerDay =>
+      'ผู้ใช้ฟรีจะได้รับคำแนะนำแมตช์วันละ 3 รายการ';
+
+  @override
   String get datingUpgradeVipForAiMatch =>
-      'อัปเกรด VIP เพื่อปลดล็อกการแมตช์ด้วย AI';
+      'อัปเกรดเป็น VIP เพื่อรับคำแนะนำ AI วันละ 30 รายการ หรือ Unlimited แบบไม่จำกัด';
+
+  @override
+  String get datingVipAiScoring => 'คำแนะนำแมตช์ AI วันละ 30 รายการ';
+
+  @override
+  String get datingUpgradeVipAiAccuracy =>
+      'ผู้ใช้ฟรีจะได้รับคำแนะนำวันละ 3 รายการ อัปเกรดเป็น VIP หรือ Unlimited เพื่อดูเพิ่ม';
+
+  @override
+  String get datingYourFreePreviewReached =>
+      'คุณถึงขีดจำกัด Dating ปัจจุบันแล้ว';
+
+  @override
+  String get datingFreeUsersViewFirst =>
+      'ผู้ใช้ฟรีเปิดดูได้เฉพาะ 60 โปรไฟล์ที่ใกล้ที่สุด คุณยังเลื่อนดูต่อได้ แต่โปรไฟล์ที่ล็อกไว้ต้องอัปเกรดจึงจะเปิดได้';
+
+  @override
+  String get datingCurrentPlanCoins => 'แผนปัจจุบันและเหรียญ';
+
+  @override
+  String get datingViewUpToProfiles => 'ดูโปรไฟล์ได้สูงสุด 600 โปรไฟล์';
+
+  @override
+  String get datingUnlimitedProfileViews => 'ดูโปรไฟล์ไม่จำกัด';
+
+  @override
+  String get datingSeeNearbyProfiles =>
+      'เปิดดูโปรไฟล์ใกล้เคียงได้สูงสุด 600 โปรไฟล์';
+
+  @override
+  String get datingAiMatchingSuggestions => 'คำแนะนำแมตช์ AI วันละ 30 รายการ';
+
+  @override
+  String get datingPriorityDiscovery => 'การมองเห็นแบบมีลำดับความสำคัญ';
+
+  @override
+  String get datingUnlimitedNearbyBrowsing => 'ดูและเรียกดูโปรไฟล์ได้ไม่จำกัด';
+
+  @override
+  String get datingBestAiQuality => 'คำแนะนำแมตช์ AI ไม่จำกัด';
+
+  @override
+  String get datingHighestPriorityVisibility =>
+      'ลำดับความสำคัญในการแสดงผลสูงสุด';
+
+  @override
+  String get datingAvailableDurations => 'ระยะเวลาที่มีให้';
+
+  @override
+  String get datingPurchaseCoins => 'ซื้อ';
+
+  @override
+  String get datingRechargeCoins => 'เติมเหรียญ';
 
   @override
   String get datingMutualMatches => 'แมตช์ที่ตรงกัน';

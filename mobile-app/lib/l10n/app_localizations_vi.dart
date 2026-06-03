@@ -639,26 +639,26 @@ class AppLocalizationsVi extends AppLocalizationsEn {
 
   @override
   String get datingAllowLocationAndTryAgain =>
-      'Vui long cho phep vi tri va thu lai.';
+      'Vui lòng cho phép vị trí và thử lại.';
 
   @override
   String get datingYou => 'Bạn';
 
   @override
   String get datingUnlockMoreProfilesBanner =>
-      'Nang cap VIP hoac Unlimited de mo them ho so';
+      'Nâng cấp gói Dating để mở thêm hồ sơ';
 
   @override
   String get datingRequestSentCheckChat =>
-      'Da gui yeu cau. Kiem tra chat de xem cap nhat.';
+      'Đã gửi yêu cầu. Kiểm tra chat để xem cập nhật.';
 
   @override
   String get datingRequestSentViaChat =>
-      'Da gui yeu cau qua chat. Doi phuong co the chap nhan trong chat.';
+      'Đã gửi yêu cầu qua chat. Đối phương có thể chấp nhận trong chat.';
 
   @override
   String get datingRequestAlreadySentCheckChat =>
-      'Yeu cau da duoc gui. Vui long kiem tra chat.';
+      'Yêu cầu đã được gửi. Vui lòng kiểm tra chat.';
 
   @override
   String get datingFriendRequestSent => 'Đã gửi lời mời kết bạn';
@@ -680,21 +680,21 @@ class AppLocalizationsVi extends AppLocalizationsEn {
 
   @override
   String get datingPrivateAlbumPermissionGranted =>
-      'Da duoc cap quyen xem album rieng tu.';
+      'Đã được cấp quyền xem album riêng tư.';
 
   @override
   String get datingPrivateAlbumPending => 'Yêu cầu của bạn đang chờ duyệt.';
 
   @override
   String get datingPrivateAlbumRequestPermission =>
-      'Gui yeu cau de xem anh rieng tu.';
+      'Gửi yêu cầu để xem ảnh riêng tư.';
 
   @override
   String get datingSuperLiked => 'Đã super like!';
 
   @override
   String get datingLikedWaitingMatch =>
-      'Da thich. Dang cho doi phuong thich lai!';
+      'Đã thích. Đang chờ đối phương thích lại!';
 
   @override
   String get datingPassed => 'Bỏ qua';
@@ -742,7 +742,7 @@ class AppLocalizationsVi extends AppLocalizationsEn {
   String get datingTribes => 'Nhóm';
 
   @override
-  String get datingSwipeHint => 'Vuot len/xuong de duyet anh va album rieng tu';
+  String get datingSwipeHint => 'Vuốt lên/xuống để duyệt ảnh và album riêng tư';
 
   @override
   String get datingFilters => 'Bộ lọc';
@@ -764,16 +764,18 @@ class AppLocalizationsVi extends AppLocalizationsEn {
 
   @override
   String get datingLikeSomeoneBack =>
-      'Hay thich ai do, khi ho thich lai ban se thay tai day!';
+      'Hãy thích ai đó, khi họ thích lại bạn sẽ thấy tại đây!';
 
   @override
   String get datingAiSuggestionsActive => 'Đề xuất AI đang bật';
 
   @override
-  String get datingAutoSuggestionsPerDay => 'Mỗi ngày có đề xuất tự động';
+  String get datingAutoSuggestionsPerDay =>
+      'Tài khoản miễn phí nhận 3 gợi ý ghép đôi mỗi ngày';
 
   @override
-  String get datingUpgradeVipForAiMatch => 'Nâng cấp VIP để mở AI matching';
+  String get datingUpgradeVipForAiMatch =>
+      'Nâng cấp VIP để nhận 30 gợi ý AI mỗi ngày hoặc Unlimited để không giới hạn';
 
   @override
   String get datingAiSuggestions => 'Đề xuất AI';
@@ -791,11 +793,11 @@ class AppLocalizationsVi extends AppLocalizationsEn {
   String get datingAutoMatchMode => 'Chế độ tự động ghép đôi';
 
   @override
-  String get datingVipAiScoring => 'Đánh điểm AI cho VIP';
+  String get datingVipAiScoring => '30 gợi ý ghép đôi AI mỗi ngày';
 
   @override
   String get datingUpgradeVipAiAccuracy =>
-      'Nang cap VIP de tang do chinh xac ghep doi AI';
+      'Tài khoản miễn phí có 3 gợi ý mỗi ngày. Nâng cấp VIP hoặc Unlimited để xem thêm.';
 
   @override
   String get datingReject => 'Từ chối';
@@ -814,7 +816,7 @@ class AppLocalizationsVi extends AppLocalizationsEn {
 
   @override
   String get datingRemovePhotoConfirm =>
-      'Anh nay se bi xoa khoi album rieng tu cua ban.';
+      'Ảnh này sẽ bị xóa khỏi album riêng tư của bạn.';
 
   @override
   String get datingMyPrivateAlbum => 'Album riêng tư của tôi';
@@ -838,7 +840,7 @@ class AppLocalizationsVi extends AppLocalizationsEn {
   String get datingDenied => 'Đã từ chối';
 
   @override
-  String get datingWantsToSeePrivateAlbum => 'muon xem album rieng tu cua ban';
+  String get datingWantsToSeePrivateAlbum => 'muốn xem album riêng tư của bạn';
 
   @override
   String get datingNotEnoughCoins => 'Không đủ xu. Vui lòng nạp thêm.';
@@ -854,36 +856,36 @@ class AppLocalizationsVi extends AppLocalizationsEn {
 
   @override
   String get datingYourFreePreviewReached =>
-      'Ban da dat gioi han xem thu mien phi';
+      'Bạn đã đạt giới hạn Dating hiện tại';
 
   @override
   String get datingFreeUsersViewFirst =>
-      'Tai khoan mien phi chi xem duoc 20 ho so gan nhat.';
+      'Tài khoản miễn phí chỉ mở được 60 hồ sơ gần nhất. Bạn vẫn có thể cuộn xem thêm, nhưng hồ sơ bị khóa sẽ yêu cầu nâng cấp để mở.';
 
   @override
   String get datingCurrentPlanCoins => 'Gói hiện tại và số xu';
 
   @override
-  String get datingViewUpToProfiles => 'Xem tối đa 20 hồ sơ/ngày';
+  String get datingViewUpToProfiles => 'Xem tối đa 600 hồ sơ';
 
   @override
   String get datingUnlimitedProfileViews => 'Xem hồ sơ không giới hạn';
 
   @override
-  String get datingSeeNearbyProfiles => 'Xem hồ sơ ở gần';
+  String get datingSeeNearbyProfiles => 'Mở tối đa 600 hồ sơ ở gần';
 
   @override
-  String get datingAiMatchingSuggestions => 'Đề xuất ghép đôi AI';
+  String get datingAiMatchingSuggestions => '30 gợi ý ghép đôi AI mỗi ngày';
 
   @override
   String get datingPriorityDiscovery => 'Ưu tiên hiển thị';
 
   @override
   String get datingUnlimitedNearbyBrowsing =>
-      'Duyet ho so o gan khong gioi han';
+      'Xem và duyệt hồ sơ không giới hạn';
 
   @override
-  String get datingBestAiQuality => 'Chất lượng AI matching tốt nhất';
+  String get datingBestAiQuality => 'Gợi ý ghép đôi AI không giới hạn';
 
   @override
   String get datingHighestPriorityVisibility => 'Độ ưu tiên hiển thị cao nhất';

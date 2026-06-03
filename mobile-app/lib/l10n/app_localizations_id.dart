@@ -544,8 +544,32 @@ class AppLocalizationsId extends AppLocalizationsEn {
       'Sukai seseorang, dan saat dia menyukai balik, match akan muncul di sini!';
 
   @override
+  String get datingPlanUnlimitedUnlocked => 'Unlimited aktif';
+
+  @override
+  String get datingPlanVipUnlocked => 'VIP aktif';
+
+  @override
+  String get datingPlanFreeUnlocked => 'Paket gratis';
+
+  @override
+  String get datingUnlockMoreProfilesBanner =>
+      'Upgrade paket Dating untuk membuka lebih banyak profil';
+
+  @override
+  String get datingAutoSuggestionsPerDay =>
+      'Pengguna gratis mendapat 3 saran match per hari';
+
+  @override
   String get datingUpgradeVipForAiMatch =>
-      'Upgrade ke VIP untuk membuka AI match';
+      'Upgrade ke VIP untuk mendapat 30 saran AI per hari atau Unlimited tanpa batas';
+
+  @override
+  String get datingVipAiScoring => '30 saran match AI per hari';
+
+  @override
+  String get datingUpgradeVipAiAccuracy =>
+      'Pengguna gratis mendapat 3 saran per hari. Upgrade ke VIP atau Unlimited untuk lebih banyak.';
 
   @override
   String get datingMutualMatches => 'Match saling suka';
@@ -573,6 +597,52 @@ class AppLocalizationsId extends AppLocalizationsEn {
 
   @override
   String get datingFriendRequestSent => 'Permintaan pertemanan dikirim';
+
+  @override
+  String get datingYourFreePreviewReached =>
+      'Anda telah mencapai batas Dating saat ini';
+
+  @override
+  String get datingFreeUsersViewFirst =>
+      'Pengguna gratis hanya bisa membuka 60 profil terdekat. Anda masih bisa terus menggulir, tetapi profil terkunci perlu upgrade untuk dibuka.';
+
+  @override
+  String get datingCurrentPlanCoins => 'Paket saat ini dan koin';
+
+  @override
+  String get datingViewUpToProfiles => 'Hingga 600 tampilan profil';
+
+  @override
+  String get datingUnlimitedProfileViews => 'Tampilan profil tanpa batas';
+
+  @override
+  String get datingSeeNearbyProfiles => 'Buka hingga 600 profil terdekat';
+
+  @override
+  String get datingAiMatchingSuggestions => '30 saran match AI per hari';
+
+  @override
+  String get datingPriorityDiscovery => 'Prioritas penemuan';
+
+  @override
+  String get datingUnlimitedNearbyBrowsing =>
+      'Lihat dan jelajahi profil tanpa batas';
+
+  @override
+  String get datingBestAiQuality => 'Saran match AI tanpa batas';
+
+  @override
+  String get datingHighestPriorityVisibility =>
+      'Prioritas visibilitas tertinggi';
+
+  @override
+  String get datingAvailableDurations => 'Durasi tersedia';
+
+  @override
+  String get datingPurchaseCoins => 'Beli';
+
+  @override
+  String get datingRechargeCoins => 'Isi ulang';
 
   @override
   String get profileDatingAvatarsMax6 => 'Avatar kencan (maks 6)';

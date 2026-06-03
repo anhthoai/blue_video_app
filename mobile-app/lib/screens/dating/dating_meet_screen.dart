@@ -183,7 +183,9 @@ class _DatingMeetScreenState extends ConsumerState<DatingMeetScreen> {
             const SizedBox(height: 24),
             Text(
               meta?.aiEnabled == true
-                  ? '✨ ${l10n.datingAiSuggestionsActive}: ${meta?.remainingToday ?? 0}/${meta?.maxPerDay ?? 3}'
+                  ? meta?.tier == 'UNLIMITED'
+                      ? '✨ ${l10n.datingAiSuggestionsActive}: ${l10n.datingPlanUnlimitedUnlocked}'
+                      : '✨ ${l10n.datingAiSuggestionsActive}: ${meta?.remainingToday ?? 0}/${meta?.maxPerDay ?? 3}'
                   : '✨ ${l10n.datingAutoSuggestionsPerDay}\n${l10n.datingUpgradeVipForAiMatch}',
               textAlign: TextAlign.center,
               style: TextStyle(
@@ -200,7 +202,7 @@ class _DatingMeetScreenState extends ConsumerState<DatingMeetScreen> {
                   await Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (_) => const DatingUpgradeScreen(freeLimit: 60),
+                      builder: (_) => const DatingUpgradeScreen(),
                     ),
                   );
                 },
@@ -245,9 +247,13 @@ class _DatingMeetScreenState extends ConsumerState<DatingMeetScreen> {
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: Text(
-            suggestionsMeta.aiEnabled
-                ? '${l10n.datingAiSuggestions} (${suggestionsMeta.remainingToday}/${suggestionsMeta.maxPerDay})'
-                : '${l10n.datingDailySuggestions} (${suggestionsMeta.remainingToday}/${suggestionsMeta.maxPerDay})',
+            suggestionsMeta.tier == 'UNLIMITED'
+                ? (suggestionsMeta.aiEnabled
+                    ? l10n.datingAiSuggestions
+                    : l10n.datingDailySuggestions)
+                : (suggestionsMeta.aiEnabled
+                    ? '${l10n.datingAiSuggestions} (${suggestionsMeta.remainingToday}/${suggestionsMeta.maxPerDay})'
+                    : '${l10n.datingDailySuggestions} (${suggestionsMeta.remainingToday}/${suggestionsMeta.maxPerDay})'),
             style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
           ),
         ),
@@ -360,7 +366,9 @@ class _SuggestionHeader extends StatelessWidget {
             const SizedBox(height: 4),
             Text(
               meta.aiEnabled
-                  ? l10n.datingVipAiScoring
+                  ? meta.tier == 'UNLIMITED'
+                      ? l10n.datingBestAiQuality
+                      : l10n.datingVipAiScoring
                   : l10n.datingUpgradeVipAiAccuracy,
               style: const TextStyle(fontSize: 12),
             ),
@@ -371,7 +379,7 @@ class _SuggestionHeader extends StatelessWidget {
                   await Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (_) => const DatingUpgradeScreen(freeLimit: 60),
+                      builder: (_) => const DatingUpgradeScreen(),
                     ),
                   );
                 },

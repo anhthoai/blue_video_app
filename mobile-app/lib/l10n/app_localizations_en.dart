@@ -1399,7 +1399,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get datingUnlockMoreProfilesBanner =>
-      'Unlock more profiles with VIP or Unlimited';
+      'Upgrade your Dating plan to open more profiles';
 
   @override
   String get datingRequestSentCheckChat =>
@@ -1522,11 +1522,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get datingAiSuggestionsActive => 'AI suggestions are active';
 
   @override
-  String get datingAutoSuggestionsPerDay => 'Auto match suggestions every day';
+  String get datingAutoSuggestionsPerDay =>
+      'Free users get 3 match suggestions per day';
 
   @override
   String get datingUpgradeVipForAiMatch =>
-      'Upgrade to VIP to unlock AI matching';
+      'Upgrade to VIP for 30 daily AI suggestions or Unlimited for no limit';
 
   @override
   String get datingAiSuggestions => 'AI Suggestions';
@@ -1544,11 +1545,11 @@ class AppLocalizationsEn extends AppLocalizations {
   String get datingAutoMatchMode => 'Auto match mode';
 
   @override
-  String get datingVipAiScoring => 'VIP AI scoring';
+  String get datingVipAiScoring => '30 AI match suggestions per day';
 
   @override
   String get datingUpgradeVipAiAccuracy =>
-      'Upgrade to VIP for improved AI match accuracy';
+      'Free users get 3 suggestions per day. Upgrade to VIP or Unlimited for more.';
 
   @override
   String get datingReject => 'Reject';
@@ -1606,35 +1607,37 @@ class AppLocalizationsEn extends AppLocalizations {
   String get datingUpgradeTitle => 'Upgrade Dating';
 
   @override
-  String get datingYourFreePreviewReached => 'Your free preview is reached';
+  String get datingYourFreePreviewReached =>
+      'You\'ve reached your current Dating limit';
 
   @override
   String get datingFreeUsersViewFirst =>
-      'Free users can only view the first 20 nearby profiles.';
+      'Free users can open the nearest 60 profiles. Keep scrolling to browse more, then upgrade to open locked profiles.';
 
   @override
   String get datingCurrentPlanCoins => 'Current plan and coins';
 
   @override
-  String get datingViewUpToProfiles => 'View up to 20 profiles/day';
+  String get datingViewUpToProfiles => 'Up to 600 profile views';
 
   @override
   String get datingUnlimitedProfileViews => 'Unlimited profile views';
 
   @override
-  String get datingSeeNearbyProfiles => 'See nearby profiles';
+  String get datingSeeNearbyProfiles => 'Open up to 600 nearby profiles';
 
   @override
-  String get datingAiMatchingSuggestions => 'AI matching suggestions';
+  String get datingAiMatchingSuggestions => '30 AI match suggestions per day';
 
   @override
   String get datingPriorityDiscovery => 'Priority discovery';
 
   @override
-  String get datingUnlimitedNearbyBrowsing => 'Unlimited nearby browsing';
+  String get datingUnlimitedNearbyBrowsing =>
+      'Unlimited profile views and browsing';
 
   @override
-  String get datingBestAiQuality => 'Best AI matching quality';
+  String get datingBestAiQuality => 'Unlimited AI match suggestions';
 
   @override
   String get datingHighestPriorityVisibility => 'Highest priority visibility';

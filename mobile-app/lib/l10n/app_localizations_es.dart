@@ -551,8 +551,32 @@ class AppLocalizationsEs extends AppLocalizationsEn {
       'Dale me gusta a alguien y cuando te devuelva el me gusta, aparecera aqui.';
 
   @override
+  String get datingPlanUnlimitedUnlocked => 'Unlimited desbloqueado';
+
+  @override
+  String get datingPlanVipUnlocked => 'VIP desbloqueado';
+
+  @override
+  String get datingPlanFreeUnlocked => 'Plan gratuito';
+
+  @override
+  String get datingUnlockMoreProfilesBanner =>
+      'Mejora tu plan de Dating para abrir mas perfiles';
+
+  @override
+  String get datingAutoSuggestionsPerDay =>
+      'Los usuarios gratis reciben 3 sugerencias de match al dia';
+
+  @override
   String get datingUpgradeVipForAiMatch =>
-      'Mejora a VIP para desbloquear coincidencias con IA';
+      'Mejora a VIP para recibir 30 sugerencias de IA al dia o Unlimited sin limite';
+
+  @override
+  String get datingVipAiScoring => '30 sugerencias de match con IA al dia';
+
+  @override
+  String get datingUpgradeVipAiAccuracy =>
+      'Los usuarios gratis reciben 3 sugerencias al dia. Mejora a VIP o Unlimited para ver mas.';
 
   @override
   String get datingMutualMatches => 'Coincidencias mutuas';
@@ -580,6 +604,53 @@ class AppLocalizationsEs extends AppLocalizationsEn {
 
   @override
   String get datingFriendRequestSent => 'Solicitud de amistad enviada';
+
+  @override
+  String get datingYourFreePreviewReached =>
+      'Has alcanzado el limite actual de Dating';
+
+  @override
+  String get datingFreeUsersViewFirst =>
+      'Los usuarios gratis solo pueden abrir los 60 perfiles mas cercanos. Puedes seguir desplazandote, pero para abrir perfiles bloqueados debes mejorar el plan.';
+
+  @override
+  String get datingCurrentPlanCoins => 'Plan actual y monedas';
+
+  @override
+  String get datingViewUpToProfiles => 'Hasta 600 vistas de perfiles';
+
+  @override
+  String get datingUnlimitedProfileViews => 'Vistas ilimitadas de perfiles';
+
+  @override
+  String get datingSeeNearbyProfiles => 'Abrir hasta 600 perfiles cercanos';
+
+  @override
+  String get datingAiMatchingSuggestions =>
+      '30 sugerencias de match con IA al dia';
+
+  @override
+  String get datingPriorityDiscovery => 'Descubrimiento prioritario';
+
+  @override
+  String get datingUnlimitedNearbyBrowsing =>
+      'Vistas y navegacion de perfiles sin limite';
+
+  @override
+  String get datingBestAiQuality => 'Sugerencias de match con IA ilimitadas';
+
+  @override
+  String get datingHighestPriorityVisibility =>
+      'Maxima prioridad de visibilidad';
+
+  @override
+  String get datingAvailableDurations => 'Duraciones disponibles';
+
+  @override
+  String get datingPurchaseCoins => 'Comprar';
+
+  @override
+  String get datingRechargeCoins => 'Recargar';
 
   @override
   String get profileDatingAvatarsMax6 => 'Avatares de citas (max. 6)';

@@ -6,11 +6,8 @@ import '../../l10n/app_localizations.dart';
 import '../../models/dating_model.dart';
 
 class DatingUpgradeScreen extends StatefulWidget {
-  final int freeLimit;
-
   const DatingUpgradeScreen({
     super.key,
-    this.freeLimit = 60,
   });
 
   @override
@@ -94,7 +91,8 @@ class _DatingUpgradeScreenState extends State<DatingUpgradeScreen> {
     if (currentCoins < selectedDuration.coins) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(AppLocalizations.of(context).datingNotEnoughCoins)),
+        SnackBar(
+            content: Text(AppLocalizations.of(context).datingNotEnoughCoins)),
       );
       context.push('/main/coin-recharge');
       return;
@@ -110,13 +108,17 @@ class _DatingUpgradeScreenState extends State<DatingUpgradeScreen> {
       if (!mounted) return;
       setState(() => _status = updated);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('${updated.tier} ${AppLocalizations.of(context).datingActivatedSuccessfully}')),
+        SnackBar(
+            content: Text(
+                '${updated.tier} ${AppLocalizations.of(context).datingActivatedSuccessfully}')),
       );
       Navigator.pop(context, true);
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('${AppLocalizations.of(context).datingPurchaseFailed}: $e')),
+        SnackBar(
+            content: Text(
+                '${AppLocalizations.of(context).datingPurchaseFailed}: $e')),
       );
     } finally {
       if (mounted) setState(() => _purchasing = false);
@@ -162,6 +164,10 @@ class _DatingUpgradeScreenState extends State<DatingUpgradeScreen> {
       (item) => item.key == _selectedDuration,
       orElse: () => selectedPlan.durations.first,
     );
+    final currentTier = _status?.tier ?? 'FREE';
+    final limitDetail = currentTier == 'VIP'
+        ? '${l10n.datingViewUpToProfiles}. ${l10n.datingAiMatchingSuggestions}.'
+        : l10n.datingFreeUsersViewFirst;
 
     return Scaffold(
       appBar: AppBar(
@@ -185,17 +191,19 @@ class _DatingUpgradeScreenState extends State<DatingUpgradeScreen> {
                 children: [
                   Text(
                     l10n.datingYourFreePreviewReached,
-                    style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
+                    style: const TextStyle(
+                        fontSize: 20, fontWeight: FontWeight.w800),
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    '${l10n.datingFreeUsersViewFirst} (${widget.freeLimit})',
+                    limitDetail,
                     style: const TextStyle(fontSize: 14, height: 1.45),
                   ),
                   const SizedBox(height: 8),
                   Text(
                     '${l10n.datingCurrentPlanCoins}: ${_status?.tier ?? 'FREE'} • ${_status?.coinBalance ?? 0}',
-                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                    style: const TextStyle(
+                        fontSize: 13, fontWeight: FontWeight.w600),
                   ),
                 ],
               ),
@@ -222,7 +230,7 @@ class _DatingUpgradeScreenState extends State<DatingUpgradeScreen> {
                 l10n.datingAiMatchingSuggestions,
                 l10n.datingPriorityDiscovery,
               ],
-              color: Color(0xFF2563EB),
+              color: const Color(0xFF2563EB),
             ),
             const SizedBox(height: 12),
             _PlanCard(
@@ -246,7 +254,7 @@ class _DatingUpgradeScreenState extends State<DatingUpgradeScreen> {
                 l10n.datingBestAiQuality,
                 l10n.datingHighestPriorityVisibility,
               ],
-              color: Color(0xFF0891B2),
+              color: const Color(0xFF0891B2),
             ),
             const SizedBox(height: 20),
             Text(
@@ -281,7 +289,8 @@ class _DatingUpgradeScreenState extends State<DatingUpgradeScreen> {
                         height: 18,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
-                    : Text('${l10n.datingPurchaseCoins} • ${selectedDuration.coins} ${l10n.coins}'),
+                    : Text(
+                        '${l10n.datingPurchaseCoins} • ${selectedDuration.coins} ${l10n.coins}'),
               ),
             ),
             const SizedBox(height: 10),
@@ -328,9 +337,9 @@ class _PlanCard extends StatelessWidget {
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(16),
-          color: color.withOpacity(0.1),
+          color: color.withValues(alpha: 0.1),
           border: Border.all(
-            color: selected ? color : color.withOpacity(0.35),
+            color: selected ? color : color.withValues(alpha: 0.35),
             width: selected ? 2 : 1,
           ),
         ),
@@ -389,7 +398,8 @@ class _DurationChip extends StatelessWidget {
       onSelected: (_) => onTap(),
       selectedColor: const Color(0xFFDBEAFE),
       backgroundColor: const Color(0xFFF1F5F9),
-      side: BorderSide(color: selected ? const Color(0xFF2563EB) : const Color(0xFFE2E8F0)),
+      side: BorderSide(
+          color: selected ? const Color(0xFF2563EB) : const Color(0xFFE2E8F0)),
     );
   }
 }

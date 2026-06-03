@@ -1453,10 +1453,11 @@ class AppLocalizationsZh extends AppLocalizationsEn {
   String get datingAiSuggestionsActive => 'AI 推荐已开启';
 
   @override
-  String get datingAutoSuggestionsPerDay => '每日自动推荐匹配';
+  String get datingAutoSuggestionsPerDay => '免费用户每天可获得 3 个匹配推荐';
 
   @override
-  String get datingUpgradeVipForAiMatch => '升级 VIP 以解锁 AI 匹配';
+  String get datingUpgradeVipForAiMatch =>
+      '升级到 VIP 可获得每天 30 个 AI 推荐，Unlimited 则无限制';
 
   @override
   String get datingAiSuggestions => 'AI 推荐';
@@ -1474,7 +1475,7 @@ class AppLocalizationsZh extends AppLocalizationsEn {
   String get datingAutoMatchMode => '自动匹配模式';
 
   @override
-  String get datingVipAiScoring => 'VIP AI 评分';
+  String get datingVipAiScoring => '每天 30 个 AI 匹配推荐';
 
   @override
   String get datingUpgradeVipAiAccuracy => '升级 VIP 获取更高准确度的 AI 匹配';
@@ -1534,34 +1535,35 @@ class AppLocalizationsZh extends AppLocalizationsEn {
   String get datingUpgradeTitle => '升级 Dating';
 
   @override
-  String get datingYourFreePreviewReached => '你已达到免费预览上限';
+  String get datingYourFreePreviewReached => '你已达到当前 Dating 方案上限';
 
   @override
-  String get datingFreeUsersViewFirst => '免费用户仅可查看附近前20个资料。';
+  String get datingFreeUsersViewFirst =>
+      '免费用户只能打开距离最近的 60 个资料。你仍可继续下滑浏览，但解锁更多资料需要升级。';
 
   @override
   String get datingCurrentPlanCoins => '当前方案与金币';
 
   @override
-  String get datingViewUpToProfiles => '每日最多查看20个资料';
+  String get datingViewUpToProfiles => '最多查看 600 个资料';
 
   @override
   String get datingUnlimitedProfileViews => '无限查看资料';
 
   @override
-  String get datingSeeNearbyProfiles => '查看附近资料';
+  String get datingSeeNearbyProfiles => '最多打开 600 个附近资料';
 
   @override
-  String get datingAiMatchingSuggestions => 'AI 匹配推荐';
+  String get datingAiMatchingSuggestions => '每天 30 个 AI 匹配推荐';
 
   @override
   String get datingPriorityDiscovery => '优先曝光';
 
   @override
-  String get datingUnlimitedNearbyBrowsing => '无限浏览附近用户';
+  String get datingUnlimitedNearbyBrowsing => '无限查看和浏览资料';
 
   @override
-  String get datingBestAiQuality => '最佳 AI 匹配质量';
+  String get datingBestAiQuality => '无限 AI 匹配推荐';
 
   @override
   String get datingHighestPriorityVisibility => '最高优先曝光';

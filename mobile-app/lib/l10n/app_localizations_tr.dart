@@ -546,8 +546,77 @@ class AppLocalizationsTr extends AppLocalizationsEn {
       'Birini begenin; o da sizi begenirse burada eslesirsiniz!';
 
   @override
+  String get datingPlanUnlimitedUnlocked => 'Unlimited acildi';
+
+  @override
+  String get datingPlanVipUnlocked => 'VIP acildi';
+
+  @override
+  String get datingPlanFreeUnlocked => 'Ucretsiz plan';
+
+  @override
+  String get datingUnlockMoreProfilesBanner =>
+      'Daha fazla profili acmak icin Dating planini yukseltin';
+
+  @override
+  String get datingAutoSuggestionsPerDay =>
+      'Ucretsiz kullanicilar gunde 3 eslesme onerisi alir';
+
+  @override
   String get datingUpgradeVipForAiMatch =>
-      'AI eslesmeyi acmak icin VIP yukseltin';
+      'VIP ile gunde 30 AI onerisi alin veya Unlimited ile sinirsiz kullanin';
+
+  @override
+  String get datingVipAiScoring => 'Gunde 30 AI eslesme onerisi';
+
+  @override
+  String get datingUpgradeVipAiAccuracy =>
+      'Ucretsiz kullanicilar gunde 3 oneri alir. Daha fazlasi icin VIP veya Unlimited planina gecin.';
+
+  @override
+  String get datingYourFreePreviewReached =>
+      'Mevcut Dating limitinize ulastiniz';
+
+  @override
+  String get datingFreeUsersViewFirst =>
+      'Ucretsiz kullanicilar en yakin 60 profili acabilir. Kaydirmaya devam edebilirsiniz, ancak kilitli profilleri acmak icin yukseltme gerekir.';
+
+  @override
+  String get datingCurrentPlanCoins => 'Mevcut plan ve coinler';
+
+  @override
+  String get datingViewUpToProfiles => '600 profile kadar goruntuleme';
+
+  @override
+  String get datingUnlimitedProfileViews => 'Sinirsiz profil goruntuleme';
+
+  @override
+  String get datingSeeNearbyProfiles => 'En fazla 600 yakin profili acin';
+
+  @override
+  String get datingAiMatchingSuggestions => 'Gunde 30 AI eslesme onerisi';
+
+  @override
+  String get datingPriorityDiscovery => 'Oncelikli kesif';
+
+  @override
+  String get datingUnlimitedNearbyBrowsing =>
+      'Sinirsiz profil goruntuleme ve gezinme';
+
+  @override
+  String get datingBestAiQuality => 'Sinirsiz AI eslesme onerisi';
+
+  @override
+  String get datingHighestPriorityVisibility => 'En yuksek gorunurluk onceligi';
+
+  @override
+  String get datingAvailableDurations => 'Mevcut sureler';
+
+  @override
+  String get datingPurchaseCoins => 'Satin al';
+
+  @override
+  String get datingRechargeCoins => 'Bakiye yukle';
 
   @override
   String get datingMutualMatches => 'Karsilikli eslesmeler';
